@@ -221,9 +221,6 @@ class EditorTab(QWidget):
         homepage = self.settings_manager.get_setting('homepage', 'https://www.apnews.com/')
         self.web_view.setUrl(QUrl(homepage))
         
-        # Create spell checker with settings manager
-        self.highlighter = SpellCheckHighlighter(self.editor.document(), self.settings_manager)
-        
         # Setup autocomplete
         self.current_word = ""
         self.current_suggestions = []
