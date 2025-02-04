@@ -151,6 +151,21 @@ class SettingsDialog(QDialog):
             'user_dictionary': self.get_user_dictionary()
         }
 
+    def get_search_sites(self):
+        """Get search sites from list widget"""
+        sites = {}
+        for i in range(self.search_list.count()):
+            name, site = self.search_list.item(i).text().split(': ', 1)
+            sites[name] = site
+        return sites
+
+    def get_user_dictionary(self):
+        """Get words from dictionary list widget"""
+        words = []
+        for i in range(self.dict_list.count()):
+            words.append(self.dict_list.item(i).text())
+        return words
+
 class SearchSiteDialog(QDialog):
     def __init__(self, parent=None, name='', site=''):
         super().__init__(parent)
