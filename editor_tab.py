@@ -156,6 +156,13 @@ class CompletingTextEdit(QTextEdit):
         super().__init__(parent)
         self.completion_text = ""
         
+    def insertFromMimeData(self, source):
+        """Override paste to always use plain text"""
+        if source.hasText():
+            # Insert as plain text, using the editor's current formatting
+            cursor = self.textCursor()
+            cursor.insertText(source.text())
+        
     def paintEvent(self, event):
         super().paintEvent(event)
         if self.completion_text:
