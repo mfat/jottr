@@ -45,6 +45,7 @@ class SettingsManager:
                 pass
 
     def load_settings(self):
+        """Load all settings with defaults"""
         default_settings = {
             "theme": "Light",
             "font_family": "Consolas" if os.name == 'nt' else "DejaVu Sans Mono",
@@ -53,15 +54,31 @@ class SettingsManager:
             "font_italic": False,
             "show_snippets": True,
             "show_browser": True,
-            "last_files": []
+            "last_files": [],
+            "homepage": "https://www.apnews.com/",
+            "search_sites": {
+                "AP News": "site:apnews.com",
+                "Reuters": "site:reuters.com",
+                "BBC News": "site:bbc.com/news"
+            },
+            "user_dictionary": [],
+            "start_focus_mode": False,
+            "pane_states": {
+                "snippets_visible": False,
+                "browser_visible": False,
+                "sizes": [700, 300, 300]
+            }
         }
         
         try:
             if os.path.exists(self.settings_file):
                 with open(self.settings_file, 'r') as f:
-                    return {**default_settings, **json.load(f)}
-        except:
-            pass
+                    saved_settings = json.load(f)
+                    # Merge saved settings with defaults
+                    return {**default_settings, **saved_settings}
+        except Exception as e:
+            print(f"Failed to load settings: {str(e)}")
+        
         return default_settings
 
     def save_settings(self):
@@ -237,4 +254,23 @@ class SettingsManager:
     def cleanup_old_sessions(self):
         """Clean up session files from previous clean exits"""
         # Don't clean up by default - let the session restore handle it
-        pass 
+        pass
+
+    def get_setting(self, key, default=None):
+        """Get a setting value with a default fallback"""
+        try:
+            settings = self.load_settings()
+            return settings.get(key, default)
+        except Exception as e:
+            print(f"Failed to get setting {key}: {str(e)}")
+            return default
+
+    def save_setting(self, key, value):
+        """Save a single setting"""
+        try:
+            settings = self.load_settings()
+            settings[key] = value
+            with open(self.settings_file, 'w') as f:
+                json.dump(settings, f)
+        except Exception as e:
+            print(f"Failed to save setting {key}: {str(e)}") 

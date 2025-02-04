@@ -3,7 +3,7 @@ import os
 import json
 import hashlib
 from PyQt5.QtWidgets import (QApplication, QMainWindow, QTabWidget, QWidget, 
-                            QVBoxLayout, QHBoxLayout, QSplitter, QMenu, QToolBar, QAction, QStyle, QMessageBox, QFontDialog, QStyleFactory, QLabel)
+                            QVBoxLayout, QHBoxLayout, QSplitter, QMenu, QToolBar, QAction, QStyle, QMessageBox, QFontDialog, QStyleFactory, QLabel, QDialog, QSizePolicy)
 from PyQt5.QtCore import Qt, QUrl
 from PyQt5.QtWebEngineWidgets import QWebEngineView
 from editor_tab import EditorTab
@@ -15,11 +15,17 @@ from theme_manager import ThemeManager
 from settings_manager import SettingsManager
 from PyQt5.QtGui import QPixmap
 from PyQt5.QtCore import QByteArray
+from settings_dialog import SettingsDialog
+
+# Application constants
+APP_NAME = "Jottr"
+APP_VERSION = "1.0.0"
+APP_HOMEPAGE = "https://github.com/mfat/jottr"
 
 class TextEditorApp(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("Advanced Text Editor")
+        self.setWindowTitle(APP_NAME)
         self.setGeometry(100, 100, 1200, 800)
         
         # Initialize managers first
@@ -148,6 +154,7 @@ class TextEditorApp(QMainWindow):
                     QApplication.setStyle(system_style)
         
     def setup_toolbar(self):
+        """Setup toolbar buttons and actions"""
         # Helper function to create themed action
         def create_action(icon_path, fallback_icon, text, shortcut=None, handler=None):
             # Create custom icons for toolbar
@@ -171,7 +178,8 @@ class TextEditorApp(QMainWindow):
                 "ap-pronto": "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgdmlld0JveD0iMCAwIDI0IDI0IiBmaWxsPSJub25lIiBzdHJva2U9ImN1cnJlbnRDb2xvciIgc3Ryb2tlLXdpZHRoPSIyIiBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiPjxwYXRoIGQ9Ik0xNyAzYTIuODI4IDIuODI4IDAgMSAxIDQgNEw3LjUgMjAuNSAyIDIybDEuNS01LjVMMTcgM3oiPjwvcGF0aD48cGF0aCBkPSJNMTUgNWwyIDIiPjwvcGF0aD48L3N2Zz4=",
                 "zoom-in": "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgdmlld0JveD0iMCAwIDI0IDI0IiBmaWxsPSJub25lIiBzdHJva2U9ImN1cnJlbnRDb2xvciIgc3Ryb2tlLXdpZHRoPSIyIiBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiPjxjaXJjbGUgY3g9IjExIiBjeT0iMTEiIHI9IjgiPjwvY2lyY2xlPjxsaW5lIHgxPSIyMSIgeTE9IjIxIiB4Mj0iMTYuNjUiIHkyPSIxNi42NSI+PC9saW5lPjxsaW5lIHgxPSIxMSIgeTE9IjgiIHgyPSIxMSIgeTI9IjE0Ij48L2xpbmU+PGxpbmUgeDE9IjgiIHkxPSIxMSIgeDI9IjE0IiB5Mj0iMTEiPjwvbGluZT48L3N2Zz4=",
                 "zoom-out": "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgdmlld0JveD0iMCAwIDI0IDI0IiBmaWxsPSJub25lIiBzdHJva2U9ImN1cnJlbnRDb2xvciIgc3Ryb2tlLXdpZHRoPSIyIiBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiPjxjaXJjbGUgY3g9IjExIiBjeT0iMTEiIHI9IjgiPjwvY2lyY2xlPjxsaW5lIHgxPSIyMSIgeTE9IjIxIiB4Mj0iMTYuNjUiIHkyPSIxNi42NSI+PC9saW5lPjxsaW5lIHgxPSI4IiB5MT0iMTEiIHgyPSIxNCIgeTI9IjExIj48L2xpbmU+PC9zdmc+",
-                "zoom-reset": "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgdmlld0JveD0iMCAwIDI0IDI0IiBmaWxsPSJub25lIiBzdHJva2U9ImN1cnJlbnRDb2xvciIgc3Ryb2tlLXdpZHRoPSIyIiBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiPjxjaXJjbGUgY3g9IjExIiBjeT0iMTEiIHI9IjgiPjwvY2lyY2xlPjxsaW5lIHgxPSIyMSIgeTE9IjIxIiB4Mj0iMTYuNjUiIHkyPSIxNi42NSI+PC9saW5lPjxsaW5lIHgxPSIxMSIgeTE9IjgiIHgyPSIxMSIgeTI9IjE0Ij48L2xpbmU+PGxpbmUgeDE9IjgiIHkxPSIxMSIgeDI9IjE0IiB5Mj0iMTEiPjwvbGluZT48L3N2Zz4="
+                "zoom-reset": "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgdmlld0JveD0iMCAwIDI0IDI0IiBmaWxsPSJub25lIiBzdHJva2U9ImN1cnJlbnRDb2xvciIgc3Ryb2tlLXdpZHRoPSIyIiBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiPjxjaXJjbGUgY3g9IjExIiBjeT0iMTEiIHI9IjgiPjwvY2lyY2xlPjxsaW5lIHgxPSIyMSIgeTE9IjIxIiB4Mj0iMTYuNjUiIHkyPSIxNi42NSI+PC9saW5lPjxsaW5lIHgxPSIxMSIgeTE9IjgiIHgyPSIxMSIgeTI9IjE0Ij48L2xpbmU+PGxpbmUgeDE9IjgiIHkxPSIxMSIgeDI9IjE0IiB5Mj0iMTEiPjwvbGluZT48L3N2Zz4=",
+                "settings": "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgdmlld0JveD0iMCAwIDI0IDI0IiBmaWxsPSJub25lIiBzdHJva2U9ImN1cnJlbnRDb2xvciIgc3Ryb2tlLXdpZHRoPSIyIiBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiPjxsaW5lIHgxPSI0IiB5MT0iNiIgeDI9IjIwIiB5Mj0iNiI+PC9saW5lPjxsaW5lIHgxPSI0IiB5MT0iMTIiIHgyPSIyMCIgeTI9IjEyIj48L2xpbmU+PGxpbmUgeDE9IjQiIHkxPSIxOCIgeDI9IjIwIiB5Mj0iMTgiPjwvbGluZT48Y2lyY2xlIGN4PSI4IiBjeT0iNiIgcj0iMiI+PC9jaXJjbGU+PGNpcmNsZSBjeD0iMTYiIGN5PSIxMiIgcj0iMiI+PC9jaXJjbGU+PGNpcmNsZSBjeD0iOCIgY3k9IjE4IiByPSIyIj48L2NpcmNsZT48L3N2Zz4="
             }
             
             if icon_path in icons:
@@ -194,39 +202,24 @@ class TextEditorApp(QMainWindow):
                                  "New", "Ctrl+N", self.new_editor_tab)
         self.toolbar.addAction(new_action)
         
-        open_action = create_action("open", QStyle.SP_DirOpenIcon, 
+        open_action = create_action("open", QStyle.SP_DialogOpenButton,
                                   "Open", "Ctrl+O", self.open_file)
         self.toolbar.addAction(open_action)
         
-        save_action = create_action("save", QStyle.SP_DialogSaveButton, 
+        save_action = create_action("save", QStyle.SP_DialogSaveButton,
                                   "Save", "Ctrl+S", self.save_file)
         self.toolbar.addAction(save_action)
         
         self.toolbar.addSeparator()
         
         # Edit operations
-        undo_action = create_action("undo", QStyle.SP_CommandLink, 
+        undo_action = create_action("undo", QStyle.SP_ArrowBack,
                                   "Undo", "Ctrl+Z", self.undo)
         self.toolbar.addAction(undo_action)
         
-        redo_action = create_action("redo", QStyle.SP_CommandLink, 
+        redo_action = create_action("redo", QStyle.SP_ArrowForward,
                                   "Redo", "Ctrl+Shift+Z", self.redo)
         self.toolbar.addAction(redo_action)
-        
-        self.toolbar.addSeparator()
-        
-        # Cut/Copy/Paste
-        cut_action = create_action("cut", QStyle.SP_DialogDiscardButton, 
-                                 "Cut", "Ctrl+X", self.cut)
-        self.toolbar.addAction(cut_action)
-        
-        copy_action = create_action("copy", QStyle.SP_DialogApplyButton, 
-                                  "Copy", "Ctrl+C", self.copy)
-        self.toolbar.addAction(copy_action)
-        
-        paste_action = create_action("paste", QStyle.SP_DialogOkButton, 
-                                   "Paste", "Ctrl+V", self.paste)
-        self.toolbar.addAction(paste_action)
         
         self.toolbar.addSeparator()
         
@@ -245,51 +238,52 @@ class TextEditorApp(QMainWindow):
         focus_action.setToolTip("Enter distraction-free writing mode")
         self.toolbar.addAction(focus_action)
         
+        self.toolbar.addSeparator()
+        
         # View toggles
-        snippets_action = create_action("snippets", QStyle.SP_FileDialogListView,
-                                      "Snippets", handler=lambda: self.toggle_pane("snippets"))
-        self.toolbar.addAction(snippets_action)
+        snippet_action = create_action("snippets", QStyle.SP_FileDialogListView,
+                                     "Snippets", handler=lambda: self.toggle_snippets())
+        self.toolbar.addAction(snippet_action)
         
         browser_action = create_action("browser", QStyle.SP_ComputerIcon,
-                                     "Browser", handler=lambda: self.toggle_pane("browser"))
+                                     "Browser", handler=lambda: self.toggle_browser())
         self.toolbar.addAction(browser_action)
-        
-        # AP Links
-        newsroom_action = create_action("ap-newsroom", QStyle.SP_ComputerIcon,
-                                      "AP Newsroom", handler=lambda: self.open_external_url("https://newsroom.ap.org/"))
-        self.toolbar.addAction(newsroom_action)
-        
-        pronto_action = create_action("ap-pronto", QStyle.SP_ComputerIcon,
-                                     "AP Pronto", handler=lambda: self.open_external_url("https://pronto.associatedpress.com/"))
-        self.toolbar.addAction(pronto_action)
         
         self.toolbar.addSeparator()
         
-        # Help and About
-        help_action = create_action("help", QStyle.SP_DialogHelpButton,
+        # Zoom controls
+        zoom_in_action = create_action("zoom-in", QStyle.SP_TitleBarMaxButton,
+                                     "Zoom In", "Ctrl++", self.zoom_in)
+        self.toolbar.addAction(zoom_in_action)
+        
+        zoom_out_action = create_action("zoom-out", QStyle.SP_TitleBarMinButton,
+                                      "Zoom Out", "Ctrl+-", self.zoom_out)
+        self.toolbar.addAction(zoom_out_action)
+        
+        zoom_reset_action = create_action("zoom-reset", QStyle.SP_TitleBarNormalButton,
+                                        "Reset Zoom", "Ctrl+0", self.zoom_reset)
+        self.toolbar.addAction(zoom_reset_action)
+        
+        self.toolbar.addSeparator()
+        
+        # Settings button
+        settings_action = create_action("settings", QStyle.SP_FileDialogDetailedView,
+                                      "Settings", handler=self.show_settings)
+        self.toolbar.addAction(settings_action)
+        
+        # Add flexible space
+        spacer = QWidget()
+        spacer.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        self.toolbar.addWidget(spacer)
+        
+        # Help and About at the end
+        help_action = create_action("help", QStyle.SP_MessageBoxQuestion,
                                   "Help", handler=self.show_help)
         self.toolbar.addAction(help_action)
         
         about_action = create_action("about", QStyle.SP_MessageBoxInformation,
                                    "About", handler=self.show_about)
         self.toolbar.addAction(about_action)
-        
-        # Add separator before zoom controls
-        self.toolbar.addSeparator()
-        
-        # Zoom controls
-        zoom_out_action = create_action("zoom-out", QStyle.SP_ArrowDown,
-                                      "Zoom Out", "Ctrl+-", self.zoom_out)
-        self.toolbar.addAction(zoom_out_action)
-        
-        zoom_in_action = create_action("zoom-in", QStyle.SP_ArrowUp,
-                                      "Zoom In", "Ctrl+=", self.zoom_in)
-        self.toolbar.addAction(zoom_in_action)
-        
-        # Add zoom reset action
-        zoom_reset_action = create_action("zoom-reset", QStyle.SP_BrowserReload,
-                                        "Reset Zoom", "Ctrl+0", self.zoom_reset)
-        self.toolbar.addAction(zoom_reset_action)
         
         # Set toolbar properties based on platform
         if sys.platform == 'darwin':
@@ -415,10 +409,11 @@ class TextEditorApp(QMainWindow):
                 editor_tab.apply_theme(theme_name)
                 self.settings_manager.save_theme(theme_name)
 
-    def toggle_pane(self, pane):
-        if editor_tab := self.tab_widget.currentWidget():
-            if isinstance(editor_tab, EditorTab):
-                editor_tab.toggle_pane(pane)
+    def toggle_snippets(self):
+        """Toggle snippets pane in current tab"""
+        current_tab = self.tab_widget.currentWidget()
+        if current_tab:
+            current_tab.toggle_pane("snippets")
 
     def open_file_path(self, file_path):
         """Open a file by its path"""
@@ -514,48 +509,68 @@ class TextEditorApp(QMainWindow):
         QDesktopServices.openUrl(QUrl(url))
 
     def show_help(self):
-        """Show help dialog"""
-        help_text = """
-        <h2>Editor Help</h2>
-        <h3>Keyboard Shortcuts:</h3>
-        <ul>
-            <li><b>Ctrl+N:</b> New File</li>
-            <li><b>Ctrl+O:</b> Open File</li>
-            <li><b>Ctrl+S:</b> Save File</li>
-            <li><b>Ctrl+Z:</b> Undo</li>
-            <li><b>Ctrl+Shift+Z:</b> Redo</li>
-            <li><b>Ctrl+X:</b> Cut</li>
-            <li><b>Ctrl+C:</b> Copy</li>
-            <li><b>Ctrl+V:</b> Paste</li>
-        </ul>
-        <h3>Features:</h3>
-        <ul>
-            <li>Spell checking</li>
-            <li>Snippet management</li>
-            <li>RSS feed reader</li>
-            <li>Theme customization</li>
-            <li>Font customization</li>
-            <li>Auto-save</li>
-        </ul>
-        """
-        QMessageBox.information(self, "Help", help_text)
+        """Show help documentation"""
+        help_tab = self.new_editor_tab()
+        
+        # Load help content
+        try:
+            with open('help/help.md', 'r', encoding='utf-8') as f:
+                help_content = f.read()
+        except:
+            help_content = "Help documentation not found."
+        
+        # Set content and make read-only
+        help_tab.editor.setPlainText(help_content)
+        help_tab.editor.setReadOnly(True)
+        
+        # Set tab title
+        current_index = self.tab_widget.indexOf(help_tab)
+        self.tab_widget.setTabText(current_index, "Help")
 
     def show_about(self):
         """Show about dialog"""
-        about_text = """
-        <h2>Advanced Text Editor</h2>
-        <p>Version 1.0</p>
-        <p>A feature-rich text editor designed for journalists.</p>
-        <p>Features include:</p>
-        <ul>
-            <li>Integrated RSS feed reader</li>
-            <li>Code snippet management</li>
-            <li>Spell checking</li>
-            <li>Theme support</li>
-            <li>Auto-save functionality</li>
-        </ul>
+        about_text = f"""
+        <div style="text-align: center;">
+            <h1>{APP_NAME}</h1>
+            <p style="color: #666;">Version {APP_VERSION}</p>
+            
+            <p>A modern text editor designed for writers and journalists.</p>
+            
+            <h3>Key Features:</h3>
+            <ul style="list-style-type: none; padding: 0;">
+                <li>✓ Smart word completion</li>
+                <li>✓ Custom dictionary</li>
+                <li>✓ Text snippet management</li>
+                <li>✓ Integrated web browser</li>
+                <li>✓ Site-specific searches</li>
+                <li>✓ Distraction-free mode</li>
+            </ul>
+
+            <p><a href="{APP_HOMEPAGE}">Visit Project Homepage</a></p>
+            
+            <p style="font-size: small; color: #666; margin-top: 20px;">
+                Made with ♥ for writers everywhere
+            </p>
+        </div>
         """
-        QMessageBox.about(self, "About", about_text)
+        
+        about_dialog = QMessageBox(self)
+        about_dialog.setWindowTitle(f"About {APP_NAME}")
+        about_dialog.setText(about_text)
+        about_dialog.setTextFormat(Qt.RichText)
+        about_dialog.setStyleSheet("""
+            QMessageBox {
+                background-color: white;
+            }
+            QMessageBox QLabel {
+                min-width: 400px;
+            }
+        """)
+        
+        # Make links clickable
+        about_dialog.setTextInteractionFlags(Qt.TextBrowserInteraction)
+        
+        about_dialog.exec_()
 
     def toggle_focus_mode(self):
         """Toggle focus mode for current editor tab"""
@@ -702,6 +717,23 @@ class TextEditorApp(QMainWindow):
             # If Discard, continue with close
         
         return True
+
+    def show_settings(self):
+        """Show settings dialog"""
+        dialog = SettingsDialog(self.settings_manager, self)
+        if dialog.exec_() == QDialog.Accepted:
+            settings = dialog.get_data()
+            
+            # Save settings
+            self.settings_manager.save_setting('homepage', settings['homepage'])
+            self.settings_manager.save_setting('search_sites', settings['search_sites'])
+            self.settings_manager.save_setting('user_dictionary', settings['user_dictionary'])
+
+    def toggle_browser(self):
+        """Toggle browser pane in current tab"""
+        current_tab = self.tab_widget.currentWidget()
+        if current_tab:
+            current_tab.toggle_pane("browser")
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)

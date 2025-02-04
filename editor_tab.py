@@ -1,9 +1,9 @@
 from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QSplitter,
                             QTextEdit, QListWidget, QInputDialog, QMenu, QFileDialog, QDialog,
-                            QToolBar, QAction, QCompleter, QListWidgetItem, QLineEdit, QPushButton, QMessageBox, QLabel, QShortcut)
-from PyQt5.QtCore import Qt, QUrl, QTimer, QStringListModel
+                            QToolBar, QAction, QCompleter, QListWidgetItem, QLineEdit, QPushButton, QMessageBox, QLabel, QShortcut, QToolTip)
+from PyQt5.QtCore import Qt, QUrl, QTimer, QStringListModel, QRegExp
 from PyQt5.QtWebEngineWidgets import QWebEngineView, QWebEnginePage
-from PyQt5.QtGui import QTextCharFormat, QSyntaxHighlighter, QIcon, QFont, QKeySequence
+from PyQt5.QtGui import QTextCharFormat, QSyntaxHighlighter, QIcon, QFont, QKeySequence, QPainter, QPen, QColor, QFontMetrics
 from hunspell import Hunspell  # Use hunspell package instead of cyhunspell
 from urllib.parse import quote
 from snippet_editor_dialog import SnippetEditorDialog
@@ -15,9 +15,9 @@ from theme_manager import ThemeManager
 import hashlib
 
 class SpellCheckHighlighter(QSyntaxHighlighter):
-    def __init__(self, parent, snippet_manager=None):
+    def __init__(self, parent, settings_manager):
         super().__init__(parent)
-        self.snippet_manager = snippet_manager
+        self.settings_manager = settings_manager
         try:
             # Initialize Hunspell with both US and GB dictionaries
             self.dict = Hunspell('en_US')
@@ -28,89 +28,68 @@ class SpellCheckHighlighter(QSyntaxHighlighter):
         except Exception as e:
             print(f"Warning: Spell checking disabled - {str(e)}")
             self.spell_check_enabled = False
-        
+
+    def is_latin_word(self, word):
+        """Check if word contains only Latin characters"""
+        try:
+            word.encode('latin-1')
+            return True
+        except UnicodeEncodeError:
+            return False
+
     def highlightBlock(self, text):
         if not self.spell_check_enabled:
             return
-            
-        # Format for misspelled words
+
+        # Get user dictionary
+        user_dict = self.settings_manager.get_setting('user_dictionary', [])
+        
         format = QTextCharFormat()
         format.setUnderlineColor(Qt.red)
         format.setUnderlineStyle(QTextCharFormat.SpellCheckUnderline)
-        
-        # Get word positions
-        for start, length in self.get_words(text):
-            word = text[start:start + length]
+
+        # For each word in the text
+        expression = QRegExp("\\b\\w+\\b")
+        index = expression.indexIn(text)
+        while index >= 0:
+            word = expression.cap()
+            length = len(word)
             
-            # Skip if word contains non-Latin characters
-            if any(ord(c) > 127 for c in word):
-                continue
-                
-            # Skip URLs, emails, and snippet words
-            if self.is_url_or_email(word) or self.is_snippet_word(word):
-                continue
-                
+            # Only spell check Latin words
+            if self.is_latin_word(word):
+                # Check if word is in user dictionary first
+                if word not in user_dict:
+                    # If not in user dictionary, check against Hunspell dictionaries
+                    try:
+                        if not self.dict.spell(word) and not self.gb_dict.spell(word):
+                            self.setFormat(index, length, format)
+                    except UnicodeEncodeError:
+                        pass  # Skip words that can't be encoded
+            
+            index = expression.indexIn(text, index + length)
+
+    def suggest(self, word):
+        """Get suggestions for a word, including user dictionary matches"""
+        suggestions = []
+        
+        # Get user dictionary
+        user_dict = self.settings_manager.get_setting('user_dictionary', [])
+        
+        # Add matching words from user dictionary first
+        for dict_word in user_dict:
+            if dict_word.lower().startswith(word.lower()):
+                suggestions.append(dict_word)
+        
+        # Only get Hunspell suggestions for Latin words
+        if self.is_latin_word(word):
             try:
-                # Check spelling in both dictionaries
-                if not self.dict.spell(word) and not self.gb_dict.spell(word):
-                    self.setFormat(start, length, format)
+                suggestions.extend(self.dict.suggest(word))
+                suggestions.extend(self.gb_dict.suggest(word))
             except UnicodeEncodeError:
-                # Skip words that can't be encoded in Latin-1
-                continue
+                pass
         
-    def get_words(self, text):
-        """Get word positions and lengths, handling contractions properly"""
-        words = []
-        start = 0
-        in_word = False
-        
-        for i, char in enumerate(text):
-            is_word_char = char.isalpha() or char == "'"
-            
-            if is_word_char and not in_word:
-                start = i
-                in_word = True
-            elif not is_word_char and in_word:
-                if i - start > 0:  # Only add if word has length
-                    words.append((start, i - start))
-                in_word = False
-                
-        # Handle word at end of text
-        if in_word and len(text) - start > 0:
-            words.append((start, len(text) - start))
-            
-        return words
-
-    def is_snippet_word(self, word):
-        """Check if word is part of a snippet"""
-        if not self.snippet_manager:
-            return False
-            
-        # Check snippet titles
-        if word in self.snippet_manager.get_snippets():
-            return True
-            
-        # Check snippet contents
-        for content in self.snippet_manager.get_all_snippet_contents():
-            if word in content.split():
-                return True
-        return False
-
-    def is_url_or_email(self, word):
-        """Check if word looks like a URL or email address"""
-        return ('.' in word and '/' in word) or '@' in word
-
-    def get_suggestions(self, word):
-        """Get spelling suggestions for a word"""
-        if self.spell_check_enabled:
-            # Try US dictionary first
-            if not self.dict.spell(word):
-                suggestions = self.dict.suggest(word)
-                if not suggestions and not self.gb_dict.spell(word):
-                    # If no suggestions from US dict, try GB dict
-                    suggestions.extend(self.gb_dict.suggest(word))
-                return list(set(suggestions))[:5]  # Remove duplicates and limit to top 5
-        return []
+        # Remove duplicates while preserving order
+        return list(dict.fromkeys(suggestions))
 
 class CustomTextEdit(QTextEdit):
     def __init__(self, parent=None):
@@ -172,6 +151,30 @@ class CustomTextEdit(QTextEdit):
                 
         super().keyPressEvent(event)
 
+class CompletingTextEdit(QTextEdit):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.completion_text = ""
+        
+    def paintEvent(self, event):
+        super().paintEvent(event)
+        if self.completion_text:
+            # Get the cursor rectangle for positioning
+            cursor = self.textCursor()
+            rect = self.cursorRect(cursor)
+            
+            # Create painter
+            painter = QPainter(self.viewport())
+            painter.setPen(QPen(QColor(128, 128, 128)))  # Grey color
+            
+            # Calculate position for completion text
+            font_metrics = QFontMetrics(self.font())
+            x = rect.x()
+            y = rect.y() + font_metrics.ascent()
+            
+            # Draw the completion text
+            painter.drawText(x, y, self.completion_text)
+
 class EditorTab(QWidget):
     def __init__(self, snippet_manager, settings_manager):
         super().__init__()
@@ -181,26 +184,15 @@ class EditorTab(QWidget):
         self.current_font = self.settings_manager.get_font()
         
         # Initialize recovery ID and paths first
-        self.recovery_id = str(int(time.time() * 1000))  # Unique ID for this tab
+        self.recovery_id = str(int(time.time() * 1000))
         self.session_path = os.path.join(
             self.settings_manager.get_recovery_dir(),
             f"session_{self.recovery_id}.txt"
         )
         self.meta_path = self.session_path + '.json'
         
-        # Initialize completer first
-        self.completer = QCompleter(self.snippet_manager.get_snippets())
-        self.completer.setCompletionMode(QCompleter.PopupCompletion)
-        self.completer.setCaseSensitivity(Qt.CaseInsensitive)
-        
-        # Initialize main window reference
-        self.main_window = None
-        
         # Setup UI components
         self.setup_ui()
-        
-        # Connect completer to editor after UI setup
-        self.editor.setCompleter(self.completer)
         
         # Setup autosave after UI is ready
         self.last_save_time = time.time()
@@ -209,7 +201,7 @@ class EditorTab(QWidget):
         # Start periodic backup timer
         self.backup_timer = QTimer()
         self.backup_timer.timeout.connect(self.force_save)
-        self.backup_timer.start(5000)  # Backup every 5 seconds if needed
+        self.backup_timer.start(5000)  # Backup every 5 seconds
         
         # Apply theme
         ThemeManager.apply_theme(self.editor, self.settings_manager.get_theme())
@@ -218,30 +210,44 @@ class EditorTab(QWidget):
         self.editor.document().modificationChanged.connect(self.handle_modification)
         self.editor.document().setModified(False)
         
-        self.focus_mode = False
+        # Set homepage for web view
+        homepage = self.settings_manager.get_setting('homepage', 'https://www.apnews.com/')
+        self.web_view.setUrl(QUrl(homepage))
         
-        # Add focus mode shortcut
-        focus_shortcut = QShortcut(QKeySequence("Ctrl+Shift+F"), self)
-        focus_shortcut.activated.connect(self.toggle_focus_mode)
+        # Create spell checker with settings manager
+        self.highlighter = SpellCheckHighlighter(self.editor.document(), self.settings_manager)
         
+        # Setup autocomplete
+        self.current_word = ""
+        self.current_suggestions = []
+        self.suggestion_index = -1
+        
+        # Install event filter for key handling
+        self.editor.installEventFilter(self)
+
     def setup_ui(self):
-        main_layout = QVBoxLayout(self)
+        """Setup the UI components"""
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(0, 0, 0, 0)
         
-        # Create main splitter (horizontal)
-        main_splitter = QSplitter(Qt.Horizontal)
-        
-        # Create left side splitter (horizontal) for editor and snippets
-        left_splitter = QSplitter(Qt.Horizontal)
+        # Create splitter for editor and side panes
+        self.splitter = QSplitter(Qt.Horizontal)
         
         # Create text editor with default font
-        self.editor = CustomTextEdit(self)
-        self.editor.setCompleter(self.completer)  # Set completer for custom editor
+        self.editor = CompletingTextEdit()
+        self.editor.setContextMenuPolicy(Qt.CustomContextMenu)
+        self.editor.customContextMenuRequested.connect(self.show_context_menu)
         self.update_font(self.current_font)
-        self.highlighter = SpellCheckHighlighter(self.editor.document(), self.snippet_manager)
         
-        # Create snippet panel
-        snippet_widget = QWidget()
-        snippet_layout = QVBoxLayout(snippet_widget)
+        # Create spell checker
+        self.highlighter = SpellCheckHighlighter(self.editor.document(), self.settings_manager)
+        
+        # Add editor to splitter
+        self.splitter.addWidget(self.editor)
+        
+        # Create snippet widget
+        self.snippet_widget = QWidget()
+        snippet_layout = QVBoxLayout(self.snippet_widget)
         snippet_layout.setContentsMargins(0, 0, 0, 0)
         
         # Snippet header
@@ -283,9 +289,9 @@ class EditorTab(QWidget):
         self.update_snippet_list()  # Populate the list
         snippet_layout.addWidget(self.snippet_list)
         
-        # Create browser panel
-        browser_widget = QWidget()
-        browser_layout = QVBoxLayout(browser_widget)
+        # Create browser widget
+        self.browser_widget = QWidget()
+        browser_layout = QVBoxLayout(self.browser_widget)
         browser_layout.setContentsMargins(0, 0, 0, 0)
         browser_layout.setSpacing(0)
         
@@ -359,37 +365,33 @@ class EditorTab(QWidget):
         
         browser_layout.addWidget(self.web_view)
         
-        # Add to splitters
-        left_splitter.addWidget(self.editor)
-        left_splitter.addWidget(snippet_widget)
-        main_splitter.addWidget(left_splitter)
-        main_splitter.addWidget(browser_widget)
+        # Add widgets to splitter
+        self.splitter.addWidget(self.snippet_widget)
+        self.splitter.addWidget(self.browser_widget)
         
-        # Set splitter sizes
-        left_splitter.setStretchFactor(0, 2)  # Editor gets more space
-        left_splitter.setStretchFactor(1, 1)  # Snippets get less space
-        main_splitter.setStretchFactor(0, 2)   # Left side gets more space
-        main_splitter.setStretchFactor(1, 1)   # Browser gets less space
+        # Add splitter to layout
+        layout.addWidget(self.splitter)
         
-        # Store widgets for visibility toggling
-        self.snippet_widget = snippet_widget
-        self.browser_widget = browser_widget
+        # Restore pane states
+        states = self.settings_manager.get_setting('pane_states', {
+            'snippets_visible': False,
+            'browser_visible': False,
+            'sizes': [700, 300, 300]
+        })
         
-        # Set initial visibility from settings
-        show_snippets, show_browser = self.settings_manager.get_pane_visibility()
-        self.snippet_widget.setVisible(show_snippets)
-        self.browser_widget.setVisible(show_browser)
+        # Apply visibility
+        self.snippet_widget.setVisible(states.get('snippets_visible', False))
+        self.browser_widget.setVisible(states.get('browser_visible', False))
         
-        main_layout.addWidget(main_splitter)
+        # Apply sizes
+        if 'sizes' in states:
+            self.splitter.setSizes(states['sizes'])
+        
+        # Connect splitter moved signal to save states
+        self.splitter.splitterMoved.connect(self.save_pane_states)
         
         # Set focus to editor
         self.editor.setFocus()
-        
-        # Connect signals for status updates
-        self.editor.textChanged.connect(self.update_status)
-        self.editor.textChanged.connect(self.handle_text_changed)
-        self.editor.cursorPositionChanged.connect(self.update_cursor_position)
-        self.editor.textChanged.connect(self.on_text_changed)
         
     def on_text_changed(self):
         """Handle text changes"""
@@ -522,82 +524,96 @@ class EditorTab(QWidget):
         if text:
             self.editor.insertPlainText(text)
             
-    def show_context_menu(self, position):
-        """Show custom context menu"""
-        cursor = self.editor.cursorForPosition(position)
-        current_cursor = self.editor.textCursor()
+    def show_context_menu(self, pos):
+        """Show context menu"""
+        # Get cursor at click position and select word under it
+        cursor = self.editor.cursorForPosition(pos)
+        cursor.select(cursor.WordUnderCursor)
+        self.editor.setTextCursor(cursor)
         
-        # If we have a selection and clicked outside it, select the new word
-        # Otherwise keep the existing selection
-        if not current_cursor.hasSelection() or not self.is_position_in_selection(position):
-            cursor.select(cursor.WordUnderCursor)
-            self.editor.setTextCursor(cursor)
+        menu = QMenu(self)
         
-        menu = self.editor.createStandardContextMenu()
+        # Cut/Copy/Paste actions
+        menu.addAction("Cut", self.editor.cut)
+        menu.addAction("Copy", self.editor.copy)
+        menu.addAction("Paste", self.editor.paste)
+        menu.addSeparator()
         
-        # Add custom actions for selected text
-        selected_text = self.editor.textCursor().selectedText()
+        # Get selected text
+        selected_text = cursor.selectedText()
+        
         if selected_text:
+            # Add "Save as Snippet" option
+            menu.addAction("Save as Snippet", lambda: self.save_snippet(selected_text))
             menu.addSeparator()
             
-            # Add search actions
-            menu.addAction("Search in Google", 
-                          lambda: self.search_google(selected_text))
-            menu.addAction("Search in AP News", 
-                          lambda: self.search_apnews(selected_text))
-            menu.addAction("Search in AP News with Google", 
-                          lambda: self.search_google_site_apnews(selected_text))
+            # Add search submenu
+            search_menu = menu.addMenu("Search in...")
             
-            # Add snippet action
-            menu.addAction("Save as Snippet", 
-                          lambda: self.save_snippet(selected_text))
+            # Get site-specific searches from settings
+            search_sites = self.settings_manager.get_setting('search_sites', {
+                'AP News': 'site:apnews.com',
+                'Reuters': 'site:reuters.com',
+                'BBC News': 'site:bbc.com/news'
+            })
             
-            # Only show spelling suggestions for single words
-            if (hasattr(self, 'highlighter') and 
-                self.highlighter.spell_check_enabled and 
-                len(selected_text.split()) == 1):  # Check if it's a single word
-                try:
-                    if not self.highlighter.dict.spell(selected_text):
-                        menu.addSeparator()
-                        menu.addAction("Spelling Suggestions:").setEnabled(False)
-                        suggestions = self.highlighter.dict.suggest(selected_text)[:5]
-                        for suggestion in suggestions:
-                            action = menu.addAction(suggestion)
-                            action.triggered.connect(lambda _, word=suggestion: self.replace_selected_text(word))
-                    # Check GB dictionary if not found in US
-                    elif not self.highlighter.gb_dict.spell(selected_text):
-                        menu.addSeparator()
-                        menu.addAction("Spelling Suggestions:").setEnabled(False)
-                        suggestions = self.highlighter.gb_dict.suggest(selected_text)[:5]
-                        for suggestion in suggestions:
-                            action = menu.addAction(suggestion)
-                            action.triggered.connect(lambda _, word=suggestion: self.replace_selected_text(word))
-                except:
-                    pass  # Skip spell checking if there's an error
-        
-        menu.exec_(self.editor.viewport().mapToGlobal(position))
-    
-    def is_position_in_selection(self, position):
-        """Check if the given position is within the current selection"""
-        cursor = self.editor.textCursor()
-        click_cursor = self.editor.cursorForPosition(position)
-        
-        if not cursor.hasSelection():
-            return False
+            # Add search actions for each site
+            for name, site_query in search_sites.items():
+                action = search_menu.addAction(name)
+                search_url = f"https://www.google.com/search?q={quote(selected_text)}+{site_query}"
+                action.triggered.connect(lambda checked, url=search_url: 
+                    self.search_in_browser(url))
             
-        selection_start = cursor.selectionStart()
-        selection_end = cursor.selectionEnd()
-        click_pos = click_cursor.position()
+            # Add separator and regular Google search
+            search_menu.addSeparator()
+            google_action = search_menu.addAction("Google")
+            google_url = f"https://www.google.com/search?q={quote(selected_text)}"
+            google_action.triggered.connect(lambda checked, url=google_url: 
+                self.search_in_browser(url))
+            
+            menu.addSeparator()
         
-        return selection_start <= click_pos <= selection_end
+        # Add spell check suggestions if word is misspelled
+        if self.highlighter.spell_check_enabled:
+            word = selected_text  # Use the selected word
+            if word:
+                # Get suggestions including user dictionary matches
+                self.current_suggestions = self.highlighter.suggest(word)[:5]
+                if self.current_suggestions:
+                    menu.addAction("Suggestions:").setEnabled(False)
+                    self.suggestion_index = 0  # Reset suggestion index
+                    for i, suggestion in enumerate(self.current_suggestions):
+                        action = menu.addAction(suggestion)
+                        action.triggered.connect(lambda checked, word=suggestion: self.apply_suggestion(word))
+                    menu.addSeparator()
+                    
+                
+                # Add to dictionary option if not already in it
+                if word not in self.settings_manager.get_setting('user_dictionary', []):
+                    add_action = menu.addAction("Add to Dictionary")
+                    add_action.triggered.connect(lambda: self.add_to_dictionary(word))
+                    menu.addSeparator()
+        
+        # Show menu
+        menu.exec_(self.editor.mapToGlobal(pos))
 
-    def replace_selected_text(self, new_text):
-        """Replace the selected text with new_text"""
-        cursor = self.editor.textCursor()
-        cursor.beginEditBlock()
-        cursor.removeSelectedText()
-        cursor.insertText(new_text)
-        cursor.endEditBlock()
+    def search_in_browser(self, url):
+        """Perform search in browser pane and ensure it's visible"""
+        # Show browser pane if hidden
+        if not self.browser_widget.isVisible():
+            self.toggle_pane("browser")  # Use toggle_pane to handle visibility and sizing
+        
+        # Navigate to URL
+        self.web_view.setUrl(QUrl(url))
+
+    def add_to_dictionary(self, word):
+        """Add word to user dictionary"""
+        user_dict = self.settings_manager.get_setting('user_dictionary', [])
+        if word not in user_dict:
+            user_dict.append(word)
+            self.settings_manager.save_setting('user_dictionary', user_dict)
+            # Refresh spell checking
+            self.highlighter.rehighlight()
 
     def ensure_browser_visible(self):
         """Ensure browser pane is visible"""
@@ -627,8 +643,8 @@ class EditorTab(QWidget):
         self.ensure_browser_visible()
         
     def save_snippet(self, text):
-        title, ok = QInputDialog.getText(self, 'Save Snippet', 
-                                       'Enter snippet title:')
+        """Save selected text as a snippet"""
+        title, ok = QInputDialog.getText(self, "Save Snippet", "Enter snippet title:")
         if ok and title:
             self.snippet_manager.add_snippet(title, text)
             self.update_snippet_list()
@@ -729,16 +745,30 @@ class EditorTab(QWidget):
                     self.main_window.tab_widget.setTabText(current_index, current_text[:-1])
 
     def toggle_pane(self, pane):
+        """Toggle visibility of side panes"""
         if pane == "snippets":
             self.snippet_widget.setVisible(not self.snippet_widget.isVisible())
-        else:
+            # If showing snippets, make sure it has reasonable size
+            if self.snippet_widget.isVisible():
+                current_sizes = self.splitter.sizes()
+                if current_sizes[1] < 100:  # If snippet pane is too small
+                    editor_size = current_sizes[0]
+                    new_snippet_size = int(editor_size * 0.2)  # 20% for snippets
+                    new_editor_size = editor_size - new_snippet_size
+                    self.splitter.setSizes([new_editor_size, new_snippet_size, current_sizes[2]])
+        elif pane == "browser":
             self.browser_widget.setVisible(not self.browser_widget.isVisible())
+            # If showing browser, make sure it has reasonable size
+            if self.browser_widget.isVisible():
+                current_sizes = self.splitter.sizes()
+                if current_sizes[2] < 100:  # If browser pane is too small
+                    editor_size = current_sizes[0]
+                    new_browser_size = int(editor_size * 0.3)  # 30% for browser
+                    new_editor_size = editor_size - new_browser_size
+                    self.splitter.setSizes([new_editor_size, current_sizes[1], new_browser_size])
         
-        # Save visibility state
-        self.settings_manager.save_pane_visibility(
-            self.snippet_widget.isVisible(),
-            self.browser_widget.isVisible()
-        )
+        # Save states after toggling
+        self.save_pane_states()
 
     def update_url(self, url):
         self.url_bar.setText(url.toString())
@@ -797,108 +827,114 @@ class EditorTab(QWidget):
         
         self.main_window.cursor_pos_label.setText(f"Line: {line}, Column: {column}")
 
+    def enable_focus_mode(self):
+        """Enable focus mode"""
+        self.focus_mode = True
+        # Hide side panes
+        if hasattr(self, 'snippet_widget'):
+            self.snippet_widget.hide()
+        if hasattr(self, 'browser_widget'):
+            self.browser_widget.hide()
+        # Set editor to full width
+        if hasattr(self, 'splitter'):
+            self.splitter.setSizes([self.width(), 0, 0])
+
+    def disable_focus_mode(self):
+        """Disable focus mode"""
+        self.focus_mode = False
+        # Restore pane states from settings
+        states = self.settings_manager.get_setting('pane_states', {
+            'snippets_visible': False,
+            'browser_visible': False,
+            'sizes': [700, 300, 300]
+        })
+        
+        if hasattr(self, 'snippet_widget'):
+            self.snippet_widget.setVisible(states.get('snippets_visible', False))
+        if hasattr(self, 'browser_widget'):
+            self.browser_widget.setVisible(states.get('browser_visible', False))
+        if hasattr(self, 'splitter'):
+            self.splitter.setSizes(states.get('sizes', [700, 300, 300]))
+
     def toggle_focus_mode(self):
-        """Toggle focus mode on/off"""
+        """Toggle focus mode"""
+        if not hasattr(self, 'focus_mode'):
+            self.focus_mode = False
+            
         self.focus_mode = not self.focus_mode
         
         if self.focus_mode:
-            # Create and show exit button
-            self.exit_focus_button = QPushButton("×", self)
-            self.exit_focus_button.setFixedSize(30, 30)
-            self.exit_focus_button.clicked.connect(self.toggle_focus_mode)
-            self.exit_focus_button.setStyleSheet("""
-                QPushButton {
-                    background-color: transparent;
-                    border: none;
-                    color: #888;
-                    font-size: 20px;
-                    font-weight: bold;
-                }
-                QPushButton:hover {
-                    color: #333;
-                }
-            """)
+            # Save current state
+            self.pre_focus_state = self.window().windowState()
             
-            # Create escape hint overlay
-            self.escape_hint = QLabel(self)
-            self.escape_hint.setText("⎋ ESC to exit")
-            self.escape_hint.setStyleSheet("""
-                QLabel {
-                    color: #888;
-                    background-color: transparent;
-                    padding: 5px 10px;
-                    border-radius: 3px;
-                    font-size: 12px;
-                }
-            """)
-            self.escape_hint.adjustSize()
-            
-            # Position and show UI elements
-            self.exit_focus_button.show()
-            self.escape_hint.show()
-            self.exit_focus_button.raise_()
-            self.escape_hint.raise_()
-            
-            # Hide distracting elements
+            # Hide everything except editor
             self.snippet_widget.hide()
             self.browser_widget.hide()
-            if self.main_window:
-                self.main_window.toolbar.hide()
-                self.main_window.statusBar.hide()
-                self.main_window.tab_widget.tabBar().hide()
-                self.main_window.showFullScreen()
+            self.window().toolbar.hide()
+            self.window().tab_widget.tabBar().hide()
             
-            # Add escape key shortcut
-            self.escape_shortcut = QShortcut(QKeySequence("Escape"), self)
-            self.escape_shortcut.activated.connect(self.toggle_focus_mode)
+            # Create exit button as overlay
+            self.exit_focus_btn = QPushButton("Exit Focus Mode (Esc)", self)
+            self.exit_focus_btn.clicked.connect(self.toggle_focus_mode)
+            self.exit_focus_btn.setStyleSheet("""
+                QPushButton {
+                    background-color: transparent;
+                    border: 1px solid #999;
+                    border-radius: 4px;
+                    color: #999;
+                    padding: 5px 10px;
+                }
+                QPushButton:hover {
+                    background-color: rgba(153, 153, 153, 0.1);
+                }
+            """)
             
-            # Update positions when window resizes
-            self.main_window.resizeEvent = lambda e: self.update_focus_ui_positions()
-            self.update_focus_ui_positions()
+            # Position button at top right
+            self.exit_focus_btn.setFixedSize(160, 30)
+            self.exit_focus_btn.move(self.width() - 170, 10)
+            self.exit_focus_btn.raise_()
+            self.exit_focus_btn.show()
+            
+            # Go full screen
+            self.window().showFullScreen()
             
         else:
-            # Remove focus mode UI elements
-            if hasattr(self, 'exit_focus_button'):
-                self.exit_focus_button.deleteLater()
-                del self.exit_focus_button
+            # Restore window state
+            if hasattr(self, 'pre_focus_state'):
+                self.window().setWindowState(self.pre_focus_state)
             
-            if hasattr(self, 'escape_hint'):
-                self.escape_hint.deleteLater()
-                del self.escape_hint
+            # Show UI elements
+            self.window().toolbar.show()
+            self.window().tab_widget.tabBar().show()
             
-            if hasattr(self, 'escape_shortcut'):
-                self.escape_shortcut.deleteLater()
-                del self.escape_shortcut
+            # Restore pane states
+            states = self.settings_manager.get_setting('pane_states', {
+                'snippets_visible': False,
+                'browser_visible': False,
+                'sizes': [700, 300, 300]
+            })
+            self.snippet_widget.setVisible(states.get('snippets_visible', False))
+            self.browser_widget.setVisible(states.get('browser_visible', False))
+            self.splitter.setSizes(states.get('sizes', [700, 300, 300]))
             
-            # Restore UI elements
-            show_snippets, show_browser = self.settings_manager.get_pane_visibility()
-            self.snippet_widget.setVisible(show_snippets)
-            self.browser_widget.setVisible(show_browser)
-            if self.main_window:
-                self.main_window.toolbar.show()
-                self.main_window.statusBar.show()
-                self.main_window.tab_widget.tabBar().show()
-                self.main_window.showNormal()
-                
-                # Restore original resize event
-                self.main_window.resizeEvent = self.main_window.resizeEvent
-    
-    def update_focus_ui_positions(self):
-        """Update the positions of focus mode UI elements"""
-        if hasattr(self, 'exit_focus_button') and hasattr(self, 'escape_hint'):
-            margin = 10
-            
-            # Position exit button in top-right
-            self.exit_focus_button.move(
-                self.main_window.width() - self.exit_focus_button.width() - margin,
-                margin
-            )
-            
-            # Position escape hint next to exit button
-            self.escape_hint.move(
-                self.main_window.width() - self.exit_focus_button.width() - self.escape_hint.width() - margin * 2,
-                margin + (self.exit_focus_button.height() - self.escape_hint.height()) // 2
-            )
+            # Remove exit button
+            if hasattr(self, 'exit_focus_btn'):
+                self.exit_focus_btn.deleteLater()
+                del self.exit_focus_btn
+
+    def resizeEvent(self, event):
+        """Handle resize events to keep exit button positioned correctly"""
+        super().resizeEvent(event)
+        if hasattr(self, 'focus_mode') and self.focus_mode and hasattr(self, 'exit_focus_btn'):
+            self.exit_focus_btn.move(self.width() - 170, 10)
+
+    def keyPressEvent(self, event):
+        """Handle escape key for focus mode"""
+        if event.key() == Qt.Key_Escape and hasattr(self, 'focus_mode') and self.focus_mode:
+            self.toggle_focus_mode()
+            event.accept()
+        else:
+            super().keyPressEvent(event)
 
     def cleanup_session_files(self):
         """Clean up session files for this tab"""
@@ -951,3 +987,94 @@ class EditorTab(QWidget):
                     self.completer.popup().hide()
             else:
                 self.completer.popup().hide()
+
+    def get_word_at_cursor(self):
+        """Get the word under the cursor"""
+        cursor = self.editor.textCursor()
+        cursor.select(cursor.WordUnderCursor)
+        return cursor.selectedText()
+
+    def replace_word(self, new_word):
+        """Replace the word under cursor with new word"""
+        cursor = self.editor.textCursor()
+        cursor.beginEditBlock()
+        cursor.select(cursor.WordUnderCursor)
+        cursor.removeSelectedText()
+        cursor.insertText(new_word)
+        cursor.endEditBlock()
+
+    def save_pane_states(self):
+        """Save pane visibility and sizes"""
+        states = {
+            'snippets_visible': self.snippet_widget.isVisible(),
+            'browser_visible': self.browser_widget.isVisible(),
+            'sizes': self.splitter.sizes()
+        }
+        self.settings_manager.save_setting('pane_states', states)
+
+    def eventFilter(self, obj, event):
+        """Handle key events for suggestions"""
+        if obj == self.editor and event.type() == event.KeyPress:
+            # Handle Tab and Enter for suggestions
+            if event.key() in (Qt.Key_Tab, Qt.Key_Return):
+                if self.current_suggestions:
+                    if 0 <= self.suggestion_index < len(self.current_suggestions):
+                        self.apply_suggestion(self.current_suggestions[self.suggestion_index])
+                        return True
+                    self.current_suggestions = []
+                    return False
+            
+            # Clear suggestions on Escape
+            elif event.key() == Qt.Key_Escape:
+                self.current_suggestions = []
+                self.suggestion_index = -1
+                return False
+            
+            # Update suggestions as user types
+            elif event.text().isalpha():
+                QTimer.singleShot(0, self.check_for_completion)
+        
+        return super().eventFilter(obj, event)
+
+    def check_for_completion(self):
+        """Check if current word matches any user dictionary words"""
+        cursor = self.editor.textCursor()
+        cursor.select(cursor.WordUnderCursor)
+        current_word = cursor.selectedText()
+        
+        if current_word and len(current_word) >= 2:  # Only suggest for words 2+ chars
+            # Get user dictionary
+            user_dict = self.settings_manager.get_setting('user_dictionary', [])
+            
+            # Find matching words
+            self.current_suggestions = [
+                word for word in user_dict 
+                if word.lower().startswith(current_word.lower()) 
+                and word.lower() != current_word.lower()
+            ]
+            
+            if self.current_suggestions:
+                self.suggestion_index = 0
+                # Show inline completion
+                completion = self.current_suggestions[0][len(current_word):]
+                self.editor.completion_text = completion
+                self.editor.viewport().update()
+            else:
+                self.suggestion_index = -1
+                self.editor.completion_text = ""
+                self.editor.viewport().update()
+        else:
+            self.current_suggestions = []
+            self.suggestion_index = -1
+            self.editor.completion_text = ""
+            self.editor.viewport().update()
+
+    def apply_suggestion(self, word):
+        """Apply a word suggestion"""
+        cursor = self.editor.textCursor()
+        cursor.select(cursor.WordUnderCursor)
+        cursor.insertText(word)
+        self.current_suggestions = []
+        self.suggestion_index = -1
+        self.editor.completion_text = ""
+        self.editor.viewport().update()
