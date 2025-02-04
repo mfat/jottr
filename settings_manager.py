@@ -1,11 +1,48 @@
 import json
 import os
 from PyQt5.QtGui import QFont
+import time
 
 class SettingsManager:
     def __init__(self):
         self.settings_file = os.path.join(os.path.expanduser("~"), ".editor_settings.json")
         self.settings = self.load_settings()
+        
+        # Create autosave directory
+        self.autosave_dir = os.path.join(os.path.expanduser("~"), ".ap_editor_autosave")
+        os.makedirs(self.autosave_dir, exist_ok=True)
+        
+        # Create running flag file
+        self.running_flag = os.path.join(self.autosave_dir, "editor_running")
+        # Set running flag
+        with open(self.running_flag, 'w') as f:
+            f.write(str(os.getpid()))
+
+        # Setup backup and recovery directories
+        self.backup_dir = os.path.join(os.path.expanduser("~"), ".ap_editor", "backups")
+        self.recovery_dir = os.path.join(os.path.expanduser("~"), ".ap_editor", "recovery")
+        os.makedirs(self.backup_dir, exist_ok=True)
+        os.makedirs(self.recovery_dir, exist_ok=True)
+        
+        # Create session file
+        self.session_file = os.path.join(self.recovery_dir, "session.json")
+        self.create_session_file()
+
+        # Create session state file
+        self.session_state_file = os.path.join(self.recovery_dir, "session_state.json")
+        
+        # Initialize with unclean state
+        self.initialize_session_state()
+
+        # Clean up old session files if last exit was clean
+        if os.path.exists(self.session_state_file):
+            try:
+                with open(self.session_state_file, 'r') as f:
+                    state = json.load(f)
+                    if state.get('clean_exit', False):
+                        self.cleanup_old_sessions()
+            except:
+                pass
 
     def load_settings(self):
         default_settings = {
@@ -73,4 +110,131 @@ class SettingsManager:
 
     def get_last_files(self):
         """Get list of last opened files"""
-        return self.settings.get("last_files", []) 
+        return self.settings.get("last_files", [])
+
+    def get_autosave_dir(self):
+        """Get the directory for autosave files"""
+        return self.autosave_dir
+
+    def cleanup_autosave_dir(self):
+        """Clean up old autosave files"""
+        if os.path.exists(self.autosave_dir):
+            try:
+                # Remove files older than 7 days
+                for filename in os.listdir(self.autosave_dir):
+                    filepath = os.path.join(self.autosave_dir, filename)
+                    if os.path.getmtime(filepath) < time.time() - 7 * 86400:
+                        os.remove(filepath)
+            except:
+                pass
+
+    def clear_running_flag(self):
+        """Clear the running flag on clean exit"""
+        try:
+            if os.path.exists(self.running_flag):
+                os.remove(self.running_flag)
+        except:
+            pass
+
+    def was_previous_crash(self):
+        """Check if previous session crashed"""
+        if os.path.exists(self.running_flag):
+            try:
+                with open(self.running_flag, 'r') as f:
+                    old_pid = int(f.read().strip())
+                # Check if the process is still running
+                try:
+                    os.kill(old_pid, 0)
+                    # If we get here, the process is still running
+                    return False
+                except OSError:
+                    # Process is not running, was a crash
+                    return True
+            except:
+                return True
+        return False
+
+    def create_session_file(self):
+        """Create a session file to track clean/dirty exits"""
+        session_data = {
+            'pid': os.getpid(),
+            'timestamp': time.time(),
+            'clean_exit': False
+        }
+        try:
+            with open(self.session_file, 'w') as f:
+                json.dump(session_data, f)
+        except Exception as e:
+            print(f"Failed to create session file: {str(e)}")
+
+    def mark_clean_exit(self):
+        """Mark that the editor exited cleanly"""
+        try:
+            if os.path.exists(self.session_file):
+                with open(self.session_file, 'r') as f:
+                    session_data = json.load(f)
+                session_data['clean_exit'] = True
+                with open(self.session_file, 'w') as f:
+                    json.dump(session_data, f)
+        except Exception as e:
+            print(f"Failed to mark clean exit: {str(e)}")
+
+    def needs_recovery(self):
+        """Check if we need to recover from a crash"""
+        try:
+            if os.path.exists(self.session_file):
+                with open(self.session_file, 'r') as f:
+                    session_data = json.load(f)
+                return not session_data.get('clean_exit', True)
+            return True  # If no session file, assume we need recovery
+        except Exception as e:
+            print(f"Error checking recovery status: {str(e)}")
+            return True  # If we can't read the session file, assume we need recovery
+
+    def get_backup_dir(self):
+        return self.backup_dir
+
+    def get_recovery_dir(self):
+        return self.recovery_dir
+
+    def initialize_session_state(self):
+        """Initialize or update session state"""
+        try:
+            state = {
+                'clean_exit': False,
+                'timestamp': time.time(),
+                'open_tabs': []
+            }
+            with open(self.session_state_file, 'w') as f:
+                json.dump(state, f)
+        except Exception as e:
+            print(f"Failed to initialize session state: {str(e)}")
+
+    def save_session_state(self, tab_ids, clean_exit=False):
+        """Save the list of currently open tab IDs"""
+        try:
+            state = {
+                'open_tabs': tab_ids,
+                'clean_exit': clean_exit,
+                'timestamp': time.time()
+            }
+            with open(self.session_state_file, 'w') as f:
+                json.dump(state, f)
+        except Exception as e:
+            print(f"Failed to save session state: {str(e)}")
+
+    def get_session_state(self):
+        """Get list of tab IDs that were open in last session"""
+        try:
+            if os.path.exists(self.session_state_file):
+                with open(self.session_state_file, 'r') as f:
+                    state = json.load(f)
+                    return state.get('open_tabs', [])
+        except Exception as e:
+            print(f"Failed to load session state: {str(e)}")
+        return []
+
+    def cleanup_old_sessions(self):
+        """Clean up session files from previous clean exits"""
+        # Don't clean up by default - let the session restore handle it
+        pass 

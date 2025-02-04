@@ -1,0 +1,14 @@
+# System dependencies:
+# macOS: 
+#   brew install hunspell
+#   brew install hunspell-en
+# Ubuntu/Debian: 
+#   sudo apt-get install hunspell hunspell-en-us hunspell-en-gb
+# Fedora: 
+#   sudo dnf install hunspell hunspell-en
+
+PyQt5==5.15.10
+PyQtWebEngine==5.15.6
+hunspell==0.5.5
+feedparser==6.0.11
+requests==2.31.0 
