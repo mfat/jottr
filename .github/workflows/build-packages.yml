@@ -44,4 +44,22 @@ jobs:
         with:
           name: packages
           path: |
-            packaging/debian/*.deb 
+            packaging/debian/*.deb
+
+  macos-universal:
+    needs: build-packages
+    runs-on: ubuntu-latest
+    steps:
+      - name: Create Universal Binary
+        uses: manojkarthick/macos-universal-binary-action@v0.1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          owner: ${{ github.repository_owner }}
+          repo: ${{ github.event.repository.name }}
+          tag: ${{ github.ref_name }}
+          amd64: "darwin-amd64"
+          arm64: "darwin-arm64"
+          compressed: "true"
+          overwrite: "true"
+          universal-identifier: "darwin-universal" 
