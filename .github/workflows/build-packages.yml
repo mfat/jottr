@@ -46,10 +46,53 @@ jobs:
           path: |
             packaging/debian/*.deb
 
+  build-macos:
+    runs-on: macos-latest
+    strategy:
+      matrix:
+        arch: [x86_64, arm64]
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+          
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install build pyinstaller
+          
+      - name: Build macOS binary
+        run: |
+          pyinstaller --name jottr \
+                     --onefile \
+                     --windowed \
+                     main.py
+          
+      - name: Upload binary
+        uses: actions/upload-artifact@v4
+        with:
+          name: jottr-darwin-${{ matrix.arch }}
+          path: dist/jottr
+
   macos-universal:
-    needs: build-packages
+    needs: [build-macos]
     runs-on: ubuntu-latest
     steps:
+      - name: Download AMD64 binary
+        uses: actions/download-artifact@v4
+        with:
+          name: jottr-darwin-x86_64
+          path: darwin-amd64
+          
+      - name: Download ARM64 binary
+        uses: actions/download-artifact@v4
+        with:
+          name: jottr-darwin-arm64
+          path: darwin-arm64
+          
       - name: Create Universal Binary
         uses: manojkarthick/macos-universal-binary-action@v0.1
         env:
@@ -58,8 +101,8 @@ jobs:
           owner: ${{ github.repository_owner }}
           repo: ${{ github.event.repository.name }}
           tag: ${{ github.ref_name }}
-          amd64: "darwin-amd64"
-          arm64: "darwin-arm64"
+          amd64: "darwin-amd64/jottr"
+          arm64: "darwin-arm64/jottr"
           compressed: "true"
           overwrite: "true"
           universal-identifier: "darwin-universal" 
