@@ -41,15 +41,11 @@ class TextEditorApp(QMainWindow):
         # Setup toolbar contents
         self.setup_toolbar()
         
-        # Create status bar
+        # Create status bar (simplified)
         self.statusBar = self.statusBar()
-        self.word_count_label = QLabel("Words: 0")
-        self.char_count_label = QLabel("Characters: 0")
-        self.cursor_pos_label = QLabel("Line: 1, Column: 1")
         
-        self.statusBar.addPermanentWidget(self.cursor_pos_label)
-        self.statusBar.addPermanentWidget(self.char_count_label)
-        self.statusBar.addPermanentWidget(self.word_count_label)
+        # Set initial status message
+        self.statusBar.showMessage("Words: 0 | Characters: 0")
         
         # Create main widget and layout
         main_widget = QWidget()
