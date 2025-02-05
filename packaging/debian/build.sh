@@ -5,15 +5,50 @@ PACKAGE_NAME="jottr"
 PACKAGE_VERSION="${VERSION:-1.0.0}"
 
 # Create package structure
-mkdir -p ${PACKAGE_NAME}_${PACKAGE_VERSION}/usr/bin
-mkdir -p ${PACKAGE_NAME}_${PACKAGE_VERSION}/usr/share/applications
-mkdir -p ${PACKAGE_NAME}_${PACKAGE_VERSION}/usr/share/icons/hicolor/256x256/apps
+mkdir -p ${PACKAGE_NAME}-${PACKAGE_VERSION}
+cp -r ../../setup.py ../../jottr ${PACKAGE_NAME}-${PACKAGE_VERSION}/
 
-# Copy executable
-cp ../../dist/jottr ${PACKAGE_NAME}_${PACKAGE_VERSION}/usr/bin/
+# Create debian directory
+mkdir -p ${PACKAGE_NAME}-${PACKAGE_VERSION}/debian
+
+# Create control file
+cat > ${PACKAGE_NAME}-${PACKAGE_VERSION}/debian/control << EOF
+Source: jottr
+Section: editors
+Priority: optional
+Maintainer: Your Name <your.email@example.com>
+Build-Depends: debhelper-compat (= 13), dh-python, python3-all, python3-setuptools
+
+Package: python3-jottr
+Architecture: all
+Depends: \${python3:Depends}, \${misc:Depends}, python3-pyqt5, python3-pyqt5.qtwebengine
+Description: Modern text editor for writers and journalists
+ Jottr is a feature-rich text editor designed specifically
+ for writers and journalists, with features like smart
+ completion, snippets, and integrated web browsing.
+EOF
+
+# Create rules file
+cat > ${PACKAGE_NAME}-${PACKAGE_VERSION}/debian/rules << EOF
+#!/usr/bin/make -f
+
+%:
+	dh \$@ --with python3 --buildsystem=pybuild
+EOF
+chmod +x ${PACKAGE_NAME}-${PACKAGE_VERSION}/debian/rules
+
+# Create changelog
+cat > ${PACKAGE_NAME}-${PACKAGE_VERSION}/debian/changelog << EOF
+jottr (${PACKAGE_VERSION}) unstable; urgency=medium
+
+  * Initial release.
+
+ -- Your Name <your.email@example.com>  $(date -R)
+EOF
 
 # Create desktop entry
-cat > ${PACKAGE_NAME}_${PACKAGE_VERSION}/usr/share/applications/jottr.desktop << EOF
+mkdir -p ${PACKAGE_NAME}-${PACKAGE_VERSION}/debian/jottr.desktop
+cat > ${PACKAGE_NAME}-${PACKAGE_VERSION}/debian/jottr.desktop << EOF
 [Desktop Entry]
 Name=Jottr
 Comment=Modern text editor for writers
@@ -24,21 +59,7 @@ Type=Application
 Categories=Office;TextEditor;
 EOF
 
-# Create control file
-mkdir -p ${PACKAGE_NAME}_${PACKAGE_VERSION}/DEBIAN
-cat > ${PACKAGE_NAME}_${PACKAGE_VERSION}/DEBIAN/control << EOF
-Package: jottr
-Version: ${PACKAGE_VERSION}
-Section: editors
-Priority: optional
-Architecture: amd64
-Depends: libc6
-Maintainer: Your Name <your.email@example.com>
-Description: Modern text editor for writers and journalists
- Jottr is a feature-rich text editor designed specifically
- for writers and journalists, with features like smart
- completion, snippets, and integrated web browsing.
-EOF
-
 # Build package
-dpkg-deb --build ${PACKAGE_NAME}_${PACKAGE_VERSION} 
+cd ${PACKAGE_NAME}-${PACKAGE_VERSION}
+dpkg-buildpackage -us -uc
+cd .. 

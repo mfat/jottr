@@ -20,18 +20,9 @@ jobs:
       - name: Install dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y rpm build-essential debhelper devscripts
+          sudo apt-get install -y rpm build-essential debhelper devscripts python3-setuptools python3-all dh-python
           python -m pip install --upgrade pip
-          pip install PyInstaller
-          pip install -r requirements.txt
-          
-      - name: Create executable
-        run: |
-          pyinstaller --name jottr \
-                     --onefile \
-                     --windowed \
-                     --add-data "help:help" \
-                     main.py
+          pip install build
 
       - name: Build DEB package
         run: |
