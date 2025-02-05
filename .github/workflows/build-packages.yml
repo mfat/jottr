@@ -20,9 +20,7 @@ jobs:
       - name: Install dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y rpm build-essential debhelper devscripts python3-setuptools python3-all dh-python
-          # Install RPM build dependencies
-          sudo apt-get install -y rpm python3-dev python3-setuptools
+          sudo apt-get install -y build-essential debhelper devscripts python3-setuptools python3-all dh-python
           python -m pip install --upgrade pip
           pip install build
 
@@ -32,7 +30,6 @@ jobs:
           
       - name: Build DEB package
         run: |
-          # If this is a tag, use it as version, otherwise use 0.0.0
           if [[ "${{ github.ref_type }}" == "tag" ]]; then
             VERSION=$(echo "${{ github.ref_name }}" | sed 's/^v//')
           else
@@ -42,22 +39,9 @@ jobs:
           ./build.sh "$VERSION"
           cd ../..
           
-      - name: Build RPM package
-        run: |
-          # If this is a tag, use it as version, otherwise use 0.0.0
-          if [[ "${{ github.ref_type }}" == "tag" ]]; then
-            VERSION=$(echo "${{ github.ref_name }}" | sed 's/^v//')
-          else
-            VERSION="0.0.0"
-          fi
-          cd packaging/rpm
-          ./build.sh "$VERSION"
-          cd ../..
-          
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
           name: packages
           path: |
-            packaging/debian/*.deb
-            packaging/rpm/RPMS/x86_64/*.rpm 
+            packaging/debian/*.deb 
