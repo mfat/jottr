@@ -52,32 +52,46 @@ jobs:
           package_root: .debpkg
           maintainer: 'mFat <newmfat@gmail.com>'
           version: ${{ github.ref_type == 'tag' && github.ref_name || '0.0.0' }}
-          arch: 'amd64'
-          depends: 'python3, python3-qt6'
+          arch: 'any'
+          depends: 'python3, python3-pyqt5, python3-pyqt5.qtwebengine, python3-spellchecker'
           homepage: 'https://github.com/mfat/jottr'
-          section: 'editors'
+          section: 'utils'
+          priority: 'optional'
           desc: |
-            Modern text editor for journalists and writers
-            A distraction-free writing environment with features tailored for
-            content creation and journalism work.
+            A modern text editor designed for writers and journalists.
+            A detailed description of your application goes here.
           compress_type: 'xz'
           
       - name: Create RPM package structure
         run: |
           mkdir -p .rpmpkg/usr/bin
-          # Copy the built files to RPM structure
-          # TODO: Add proper file copying based on your application structure
+          mkdir -p .rpmpkg/usr/lib/jottr
+          mkdir -p .rpmpkg/usr/share/applications
+          mkdir -p .rpmpkg/usr/share/icons/hicolor/scalable/apps
+          
+          # Copy application files
+          cp -r dist/* .rpmpkg/usr/lib/jottr/
+          cp -r icons .rpmpkg/usr/lib/jottr/
+          
+          # Create launcher script
+          echo '#!/bin/sh
+          exec python3 /usr/lib/jottr/main.py "$@"' > .rpmpkg/usr/bin/jottr
+          chmod +x .rpmpkg/usr/bin/jottr
+          
+          # Copy desktop file and icons
+          cp icons/jottr.png .rpmpkg/usr/share/icons/hicolor/scalable/apps/
 
       - name: Build RPM package
         uses: jiro4989/build-rpm-action@v2
         with:
-          summary: 'Modern text editor for journalists and writers'
+          summary: 'A modern text editor designed for writers and journalists'
           package: jottr
           package_root: .rpmpkg
           maintainer: 'mFat <newmfat@gmail.com>'
           version: ${{ github.ref_type == 'tag' && github.ref_name || '0.0.0' }}
           arch: 'x86_64'
-          desc: 'Modern text editor for journalists and writers'
+          desc: 'A modern text editor designed for writers and journalists.'
+          depends: 'python3 python3-qt5 python3-qt5-webengine python3-spellchecker'
           
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
