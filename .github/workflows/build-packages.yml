@@ -35,14 +35,24 @@ jobs:
 
       - name: Build DEB package
         run: |
-          VERSION=$(echo "${{ github.ref_name }}" | sed 's/^v//')
+          # If this is a tag, use it as version, otherwise use 0.0.0
+          if [[ "${{ github.ref_type }}" == "tag" ]]; then
+            VERSION=$(echo "${{ github.ref_name }}" | sed 's/^v//')
+          else
+            VERSION="0.0.0"
+          fi
           cd packaging/debian
           ./build.sh "$VERSION"
           cd ../..
           
       - name: Build RPM package
         run: |
-          VERSION=$(echo "${{ github.ref_name }}" | sed 's/^v//')
+          # If this is a tag, use it as version, otherwise use 0.0.0
+          if [[ "${{ github.ref_type }}" == "tag" ]]; then
+            VERSION=$(echo "${{ github.ref_name }}" | sed 's/^v//')
+          else
+            VERSION="0.0.0"
+          fi
           cd packaging/rpm
           ./build.sh "$VERSION"
           cd ../..
