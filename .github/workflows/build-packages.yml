@@ -24,29 +24,34 @@ jobs:
           python -m pip install --upgrade pip
           pip install build
 
-      - name: Build source distribution
-        run: |
-          python -m build --sdist
-          
-      - name: Build DEB package
+      - name: Set version
+        id: version
         run: |
           if [[ "${{ github.ref_type }}" == "tag" ]]; then
             VERSION=$(echo "${{ github.ref_name }}" | sed 's/^v//')
           else
             VERSION="0.0.0"
           fi
+          echo "VERSION=$VERSION" >> $GITHUB_ENV
+
+      - name: Update setup.py version
+        run: |
+          sed -i "s/version=\"0.0.0\"/version=\"${{ env.VERSION }}\"/" setup.py
+
+      - name: Build source distribution
+        run: |
+          python -m build --sdist
+          
+      - name: Build DEB package
+        run: |
           cd packaging/debian
-          ./build.sh "$VERSION"
+          ./build.sh "${{ env.VERSION }}"
           cd ../..
 
       - name: Prepare RPM sources
         run: |
-          VERSION="0.0.0"
-          if [[ "${{ github.ref_type }}" == "tag" ]]; then
-            VERSION=$(echo "${{ github.ref_name }}" | sed 's/^v//')
-          fi
           mkdir -p $HOME/rpmbuild/{SPECS,SOURCES}
-          cp dist/jottr-${VERSION}.tar.gz $HOME/rpmbuild/SOURCES/python3-jottr-${VERSION}.tar.gz
+          cp dist/jottr-${{ env.VERSION }}.tar.gz $HOME/rpmbuild/SOURCES/python3-jottr-${{ env.VERSION }}.tar.gz
           cp packaging/rpm/jottr.spec $HOME/rpmbuild/SPECS/
 
       - name: Build RPM package
