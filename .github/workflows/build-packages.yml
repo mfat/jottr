@@ -53,12 +53,13 @@ jobs:
           mkdir -p $HOME/rpmbuild/{SPECS,SOURCES}
           cp dist/jottr-${{ env.VERSION }}.tar.gz $HOME/rpmbuild/SOURCES/python3-jottr-${{ env.VERSION }}.tar.gz
           cp packaging/rpm/jottr.spec $HOME/rpmbuild/SPECS/
+          echo "SPEC_FILE=$HOME/rpmbuild/SPECS/jottr.spec" >> $GITHUB_ENV
 
       - name: Build RPM package
         id: rpm
         uses: naveenrajm7/rpmbuild@master
         with:
-          spec_file: "$HOME/rpmbuild/SPECS/jottr.spec"
+          spec_file: "${{ env.SPEC_FILE }}"
           
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
