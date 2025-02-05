@@ -45,9 +45,9 @@ jobs:
           if [[ "${{ github.ref_type }}" == "tag" ]]; then
             VERSION=$(echo "${{ github.ref_name }}" | sed 's/^v//')
           fi
-          mkdir -p /github/home/rpmbuild/{SPECS,SOURCES}
-          cp dist/jottr-${VERSION}.tar.gz /github/home/rpmbuild/SOURCES/python3-jottr-${VERSION}.tar.gz
-          cp packaging/rpm/jottr.spec /github/home/rpmbuild/SPECS/
+          mkdir -p $HOME/rpmbuild/{SPECS,SOURCES}
+          cp dist/jottr-${VERSION}.tar.gz $HOME/rpmbuild/SOURCES/python3-jottr-${VERSION}.tar.gz
+          cp packaging/rpm/jottr.spec $HOME/rpmbuild/SPECS/
 
       - name: Build RPM package
         id: rpm
