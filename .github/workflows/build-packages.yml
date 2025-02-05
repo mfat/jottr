@@ -21,9 +21,15 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y rpm build-essential debhelper devscripts python3-setuptools python3-all dh-python
+          # Install RPM build dependencies
+          sudo apt-get install -y rpm python3-dev python3-setuptools
           python -m pip install --upgrade pip
           pip install build
 
+      - name: Build source distribution
+        run: |
+          python -m build --sdist
+          
       - name: Build DEB package
         run: |
           # If this is a tag, use it as version, otherwise use 0.0.0
