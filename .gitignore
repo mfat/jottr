@@ -1,0 +1,13 @@
+# Build directories
+dist/
+build/
+__pycache__/
+*.pyc
+
+# Package build artifacts
+packaging/debian/jottr_*/
+packaging/rpm/BUILD/
+packaging/rpm/BUILDROOT/
+packaging/rpm/RPMS/
+packaging/rpm/SOURCES/
+packaging/rpm/SRPMS/ 

@@ -1,0 +1,56 @@
+name: Build Packages
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+jobs:
+  build-packages:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+          
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y rpm build-essential debhelper devscripts
+          python -m pip install --upgrade pip
+          pip install PyInstaller
+          pip install -r requirements.txt
+          
+      - name: Create executable
+        run: |
+          pyinstaller --name jottr \
+                     --onefile \
+                     --windowed \
+                     --add-data "help:help" \
+                     main.py
+
+      - name: Build DEB package
+        run: |
+          VERSION=$(echo "${{ github.ref_name }}" | sed 's/^v//')
+          cd packaging/debian
+          ./build.sh "$VERSION"
+          cd ../..
+          
+      - name: Build RPM package
+        run: |
+          VERSION=$(echo "${{ github.ref_name }}" | sed 's/^v//')
+          cd packaging/rpm
+          ./build.sh "$VERSION"
+          cd ../..
+          
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: packages
+          path: |
+            packaging/debian/*.deb
+            packaging/rpm/RPMS/x86_64/*.rpm 
