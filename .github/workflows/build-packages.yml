@@ -38,6 +38,12 @@ jobs:
           cd packaging/debian
           ./build.sh "$VERSION"
           cd ../..
+
+      - name: Build RPM package
+        id: rpm
+        uses: naveenrajm7/rpmbuild@master
+        with:
+          spec_file: "packaging/rpm/jottr.spec"
           
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
@@ -45,6 +51,7 @@ jobs:
           name: packages
           path: |
             packaging/debian/*.deb
+            ${{ steps.rpm.outputs.rpm_dir_path }}/*.rpm
 
   build-macos:
     runs-on: macos-latest
