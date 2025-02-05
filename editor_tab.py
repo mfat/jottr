@@ -321,6 +321,9 @@ class EditorTab(QWidget):
         self.editor.customContextMenuRequested.connect(self.show_context_menu)
         self.update_font(self.current_font)
         
+        # Connect text changed signal to update status
+        self.editor.textChanged.connect(self.update_status)
+        
         # Create spell checker
         self.highlighter = SpellCheckHighlighter(self.editor.document(), self.settings_manager)
         
@@ -890,27 +893,17 @@ class EditorTab(QWidget):
 
     def update_status(self):
         """Update word and character count"""
-        text = self.editor.toPlainText()
-        
-        # Update word count
-        words = len(text.split()) if text else 0
-        chars = len(text)
-        
-        # Update status bar if main window exists
-        if self.main_window:
-            self.main_window.word_count_label.setText(f"Words: {words}")
-            self.main_window.char_count_label.setText(f"Characters: {chars}")
-
-    def update_cursor_position(self):
-        """Update cursor position in status bar"""
-        if not self.main_window:
+        if not hasattr(self, 'main_window') or not self.main_window:
             return
         
-        cursor = self.editor.textCursor()
-        line = cursor.blockNumber() + 1
-        column = cursor.positionInBlock() + 1
+        text = self.editor.toPlainText()
         
-        self.main_window.cursor_pos_label.setText(f"Line: {line}, Column: {column}")
+        # Update word count (split by whitespace and filter empty strings)
+        words = len([word for word in text.split() if word.strip()])
+        chars = len(text)
+        
+        # Update status bar
+        self.main_window.statusBar.showMessage(f"Words: {words} | Characters: {chars}")
 
     def enable_focus_mode(self):
         """Enable focus mode"""
