@@ -1,7 +1,7 @@
 #!/bin/bash
 
 VERSION=$1
-PACKAGE_NAME="jottr"
+PACKAGE_NAME="python3-jottr"
 PACKAGE_VERSION="${VERSION:-1.0.0}"
 
 # Create package structure
