@@ -4,7 +4,7 @@ from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QSplitter,
 from PyQt5.QtCore import Qt, QUrl, QTimer, QStringListModel, QRegExp
 from PyQt5.QtWebEngineWidgets import QWebEngineView, QWebEnginePage
 from PyQt5.QtGui import QTextCharFormat, QSyntaxHighlighter, QIcon, QFont, QKeySequence, QPainter, QPen, QColor, QFontMetrics
-from hunspell import Hunspell  # Use hunspell package instead of cyhunspell
+from spellchecker import SpellChecker
 from urllib.parse import quote
 from snippet_editor_dialog import SnippetEditorDialog
 import os
@@ -19,9 +19,8 @@ class SpellCheckHighlighter(QSyntaxHighlighter):
         super().__init__(parent)
         self.settings_manager = settings_manager
         try:
-            # Initialize Hunspell with both US and GB dictionaries
-            self.dict = Hunspell('en_US')
-            self.gb_dict = Hunspell('en_GB')
+            # Initialize SpellChecker with English dictionary
+            self.spell = SpellChecker(language='en')
             self.spell_check_enabled = True
             print("Spell checking enabled")
             
@@ -59,9 +58,9 @@ class SpellCheckHighlighter(QSyntaxHighlighter):
             if self.is_latin_word(word):
                 # Check if word is in user dictionary first
                 if word not in user_dict:
-                    # If not in user dictionary, check against Hunspell dictionaries
+                    # If not in user dictionary, check against SpellChecker
                     try:
-                        if not self.dict.spell(word) and not self.gb_dict.spell(word):
+                        if not word.lower() in self.spell:
                             self.setFormat(index, length, format)
                     except UnicodeEncodeError:
                         pass  # Skip words that can't be encoded
@@ -80,16 +79,33 @@ class SpellCheckHighlighter(QSyntaxHighlighter):
             if dict_word.lower().startswith(word.lower()):
                 suggestions.append(dict_word)
         
-        # Only get Hunspell suggestions for Latin words
+        # Only get SpellChecker suggestions for Latin words
         if self.is_latin_word(word):
             try:
-                suggestions.extend(self.dict.suggest(word))
-                suggestions.extend(self.gb_dict.suggest(word))
+                # Get suggestions from pyspellchecker
+                spell_suggestions = self.spell.candidates(word)
+                if spell_suggestions:  # Check if suggestions exist
+                    # Convert to set if it's not already one
+                    if not isinstance(spell_suggestions, set):
+                        spell_suggestions = set(spell_suggestions)
+                    # Remove the word itself from suggestions
+                    spell_suggestions.discard(word.lower())
+                    # Add remaining suggestions
+                    suggestions.extend(spell_suggestions)
             except UnicodeEncodeError:
                 pass
         
         # Remove duplicates while preserving order
         return list(dict.fromkeys(suggestions))
+
+    def add_to_dictionary(self, word):
+        """Add word to user dictionary"""
+        user_dict = self.settings_manager.get_setting('user_dictionary', [])
+        if word not in user_dict:
+            user_dict.append(word)
+            self.settings_manager.save_setting('user_dictionary', user_dict)
+            # Refresh spell checking
+            self.rehighlight()
 
 class CustomTextEdit(QTextEdit):
     def __init__(self, parent=None):
@@ -155,6 +171,7 @@ class CompletingTextEdit(QTextEdit):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.completion_text = ""
+        self.parent_tab = parent
         
     def insertFromMimeData(self, source):
         """Override paste to always use plain text"""
@@ -181,6 +198,67 @@ class CompletingTextEdit(QTextEdit):
             
             # Draw the completion text
             painter.drawText(x, y, self.completion_text)
+
+    def keyPressEvent(self, event):
+        # Handle tab/enter to accept completion
+        if self.completion_text and event.key() in (Qt.Key_Tab, Qt.Key_Return):
+            cursor = self.textCursor()
+            cursor.insertText(self.completion_text)
+            self.completion_text = ""
+            self.viewport().update()
+            event.accept()
+            return
+            
+        # Clear completion on escape
+        elif event.key() == Qt.Key_Escape:
+            self.completion_text = ""
+            self.viewport().update()
+            event.accept()
+            return
+            
+        super().keyPressEvent(event)
+        
+        # Check for completion after key press
+        if event.text().isalnum():
+            QTimer.singleShot(0, self.check_for_completion)
+
+    def check_for_completion(self):
+        """Check current word against user dictionary for completion"""
+        if not self.parent_tab:
+            return
+            
+        cursor = self.textCursor()
+        block = cursor.block()
+        text = block.text()
+        pos = cursor.positionInBlock()
+        
+        # Find start of current word
+        start = pos
+        while start > 0 and (text[start-1].isalnum() or text[start-1] == '_'):
+            start -= 1
+        
+        current_word = text[start:pos]
+        if len(current_word) >= 2:  # Only suggest after 2 characters
+            # Get user dictionary
+            user_dict = self.parent_tab.settings_manager.get_setting('user_dictionary', [])
+            
+            # Find matching words
+            matches = []
+            for word in user_dict:
+                if word.lower().startswith(current_word.lower()) and word.lower() != current_word.lower():
+                    matches.append(word)
+                    break  # Only get first match for speed
+            
+            if matches:
+                # Get the completion part
+                completion = matches[0][len(current_word):]
+                if completion:
+                    self.completion_text = completion
+                    self.viewport().update()
+                    return
+                    
+        self.completion_text = ""
+        self.viewport().update()
 
 class EditorTab(QWidget):
     def __init__(self, snippet_manager, settings_manager):
@@ -238,7 +316,7 @@ class EditorTab(QWidget):
         self.splitter = QSplitter(Qt.Horizontal)
         
         # Create text editor with default font
-        self.editor = CompletingTextEdit()
+        self.editor = CompletingTextEdit(self)  # Pass self as parent
         self.editor.setContextMenuPolicy(Qt.CustomContextMenu)
         self.editor.customContextMenuRequested.connect(self.show_context_menu)
         self.update_font(self.current_font)
@@ -530,10 +608,15 @@ class EditorTab(QWidget):
             
     def show_context_menu(self, pos):
         """Show context menu"""
-        # Get cursor at click position and select word under it
-        cursor = self.editor.cursorForPosition(pos)
-        cursor.select(cursor.WordUnderCursor)
-        self.editor.setTextCursor(cursor)
+        # Get current selection
+        cursor = self.editor.textCursor()
+        had_selection = cursor.hasSelection()
+        
+        if not had_selection:
+            # Only select word under cursor if there was no existing selection
+            cursor = self.editor.cursorForPosition(pos)
+            cursor.select(cursor.WordUnderCursor)
+            self.editor.setTextCursor(cursor)
         
         menu = QMenu(self)
         
@@ -576,26 +659,24 @@ class EditorTab(QWidget):
                 self.search_in_browser(url))
             
             menu.addSeparator()
-        
-        # Add spell check suggestions if word is misspelled
-        if self.highlighter.spell_check_enabled:
-            word = selected_text  # Use the selected word
-            if word:
-                # Get suggestions including user dictionary matches
-                self.current_suggestions = self.highlighter.suggest(word)[:5]
-                if self.current_suggestions:
-                    menu.addAction("Suggestions:").setEnabled(False)
-                    self.suggestion_index = 0  # Reset suggestion index
-                    for i, suggestion in enumerate(self.current_suggestions):
-                        action = menu.addAction(suggestion)
-                        action.triggered.connect(lambda checked, word=suggestion: self.apply_suggestion(word))
-                    menu.addSeparator()
-                    
+            
+            # Only show spell check options for single words
+            if not ' ' in selected_text:
+                # Add spell check suggestions if word is misspelled
+                if self.highlighter.spell_check_enabled:
+                    suggestions = self.highlighter.suggest(selected_text)[:5]  # Limit to 5 suggestions
+                    if suggestions:
+                        menu.addAction("Spelling Suggestions:").setEnabled(False)
+                        for suggestion in suggestions:
+                            action = menu.addAction(suggestion)
+                            action.triggered.connect(lambda checked, word=suggestion: 
+                                self.replace_word(word))
+                        menu.addSeparator()
                 
                 # Add to dictionary option if not already in it
-                if word not in self.settings_manager.get_setting('user_dictionary', []):
+                if selected_text not in self.settings_manager.get_setting('user_dictionary', []):
                     add_action = menu.addAction("Add to Dictionary")
-                    add_action.triggered.connect(lambda: self.add_to_dictionary(word))
+                    add_action.triggered.connect(lambda: self.add_to_dictionary(selected_text))
                     menu.addSeparator()
         
         # Show menu
