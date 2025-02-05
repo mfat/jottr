@@ -77,9 +77,31 @@ jobs:
           name: jottr-darwin-${{ matrix.arch }}
           path: dist/jottr
 
-  macos-universal:
-    needs: [build-macos]
+  create-release:
+    needs: [build-macos, build-packages]
     runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/')
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        
+      - name: Create Release
+        id: create_release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: |
+            packages/*
+            jottr-darwin-x86_64/*
+            jottr-darwin-arm64/*
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  macos-universal:
+    needs: [create-release]
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/')
     steps:
       - name: Download AMD64 binary
         uses: actions/download-artifact@v4
