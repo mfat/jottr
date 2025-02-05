@@ -58,7 +58,7 @@ jobs:
         id: rpm
         uses: naveenrajm7/rpmbuild@master
         with:
-          spec_file: "jottr.spec"
+          spec_file: "packaging/rpm/jottr.spec"
           
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
