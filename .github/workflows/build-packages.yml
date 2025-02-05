@@ -43,7 +43,7 @@ jobs:
           chmod +x .debpkg/usr/bin/jottr
           
           # Copy desktop file and icons
-          cp icons/jottr.svg .debpkg/usr/share/icons/hicolor/scalable/apps/
+          cp icons/jottr.png .debpkg/usr/share/icons/hicolor/scalable/apps/
           
       - name: Build DEB package
         uses: jiro4989/build-deb-action@v4
