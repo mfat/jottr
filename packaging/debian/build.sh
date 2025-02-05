@@ -16,7 +16,7 @@ cat > ${PACKAGE_NAME}-${PACKAGE_VERSION}/debian/control << EOF
 Source: jottr
 Section: editors
 Priority: optional
-Maintainer: Your Name <your.email@example.com>
+Maintainer: mFat <newmfat@gmail.com>
 Build-Depends: debhelper-compat (= 13), dh-python, python3-all, python3-setuptools
 
 Package: python3-jottr
@@ -43,7 +43,7 @@ jottr (${PACKAGE_VERSION}) unstable; urgency=medium
 
   * Initial release.
 
- -- Your Name <your.email@example.com>  $(date -R)
+ -- mFat <newmfat@gmail.com>  $(date -R)
 EOF
 
 # Create desktop entry
@@ -51,7 +51,7 @@ mkdir -p ${PACKAGE_NAME}-${PACKAGE_VERSION}/debian/jottr.desktop
 cat > ${PACKAGE_NAME}-${PACKAGE_VERSION}/debian/jottr.desktop << EOF
 [Desktop Entry]
 Name=Jottr
-Comment=Modern text editor for writers
+Comment=Modern text editor for journalists and writers
 Exec=jottr
 Icon=jottr
 Terminal=false

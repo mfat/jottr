@@ -39,12 +39,30 @@ jobs:
           ./build.sh "$VERSION"
           cd ../..
           
+      - name: Create RPM package structure
+        run: |
+          mkdir -p .rpmpkg/usr/bin
+          # Copy the built files to RPM structure
+          # TODO: Add proper file copying based on your application structure
+
+      - name: Build RPM package
+        uses: jiro4989/build-rpm-action@v2
+        with:
+          summary: 'Modern text editor for journalists and writers'
+          package: jottr
+          package_root: .rpmpkg
+          maintainer: 'mFat <newmfat@gmail.com>'
+          version: ${{ github.ref_type == 'tag' && github.ref_name || '0.0.0' }}
+          arch: 'x86_64'
+          desc: 'Modern text editor for journalists and writers'
+          
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
           name: packages
           path: |
             packaging/debian/*.deb
+            *.rpm
 
   create-release:
     needs: [build-packages]
@@ -63,64 +81,4 @@ jobs:
           draft: false
           prerelease: false
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-  macos-universal:
-    needs: [create-release]
-    runs-on: ubuntu-latest
-    if: startsWith(github.ref, 'refs/tags/')
-    steps:
-      - name: Download AMD64 binary
-        uses: actions/download-artifact@v4
-        with:
-          name: jottr-darwin-x86_64
-          path: darwin-amd64
-          
-      - name: Download ARM64 binary
-        uses: actions/download-artifact@v4
-        with:
-          name: jottr-darwin-arm64
-          path: darwin-arm64
-          
-      - name: Create Universal Binary
-        uses: manojkarthick/macos-universal-binary-action@v0.1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          owner: ${{ github.repository_owner }}
-          repository: ${{ github.event.repository.name }}
-          tag: ${{ github.ref_name }}
-          amd64: "darwin-amd64/jottr"
-          arm64: "darwin-arm64/jottr"
-          compressed: true
-          overwrite: true
-          universal-identifier: "darwin-universal"
-
-  build-rpm:
-    runs-on: ubuntu-latest
-    needs: [build-packages]
-    steps:
-      - uses: actions/checkout@v3
-      
-      - name: Create RPM package structure
-        run: |
-          mkdir -p .rpmpkg/usr/bin
-          # Add your files to the .rpmpkg directory
-          # Example: echo -e "echo hello" > .rpmpkg/usr/bin/your-binary
-          # chmod +x .rpmpkg/usr/bin/your-binary
-
-      - uses: jiro4989/build-rpm-action@v2
-        with:
-          summary: 'Modern text editor for journalists and writers'
-          package: jottr
-          package_root: .rpmpkg
-          maintainer: 'mFat <newmfat@gmail.com>'
-          version: '1.0.0' # or use ${{ github.ref_name }} for tag-based versioning
-          arch: 'x86_64'
-          desc: 'Modern text editor for journalists and writers'
-
-      - name: Upload RPM artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: rpm-packages
-          path: '*.rpm' 
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} 
