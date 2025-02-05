@@ -99,10 +99,10 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           owner: ${{ github.repository_owner }}
-          repo: ${{ github.event.repository.name }}
+          repository: ${{ github.event.repository.name }}
           tag: ${{ github.ref_name }}
           amd64: "darwin-amd64/jottr"
           arm64: "darwin-arm64/jottr"
-          compressed: "true"
-          overwrite: "true"
+          compressed: true
+          overwrite: true
           universal-identifier: "darwin-universal" 
