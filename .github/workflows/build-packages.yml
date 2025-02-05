@@ -19,8 +19,6 @@ jobs:
           
       - name: Install dependencies
         run: |
-          sudo apt-get update
-          sudo apt-get install -y build-essential debhelper devscripts python3-setuptools python3-all dh-python
           python -m pip install --upgrade pip
           pip install build
 
@@ -28,16 +26,41 @@ jobs:
         run: |
           python -m build --sdist
           
-      - name: Build DEB package
+      - name: Create DEB package structure
         run: |
-          if [[ "${{ github.ref_type }}" == "tag" ]]; then
-            VERSION=$(echo "${{ github.ref_name }}" | sed 's/^v//')
-          else
-            VERSION="0.0.0"
-          fi
-          cd packaging/debian
-          ./build.sh "$VERSION"
-          cd ../..
+          mkdir -p .debpkg/usr/lib/jottr
+          mkdir -p .debpkg/usr/bin
+          mkdir -p .debpkg/usr/share/applications
+          mkdir -p .debpkg/usr/share/icons/hicolor/scalable/apps
+          
+          # Copy application files
+          cp -r dist/* .debpkg/usr/lib/jottr/
+          cp -r icons .debpkg/usr/lib/jottr/
+          
+          # Create launcher script
+          echo '#!/bin/sh
+          exec python3 /usr/lib/jottr/main.py "$@"' > .debpkg/usr/bin/jottr
+          chmod +x .debpkg/usr/bin/jottr
+          
+          # Copy desktop file and icons
+          cp icons/jottr.svg .debpkg/usr/share/icons/hicolor/scalable/apps/
+          
+      - name: Build DEB package
+        uses: jiro4989/build-deb-action@v4
+        with:
+          package: jottr
+          package_root: .debpkg
+          maintainer: 'mFat <newmfat@gmail.com>'
+          version: ${{ github.ref_type == 'tag' && github.ref_name || '0.0.0' }}
+          arch: 'amd64'
+          depends: 'python3, python3-qt6'
+          homepage: 'https://github.com/mfat/jottr'
+          section: 'editors'
+          desc: |
+            Modern text editor for journalists and writers
+            A distraction-free writing environment with features tailored for
+            content creation and journalism work.
+          compress_type: 'xz'
           
       - name: Create RPM package structure
         run: |
@@ -61,7 +84,7 @@ jobs:
         with:
           name: packages
           path: |
-            packaging/debian/*.deb
+            *.deb
             *.rpm
 
   create-release:
