@@ -102,31 +102,25 @@ jobs:
     steps:
       - uses: actions/checkout@v3
       
-      - name: Set up Python
-        uses: actions/setup-python@v4
+      - name: Create RPM package structure
+        run: |
+          mkdir -p .rpmpkg/usr/bin
+          # Add your files to the .rpmpkg directory
+          # Example: echo -e "echo hello" > .rpmpkg/usr/bin/your-binary
+          # chmod +x .rpmpkg/usr/bin/your-binary
+
+      - uses: jiro4989/build-rpm-action@v2
         with:
-          python-version: '3.10'
-          
-      - name: Install RPM build dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y rpm rpm-build python3-setuptools python3-all
-          python -m pip install --upgrade pip
-          pip install build
-
-      - name: Build source distribution
-        run: |
-          python -m build --sdist
-
-      - name: Build RPM package
-        run: |
-          VERSION=$(python setup.py --version)
-          mkdir -p ~/rpmbuild/SOURCES
-          cp dist/*.tar.gz ~/rpmbuild/SOURCES/
-          rpmbuild -ba packaging/rpm/jottr.spec --define "version $VERSION"
+          summary: 'Modern text editor for journalists and writers'
+          package: jottr
+          package_root: .rpmpkg
+          maintainer: 'mFat <newmfat@gmail.com>'
+          version: '1.0.0' # or use ${{ github.ref_name }} for tag-based versioning
+          arch: 'x86_64'
+          desc: 'Modern text editor for journalists and writers'
 
       - name: Upload RPM artifacts
         uses: actions/upload-artifact@v4
         with:
           name: rpm-packages
-          path: ~/rpmbuild/RPMS/**/*.rpm 
+          path: '*.rpm' 
