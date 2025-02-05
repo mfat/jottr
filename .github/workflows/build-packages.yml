@@ -50,15 +50,16 @@ jobs:
 
       - name: Prepare RPM sources
         run: |
-          mkdir -p $HOME/rpmbuild/{SPECS,SOURCES}
-          cp dist/jottr-${{ env.VERSION }}.tar.gz $HOME/rpmbuild/SOURCES/python3-jottr-${{ env.VERSION }}.tar.gz
-          cp packaging/rpm/jottr.spec $HOME/rpmbuild/SPECS/
+          sudo mkdir -p /github/home/rpmbuild/{SPECS,SOURCES}
+          sudo cp dist/jottr-${{ env.VERSION }}.tar.gz /github/home/rpmbuild/SOURCES/python3-jottr-${{ env.VERSION }}.tar.gz
+          sudo cp packaging/rpm/jottr.spec /github/home/rpmbuild/SPECS/jottr.spec
+          sudo chown -R $USER:$USER /github/home/rpmbuild
 
       - name: Build RPM package
         id: rpm
         uses: naveenrajm7/rpmbuild@master
         with:
-          spec_file: "packaging/rpm/jottr.spec"
+          spec_file: "/github/home/rpmbuild/SPECS/jottr.spec"
           
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
