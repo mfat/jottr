@@ -19,7 +19,7 @@ for writers and journalists, with features like smart
 completion, snippets, and integrated web browsing.
 
 %prep
-%autosetup -n %{name}-%{version}
+%autosetup -n jottr-%{version}
 
 %build
 %py3_build
@@ -27,7 +27,7 @@ completion, snippets, and integrated web browsing.
 %install
 %py3_install
 
-# Create desktop entry
+# Install desktop file
 mkdir -p %{buildroot}%{_datadir}/applications/
 cat > %{buildroot}%{_datadir}/applications/jottr.desktop << EOF
 [Desktop Entry]

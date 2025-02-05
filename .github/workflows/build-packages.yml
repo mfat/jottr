@@ -39,11 +39,21 @@ jobs:
           ./build.sh "$VERSION"
           cd ../..
 
+      - name: Prepare RPM sources
+        run: |
+          VERSION="0.0.0"
+          if [[ "${{ github.ref_type }}" == "tag" ]]; then
+            VERSION=$(echo "${{ github.ref_name }}" | sed 's/^v//')
+          fi
+          mkdir -p /github/home/rpmbuild/{SPECS,SOURCES}
+          cp dist/jottr-${VERSION}.tar.gz /github/home/rpmbuild/SOURCES/python3-jottr-${VERSION}.tar.gz
+          cp packaging/rpm/jottr.spec /github/home/rpmbuild/SPECS/
+
       - name: Build RPM package
         id: rpm
         uses: naveenrajm7/rpmbuild@master
         with:
-          spec_file: "packaging/rpm/jottr.spec"
+          spec_file: "jottr.spec"
           
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
