@@ -9,8 +9,8 @@
 
 PyQt5>=5.15.0
 PyQtWebEngine>=5.15.0
-hunspell==0.5.5
-feedparser==6.0.11
+pyspellchecker>=0.7.2
+feedparser>=6.0.0
 requests==2.31.0
 pyinstaller>=4.5.1
-dmgbuild>=1.4.2 
+dmgbuild>=1.4.2
