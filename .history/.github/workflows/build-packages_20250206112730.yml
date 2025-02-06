@@ -95,7 +95,7 @@ EOF
       - name: Build DEB package
         uses: jiro4989/build-deb-action@v4
         with:
-          package: jottr
+          package: python3-jottr
           package_root: .debpkg
           maintainer: 'mFat <newmfat@gmail.com>'
           version: ${{ github.ref_type == 'tag' && github.ref_name || '0.0.0' }}
@@ -141,7 +141,7 @@ EOF
         uses: jiro4989/build-rpm-action@v2
         with:
           summary: 'Modern text editor for writers and journalists'
-          package: jottr
+          package: python3-jottr
           package_root: .rpmpkg
           maintainer: 'mFat <newmfat@gmail.com>'
           version: ${{ github.ref_type == 'tag' && github.ref_name || '0.0.0' }}
