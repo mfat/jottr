@@ -298,23 +298,28 @@ class TextEditorApp(QMainWindow):
         return None
         
     def undo(self):
-        if editor := self.get_current_editor():
+        editor = self.get_current_editor()
+        if editor:
             editor.undo()
             
     def redo(self):
-        if editor := self.get_current_editor():
+        editor = self.get_current_editor()
+        if editor:
             editor.redo()
             
     def cut(self):
-        if editor := self.get_current_editor():
+        editor = self.get_current_editor()
+        if editor:
             editor.cut()
             
     def copy(self):
-        if editor := self.get_current_editor():
+        editor = self.get_current_editor()
+        if editor:
             editor.copy()
             
     def paste(self):
-        if editor := self.get_current_editor():
+        editor = self.get_current_editor()
+        if editor:
             editor.paste()
         
     def new_tab(self):
