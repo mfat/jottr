@@ -133,7 +133,10 @@ jobs:
           cp icons/jottr.png .rpmpkg/usr/share/icons/hicolor/scalable/apps/
           
           # Create post-install script
-          echo '#!/bin/sh\npip3 install --break-system-packages pyspellchecker' > .rpmpkg/scripts/post.sh
+          cat > .rpmpkg/scripts/post.sh << 'EOF'
+          #!/bin/sh
+          pip3 install --break-system-packages pyspellchecker
+          EOF
           chmod 755 .rpmpkg/scripts/post.sh
 
       - name: Build RPM package
