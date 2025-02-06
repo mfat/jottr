@@ -38,63 +38,9 @@ jobs:
           mkdir -p .debpkg/usr/share/man/man1
           mkdir -p .debpkg/DEBIAN
           
-          # Extract and copy application files
-          python -m build --sdist
-          tar xf dist/jottr-*.tar.gz
-          cp jottr-*/main.py .debpkg/usr/lib/jottr/
+          # Copy application files
+          cp main.py .debpkg/usr/lib/jottr/
           cp -r icons .debpkg/usr/lib/jottr/
-          
-          # Create launcher script
-          echo $'#!/bin/sh\n\
-          exec python3 /usr/lib/jottr/main.py "$@"' > .debpkg/usr/bin/jottr
-          chmod +x .debpkg/usr/bin/jottr
-          
-          # Copy icons (to correct resolution directory)
-          cp icons/jottr.png .debpkg/usr/share/icons/hicolor/128x128/apps/
-          
-          # Create changelog
-          cat > .debpkg/usr/share/doc/jottr/changelog << 'EOF'
-          jottr (${VERSION:-0.0.0}) unstable; urgency=medium
-
-            * Initial release.
-
-           -- mFat <newmfat@gmail.com>  $(date -R)
-          EOF
-          gzip -9 -n .debpkg/usr/share/doc/jottr/changelog
-          
-          # Create copyright file
-          echo "Format: https://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
-          Source: https://github.com/mfat/jottr
-          
-          Files: *
-          Copyright: 2024 mFat <newmfat@gmail.com>
-          License: GPL-3.0+" > .debpkg/usr/share/doc/jottr/copyright
-          
-          # Create man page
-          echo ".TH JOTTR 1 \"$(date +"%B %Y")\" \"jottr ${VERSION:-0.0.0}\"
-          .SH NAME
-          jottr \\- text editor for writers and journalists
-          .SH SYNOPSIS
-          .B jottr
-          .SH DESCRIPTION
-          Text editor designed for writers and journalists with features for content creation.
-          .SH AUTHOR
-          Written by mFat <newmfat@gmail.com>
-          .SH BUGS
-          Report bugs to: https://github.com/mfat/jottr/issues" > .debpkg/usr/share/man/man1/jottr.1
-          gzip -9 -n .debpkg/usr/share/man/man1/jottr.1
-          
-          # Create postinst script
-          cat > .debpkg/DEBIAN/postinst << EOF
-          #!/bin/sh
-          set -e
-
-          pip3 install --break-system-packages pyspellchecker
-
-          #DEBHELPER#
-          exit 0
-          EOF
-          chmod 755 .debpkg/DEBIAN/postinst
           
       - name: Build DEB package
         uses: jiro4989/build-deb-action@v4
@@ -123,21 +69,9 @@ jobs:
           mkdir -p .rpmpkg/scripts
           
           # Copy application files
-          cp jottr-*/main.py .rpmpkg/usr/lib/jottr/
+          cp main.py .rpmpkg/usr/lib/jottr/
           cp -r icons .rpmpkg/usr/lib/jottr/
           
-          # Create launcher script
-          echo '#!/bin/sh
-          exec python3 /usr/lib/jottr/main.py "$@"' > .rpmpkg/usr/bin/jottr
-          chmod +x .rpmpkg/usr/bin/jottr
-          
-          # Copy desktop file and icons
-          cp icons/jottr.png .rpmpkg/usr/share/icons/hicolor/scalable/apps/
-          
-          # Create post-install script
-          echo '#!/bin/sh\npip3 install --break-system-packages pyspellchecker' > .rpmpkg/scripts/post.sh
-          chmod 755 .rpmpkg/scripts/post.sh
-
       - name: Build RPM package
         uses: jiro4989/build-rpm-action@v2
         with:
