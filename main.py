@@ -1,4 +1,8 @@
 import sys
+if sys.version_info < (3, 10):
+    print("Error: Python 3.10 or higher is required")
+    sys.exit(1)
+
 import os
 import json
 import hashlib
