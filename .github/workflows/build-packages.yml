@@ -41,7 +41,6 @@ jobs:
           # Extract and copy application files
           python -m build --sdist
           tar xf dist/jottr-*.tar.gz
-          cp -r jottr-*/jottr .debpkg/usr/lib/jottr/
           cp jottr-*/main.py .debpkg/usr/lib/jottr/
           cp -r icons .debpkg/usr/lib/jottr/
           
@@ -124,7 +123,6 @@ jobs:
           mkdir -p .rpmpkg/scripts
           
           # Copy application files
-          cp -r jottr-*/jottr .rpmpkg/usr/lib/jottr/
           cp jottr-*/main.py .rpmpkg/usr/lib/jottr/
           cp -r icons .rpmpkg/usr/lib/jottr/
           
