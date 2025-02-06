@@ -83,6 +83,7 @@ jobs:
           arch: 'x86_64'
           desc: 'A modern text editor designed for writers and journalists.'
           post: scripts/post.sh
+          depends: 'python3 >= 3.10, python3-qt5, python3-qt5-webengine'
           
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
