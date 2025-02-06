@@ -33,6 +33,9 @@ A modern, intelligent text editor designed for writers and journalists. Jottr co
 
 ### How to run Jottr:
 `git clone https://github.com/mfat/jottr`
+
 `cd jottr`
+
 `pip3 install -r requirements.txt`
+
 `python3 main.py`
