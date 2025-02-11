@@ -23,9 +23,17 @@ jobs:
       - name: Install build dependencies
         run: |
           apt-get update
-          DEBIAN_FRONTEND=noninteractive apt-get install -y devscripts debhelper python3-all python3-setuptools \
-                           python3-pyqt5 python3-pyqt5.qtwebengine python3-feedparser \
-                           git  # needed for actions/checkout
+          DEBIAN_FRONTEND=noninteractive apt-get install -y \
+            devscripts \
+            debhelper \
+            debhelper-compat \
+            python3-all \
+            python3-setuptools \
+            python3-pyqt5 \
+            python3-pyqt5.qtwebengine \
+            python3-feedparser \
+            git \
+            build-essential
 
       - name: Create debian directory link
         run: |
