@@ -22,7 +22,7 @@ from PyQt5.QtCore import QByteArray
 from settings_dialog import SettingsDialog
 
 # Add vendor directory to path
-vendor_dir = os.path.join(os.path.dirname(__file__), 'vendor')
+vendor_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'vendor')
 if os.path.exists(vendor_dir):
     sys.path.insert(0, vendor_dir)
 
