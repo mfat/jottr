@@ -1,3 +1,11 @@
+import os
+import sys
+
+# Add vendor directory to path
+vendor_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'vendor')
+if os.path.exists(vendor_dir):
+    sys.path.insert(0, vendor_dir)
+
 from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QSplitter,
                             QTextEdit, QListWidget, QInputDialog, QMenu, QFileDialog, QDialog,
                             QToolBar, QAction, QCompleter, QListWidgetItem, QLineEdit, QPushButton, QMessageBox, QLabel, QShortcut, QToolTip)
