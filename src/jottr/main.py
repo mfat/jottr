@@ -21,6 +21,11 @@ from PyQt5.QtGui import QPixmap
 from PyQt5.QtCore import QByteArray
 from settings_dialog import SettingsDialog
 
+# Add vendor directory to path
+vendor_dir = os.path.join(os.path.dirname(__file__), 'vendor')
+if os.path.exists(vendor_dir):
+    sys.path.insert(0, vendor_dir)
+
 # Application constants
 APP_NAME = "Jottr"
 APP_VERSION = "1.0.0"
