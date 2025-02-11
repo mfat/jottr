@@ -2,6 +2,8 @@
 
 A modern, intelligent text editor designed for writers and journalists. Jottr combines powerful writing tools with smart features to enhance your writing workflow.
 
+![image](https://github.com/user-attachments/assets/ee7b18fc-73cc-4f0b-a8bf-6508dd67defa)
+
 
 ## Key Features
 
