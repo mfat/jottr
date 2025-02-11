@@ -31,8 +31,19 @@ jobs:
             python3-pyqt5 \
             python3-pyqt5.qtwebengine \
             python3-feedparser \
+            python3-pip \
+            unzip \
             git \
             build-essential
+
+      # Add step to download pyspellchecker
+      - name: Download pyspellchecker
+        run: |
+          mkdir -p src/jottr/vendor/
+          pip3 download pyspellchecker --no-deps -d src/jottr/vendor/
+          cd src/jottr/vendor/
+          unzip pyspellchecker*.whl
+          rm -rf pyspellchecker*.whl *.dist-info/
 
       - name: Create debian directory link
         run: |
