@@ -6,16 +6,21 @@ on:
       - 'v*'
   workflow_dispatch:
     inputs:
-      release_type:
-        description: 'Release Type'
+      create_release:
+        description: 'Create GitHub Release'
         required: true
+        default: false
+        type: boolean
+      release_type:
+        description: 'Release Type (if creating release)'
+        required: false
         default: 'beta'
         type: choice
         options:
           - beta
           - stable
       version:
-        description: 'Version (e.g., 1.0.0)'
+        description: 'Version (if creating release)'
         required: false
         type: string
 
@@ -65,12 +70,11 @@ jobs:
           files: artifacts/*.deb
           draft: false
           prerelease: false
-          generate_release_notes: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Create Release (from workflow dispatch)
-        if: github.event_name == 'workflow_dispatch'
+        if: github.event_name == 'workflow_dispatch' && inputs.create_release
         uses: softprops/action-gh-release@v1
         with:
           files: artifacts/*.deb
@@ -78,6 +82,5 @@ jobs:
           name: ${{ inputs.release_type == 'stable' && 'Release' || 'Beta Release' }} ${{ inputs.version || format('v{0}', github.run_number) }}
           draft: false
           prerelease: ${{ inputs.release_type == 'beta' }}
-          generate_release_notes: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} 
