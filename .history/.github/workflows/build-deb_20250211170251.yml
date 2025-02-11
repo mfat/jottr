@@ -1,0 +1,46 @@
+name: Build Debian Package
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+jobs:
+  build-deb:
+    runs-on: ubuntu-latest
+    container: debian:bookworm
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install build dependencies
+        run: |
+          apt-get update
+          apt-get install -y devscripts debhelper python3-all python3-setuptools \
+                           python3-pyqt5 python3-pyqt5.qtwebengine python3-feedparser \
+                           git  # needed for actions/checkout
+
+      - name: Create debian directory link
+        run: |
+          rm -rf debian
+          ln -s packaging/debian debian
+
+      - name: Update changelog date
+        run: |
+          sed -i "s/\$(LC_ALL=C date -R)/$(LC_ALL=C date -R)/" debian/changelog
+
+      - name: Build package
+        run: |
+          dpkg-buildpackage -us -uc -b
+          mkdir -p artifacts
+          mv ../*.deb artifacts/
+
+      - name: List built packages
+        run: ls -l artifacts/*.deb
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: debian-packages
+          path: artifacts/*.deb 
