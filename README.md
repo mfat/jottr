@@ -8,22 +8,22 @@ A modern, intelligent text editor designed for writers and journalists. Jottr co
 ## Key Features
 
 ### Smart Writing Tools
-- **Intelligent Autocompletion**: Context-aware suggestions based on your personal dictionary
-- **Custom Dictionary**: Build your own vocabulary for better suggestions
-- **Text Snippets**: Save and reuse frequently used text blocks
-- **Word Count**: Real-time statistics for words, characters, and cursor position
+- **Intelligent Autocompletion**: Inline autocompletion suggestions based on your personal dictionary
+- **User Dictionary**: Build your own vocabulary for better suggestions
+- **Text Snippets**: Save and reuse frequently used text blocks. Just save any text as snippet and insert it anywhere by double-clicking the snippet.
+- **Word Count**: Real-time statistics for words and characters.
 
 ### Research & Fact-Checking
 - **Integrated Browser**: Browse reference materials without leaving the editor
-- **Custom Search Contexts**: Right-click any text to Google-search across:
-  - AP Newsroom
-  - AP Pronto
-  - Google News
-  - Custom websites
+- **Custom Search Contexts**: Right-click any text to Google-search your desired website:
+  - AP News
+  - Reuters
+  - BBC
+  - or any custom websites
     
 ### Focus on Writing
 - **Distraction-Free Mode**: Clean, minimal interface for focused writing
-- **Customizable Themes**: Light and dark modes plus a sepia theme
+- **Customizable Themes**: Light, dark and sepia themes for the editor
 - **Font Customization**: Choose your perfect writing font and size
 - **Zoom Controls**: Easily adjust text size with keyboard shortcuts
 
@@ -34,10 +34,15 @@ A modern, intelligent text editor designed for writers and journalists. Jottr co
 
 
 ### How to run Jottr:
+
+Either download the package for your distribution or clone the repository:
+
 `git clone https://github.com/mfat/jottr`
 
 `cd jottr`
 
 `pip3 install -r requirements.txt`
+
+`cd src/jottr`
 
 `python3 main.py`
