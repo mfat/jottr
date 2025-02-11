@@ -171,6 +171,10 @@ class SearchSiteDialog(QDialog):
         super().__init__(parent)
         self.setWindowTitle("Search Site")
         
+        # Remove 'site:' prefix if it exists for display
+        if site.startswith('site:'):
+            site = site[5:]
+        
         layout = QVBoxLayout(self)
         
         # Name field
@@ -183,11 +187,17 @@ class SearchSiteDialog(QDialog):
         
         # Site field
         site_layout = QHBoxLayout()
-        site_label = QLabel("Site:")
+        site_label = QLabel("Website:")
         self.site_edit = QLineEdit(site)
+        self.site_edit.setPlaceholderText("example.com")
         site_layout.addWidget(site_label)
         site_layout.addWidget(self.site_edit)
         layout.addLayout(site_layout)
+        
+        # Add help text
+        help_label = QLabel("Enter the website domain without 'http://' or 'www.'")
+        help_label.setStyleSheet("color: gray; font-size: 10px;")
+        layout.addWidget(help_label)
         
         # Buttons
         buttons = QHBoxLayout()
@@ -200,5 +210,18 @@ class SearchSiteDialog(QDialog):
         layout.addLayout(buttons)
 
     def get_data(self):
-        """Get dialog data"""
-        return self.name_edit.text(), self.site_edit.text() 
+        """Get dialog data with 'site:' prefix automatically added"""
+        name = self.name_edit.text()
+        site = self.site_edit.text().strip()
+        
+        # Remove any existing 'site:' prefix
+        if site.startswith('site:'):
+            site = site[5:]
+            
+        # Remove http://, https://, and www. if present
+        site = site.replace('http://', '').replace('https://', '').replace('www.', '')
+        
+        # Add 'site:' prefix
+        site = f'site:{site}'
+        
+        return name, site 
