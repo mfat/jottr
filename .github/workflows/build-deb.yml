@@ -31,21 +31,24 @@ jobs:
           sed -i "s/\$(LC_ALL=C date -R)/$(LC_ALL=C date -R)/" debian/changelog
 
       - name: Build package
-        run: dpkg-buildpackage -us -uc -b
+        run: |
+          dpkg-buildpackage -us -uc -b
+          mkdir -p artifacts
+          mv ../*.deb artifacts/
 
       - name: List built packages
-        run: ls -l ../*.deb
+        run: ls -l artifacts/*.deb
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
           name: debian-packages
-          path: ../*.deb
+          path: artifacts/*.deb
 
       - name: Create Release
         if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v1
         with:
-          files: ../*.deb
+          files: artifacts/*.deb
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} 
