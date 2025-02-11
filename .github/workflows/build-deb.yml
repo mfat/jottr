@@ -12,6 +12,11 @@ on:
         default: false
         type: boolean
 
+# Add these permission settings
+permissions:
+  contents: write
+  packages: write
+
 jobs:
   build-deb:
     runs-on: ubuntu-latest
