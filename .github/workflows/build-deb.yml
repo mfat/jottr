@@ -68,6 +68,8 @@ jobs:
     needs: build-deb
     if: startsWith(github.ref, 'refs/tags/') || (github.event_name == 'workflow_dispatch' && inputs.create_release)
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     
     steps:
       - name: Download DEB package
@@ -80,23 +82,13 @@ jobs:
         id: get_filename
         run: echo "deb_file=$(ls artifacts/*.deb)" >> $GITHUB_OUTPUT
 
-      - name: Create GitHub Release
-        id: create_release
-        uses: actions/create-release@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Create Release and Upload Asset
+        uses: softprops/action-gh-release@v1
         with:
+          files: ${{ steps.get_filename.outputs.deb_file }}
           tag_name: ${{ github.ref_name }}
-          release_name: Release ${{ github.ref_name }}
+          name: Release ${{ github.ref_name }}
           draft: false
           prerelease: false
-
-      - name: Upload DEB to Release
-        uses: actions/upload-release-asset@v1
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ${{ steps.get_filename.outputs.deb_file }}
-          asset_name: ${{ steps.get_filename.outputs.deb_file }}
-          asset_content_type: application/vnd.debian.binary-package 
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} 
