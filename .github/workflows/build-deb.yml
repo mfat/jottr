@@ -42,7 +42,6 @@ jobs:
           mkdir -p src/jottr/vendor/
           pip3 download pyspellchecker --no-deps -d src/jottr/vendor/
           cd src/jottr/vendor/
-          # Handle wheel file
           unzip pyspellchecker*.whl
           mv pyspellchecker*/spellchecker spellchecker
           rm -rf pyspellchecker*.whl pyspellchecker*.dist-info/
