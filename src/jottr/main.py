@@ -140,7 +140,7 @@ class TextEditorApp(QMainWindow):
                 available_styles = QStyleFactory.keys()
                 
                 # Try to find the best system style
-                preferred_styles = ['kvantum', 'breeze', 'fusion', 'gtk2', 'oxygen']
+                preferred_styles = ['breeze', 'fusion', 'gtk2', 'oxygen']
                 for style_name in preferred_styles:
                     if style_name.lower() in [s.lower() for s in available_styles]:
                         system_style = QStyleFactory.create(style_name)
