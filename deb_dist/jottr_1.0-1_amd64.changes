@@ -1,0 +1,25 @@
+Format: 1.8
+Date: Tue, 11 Feb 2025 03:47:36 +0330
+Source: jottr
+Binary: python3-jottr
+Architecture: all
+Version: 1.0-1
+Distribution: unstable
+Urgency: low
+Maintainer: None <None>
+Changed-By: None <None>
+Description:
+ python3-jottr - Modern text editor for writers and journalists
+Changes:
+ jottr (1.0-1) unstable; urgency=low
+ .
+   * source package automatically created by stdeb 0.10.0
+Checksums-Sha1:
+ cf3d94ffc73a43da3ab65dee6ad975585f619478 6236 jottr_1.0-1_amd64.buildinfo
+ 88b8cc4a6f4bfe11c4169f59050bdbb6313810c9 2780 python3-jottr_1.0-1_all.deb
+Checksums-Sha256:
+ 1e643a31998a2991039d37b4a2b91a48155ef274e15c1d1de4c5d2b062fe9e47 6236 jottr_1.0-1_amd64.buildinfo
+ 5e58f65448872050254bfbeaaeeda0d5089acafcaacd6761d64f3f3c9b2c1be2 2780 python3-jottr_1.0-1_all.deb
+Files:
+ af42848c3a3bde028e83894d755e7b84 6236 python optional jottr_1.0-1_amd64.buildinfo
+ 8f4fa60181e4e0c944d84ec82a44e458 2780 python optional python3-jottr_1.0-1_all.deb

@@ -1,4 +1,4 @@
-from setuptools import setup
+from setuptools import setup, find_packages
 
 setup(
     name="jottr",
@@ -7,4 +7,6 @@ setup(
     author="mFat",
     author_email="newmfat@gmail.com",
     url="https://github.com/mfat/jottr",
+    package_dir={'': 'src'},
+    packages=find_packages(where='src'),
 ) 

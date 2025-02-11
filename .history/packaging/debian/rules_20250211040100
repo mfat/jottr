@@ -1,0 +1,30 @@
+#!/usr/bin/make -f
+
+export PYBUILD_NAME=jottr
+
+%:
+	dh $@ --with python3 --buildsystem=pybuild
+
+override_dh_auto_install:
+	dh_auto_install
+	# Create directories
+	mkdir -p debian/jottr/usr/bin
+	mkdir -p debian/jottr/usr/share/applications
+	mkdir -p debian/jottr/usr/share/jottr
+	mkdir -p debian/jottr/usr/share/icons/hicolor/128x128/apps
+
+	# Install program files
+	cp -r src/jottr/* debian/jottr/usr/share/jottr/
+
+	# Install desktop file
+	cp packaging/debian/jottr.desktop debian/jottr/usr/share/applications/
+
+	# Install icon (if it exists)
+	if [ -f src/jottr/icons/jottr.png ]; then \
+		cp src/jottr/icons/jottr.png debian/jottr/usr/share/icons/hicolor/128x128/apps/; \
+	fi
+
+	# Create launcher script
+	echo '#!/bin/sh' > debian/jottr/usr/bin/jottr
+	echo 'exec python3 /usr/share/jottr/main.py "$$@"' >> debian/jottr/usr/bin/jottr
+	chmod +x debian/jottr/usr/bin/jottr

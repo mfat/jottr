@@ -6,6 +6,7 @@ cd "$(dirname "$0")/../.."
 
 # Clean up any previous builds or installations
 rm -rf build/ dist/ *.egg-info/
+pip uninstall -y jottr || true
 
 # Install build dependencies
 sudo apt-get update

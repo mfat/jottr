@@ -1,0 +1,25 @@
+Metadata-Version: 2.1
+Name: jottr
+Version: 1.0
+Summary: Modern text editor for writers and journalists
+Home-page: https://github.com/mfat/jottr
+Author: mFat
+Author-email: newmfat@gmail.com
+Classifier: Development Status :: 4 - Beta
+Classifier: Environment :: X11 Applications :: Qt
+Classifier: Intended Audience :: End Users/Desktop
+Classifier: License :: OSI Approved :: GPL-3.0+
+Classifier: Operating System :: POSIX :: Linux
+Classifier: Programming Language :: Python :: 3
+Classifier: Topic :: Text Editors
+Requires-Dist: PyQt5>=5.15.0
+Requires-Dist: PyQtWebEngine>=5.15.0
+Requires-Dist: pyspellchecker>=0.7.2
+Requires-Dist: feedparser>=6.0.0
+Requires-Dist: requests==2.31.0
+Requires-Dist: pyinstaller>=4.5.1
+Requires-Dist: dmgbuild>=1.4.2
+
+Jottr is a feature-rich text editor designed specifically
+for writers and journalists, with features like smart
+completion, snippets, and integrated web browsing.

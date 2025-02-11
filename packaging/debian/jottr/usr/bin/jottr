@@ -1,0 +1,2 @@
+#!/bin/sh
+PYTHONPATH=/usr/share/jottr exec python3 /usr/share/jottr/main.py "$@"

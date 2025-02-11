@@ -1,0 +1,17 @@
+README.md
+setup.py
+src/jottr/__init__.py
+src/jottr/editor_tab.py
+src/jottr/feed_manager_dialog.py
+src/jottr/main.py
+src/jottr/rss_reader.py
+src/jottr/rss_tab.py
+src/jottr/settings_dialog.py
+src/jottr/settings_manager.py
+src/jottr/snippet_editor_dialog.py
+src/jottr/snippet_manager.py
+src/jottr/theme_manager.py
+src/jottr.egg-info/PKG-INFO
+src/jottr.egg-info/SOURCES.txt
+src/jottr.egg-info/dependency_links.txt
+src/jottr.egg-info/top_level.txt
