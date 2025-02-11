@@ -43,8 +43,7 @@ jobs:
           pip3 download pyspellchecker --no-deps -d src/jottr/vendor/
           cd src/jottr/vendor/
           unzip pyspellchecker*.whl
-          mv pyspellchecker*/spellchecker spellchecker
-          rm -rf pyspellchecker*.whl pyspellchecker*.dist-info/
+          rm -rf pyspellchecker*.whl *.dist-info/
 
       - name: Create debian directory link
         run: |
