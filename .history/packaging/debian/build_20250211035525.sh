@@ -4,9 +4,6 @@ set -e
 # Change to project root directory
 cd "$(dirname "$0")/../.."
 
-# Clean up any previous builds or installations
-rm -rf build/ dist/ *.egg-info/
-
 # Install build dependencies
 sudo apt-get update
 sudo apt-get install -y devscripts debhelper python3-all python3-setuptools
@@ -14,9 +11,6 @@ sudo apt-get install -y devscripts debhelper python3-all python3-setuptools
 # Create debian directory link
 rm -rf debian
 ln -s packaging/debian debian
-
-# Update changelog with current date
-sed -i "s/\$(LC_ALL=C date -R)/$(LC_ALL=C date -R)/" debian/changelog
 
 # Build the package
 dpkg-buildpackage -us -uc -b

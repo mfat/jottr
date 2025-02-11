@@ -1,0 +1,28 @@
+Format: 1.8
+Date: Tue, 11 Feb 2025 03:47:36 +0330
+Source: jottr
+Architecture: source
+Version: 1.0-1
+Distribution: unstable
+Urgency: low
+Maintainer: None <None>
+Changed-By: None <None>
+Changes:
+ jottr (1.0-1) unstable; urgency=low
+ .
+   * source package automatically created by stdeb 0.10.0
+Checksums-Sha1:
+ b2b06a4fd2524c99001d1557c284834ca92463e5 808 jottr_1.0-1.dsc
+ 09c6f0d87ae3ab29e8190e4017bed2b904625804 2738 jottr_1.0.orig.tar.gz
+ a7ed0492f8041468ae3fa29f6e957c11c0199d51 960 jottr_1.0-1.debian.tar.xz
+ 74ce0f874e9483ee43e1e6da3d69e88493756680 6178 jottr_1.0-1_source.buildinfo
+Checksums-Sha256:
+ b2c606663a711c2858fca351dad028899efb54cf311fb7ac73d8b8414bbc23eb 808 jottr_1.0-1.dsc
+ f5d55e94694f5f2ed3f07a7d1bc483753aac74a7f92921fa73a9a277bdbfee45 2738 jottr_1.0.orig.tar.gz
+ b6da4785d6feb0dc9b875dc4ef21822380d87687fc34e377bd918d471bab536f 960 jottr_1.0-1.debian.tar.xz
+ 3575be1ede676ead92df31d1140ace934d7f612e24dd4ce38ed00a8a6b35578f 6178 jottr_1.0-1_source.buildinfo
+Files:
+ f28543451581bbaecff085bf07e042d4 808 python optional jottr_1.0-1.dsc
+ 9bfdab7c2a526138c56c70557751f98f 2738 python optional jottr_1.0.orig.tar.gz
+ ee88bebb45bffecec9b50b0bc6611923 960 python optional jottr_1.0-1.debian.tar.xz
+ cc326c4ef1f5f58d571e556123930094 6178 python optional jottr_1.0-1_source.buildinfo

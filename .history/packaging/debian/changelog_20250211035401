@@ -1,0 +1,5 @@
+jottr (1.0-1) unstable; urgency=medium
+
+  * Initial release
+
+ -- mFat <newmfat@gmail.com>  $(date -R)

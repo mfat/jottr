@@ -1,0 +1,6 @@
+Format: https://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
+Source: https://github.com/mfat/jottr
+
+Files: *
+Copyright: 2024 mFat <newmfat@gmail.com>
+License: GPL-3.0+

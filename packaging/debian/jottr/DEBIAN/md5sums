@@ -1,0 +1,15 @@
+8c5d8ef4f0ecd2af550a226fc12eaf21  usr/bin/jottr
+e0804e80bd59c9159d86b901ea1f1b98  usr/share/applications/jottr.desktop
+314f61998f795e5bffbc00653ba1c9ea  usr/share/icons/hicolor/128x128/apps/jottr.png
+d41d8cd98f00b204e9800998ecf8427e  usr/share/jottr/__init__.py
+56bf9f4da0676ced7d261e573547dad8  usr/share/jottr/editor_tab.py
+08b4bcbb60c51d4f60b2b445143b5f2b  usr/share/jottr/feed_manager_dialog.py
+314f61998f795e5bffbc00653ba1c9ea  usr/share/jottr/icons/jottr.png
+230d0653e969116770c737c27d36ed22  usr/share/jottr/main.py
+c0f2af2419012981d4b8f27639d7f55e  usr/share/jottr/rss_reader.py
+b2a2e22d0bc55a4977c38990cb92c306  usr/share/jottr/rss_tab.py
+4afa260412ec06803bdcb510d42d263b  usr/share/jottr/settings_dialog.py
+6fa03ddeb7d9278a9ff1d1e5110413ce  usr/share/jottr/settings_manager.py
+2e1eafe534f4982cd6faa68bc2dbd424  usr/share/jottr/snippet_editor_dialog.py
+dbd5ccf8f130119b9643088736165c3b  usr/share/jottr/snippet_manager.py
+c40303f9cbd3ed63f38af9c66e76cf87  usr/share/jottr/theme_manager.py

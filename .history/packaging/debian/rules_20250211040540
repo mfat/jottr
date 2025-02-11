@@ -1,0 +1,46 @@
+#!/usr/bin/make -f
+
+%:
+	dh $@
+
+# Override all Python-related build steps
+override_dh_auto_clean:
+	# Skip Python build cleaning
+
+override_dh_auto_configure:
+	# Skip Python configure
+
+override_dh_auto_build:
+	# Skip Python build
+
+override_dh_auto_test:
+	# Skip Python tests
+
+override_dh_installdocs:
+	# Skip docs
+
+override_dh_installchangelogs:
+	# Skip changelogs
+
+override_dh_auto_install:
+	# Create directories
+	mkdir -p debian/jottr/usr/bin
+	mkdir -p debian/jottr/usr/share/applications
+	mkdir -p debian/jottr/usr/share/jottr
+	mkdir -p debian/jottr/usr/share/icons/hicolor/128x128/apps
+
+	# Install program files
+	cp -r src/jottr/* debian/jottr/usr/share/jottr/
+
+	# Install desktop file
+	cp packaging/debian/jottr.desktop debian/jottr/usr/share/applications/
+
+	# Install icon (if it exists)
+	if [ -f src/jottr/icons/jottr.png ]; then \
+		cp src/jottr/icons/jottr.png debian/jottr/usr/share/icons/hicolor/128x128/apps/; \
+	fi
+
+	# Create launcher script
+	echo '#!/bin/sh' > debian/jottr/usr/bin/jottr
+	echo 'cd /usr/share/jottr && exec python3 main.py "$$@"' >> debian/jottr/usr/bin/jottr
+	chmod +x debian/jottr/usr/bin/jottr

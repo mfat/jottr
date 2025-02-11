@@ -1,0 +1,16 @@
+Source: jottr
+Maintainer: None <None>
+Section: python
+Priority: optional
+Build-Depends: dh-python, python3-setuptools, python3-all, debhelper (>= 9)
+Standards-Version: 3.9.6
+Homepage: https://github.com/mfat/jottr
+
+Package: python3-jottr
+Architecture: all
+Depends: ${misc:Depends}, ${python3:Depends}
+Description: Modern text editor for writers and journalists
+ Jottr is a feature-rich text editor designed specifically
+ for writers and journalists, with features like smart
+ completion, snippets, and integrated web browsing.
+
