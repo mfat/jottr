@@ -1,6 +1,6 @@
 # Jottr
 
-A modern, intelligent text editor designed for writers and journalists. Jottr combines powerful writing tools with smart features to enhance your writing workflow.
+A simple, opinionated plain text editor designed for writers, journalists and researchers. Jottr is not meant to be a full-featured text editor, but rather a simple and easy to use tool for writing. It's not aimed at developers.
 
 ![image](https://github.com/user-attachments/assets/ee7b18fc-73cc-4f0b-a8bf-6508dd67defa)
 
@@ -8,14 +8,14 @@ A modern, intelligent text editor designed for writers and journalists. Jottr co
 ## Key Features
 
 ### Smart Writing Tools
-- **Intelligent Autocompletion**: Inline autocompletion suggestions based on your personal dictionary
+- **Tab Autocompletion**: Inline autocompletion suggestions based on your personal dictionary
 - **User Dictionary**: Build your own vocabulary for better suggestions
 - **Text Snippets**: Save and reuse frequently used text blocks. Just save any text as snippet and insert it anywhere by double-clicking the snippet.
 - **Word Count**: Real-time statistics for words and characters.
 
 ### Research & Fact-Checking
 - **Integrated Browser**: Browse reference materials without leaving the editor
-- **Custom Search Contexts**: Right-click any text to Google-search your desired website:
+- **Custom Search Contexts**: Right-click any text to perform a Google search or a custom search on your desired website:
   - AP News
   - Reuters
   - BBC
