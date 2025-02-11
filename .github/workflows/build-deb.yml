@@ -26,7 +26,7 @@ jobs:
           DEBIAN_FRONTEND=noninteractive apt-get install -y \
             devscripts \
             debhelper \
-            debhelper-compat \
+            dh-python \
             python3-all \
             python3-setuptools \
             python3-pyqt5 \
@@ -46,7 +46,7 @@ jobs:
 
       - name: Build package
         run: |
-          dpkg-buildpackage -us -uc -b
+          dpkg-buildpackage -us -uc -b -d
           mkdir -p artifacts
           mv ../*.deb artifacts/
 
