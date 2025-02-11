@@ -740,8 +740,28 @@ class TextEditorApp(QMainWindow):
         if current_tab:
             current_tab.toggle_pane("browser")
 
-if __name__ == '__main__':
+def main():
+    # Create application instance
     app = QApplication(sys.argv)
-    editor = TextEditorApp()
-    editor.show()
-    sys.exit(app.exec_()) 
+    
+    # Set application name and organization
+    app.setApplicationName("Jottr")
+    app.setApplicationDisplayName("Jottr")
+    app.setDesktopFileName("jottr")
+    app.setApplicationVersion("1.0")
+    app.setOrganizationDomain("github.com/mfat/jottr")
+    
+    # Set window class name for proper window management
+    if hasattr(app, 'setDesktopFileName'):
+        app.setDesktopFileName("jottr")
+    
+    # Create and show main window
+    window = TextEditorApp()
+    window.setWindowTitle("Jottr")
+    
+    # Show window
+    window.show()
+    return app.exec_()
+
+if __name__ == "__main__":
+    sys.exit(main()) 
