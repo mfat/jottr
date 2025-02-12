@@ -10,8 +10,9 @@ from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QSplitter,
                             QTextEdit, QListWidget, QInputDialog, QMenu, QFileDialog, QDialog,
                             QToolBar, QAction, QCompleter, QListWidgetItem, QLineEdit, QPushButton, QMessageBox, QLabel, QShortcut, QToolTip)
 from PyQt5.QtCore import Qt, QUrl, QTimer, QStringListModel, QRegExp
+from PyQt5.QtGui import (QTextCharFormat, QSyntaxHighlighter, QIcon, QFont, QKeySequence, 
+                        QPainter, QPen, QColor, QFontMetrics, QTextDocument, QTextCursor)
 from PyQt5.QtWebEngineWidgets import QWebEngineView, QWebEnginePage
-from PyQt5.QtGui import QTextCharFormat, QSyntaxHighlighter, QIcon, QFont, QKeySequence, QPainter, QPen, QColor, QFontMetrics
 from spellchecker import SpellChecker
 from urllib.parse import quote
 from snippet_editor_dialog import SnippetEditorDialog
@@ -325,7 +326,7 @@ class CompletingTextEdit(QTextEdit):
                 self.completion_start = None
                 self.viewport().update()
                 return
-            
+                    
             if len(suggestions) > 0:
                 # If only one suggestion, show inline
                 if len(suggestions) == 1:
@@ -439,6 +440,7 @@ class EditorTab(QWidget):
         self.settings_manager = settings_manager
         self.current_file = None
         self.current_font = self.settings_manager.get_font()
+        self.web_view = None  # Initialize to None
         
         # Initialize recovery ID and paths first
         self.recovery_id = str(int(time.time() * 1000))
@@ -467,10 +469,6 @@ class EditorTab(QWidget):
         self.editor.document().modificationChanged.connect(self.handle_modification)
         self.editor.document().setModified(False)
         
-        # Set homepage for web view
-        homepage = self.settings_manager.get_setting('homepage', 'https://www.apnews.com/')
-        self.web_view.setUrl(QUrl(homepage))
-        
         # Setup autocomplete
         self.current_word = ""
         self.current_suggestions = []
@@ -478,6 +476,13 @@ class EditorTab(QWidget):
         
         # Install event filter for key handling
         self.editor.installEventFilter(self)
+        
+        # Add ESC shortcut for exiting focus mode
+        self.focus_shortcut = QShortcut(QKeySequence("Esc"), self)
+        self.focus_shortcut.activated.connect(self.handle_escape)
+        
+        self.focus_mode = False
+        self.panes_opened_in_focus = {'browser': False, 'snippets': False}  # Track panes opened during focus mode
 
     def setup_ui(self):
         """Setup the UI components"""
@@ -546,81 +551,21 @@ class EditorTab(QWidget):
         self.update_snippet_list()  # Populate the list
         snippet_layout.addWidget(self.snippet_list)
         
-        # Create browser widget
+        # Create browser widget without web view
         self.browser_widget = QWidget()
         browser_layout = QVBoxLayout(self.browser_widget)
         browser_layout.setContentsMargins(0, 0, 0, 0)
         browser_layout.setSpacing(0)
         
-        # Browser toolbar
-        toolbar = QWidget()
-        toolbar.setFixedHeight(32)
-        toolbar.setStyleSheet("""
-            QWidget {
-                background: palette(window);
-                border-bottom: 1px solid palette(mid);
-            }
-            QLineEdit {
-                border: 1px solid palette(mid);
-                border-radius: 3px;
-                padding: 2px 8px;
-                background: palette(base);
-                selection-background-color: palette(highlight);
-                margin: 4px;
-            }
-            QPushButton {
-                background: transparent;
-                border: none;
-                border-radius: 3px;
-                padding: 4px;
-                margin: 2px;
-                color: palette(text);
-            }
-            QPushButton:hover {
-                background: palette(highlight);
-                color: palette(highlighted-text);
-            }
-        """)
+        # Create browser toolbar
+        self.setup_browser_toolbar()
         
-        toolbar_layout = QHBoxLayout(toolbar)
-        toolbar_layout.setContentsMargins(4, 0, 4, 0)
-        toolbar_layout.setSpacing(2)
-        
-        # Navigation buttons
-        back_btn = QPushButton("←")
-        back_btn.setFixedSize(24, 24)
-        back_btn.clicked.connect(lambda: self.web_view.back())
-        toolbar_layout.addWidget(back_btn)
-        
-        forward_btn = QPushButton("→")
-        forward_btn.setFixedSize(24, 24)
-        forward_btn.clicked.connect(lambda: self.web_view.forward())
-        toolbar_layout.addWidget(forward_btn)
-        
-        # URL bar
-        self.url_bar = QLineEdit()
-        self.url_bar.setPlaceholderText("Search or enter address")
-        self.url_bar.returnPressed.connect(self.navigate_to_url)
-        toolbar_layout.addWidget(self.url_bar)
-        
-        # Close button
-        close_btn = QPushButton("×")
-        close_btn.setFixedSize(24, 24)
-        close_btn.setFont(QFont("Arial", 14))
-        close_btn.clicked.connect(lambda: self.toggle_pane("browser"))
-        toolbar_layout.addWidget(close_btn)
-        
-        browser_layout.addWidget(toolbar)
-        
-        # Web view with shortcuts
-        self.web_view = QWebEngineView()
-        self.web_view.setUrl(QUrl("https://www.google.com"))
-        self.web_view.urlChanged.connect(self.update_url)
-        
-        # Add standard shortcuts for the web view
-        self.setup_browser_shortcuts()
-        
-        browser_layout.addWidget(self.web_view)
+        # Create placeholder for web view
+        self.web_container = QWidget()
+        web_container_layout = QVBoxLayout(self.web_container)  # Add layout
+        web_container_layout.setContentsMargins(0, 0, 0, 0)    # No margins
+        web_container_layout.setSpacing(0)                     # No spacing
+        browser_layout.addWidget(self.web_container)
         
         # Add widgets to splitter
         self.splitter.addWidget(self.snippet_widget)
@@ -628,6 +573,10 @@ class EditorTab(QWidget):
         
         # Add splitter to layout
         layout.addWidget(self.splitter)
+        
+        # Hide side panes by default
+        self.snippet_widget.hide()
+        self.browser_widget.hide()
         
         # Restore pane states
         states = self.settings_manager.get_setting('pane_states', {
@@ -649,6 +598,78 @@ class EditorTab(QWidget):
         
         # Set focus to editor
         self.editor.setFocus()
+        
+        # Create find/replace toolbar (initially hidden)
+        self.find_toolbar = QWidget(self)
+        self.find_toolbar.setVisible(False)
+        self.find_toolbar.setFixedHeight(32)  # Set fixed compact height
+        find_layout = QHBoxLayout(self.find_toolbar)
+        find_layout.setContentsMargins(4, 2, 4, 2)  # Reduce vertical margins
+        find_layout.setSpacing(4)  # Reduce spacing between elements
+        
+        # Find input
+        self.find_input = QLineEdit()
+        self.find_input.setPlaceholderText("Find")
+        self.find_input.textChanged.connect(self.find_text)
+        self.find_input.setFixedHeight(24)  # Set fixed height for input
+        find_layout.addWidget(self.find_input)
+        
+        # Replace input
+        self.replace_input = QLineEdit()
+        self.replace_input.setPlaceholderText("Replace with")
+        self.replace_input.setFixedHeight(24)  # Set fixed height for input
+        find_layout.addWidget(self.replace_input)
+        
+        # Find next/previous buttons
+        self.find_prev_btn = QPushButton("↑")
+        self.find_next_btn = QPushButton("↓")
+        self.find_prev_btn.setFixedSize(24, 24)  # Make buttons square and compact
+        self.find_next_btn.setFixedSize(24, 24)
+        self.find_prev_btn.clicked.connect(lambda: self.find_text(direction='up'))
+        self.find_next_btn.clicked.connect(lambda: self.find_text(direction='down'))
+        find_layout.addWidget(self.find_prev_btn)
+        find_layout.addWidget(self.find_next_btn)
+        
+        # Replace buttons
+        self.replace_btn = QPushButton("Replace")
+        self.replace_all_btn = QPushButton("All")  # Shortened text
+        self.replace_btn.setFixedHeight(24)
+        self.replace_all_btn.setFixedHeight(24)
+        self.replace_btn.clicked.connect(self.replace_text)
+        self.replace_all_btn.clicked.connect(self.replace_all)
+        find_layout.addWidget(self.replace_btn)
+        find_layout.addWidget(self.replace_all_btn)
+        
+        # Close button
+        close_btn = QPushButton("×")
+        close_btn.setFixedSize(24, 24)
+        close_btn.clicked.connect(self.toggle_find)
+        find_layout.addWidget(close_btn)
+        
+        # Add styling
+        self.find_toolbar.setStyleSheet("""
+            QWidget {
+                background: palette(window);
+                border-bottom: 1px solid palette(mid);
+            }
+            QLineEdit {
+                border: 1px solid palette(mid);
+                border-radius: 2px;
+                padding: 2px 4px;
+                background: palette(base);
+            }
+            QPushButton {
+                border: 1px solid palette(mid);
+                border-radius: 2px;
+                padding: 2px 4px;
+                background: palette(button);
+            }
+            QPushButton:hover {
+                background: palette(light);
+            }
+        """)
+        
+        layout.addWidget(self.find_toolbar)
         
     def on_text_changed(self):
         """Handle text changes"""
@@ -858,12 +879,24 @@ class EditorTab(QWidget):
         menu.exec_(self.editor.mapToGlobal(pos))
 
     def search_in_browser(self, url):
-        """Perform search in browser pane and ensure it's visible"""
-        # Show browser pane if hidden
-        if not self.browser_widget.isVisible():
-            self.toggle_pane("browser")  # Use toggle_pane to handle visibility and sizing
+        """Search the given URL in the browser pane"""
+        # Store URL to load
+        self._pending_url = url
         
-        # Navigate to URL
+        # Make sure browser is visible and web view exists
+        if not self.browser_widget.isVisible():
+            # Mark browser as opened during focus mode BEFORE toggling
+            if self.focus_mode:
+                self.panes_opened_in_focus['browser'] = True
+            self.toggle_pane("browser")
+            return
+        
+        # If browser is visible but no web view exists, create it
+        if not self.web_view:
+            self.create_web_view()
+        
+        # Stop any current loading and load new URL
+        self.web_view.stop()
         self.web_view.setUrl(QUrl(url))
 
     def add_to_dictionary(self, word):
@@ -885,22 +918,67 @@ class EditorTab(QWidget):
             )
 
     def search_google(self, text):
+        """Search Google in browser pane"""
         url = f"https://www.google.com/search?q={quote(text)}"
-        self.url_bar.setText(url)
+        
+        # Store URL and ensure browser is visible
+        self._pending_url = url
+        
+        # If browser is not visible, show it first
+        if not self.browser_widget.isVisible():
+            self.toggle_pane("browser")
+            return
+            
+        # If browser is visible but no web view exists, create it
+        if not self.web_view:
+            self.create_web_view()
+            
+        # Use existing web view
+        self.web_view.stop()
         self.web_view.setUrl(QUrl(url))
-        self.ensure_browser_visible()
+        self.url_bar.setText(url)
         
     def search_apnews(self, text):
+        """Search AP News in browser pane"""
         url = f"https://apnews.com/search?q={quote(text)}"
-        self.url_bar.setText(url)
+        
+        # Store URL and ensure browser is visible
+        self._pending_url = url
+        
+        # If browser is not visible, show it first
+        if not self.browser_widget.isVisible():
+            self.toggle_pane("browser")
+            return
+            
+        # If browser is visible but no web view exists, create it
+        if not self.web_view:
+            self.create_web_view()
+            
+        # Use existing web view
+        self.web_view.stop()
         self.web_view.setUrl(QUrl(url))
-        self.ensure_browser_visible()
+        self.url_bar.setText(url)
         
     def search_google_site_apnews(self, text):
+        """Search AP News via Google in browser pane"""
         url = f"https://www.google.com/search?q=site:apnews.com {quote(text)}"
-        self.url_bar.setText(url)
+        
+        # Store URL and ensure browser is visible
+        self._pending_url = url
+        
+        # If browser is not visible, show it first
+        if not self.browser_widget.isVisible():
+            self.toggle_pane("browser")
+            return
+            
+        # If browser is visible but no web view exists, create it
+        if not self.web_view:
+            self.create_web_view()
+            
+        # Use existing web view
+        self.web_view.stop()
         self.web_view.setUrl(QUrl(url))
-        self.ensure_browser_visible()
+        self.url_bar.setText(url)
         
     def save_snippet(self, text):
         """Save selected text as a snippet"""
@@ -966,22 +1044,65 @@ class EditorTab(QWidget):
             cursor.insertText(snippet_content)
     
     def navigate_to_url(self):
-        url = self.url_bar.text()
+        """Navigate to URL entered in URL bar"""
+        url = self.url_bar.text().strip()
+        if not url:
+            return
+            
+        # Add http:// if no protocol specified
         if not url.startswith(('http://', 'https://')):
-            url = 'https://' + url
+            # Check if it's a search query
+            if ' ' in url or not '.' in url:
+                url = f"https://www.google.com/search?q={quote(url)}"
+            else:
+                url = 'http://' + url
+        
+        # If browser is not visible, show it first
+        if not self.browser_widget.isVisible():
+            self._pending_url = url
+            self.toggle_pane("browser")
+            return
+        
+        # If browser is visible but no web view exists, create it
+        if not self.web_view:
+            self.create_web_view()
+        
+        # Stop any current loading and load new URL
+        self.web_view.stop()
         self.web_view.setUrl(QUrl(url))
 
+    def create_web_view(self):
+        """Create and set up web view"""
+        self.web_view = QWebEngineView()
+        
+        # Connect all web view signals
+        self.web_view.urlChanged.connect(self.update_url)
+        self.web_view.loadStarted.connect(lambda: self.url_bar.setEnabled(False))
+        self.web_view.loadFinished.connect(lambda: self.url_bar.setEnabled(True))
+        self.web_view.loadFinished.connect(self.update_nav_buttons)
+        
+        # Connect navigation buttons
+        self.back_btn.clicked.connect(self.web_view.back)
+        self.forward_btn.clicked.connect(self.web_view.forward)
+        
+        # Add to layout
+        self.web_container.layout().addWidget(self.web_view)
+
     def update_font(self, font):
-        self.current_font = font
+        """Update editor font"""
+        self.current_font = QFont(font)  # Store a copy of the font
+        self.current_font.setWeight(QFont.Normal)  # Force Regular weight
+        
         # Update font for the editor
-        self.editor.setFont(font)
+        self.editor.setFont(self.current_font)
+        
         # Store font properties in the editor's stylesheet
         self.editor.setStyleSheet(f"""
             QTextEdit {{
-                font-family: {font.family()};
-                font-size: {font.pointSize()}pt;
-                font-weight: {font.weight()};
-                font-style: {('italic' if font.italic() else 'normal')};
+                font-family: {self.current_font.family()};
+                font-size: {self.current_font.pointSize()}pt;
+                font-weight: normal;  /* Force Regular weight in stylesheet too */
+                font-style: {('italic' if self.current_font.italic() else 'normal')};
                 background-color: {self.editor.palette().base().color().name()};
                 color: {self.editor.palette().text().color().name()};
                 selection-background-color: {self.editor.palette().highlight().color().name()};
@@ -989,9 +1110,13 @@ class EditorTab(QWidget):
         """)
 
     def apply_theme(self, theme_name):
-        """Apply theme to editor"""
+        """Apply theme while preserving font properties"""
         self.settings_manager.save_theme(theme_name)
         ThemeManager.apply_theme(self.editor, theme_name)
+        
+        # After applying theme, reapply font to ensure properties are preserved
+        if hasattr(self, 'current_font'):
+            self.update_font(self.current_font)
 
     def handle_modification(self, modified):
         """Update tab title to show modification status"""
@@ -1004,9 +1129,9 @@ class EditorTab(QWidget):
                 elif not modified and current_text.endswith('*'):
                     self.main_window.tab_widget.setTabText(current_index, current_text[:-1])
 
-    def toggle_pane(self, pane):
+    def toggle_pane(self, pane_type):
         """Toggle visibility of side panes"""
-        if pane == "snippets":
+        if pane_type == "snippets":
             self.snippet_widget.setVisible(not self.snippet_widget.isVisible())
             # If showing snippets, make sure it has reasonable size
             if self.snippet_widget.isVisible():
@@ -1016,52 +1141,146 @@ class EditorTab(QWidget):
                     new_snippet_size = int(editor_size * 0.2)  # 20% for snippets
                     new_editor_size = editor_size - new_snippet_size
                     self.splitter.setSizes([new_editor_size, new_snippet_size, current_sizes[2]])
-        elif pane == "browser":
-            self.browser_widget.setVisible(not self.browser_widget.isVisible())
-            # If showing browser, make sure it has reasonable size
-            if self.browser_widget.isVisible():
+                    
+        elif pane_type == "browser":
+            is_visible = self.browser_widget.isVisible()
+            
+            if is_visible:
+                # If currently visible, hide it and destroy web view
+                self.browser_widget.setVisible(False)
+                if self.web_view:
+                    self.web_view.stop()
+                    self.web_view.setParent(None)
+                    self.web_view.deleteLater()
+                    self.web_view = None
+                    
+                    # Clear the container layout
+                    while self.web_container.layout().count():
+                        item = self.web_container.layout().takeAt(0)
+                        if item.widget():
+                            item.widget().deleteLater()
+            else:
+                # If showing browser, make sure it has reasonable size first
                 current_sizes = self.splitter.sizes()
-                if current_sizes[2] < 100:  # If browser pane is too small
+                if current_sizes[2] < 100:
                     editor_size = current_sizes[0]
-                    new_browser_size = int(editor_size * 0.3)  # 30% for browser
+                    new_browser_size = int(editor_size * 0.3)
                     new_editor_size = editor_size - new_browser_size
                     self.splitter.setSizes([new_editor_size, current_sizes[1], new_browser_size])
         
-        # Save states after toggling
+                self.browser_widget.setVisible(True)
+                
+                # Create web view and load URL
+                self.create_web_view()
+                if hasattr(self, '_pending_url'):
+                    self.web_view.setUrl(QUrl(self._pending_url))
+                    del self._pending_url
+                else:
+                    homepage = self.settings_manager.get_setting('homepage', 'https://www.apnews.com/')
+                    self.web_view.setUrl(QUrl(homepage))
+        
+        # Track if pane was opened during focus mode
+        if self.focus_mode:
+            if pane_type == "browser":
+                # Only track as opened if we're showing it
+                self.panes_opened_in_focus['browser'] = self.browser_widget.isVisible()
+            elif pane_type == "snippets":
+                self.panes_opened_in_focus['snippets'] = self.snippet_widget.isVisible()
+        
+        # Save states after toggle
         self.save_pane_states()
-
-    def update_url(self, url):
-        self.url_bar.setText(url.toString())
 
     def setup_browser_shortcuts(self):
         """Setup standard shortcuts for the web browser"""
+        if not self.web_view:
+            return
+            
         # Copy
         copy_action = QAction(self.web_view)
         copy_action.setShortcut(QKeySequence("Ctrl+C"))
-        copy_action.setShortcutContext(Qt.WidgetShortcut)  # Only active when web view has focus
+        copy_action.setShortcutContext(Qt.WidgetShortcut)
         copy_action.triggered.connect(lambda: self.web_view.page().triggerAction(QWebEnginePage.Copy))
         self.web_view.addAction(copy_action)
         
         # Cut
         cut_action = QAction(self.web_view)
         cut_action.setShortcut(QKeySequence("Ctrl+X"))
-        cut_action.setShortcutContext(Qt.WidgetShortcut)  # Only active when web view has focus
+        cut_action.setShortcutContext(Qt.WidgetShortcut)
         cut_action.triggered.connect(lambda: self.web_view.page().triggerAction(QWebEnginePage.Cut))
         self.web_view.addAction(cut_action)
         
         # Paste
         paste_action = QAction(self.web_view)
         paste_action.setShortcut(QKeySequence("Ctrl+V"))
-        paste_action.setShortcutContext(Qt.WidgetShortcut)  # Only active when web view has focus
+        paste_action.setShortcutContext(Qt.WidgetShortcut)
         paste_action.triggered.connect(lambda: self.web_view.page().triggerAction(QWebEnginePage.Paste))
         self.web_view.addAction(paste_action)
         
-        # Select All
-        select_all_action = QAction(self.web_view)
-        select_all_action.setShortcut(QKeySequence("Ctrl+A"))
-        select_all_action.setShortcutContext(Qt.WidgetShortcut)  # Only active when web view has focus
-        select_all_action.triggered.connect(lambda: self.web_view.page().triggerAction(QWebEnginePage.SelectAll))
-        self.web_view.addAction(select_all_action)
+    def update_url(self, url):
+        self.url_bar.setText(url.toString())
+
+    def setup_browser_toolbar(self):
+        """Setup browser toolbar with navigation controls"""
+        # Browser toolbar
+        toolbar = QWidget()
+        toolbar.setFixedHeight(32)
+        toolbar.setStyleSheet("""
+            QWidget {
+                background: palette(window);
+                border-bottom: 1px solid palette(mid);
+            }
+            QLineEdit {
+                border: 1px solid palette(mid);
+                border-radius: 3px;
+                padding: 2px 8px;
+                background: palette(base);
+                selection-background-color: palette(highlight);
+                margin: 4px;
+            }
+            QPushButton {
+                background: transparent;
+                border: none;
+                border-radius: 3px;
+                padding: 4px;
+                margin: 2px;
+                color: palette(text);
+            }
+            QPushButton:hover {
+                background: palette(highlight);
+                color: palette(highlighted-text);
+            }
+        """)
+        
+        toolbar_layout = QHBoxLayout(toolbar)
+        toolbar_layout.setContentsMargins(4, 0, 4, 0)
+        toolbar_layout.setSpacing(2)
+        
+        # Navigation buttons
+        self.back_btn = QPushButton("←")
+        self.back_btn.setFixedSize(24, 24)
+        self.back_btn.setEnabled(False)  # Initially disabled
+        toolbar_layout.addWidget(self.back_btn)
+        
+        self.forward_btn = QPushButton("→")
+        self.forward_btn.setFixedSize(24, 24)
+        self.forward_btn.setEnabled(False)  # Initially disabled
+        toolbar_layout.addWidget(self.forward_btn)
+        
+        # URL bar
+        self.url_bar = QLineEdit()
+        self.url_bar.setPlaceholderText("Search or enter address")
+        self.url_bar.returnPressed.connect(self.navigate_to_url)
+        toolbar_layout.addWidget(self.url_bar)
+        
+        # Close button
+        close_btn = QPushButton("×")
+        close_btn.setFixedSize(24, 24)
+        close_btn.setFont(QFont("Arial", 14))
+        close_btn.clicked.connect(lambda: self.toggle_pane("browser"))
+        toolbar_layout.addWidget(close_btn)
+        
+        # Add toolbar to browser layout
+        self.browser_widget.layout().addWidget(toolbar)
 
     def update_status(self):
         """Update word and character count"""
@@ -1080,103 +1299,68 @@ class EditorTab(QWidget):
     def enable_focus_mode(self):
         """Enable focus mode"""
         self.focus_mode = True
-        # Hide side panes
-        if hasattr(self, 'snippet_widget'):
-            self.snippet_widget.hide()
-        if hasattr(self, 'browser_widget'):
-            self.browser_widget.hide()
-        # Set editor to full width
-        if hasattr(self, 'splitter'):
-            self.splitter.setSizes([self.width(), 0, 0])
-
-    def disable_focus_mode(self):
-        """Disable focus mode"""
-        self.focus_mode = False
-        # Restore pane states from settings
-        states = self.settings_manager.get_setting('pane_states', {
-            'snippets_visible': False,
-            'browser_visible': False,
-            'sizes': [700, 300, 300]
-        })
         
-        if hasattr(self, 'snippet_widget'):
-            self.snippet_widget.setVisible(states.get('snippets_visible', False))
-        if hasattr(self, 'browser_widget'):
-            self.browser_widget.setVisible(states.get('browser_visible', False))
-        if hasattr(self, 'splitter'):
-            self.splitter.setSizes(states.get('sizes', [700, 300, 300]))
-
-    def toggle_focus_mode(self):
-        """Toggle focus mode"""
-        if not hasattr(self, 'focus_mode'):
-            self.focus_mode = False
-            
-        self.focus_mode = not self.focus_mode
+        # Save current state before changing anything
+        window = self.window()
+        self.pre_focus_state = window.windowState()
+        self.pre_focus_states = {
+            'snippets_visible': self.snippet_widget.isVisible(),
+            'browser_visible': self.browser_widget.isVisible(),
+            'sizes': self.splitter.sizes()
+        }
         
-        if self.focus_mode:
-            # Save current state
-            self.pre_focus_state = self.window().windowState()
-            
-            # Hide everything except editor
-            self.snippet_widget.hide()
-            self.browser_widget.hide()
-            self.window().toolbar.hide()
-            self.window().tab_widget.tabBar().hide()
-            
-            # Create exit button as overlay
-            self.exit_focus_btn = QPushButton("Exit Focus Mode (Esc)", self)
-            self.exit_focus_btn.clicked.connect(self.toggle_focus_mode)
-            self.exit_focus_btn.setStyleSheet("""
-                QPushButton {
-                    background-color: transparent;
-                    border: 1px solid #999;
-                    border-radius: 4px;
-                    color: #999;
-                    padding: 5px 10px;
-                }
-                QPushButton:hover {
-                    background-color: rgba(153, 153, 153, 0.1);
-                }
-            """)
-            
-            # Position button at top right
-            self.exit_focus_btn.setFixedSize(160, 30)
-            self.exit_focus_btn.move(self.width() - 170, 10)
-            self.exit_focus_btn.raise_()
-            self.exit_focus_btn.show()
-            
-            # Go full screen
-            self.window().showFullScreen()
-            
-        else:
-            # Restore window state
-            if hasattr(self, 'pre_focus_state'):
-                self.window().setWindowState(self.pre_focus_state)
-            
-            # Show UI elements
-            self.window().toolbar.show()
-            self.window().tab_widget.tabBar().show()
-            
-            # Restore pane states
-            states = self.settings_manager.get_setting('pane_states', {
-                'snippets_visible': False,
-                'browser_visible': False,
-                'sizes': [700, 300, 300]
-            })
-            self.snippet_widget.setVisible(states.get('snippets_visible', False))
-            self.browser_widget.setVisible(states.get('browser_visible', False))
-            self.splitter.setSizes(states.get('sizes', [700, 300, 300]))
-            
-            # Remove exit button
-            if hasattr(self, 'exit_focus_btn'):
-                self.exit_focus_btn.deleteLater()
-                del self.exit_focus_btn
+        # Reset tracking of panes opened during focus mode
+        self.panes_opened_in_focus = {'browser': False, 'snippets': False}
+        
+        # Hide UI elements
+        self.snippet_widget.hide()
+        self.browser_widget.hide()
+        self.window().toolbar.hide()
+        self.window().tab_widget.tabBar().hide()
+        
+        # Create exit button as overlay
+        self.exit_focus_btn = QPushButton("Exit Focus Mode (Esc)", self)
+        self.exit_focus_btn.clicked.connect(self.toggle_focus_mode)
+        self.exit_focus_btn.setStyleSheet("""
+            QPushButton {
+                background-color: rgba(0, 0, 0, 0.2);
+                border: 2px solid palette(text);
+                border-radius: 6px;
+                color: palette(text);
+                padding: 8px 16px;
+                font-size: 13px;
+                font-weight: bold;
+            }
+            QPushButton:hover {
+                background-color: palette(highlight);
+                border-color: palette(highlight);
+                color: palette(highlighted-text);
+            }
+        """)
+        
+        # Position button at bottom right with margin
+        self.exit_focus_btn.setFixedSize(180, 36)
+        self.update_exit_button_position()
+        self.exit_focus_btn.raise_()
+        self.exit_focus_btn.show()
+        
+        # Go full screen without changing the stored state
+        window.setWindowState(window.windowState() | Qt.WindowFullScreen)
+
+    def update_exit_button_position(self):
+        """Update exit button position based on current window size"""
+        if hasattr(self, 'exit_focus_btn'):
+            margin = 20
+            self.exit_focus_btn.move(
+                self.width() - self.exit_focus_btn.width() - margin,
+                self.height() - self.exit_focus_btn.height() - margin
+            )
 
     def resizeEvent(self, event):
         """Handle resize events to keep exit button positioned correctly"""
         super().resizeEvent(event)
-        if hasattr(self, 'focus_mode') and self.focus_mode and hasattr(self, 'exit_focus_btn'):
-            self.exit_focus_btn.move(self.width() - 170, 10)
+        if hasattr(self, 'focus_mode') and self.focus_mode:
+            self.update_exit_button_position()
 
     def keyPressEvent(self, event):
         """Handle escape key for focus mode"""
@@ -1295,3 +1479,200 @@ class EditorTab(QWidget):
         self.suggestion_index = -1
         self.editor.completion_text = ""
         self.editor.viewport().update()
+
+    def update_nav_buttons(self):
+        """Update navigation button states"""
+        if self.web_view:
+            self.back_btn.setEnabled(self.web_view.page().action(QWebEnginePage.Back).isEnabled())
+            self.forward_btn.setEnabled(self.web_view.page().action(QWebEnginePage.Forward).isEnabled())
+
+    def handle_navigation(self, navigation_type, url):
+        """Handle navigation requests"""
+        # Update navigation buttons
+        self.update_nav_buttons()
+        return True  # Allow navigation
+
+    def handle_escape(self):
+        """Handle ESC key press"""
+        if self.focus_mode:
+            self.disable_focus_mode()
+            # Update menu if possible
+            if hasattr(self, 'main_window'):
+                # Try to update focus mode action if method exists
+                if hasattr(self.main_window, 'update_focus_mode_action'):
+                    self.main_window.update_focus_mode_action(False)
+                # Otherwise just update the View menu if it exists
+                elif hasattr(self.main_window, 'view_menu'):
+                    for action in self.main_window.view_menu.actions():
+                        if action.text() == "Focus Mode":
+                            action.setChecked(False)
+                            break
+
+    def toggle_focus_mode(self):
+        """Toggle focus mode"""
+        if not hasattr(self, 'focus_mode'):
+            self.focus_mode = False
+            
+        self.focus_mode = not self.focus_mode
+        
+        if self.focus_mode:
+            self.enable_focus_mode()
+        else:
+            self.disable_focus_mode()
+
+    def disable_focus_mode(self):
+        """Disable focus mode"""
+        self.focus_mode = False
+        
+        window = self.window()
+        
+        # Remove fullscreen flag while preserving other states
+        new_state = window.windowState() & ~Qt.WindowFullScreen
+        if self.pre_focus_state & Qt.WindowMaximized:
+            new_state |= Qt.WindowMaximized
+            
+        # Apply the state change
+        window.setWindowState(new_state)
+        
+        # Show UI elements
+        window.toolbar.show()
+        window.tab_widget.tabBar().show()
+        
+        # Remove exit button
+        if hasattr(self, 'exit_focus_btn'):
+            self.exit_focus_btn.deleteLater()
+            del self.exit_focus_btn
+        
+        # Restore pane states
+        if hasattr(self, 'pre_focus_states'):
+            browser_should_be_visible = (self.pre_focus_states['browser_visible'] or
+                                       self.browser_widget.isVisible() or
+                                       self.panes_opened_in_focus['browser'])
+            
+            self.snippet_widget.setVisible(self.pre_focus_states['snippets_visible'])
+            self.browser_widget.setVisible(browser_should_be_visible)
+            
+            # Calculate proper sizes
+            total_width = sum(self.pre_focus_states['sizes'])
+            if browser_should_be_visible:
+                editor_ratio = 0.7
+                browser_ratio = 0.3
+                snippet_width = self.pre_focus_states['sizes'][1] if self.pre_focus_states['snippets_visible'] else 0
+                
+                editor_width = int(total_width * editor_ratio) - (snippet_width // 2)
+                browser_width = int(total_width * browser_ratio)
+                
+                self.splitter.setSizes([editor_width, snippet_width, browser_width])
+            else:
+                self.splitter.setSizes(self.pre_focus_states['sizes'])
+
+    def toggle_find(self):
+        """Toggle find/replace toolbar visibility"""
+        visible = not self.find_toolbar.isVisible()
+        self.find_toolbar.setVisible(visible)
+        if visible:
+            self.find_input.setFocus()
+            # Select text if any is selected
+            cursor = self.editor.textCursor()
+            if cursor.hasSelection():
+                self.find_input.setText(cursor.selectedText())
+                self.find_input.selectAll()
+        else:
+            # Clear highlighting when closing
+            self.clear_highlights()
+            self.editor.setFocus()
+
+        # Update the search action state in the main toolbar if it exists
+        if hasattr(self, 'main_window'):
+            for action in self.main_window.toolbar.actions():
+                if action.text() == "Find/Replace":
+                    action.setChecked(visible)
+                    break
+
+    def find_text(self, direction='down'):
+        """Find text in editor"""
+        text = self.find_input.text()
+        if not text:
+            return
+            
+        cursor = self.editor.textCursor()
+        document = self.editor.document()
+        
+        # Create find flags
+        flags = QTextDocument.FindFlags()
+        if direction == 'up':
+            flags |= QTextDocument.FindBackward
+            
+        # Remove case sensitivity flag to make search case-insensitive
+        # flags |= QTextDocument.FindCaseSensitively  # Commented out to make case-insensitive
+            
+        # Find next occurrence
+        if not self.editor.find(text, flags):
+            # If not found, wrap around
+            cursor = QTextCursor(document)
+            self.editor.setTextCursor(cursor)
+            self.editor.find(text, flags)
+
+    def replace_text(self):
+        """Replace current occurrence"""
+        find_text = self.find_input.text()
+        replace_text = self.replace_input.text()
+        
+        if not find_text:
+            return
+        
+        cursor = self.editor.textCursor()
+        
+        # If no text is selected, find next occurrence first
+        if not cursor.hasSelection():
+            self.find_text()
+            cursor = self.editor.textCursor()
+        
+        # Check if we have a valid selection that matches the search text (case-insensitive)
+        if cursor.hasSelection() and cursor.selectedText().lower() == find_text.lower():
+            cursor.beginEditBlock()
+            cursor.insertText(replace_text)
+            cursor.endEditBlock()
+            # Find next occurrence
+            self.find_text()
+
+    def replace_all(self):
+        """Replace all occurrences"""
+        find_text = self.find_input.text()
+        replace_text = self.replace_input.text()
+        
+        if not find_text:
+            return
+        
+        cursor = self.editor.textCursor()
+        cursor.beginEditBlock()
+        
+        # Move to start
+        cursor.movePosition(QTextCursor.Start)
+        self.editor.setTextCursor(cursor)
+        
+        # Create find flags for case-insensitive search
+        flags = QTextDocument.FindFlags()
+        # flags |= QTextDocument.FindCaseSensitively  # Commented out to make case-insensitive
+        
+        # Replace all occurrences
+        count = 0
+        while self.editor.find(find_text, flags):
+            cursor = self.editor.textCursor()
+            cursor.insertText(replace_text)
+            count += 1
+        
+        cursor.endEditBlock()
+        
+        # Show message with count
+        QMessageBox.information(self, "Replace All", f"Replaced {count} occurrence{'s' if count != 1 else ''}")
+        
+        # Move cursor back to start
+        cursor.movePosition(QTextCursor.Start)
+        self.editor.setTextCursor(cursor)
+
+    def clear_highlights(self):
+        """Clear any search highlighting"""
+        cursor = self.editor.textCursor()
+        cursor.clearSelection()
+        self.editor.setTextCursor(cursor)
