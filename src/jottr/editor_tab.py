@@ -179,7 +179,10 @@ class CompletingTextEdit(QTextEdit):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.completion_text = ""
+        self.completion_start = None
         self.parent_tab = parent
+        self.suggestion_menu = None
+        self.suppress_completion = False
         
     def insertFromMimeData(self, source):
         """Override paste to always use plain text"""
@@ -212,35 +215,42 @@ class CompletingTextEdit(QTextEdit):
         if self.completion_text and event.key() in (Qt.Key_Tab, Qt.Key_Return):
             cursor = self.textCursor()
             
-            # For snippets, delete the partial word first
-            if hasattr(self, 'completion_start') and self.completion_start is not None:
-                # Get current word length
-                block = cursor.block()
-                text = block.text()
-                pos = cursor.positionInBlock()
-                
-                # Find end of current word
-                end = pos
-                while end < len(text) and (text[end].isalnum() or text[end] == '_'):
-                    end += 1
-                
-                # Calculate block position
-                block_pos = cursor.block().position()
-                # Set position to start of word
-                cursor.setPosition(block_pos + self.completion_start)
-                # Select to end of word
-                cursor.setPosition(block_pos + end, cursor.KeepAnchor)
-                # Delete selected text (entire partial word)
-                cursor.removeSelectedText()
-                # Insert snippet content
-                cursor.insertText(self.completion_text)
-            else:
-                # For dictionary words, just append completion
-                cursor.insertText(self.completion_text)
+            # For both snippets and dictionary words, delete the partial word first
+            block = cursor.block()
+            text = block.text()
+            pos = cursor.positionInBlock()
+            
+            # Find end of current word
+            end = pos
+            while end < len(text) and (text[end].isalnum() or text[end] == '_'):
+                end += 1
+            
+            # Find start of current word
+            start = pos
+            while start > 0 and (text[start-1].isalnum() or text[start-1] == '_'):
+                start -= 1
+            
+            # Calculate block position
+            block_pos = cursor.block().position()
+            
+            # Set position to start of word
+            cursor.setPosition(block_pos + start)
+            # Select to end of word
+            cursor.setPosition(block_pos + end, cursor.KeepAnchor)
+            # Delete selected text (entire partial word)
+            cursor.removeSelectedText()
+            # Insert completion text
+            cursor.insertText(self.completion_text)
             
             self.completion_text = ""
             self.completion_start = None
             self.viewport().update()
+            
+            # If it was Enter key, add a new line after insertion
+            if event.key() == Qt.Key_Return:
+                cursor = self.textCursor()
+                cursor.insertText("\n")
+            
             event.accept()
             return
             
@@ -252,15 +262,27 @@ class CompletingTextEdit(QTextEdit):
             event.accept()
             return
             
+        # Handle Enter key normally when no completion is active
+        elif event.key() == Qt.Key_Return and not self.completion_text:
+            super().keyPressEvent(event)
+            return
+            
         super().keyPressEvent(event)
         
-        # Check for completion after key press
-        if event.text().isalnum():
+        # Check for completion after key press, but only if not suppressed
+        if event.text().isalnum() and not self.suppress_completion:
             QTimer.singleShot(0, self.check_for_completion)
 
     def check_for_completion(self):
         """Check current word against both user dictionary and snippets"""
         if not self.parent_tab:
+            return
+            
+        # If suggestion menu is visible, don't show inline completions
+        if self.suggestion_menu and self.suggestion_menu.isVisible():
+            self.completion_text = ""
+            self.completion_start = None
+            self.viewport().update()
             return
             
         cursor = self.textCursor()
@@ -275,40 +297,140 @@ class CompletingTextEdit(QTextEdit):
         
         current_word = text[start:pos]
         if len(current_word) >= 2:  # Only suggest after 2 characters
-            # First check snippets
+            suggestions = []
+            has_snippet = False
+            has_word = False
+            
+            # Check snippets
             if hasattr(self.parent_tab, 'snippet_manager'):
                 snippets = self.parent_tab.snippet_manager.get_snippets()
                 for title in snippets:
                     if title.lower().startswith(current_word.lower()):
-                        # Get snippet content
                         content = self.parent_tab.snippet_manager.get_snippet(title)
                         if content:
-                            # Store the full content and the position to delete from
-                            self.completion_text = content
-                            self.completion_start = start  # Store position to delete from
-                            self.viewport().update()
-                            return
+                            has_snippet = True
+                            suggestions.append(('snippet', title, content))
 
-            # If no snippet match found, check user dictionary
+            # Check user dictionary
             user_dict = self.parent_tab.settings_manager.get_setting('user_dictionary', [])
-            matches = []
             for word in user_dict:
                 if word.lower().startswith(current_word.lower()) and word.lower() != current_word.lower():
-                    matches.append(word)
-                    break  # Only get first match for speed
+                    has_word = True
+                    suggestions.append(('word', word, word))
             
-            if matches:
-                # Get the completion part
-                completion = matches[0][len(current_word):]
-                if completion:
-                    self.completion_text = completion
-                    self.completion_start = None  # No need to delete for dictionary words
+            # If we have both types of matches, always show popup
+            if has_snippet and has_word:
+                self.show_suggestions_menu(suggestions, start)
+                self.completion_text = ""
+                self.completion_start = None
+                self.viewport().update()
+                return
+            
+            if len(suggestions) > 0:
+                # If only one suggestion, show inline
+                if len(suggestions) == 1:
+                    suggestion = suggestions[0]
+                    self.completion_text = suggestion[2]
+                    self.completion_start = start if suggestion[0] == 'snippet' else None
                     self.viewport().update()
-                    return
+                else:
+                    # Show popup menu with all suggestions
+                    self.show_suggestions_menu(suggestions, start)
+                    # Clear inline suggestions when showing popup
+                    self.completion_text = ""
+                    self.completion_start = None
+                    self.viewport().update()
+                return
                     
         self.completion_text = ""
         self.completion_start = None
         self.viewport().update()
+
+    def show_suggestions_menu(self, suggestions, start_pos):
+        """Show popup menu with suggestions"""
+        if self.suggestion_menu:
+            self.suggestion_menu.close()
+        
+        self.suggestion_menu = QMenu(self)
+        
+        # Add dictionary words first
+        word_suggestions = [s for s in suggestions if s[0] == 'word']
+        if word_suggestions:
+            for _, word, _ in word_suggestions:
+                action = self.suggestion_menu.addAction(word)
+                action.triggered.connect(lambda checked, w=word: self.apply_suggestion('word', w, start_pos))
+        
+        # Add separator if we have both types
+        if word_suggestions and any(s[0] == 'snippet' for s in suggestions):
+            self.suggestion_menu.addSeparator()
+        
+        # Add snippets
+        snippet_suggestions = [s for s in suggestions if s[0] == 'snippet']
+        if snippet_suggestions:
+            for _, title, content in snippet_suggestions:
+                # Show first line of snippet content in menu
+                first_line = content.split('\n')[0][:50] + ('...' if len(content) > 50 else '')
+                action = self.suggestion_menu.addAction(f"{title} - {first_line}")
+                action.triggered.connect(lambda checked, c=content: self.apply_suggestion('snippet', c, start_pos))
+        
+        # Show menu under cursor
+        cursor = self.textCursor()
+        rect = self.cursorRect(cursor)
+        pos = self.mapToGlobal(rect.bottomLeft())
+        self.suggestion_menu.popup(pos)
+
+    def apply_suggestion(self, suggestion_type, content, start_pos):
+        """Apply the selected suggestion"""
+        # Temporarily suppress completion checking
+        self.suppress_completion = True
+        
+        cursor = self.textCursor()
+        
+        if suggestion_type == 'snippet':
+            # Delete partial word and insert snippet
+            block_pos = cursor.block().position()
+            text = cursor.block().text()
+            pos = cursor.positionInBlock()
+            
+            # Find end of current word
+            end = pos
+            while end < len(text) and (text[end].isalnum() or text[end] == '_'):
+                end += 1
+            
+            # Select and replace word
+            cursor.setPosition(block_pos + start_pos)
+            cursor.setPosition(block_pos + end, cursor.KeepAnchor)
+            cursor.removeSelectedText()
+            cursor.insertText(content)
+        else:
+            # For dictionary words, replace the entire word to preserve capitalization
+            block_pos = cursor.block().position()
+            text = cursor.block().text()
+            pos = cursor.positionInBlock()
+            
+            # Find end of current word
+            end = pos
+            while end < len(text) and (text[end].isalnum() or text[end] == '_'):
+                end += 1
+            
+            # Select and replace entire word
+            cursor.setPosition(block_pos + start_pos)
+            cursor.setPosition(block_pos + end, cursor.KeepAnchor)
+            cursor.removeSelectedText()
+            cursor.insertText(content)
+        
+        # Clear all suggestions
+        self.suggestion_menu = None
+        self.completion_text = ""
+        self.completion_start = None
+        self.viewport().update()
+        
+        # Re-enable completion checking after a short delay
+        QTimer.singleShot(500, self.enable_completion)
+
+    def enable_completion(self):
+        """Re-enable completion checking"""
+        self.suppress_completion = False
 
 class EditorTab(QWidget):
     def __init__(self, snippet_manager, settings_manager):
@@ -1160,42 +1282,9 @@ class EditorTab(QWidget):
             
             # Update suggestions as user types
             elif event.text().isalpha():
-                QTimer.singleShot(0, self.check_for_completion)
+                self.editor.check_for_completion()  # Call the editor's method instead
         
         return super().eventFilter(obj, event)
-
-    def check_for_completion(self):
-        """Check if current word matches any user dictionary words"""
-        cursor = self.editor.textCursor()
-        cursor.select(cursor.WordUnderCursor)
-        current_word = cursor.selectedText()
-        
-        if current_word and len(current_word) >= 2:  # Only suggest for words 2+ chars
-            # Get user dictionary
-            user_dict = self.settings_manager.get_setting('user_dictionary', [])
-            
-            # Find matching words
-            self.current_suggestions = [
-                word for word in user_dict 
-                if word.lower().startswith(current_word.lower()) 
-                and word.lower() != current_word.lower()
-            ]
-            
-            if self.current_suggestions:
-                self.suggestion_index = 0
-                # Show inline completion
-                completion = self.current_suggestions[0][len(current_word):]
-                self.editor.completion_text = completion
-                self.editor.viewport().update()
-            else:
-                self.suggestion_index = -1
-                self.editor.completion_text = ""
-                self.editor.viewport().update()
-        else:
-            self.current_suggestions = []
-            self.suggestion_index = -1
-            self.editor.completion_text = ""
-            self.editor.viewport().update()
 
     def apply_suggestion(self, word):
         """Apply a word suggestion"""
