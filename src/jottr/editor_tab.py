@@ -9,7 +9,7 @@ if os.path.exists(vendor_dir):
 from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QSplitter,
                             QTextEdit, QListWidget, QInputDialog, QMenu, QFileDialog, QDialog,
                             QToolBar, QAction, QCompleter, QListWidgetItem, QLineEdit, QPushButton, QMessageBox, QLabel, QShortcut, QToolTip)
-from PyQt5.QtCore import Qt, QUrl, QTimer, QStringListModel, QRegExp
+from PyQt5.QtCore import Qt, QUrl, QTimer, QStringListModel, QRegExp, QEvent
 from PyQt5.QtGui import (QTextCharFormat, QSyntaxHighlighter, QIcon, QFont, QKeySequence, 
                         QPainter, QPen, QColor, QFontMetrics, QTextDocument, QTextCursor)
 from PyQt5.QtWebEngineWidgets import QWebEngineView, QWebEnginePage
@@ -743,36 +743,36 @@ class EditorTab(QWidget):
         except Exception as e:
             print(f"Autosave failed: {str(e)}")
 
-    def save_file(self):
-        if not self.current_file:
-            file_name, _ = QFileDialog.getSaveFileName(self, "Save File", "", 
-                                                     "Text Files (*.txt);;All Files (*)")
+    def save_file(self, force_dialog=False):
+        """Save file, optionally forcing Save As dialog"""
+        if not self.current_file or force_dialog:
+            file_name, _ = QFileDialog.getSaveFileName(
+                self,
+                "Save File",
+                os.path.expanduser("~"),
+                "Text Files (*.txt);;All Files (*.*)"
+            )
             if file_name:
                 self.current_file = file_name
             else:
                 return False
                 
         try:
-            with open(self.current_file, 'w') as file:
-                file.write(self.editor.toPlainText())
-            self.editor.document().setModified(False)
-            
-            # Mark as clean exit before cleanup
-            self.autosave()
-            self.cleanup_session_files()
+            with open(self.current_file, 'w', encoding='utf-8') as f:
+                f.write(self.editor.toPlainText())
             
             # Update tab title
-            if self.main_window and hasattr(self.main_window, 'tab_widget'):
+            if self.main_window:
                 current_index = self.main_window.tab_widget.indexOf(self)
-                if current_index >= 0:
-                    file_name = os.path.basename(self.current_file)
-                    self.main_window.tab_widget.setTabText(current_index, file_name)
+                self.main_window.tab_widget.setTabText(current_index, os.path.basename(self.current_file))
             
+            # Mark document as unmodified
+            self.editor.document().setModified(False)
             return True
-        except:
-            QMessageBox.warning(self, "Save Error", "Failed to save file.")
+        except Exception as e:
+            QMessageBox.critical(self, "Error", f"Could not save file: {str(e)}")
             return False
-            
+
     def open_file(self):
         file_name, _ = QFileDialog.getOpenFileName(self, "Open File", "", 
                                                  "Text Files (*.txt);;All Files (*)")
@@ -1447,28 +1447,24 @@ class EditorTab(QWidget):
         self.settings_manager.save_setting('pane_states', states)
 
     def eventFilter(self, obj, event):
-        """Handle key events for suggestions"""
-        if obj == self.editor and event.type() == event.KeyPress:
-            # Handle Tab and Enter for suggestions
-            if event.key() in (Qt.Key_Tab, Qt.Key_Return):
-                if self.current_suggestions:
-                    if 0 <= self.suggestion_index < len(self.current_suggestions):
-                        self.apply_suggestion(self.current_suggestions[self.suggestion_index])
-                        return True
-                    self.current_suggestions = []
-                    return False
-            
-            # Clear suggestions on Escape
-            elif event.key() == Qt.Key_Escape:
-                self.current_suggestions = []
-                self.suggestion_index = -1
-                return False
-            
-            # Update suggestions as user types
-            elif event.text().isalpha():
-                self.editor.check_for_completion()  # Call the editor's method instead
-        
-        return super().eventFilter(obj, event)
+        """Filter events for focus mode"""
+        if obj == self.editor and event.type() == QEvent.KeyPress:
+            # Handle Escape key
+            if event.key() == Qt.Key_Escape and hasattr(self, 'focus_mode') and self.focus_mode:
+                self.toggle_focus_mode()
+                event.accept()
+                return True
+            # Handle Ctrl+Shift+D (or Cmd+Shift+D on Mac)
+            elif (event.key() == Qt.Key_D and 
+                  event.modifiers() & Qt.ShiftModifier and 
+                  event.modifiers() & (Qt.ControlModifier if sys.platform != 'darwin' else Qt.MetaModifier)):
+                if self.focus_mode:
+                    self.disable_focus_mode()
+                else:
+                    self.toggle_focus_mode()
+                event.accept()
+                return True
+        return super().eventFilter(obj, event)  # Let other events pass through
 
     def apply_suggestion(self, word):
         """Apply a word suggestion"""
@@ -1676,3 +1672,31 @@ class EditorTab(QWidget):
         cursor = self.editor.textCursor()
         cursor.clearSelection()
         self.editor.setTextCursor(cursor)
+
+    def create_context_menu(self, position):
+        """Create context menu for editor"""
+        menu = QMenu(self)
+        
+        # Cut/Copy/Paste actions
+        cut_action = menu.addAction("Cut")
+        cut_action.triggered.connect(self.editor.cut)
+        cut_action.setShortcut("Ctrl+X")
+        
+        copy_action = menu.addAction("Copy")
+        copy_action.triggered.connect(self.editor.copy)
+        copy_action.setShortcut("Ctrl+C")
+        
+        paste_action = menu.addAction("Paste")
+        paste_action.triggered.connect(self.editor.paste)
+        paste_action.setShortcut("Ctrl+V")
+        
+        # Add separator before Select All
+        menu.addSeparator()
+        
+        # Add Select All action
+        select_all_action = menu.addAction("Select All")
+        select_all_action.triggered.connect(self.editor.selectAll)
+        select_all_action.setShortcut("Ctrl+A")
+        
+        # Show menu at cursor position
+        menu.exec_(self.editor.mapToGlobal(position))

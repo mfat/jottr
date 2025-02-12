@@ -217,6 +217,11 @@ class TextEditorApp(QMainWindow):
                                   "Save", "Ctrl+S", self.save_file)
         self.toolbar.addAction(save_action)
         
+        # Add Save As button with same icon as Save
+        save_as_action = create_action("save", QStyle.SP_DialogSaveButton,  # Use "save" instead of "save-as"
+                                     "Save As", "Ctrl+Shift+S", self.save_file_as)
+        self.toolbar.addAction(save_as_action)
+        
         self.toolbar.addSeparator()
         
         # Edit operations
@@ -773,6 +778,12 @@ class TextEditorApp(QMainWindow):
         current_tab = self.tab_widget.currentWidget()
         if current_tab and isinstance(current_tab, EditorTab):
             current_tab.toggle_find()
+
+    def save_file_as(self):
+        """Save current file with a new name"""
+        current_tab = self.tab_widget.currentWidget()
+        if current_tab and isinstance(current_tab, EditorTab):
+            current_tab.save_file(force_dialog=True)
 
 def main():
     # Create application instance
