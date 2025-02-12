@@ -11,3 +11,6 @@ packaging/rpm/BUILDROOT/
 packaging/rpm/RPMS/
 packaging/rpm/SOURCES/
 packaging/rpm/SRPMS/ 
+
+.history/
+
