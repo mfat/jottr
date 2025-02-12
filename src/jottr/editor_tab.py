@@ -211,8 +211,35 @@ class CompletingTextEdit(QTextEdit):
         # Handle tab/enter to accept completion
         if self.completion_text and event.key() in (Qt.Key_Tab, Qt.Key_Return):
             cursor = self.textCursor()
-            cursor.insertText(self.completion_text)
+            
+            # For snippets, delete the partial word first
+            if hasattr(self, 'completion_start') and self.completion_start is not None:
+                # Get current word length
+                block = cursor.block()
+                text = block.text()
+                pos = cursor.positionInBlock()
+                
+                # Find end of current word
+                end = pos
+                while end < len(text) and (text[end].isalnum() or text[end] == '_'):
+                    end += 1
+                
+                # Calculate block position
+                block_pos = cursor.block().position()
+                # Set position to start of word
+                cursor.setPosition(block_pos + self.completion_start)
+                # Select to end of word
+                cursor.setPosition(block_pos + end, cursor.KeepAnchor)
+                # Delete selected text (entire partial word)
+                cursor.removeSelectedText()
+                # Insert snippet content
+                cursor.insertText(self.completion_text)
+            else:
+                # For dictionary words, just append completion
+                cursor.insertText(self.completion_text)
+            
             self.completion_text = ""
+            self.completion_start = None
             self.viewport().update()
             event.accept()
             return
@@ -220,6 +247,7 @@ class CompletingTextEdit(QTextEdit):
         # Clear completion on escape
         elif event.key() == Qt.Key_Escape:
             self.completion_text = ""
+            self.completion_start = None
             self.viewport().update()
             event.accept()
             return
@@ -231,7 +259,7 @@ class CompletingTextEdit(QTextEdit):
             QTimer.singleShot(0, self.check_for_completion)
 
     def check_for_completion(self):
-        """Check current word against user dictionary for completion"""
+        """Check current word against both user dictionary and snippets"""
         if not self.parent_tab:
             return
             
@@ -247,10 +275,22 @@ class CompletingTextEdit(QTextEdit):
         
         current_word = text[start:pos]
         if len(current_word) >= 2:  # Only suggest after 2 characters
-            # Get user dictionary
+            # First check snippets
+            if hasattr(self.parent_tab, 'snippet_manager'):
+                snippets = self.parent_tab.snippet_manager.get_snippets()
+                for title in snippets:
+                    if title.lower().startswith(current_word.lower()):
+                        # Get snippet content
+                        content = self.parent_tab.snippet_manager.get_snippet(title)
+                        if content:
+                            # Store the full content and the position to delete from
+                            self.completion_text = content
+                            self.completion_start = start  # Store position to delete from
+                            self.viewport().update()
+                            return
+
+            # If no snippet match found, check user dictionary
             user_dict = self.parent_tab.settings_manager.get_setting('user_dictionary', [])
-            
-            # Find matching words
             matches = []
             for word in user_dict:
                 if word.lower().startswith(current_word.lower()) and word.lower() != current_word.lower():
@@ -262,10 +302,12 @@ class CompletingTextEdit(QTextEdit):
                 completion = matches[0][len(current_word):]
                 if completion:
                     self.completion_text = completion
+                    self.completion_start = None  # No need to delete for dictionary words
                     self.viewport().update()
                     return
                     
         self.completion_text = ""
+        self.completion_start = None
         self.viewport().update()
 
 class EditorTab(QWidget):
@@ -345,21 +387,21 @@ class EditorTab(QWidget):
         
         # Snippet header
         snippet_header = QWidget()
-        snippet_header.setStyleSheet("""
-            QWidget {
-                background-color: palette(window);
-                border-bottom: 1px solid palette(mid);
-            }
-            QPushButton {
-                border: none;
-                padding: 0px;
-                color: palette(text);
-            }
-            QPushButton:hover {
-                background-color: palette(highlight);
-                color: palette(highlighted-text);
-            }
-        """)
+        # snippet_header.setStyleSheet("""
+        #     QWidget {
+        #         background-color: palette(window);
+        #         border-bottom: 1px solid palette(mid);
+        #     }
+        #     QPushButton {
+        #         border: none;
+        #         padding: 0px;
+        #         color: palette(text);
+        #     }
+        #     QPushButton:hover {
+        #         background-color: palette(highlight);
+        #         color: palette(highlighted-text);
+        #     }
+        # """)
         header_layout = QHBoxLayout(snippet_header)
         header_layout.setContentsMargins(8, 4, 4, 4)
         
