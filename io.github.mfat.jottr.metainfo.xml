@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>io.github.mfat.jottr</id>
+  
+  <name>Jottr</name>
+  <summary>A simple text editor mainly intended for writers, journalists and researchers</summary>
+  
+  <metadata_license>FSFAP</metadata_license>
+  <project_license>GPL-3.0-or-later</project_license>
+  
+  <description>
+    <p>
+      A simple, opinionated plain text editor designed for writers, journalists and researchers. Jottr has features like distraction-free writing, an integrated web-browser, customizable search in specific sites from the context menu and smart auto-completion.
+    </p>
+  </description>
+  
+  <launchable type="desktop-id">io.github.mfat.jottr.desktop</launchable>
+  <screenshots>
+    <screenshot type="default">
+      <image>https://private-user-images.githubusercontent.com/423263/412049625-ee7b18fc-73cc-4f0b-a8bf-6508dd67defa.png?jwt=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJnaXRodWIuY29tIiwiYXVkIjoicmF3LmdpdGh1YnVzZXJjb250ZW50LmNvbSIsImtleSI6ImtleTUiLCJleHAiOjE3Mzk0NTk0NjksIm5iZiI6MTczOTQ1OTE2OSwicGF0aCI6Ii80MjMyNjMvNDEyMDQ5NjI1LWVlN2IxOGZjLTczY2MtNGYwYi1hOGJmLTY1MDhkZDY3ZGVmYS5wbmc_WC1BbXotQWxnb3JpdGhtPUFXUzQtSE1BQy1TSEEyNTYmWC1BbXotQ3JlZGVudGlhbD1BS0lBVkNPRFlMU0E1M1BRSzRaQSUyRjIwMjUwMjEzJTJGdXMtZWFzdC0xJTJGczMlMkZhd3M0X3JlcXVlc3QmWC1BbXotRGF0ZT0yMDI1MDIxM1QxNTA2MDlaJlgtQW16LUV4cGlyZXM9MzAwJlgtQW16LVNpZ25hdHVyZT04NmQyNTA4ZjIxZTFiZDg1M2E2MDYxNzVlZDJlOTVlY2FkYjg3M2I5MDgxN2MxNzUwMTk1Nzg1NjQ0ZDgwOTI3JlgtQW16LVNpZ25lZEhlYWRlcnM9aG9zdCJ9.sdmzIAdnm9UYc8sxGN9OfhehUTR6hcyJHYRX4hrI-Kk</image>
+    </screenshot>
+  </screenshots>
+</component>
