@@ -7,7 +7,7 @@ import os
 import json
 import hashlib
 from PyQt5.QtWidgets import (QApplication, QMainWindow, QTabWidget, QWidget, 
-                            QVBoxLayout, QHBoxLayout, QSplitter, QMenu, QToolBar, QAction, QStyle, QMessageBox, QFontDialog, QStyleFactory, QLabel, QDialog, QSizePolicy)
+                            QVBoxLayout, QHBoxLayout, QSplitter, QMenu, QToolBar, QAction, QStyle, QMessageBox, QFontDialog, QStyleFactory, QLabel, QDialog, QSizePolicy, QDialogButtonBox)
 from PyQt5.QtCore import Qt, QUrl
 from PyQt5.QtWebEngineWidgets import QWebEngineView
 from editor_tab import EditorTab
@@ -20,6 +20,7 @@ from settings_manager import SettingsManager
 from PyQt5.QtGui import QPixmap
 from PyQt5.QtCore import QByteArray
 from settings_dialog import SettingsDialog
+from PyQt5.QtGui import QFont
 
 # Add vendor directory to path
 vendor_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'vendor')
@@ -184,7 +185,8 @@ class TextEditorApp(QMainWindow):
                 "zoom-in": "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgdmlld0JveD0iMCAwIDI0IDI0IiBmaWxsPSJub25lIiBzdHJva2U9ImN1cnJlbnRDb2xvciIgc3Ryb2tlLXdpZHRoPSIyIiBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiPjxjaXJjbGUgY3g9IjExIiBjeT0iMTEiIHI9IjgiPjwvY2lyY2xlPjxsaW5lIHgxPSIyMSIgeTE9IjIxIiB4Mj0iMTYuNjUiIHkyPSIxNi42NSI+PC9saW5lPjxsaW5lIHgxPSIxMSIgeTE9IjgiIHgyPSIxMSIgeTI9IjE0Ij48L2xpbmU+PGxpbmUgeDE9IjgiIHkxPSIxMSIgeDI9IjE0IiB5Mj0iMTEiPjwvbGluZT48L3N2Zz4=",
                 "zoom-out": "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgdmlld0JveD0iMCAwIDI0IDI0IiBmaWxsPSJub25lIiBzdHJva2U9ImN1cnJlbnRDb2xvciIgc3Ryb2tlLXdpZHRoPSIyIiBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiPjxjaXJjbGUgY3g9IjExIiBjeT0iMTEiIHI9IjgiPjwvY2lyY2xlPjxsaW5lIHgxPSIyMSIgeTE9IjIxIiB4Mj0iMTYuNjUiIHkyPSIxNi42NSI+PC9saW5lPjxsaW5lIHgxPSI4IiB5MT0iMTEiIHgyPSIxNCIgeTI9IjExIj48L2xpbmU+PC9zdmc+",
                 "zoom-reset": "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgdmlld0JveD0iMCAwIDI0IDI0IiBmaWxsPSJub25lIiBzdHJva2U9ImN1cnJlbnRDb2xvciIgc3Ryb2tlLXdpZHRoPSIyIiBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiPjxjaXJjbGUgY3g9IjExIiBjeT0iMTEiIHI9IjgiPjwvY2lyY2xlPjxsaW5lIHgxPSIyMSIgeTE9IjIxIiB4Mj0iMTYuNjUiIHkyPSIxNi42NSI+PC9saW5lPjxsaW5lIHgxPSIxMSIgeTE9IjgiIHgyPSIxMSIgeTI9IjE0Ij48L2xpbmU+PGxpbmUgeDE9IjgiIHkxPSIxMSIgeDI9IjE0IiB5Mj0iMTEiPjwvbGluZT48L3N2Zz4=",
-                "settings": "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgdmlld0JveD0iMCAwIDI0IDI0IiBmaWxsPSJub25lIiBzdHJva2U9ImN1cnJlbnRDb2xvciIgc3Ryb2tlLXdpZHRoPSIyIiBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiPjxsaW5lIHgxPSI0IiB5MT0iNiIgeDI9IjIwIiB5Mj0iNiI+PC9saW5lPjxsaW5lIHgxPSI0IiB5MT0iMTIiIHgyPSIyMCIgeTI9IjEyIj48L2xpbmU+PGxpbmUgeDE9IjQiIHkxPSIxOCIgeDI9IjIwIiB5Mj0iMTgiPjwvbGluZT48Y2lyY2xlIGN4PSI4IiBjeT0iNiIgcj0iMiI+PC9jaXJjbGU+PGNpcmNsZSBjeD0iMTYiIGN5PSIxMiIgcj0iMiI+PC9jaXJjbGU+PGNpcmNsZSBjeD0iOCIgY3k9IjE4IiByPSIyIj48L2NpcmNsZT48L3N2Zz4="
+                "settings": "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgdmlld0JveD0iMCAwIDI0IDI0IiBmaWxsPSJub25lIiBzdHJva2U9ImN1cnJlbnRDb2xvciIgc3Ryb2tlLXdpZHRoPSIyIiBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiPjxsaW5lIHgxPSI0IiB5MT0iNiIgeDI9IjIwIiB5Mj0iNiI+PC9saW5lPjxsaW5lIHgxPSI0IiB5MT0iMTIiIHgyPSIyMCIgeTI9IjEyIj48L2xpbmU+PGxpbmUgeDE9IjQiIHkxPSIxOCIgeDI9IjIwIiB5Mj0iMTgiPjwvbGluZT48Y2lyY2xlIGN4PSI4IiBjeT0iNiIgcj0iMiI+PC9jaXJjbGU+PGNpcmNsZSBjeD0iMTYiIGN5PSIxMiIgcj0iMiI+PC9jaXJjbGU+PGNpcmNsZSBjeD0iOCIgY3k9IjE4IiByPSIyIj48L2NpcmNsZT48L3N2Zz4=",
+                "search": "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgdmlld0JveD0iMCAwIDI0IDI0IiBmaWxsPSJub25lIiBzdHJva2U9ImN1cnJlbnRDb2xvciIgc3Ryb2tlLXdpZHRoPSIyIiBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiPjxjaXJjbGUgY3g9IjExIiBjeT0iMTEiIHI9IjgiPjwvY2lyY2xlPjxsaW5lIHgxPSIyMSIgeTE9IjIxIiB4Mj0iMTYuNjUiIHkyPSIxNi42NSI+PC9saW5lPjwvc3ZnPg=="
             }
             
             if icon_path in icons:
@@ -215,6 +217,11 @@ class TextEditorApp(QMainWindow):
                                   "Save", "Ctrl+S", self.save_file)
         self.toolbar.addAction(save_action)
         
+        # Add Save As button with same icon as Save
+        save_as_action = create_action("save", QStyle.SP_DialogSaveButton,  # Use "save" instead of "save-as"
+                                     "Save As", "Ctrl+Shift+S", self.save_file_as)
+        self.toolbar.addAction(save_as_action)
+        
         self.toolbar.addSeparator()
         
         # Edit operations
@@ -238,9 +245,14 @@ class TextEditorApp(QMainWindow):
         self.toolbar.addAction(theme_action)
         
         # Focus mode
-        focus_action = create_action("focus", QStyle.SP_TitleBarMaxButton,
-                                   "Focus Mode", handler=self.toggle_focus_mode)
-        focus_action.setToolTip("Enter distraction-free writing mode")
+        focus_action = create_action("focus", QStyle.SP_ComputerIcon,
+                                   "Focus Mode", 
+                                   "Ctrl+Shift+D" if sys.platform != 'darwin' else "⌘+Shift+D",
+                                   self.toggle_focus_mode)
+        focus_action.setToolTip("Toggle distraction-free writing mode\n"
+                               "Shortcut: Ctrl+Shift+D" if sys.platform != 'darwin' 
+                               else "Toggle distraction-free writing mode\n"
+                               "Shortcut: ⌘+Shift+D")
         self.toolbar.addAction(focus_action)
         
         self.toolbar.addSeparator()
@@ -270,6 +282,11 @@ class TextEditorApp(QMainWindow):
         self.toolbar.addAction(zoom_reset_action)
         
         self.toolbar.addSeparator()
+        
+        # Add search button
+        search_action = create_action("search", QStyle.SP_FileDialogContentsView,
+                                    "Find/Replace", "Ctrl+F", self.toggle_find)
+        self.toolbar.addAction(search_action)
         
         # Settings button
         settings_action = create_action("settings", QStyle.SP_FileDialogDetailedView,
@@ -539,46 +556,53 @@ class TextEditorApp(QMainWindow):
 
     def show_about(self):
         """Show about dialog"""
-        about_text = f"""
-        <div style="text-align: center;">
-            <h1>{APP_NAME}</h1>
-            <p style="color: #666;">Version {APP_VERSION}</p>
-            
-            <p>A modern text editor designed for writers and journalists.</p>
-            
-            <h3>Key Features:</h3>
-            <ul style="list-style-type: none; padding: 0;">
-                <li>✓ Smart word completion</li>
-                <li>✓ Custom dictionary</li>
-                <li>✓ Text snippet management</li>
-                <li>✓ Integrated web browser</li>
-                <li>✓ Site-specific searches</li>
-                <li>✓ Distraction-free mode</li>
-            </ul>
-
-            <p><a href="{APP_HOMEPAGE}">Visit Project Homepage</a></p>
-            
-            <p style="font-size: small; color: #666; margin-top: 20px;">
-                Made with ♥ for writers everywhere
-            </p>
-        </div>
-        """
-        
-        about_dialog = QMessageBox(self)
+        about_dialog = QDialog(self)
         about_dialog.setWindowTitle(f"About {APP_NAME}")
-        about_dialog.setText(about_text)
-        about_dialog.setTextFormat(Qt.RichText)
-        about_dialog.setStyleSheet("""
-            QMessageBox {
-                background-color: white;
-            }
-            QMessageBox QLabel {
-                min-width: 400px;
-            }
-        """)
+        about_dialog.setMinimumWidth(400)
         
-        # Make links clickable
-        about_dialog.setTextInteractionFlags(Qt.TextBrowserInteraction)
+        layout = QVBoxLayout(about_dialog)
+        layout.setSpacing(10)
+        
+        # App name
+        title_label = QLabel(APP_NAME)
+        title_label.setStyleSheet("font-size: 18pt; font-weight: bold;")
+        title_label.setAlignment(Qt.AlignCenter)
+        layout.addWidget(title_label)
+        
+        # Version
+        version_label = QLabel(f"Version {APP_VERSION}")
+        version_label.setAlignment(Qt.AlignCenter)
+        layout.addWidget(version_label)
+        
+        # Description
+        desc_label = QLabel("A simple text editor for writers, journalists and researchers")
+        desc_label.setAlignment(Qt.AlignCenter)
+        layout.addWidget(desc_label)
+        
+        # Add some spacing
+        layout.addSpacing(10)
+        
+        # Developer
+        dev_label = QLabel("Developed by mFat")
+        dev_label.setAlignment(Qt.AlignCenter)
+        layout.addWidget(dev_label)
+        
+        # License
+        license_label = QLabel("Licensed under GNU GPL v3.0")
+        license_label.setAlignment(Qt.AlignCenter)
+        layout.addWidget(license_label)
+        
+        # Homepage link
+        link_label = QLabel(f'<a href="{APP_HOMEPAGE}">Project Homepage</a>')
+        link_label.setOpenExternalLinks(True)
+        link_label.setAlignment(Qt.AlignCenter)
+        layout.addWidget(link_label)
+        
+        # Add button box
+        button_box = QDialogButtonBox(QDialogButtonBox.Ok)
+        button_box.accepted.connect(about_dialog.accept)
+        button_box.setCenterButtons(True)  # Center the OK button
+        layout.addWidget(button_box)
         
         about_dialog.exec_()
 
@@ -592,27 +616,31 @@ class TextEditorApp(QMainWindow):
         """Increase editor font size"""
         current_tab = self.tab_widget.currentWidget()
         if current_tab:
-            font = current_tab.editor.font()
-            size = font.pointSize()
-            font.setPointSize(size + 1)
-            current_tab.update_font(font)
+            current_font = current_tab.current_font  # Use stored font
+            new_font = QFont(current_font)  # Create new font based on current
+            new_font.setPointSize(current_font.pointSize() + 1)
+            current_tab.update_font(new_font)
 
     def zoom_out(self):
         """Decrease editor font size"""
         current_tab = self.tab_widget.currentWidget()
         if current_tab:
-            font = current_tab.editor.font()
-            size = font.pointSize()
+            current_font = current_tab.current_font  # Use stored font
+            size = current_font.pointSize()
             if size > 1:  # Prevent font from becoming too small
-                font.setPointSize(size - 1)
-                current_tab.update_font(font)
+                new_font = QFont(current_font)  # Create new font based on current
+                new_font.setPointSize(size - 1)
+                current_tab.update_font(new_font)
 
     def zoom_reset(self):
         """Reset editor font to default size"""
         current_tab = self.tab_widget.currentWidget()
         if current_tab:
             default_font = self.settings_manager.get_font()
-            current_tab.update_font(default_font)
+            # Preserve current font properties except size
+            new_font = QFont(current_tab.current_font)
+            new_font.setPointSize(default_font.pointSize())
+            current_tab.update_font(new_font)
 
     def restore_session(self):
         """Restore previous session with integrity checks"""
@@ -744,6 +772,18 @@ class TextEditorApp(QMainWindow):
         current_tab = self.tab_widget.currentWidget()
         if current_tab:
             current_tab.toggle_pane("browser")
+
+    def toggle_find(self):
+        """Toggle find/replace in current editor tab"""
+        current_tab = self.tab_widget.currentWidget()
+        if current_tab and isinstance(current_tab, EditorTab):
+            current_tab.toggle_find()
+
+    def save_file_as(self):
+        """Save current file with a new name"""
+        current_tab = self.tab_widget.currentWidget()
+        if current_tab and isinstance(current_tab, EditorTab):
+            current_tab.save_file(force_dialog=True)
 
 def main():
     # Create application instance
