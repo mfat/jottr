@@ -1,4 +1,5 @@
 # Jottr
+![jottr_icon_512x512](https://github.com/user-attachments/assets/9662d8a7-49c7-4384-afe2-4a7ee35bff76)
 
 A simple, opinionated plain text editor designed for writers, journalists and researchers. Jottr is not meant to be a full-featured text editor, but rather a simple and easy to use tool for writing. It's not aimed at developers.
 
