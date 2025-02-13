@@ -1,0 +1,77 @@
+name: Build RPM Package
+
+on:
+  push:
+    branches: [ main ]
+    tags: [ 'v*' ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  build-rpm:
+    runs-on: ubuntu-latest
+    container: 
+      image: fedora:latest
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Install build dependencies
+      run: |
+        dnf install -y \
+          rpm-build \
+          rpm-devel \
+          rpmlint \
+          python3-devel \
+          python3-setuptools \
+          python3-qt5 \
+          python3-qt5-webengine \
+          python3-feedparser \
+          python3-pyspellchecker \
+          rpmdevtools \
+          gcc \
+          make
+
+    - name: Set up RPM build environment
+      run: |
+        mkdir -p ~/rpmbuild/{BUILD,RPMS,SOURCES,SPECS,SRPMS}
+        cp jottr.spec ~/rpmbuild/SPECS/
+
+    - name: Create source tarball
+      run: |
+        mkdir -p /tmp/jottr-1.0.0
+        cp -r src LICENSE README.md icons /tmp/jottr-1.0.0/
+        cd /tmp
+        tar czf ~/rpmbuild/SOURCES/jottr-1.0.0.tar.gz jottr-1.0.0/
+
+    - name: Build RPM package
+      run: |
+        cd ~/rpmbuild/SPECS
+        rpmbuild -ba jottr.spec
+
+    - name: Run rpmlint
+      run: |
+        rpmlint ~/rpmbuild/RPMS/noarch/jottr-*.rpm
+
+    - name: Test RPM installation
+      run: |
+        dnf install -y ~/rpmbuild/RPMS/noarch/jottr-*.rpm
+
+    - name: Upload RPM artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: rpm-packages
+        path: |
+          ~/rpmbuild/RPMS/noarch/jottr-*.rpm
+          ~/rpmbuild/SRPMS/jottr-*.rpm
+
+    - name: Create Release
+      if: startsWith(github.ref, 'refs/tags/')
+      uses: softprops/action-gh-release@v1
+      with:
+        files: |
+          ~/rpmbuild/RPMS/noarch/jottr-*.rpm
+          ~/rpmbuild/SRPMS/jottr-*.rpm
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} 
