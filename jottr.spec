@@ -14,7 +14,7 @@ Requires:       python3
 Requires:       python3-qt5
 Requires:       python3-qt5-webengine
 Requires:       python3-feedparser
-Requires:       python3-pyspellchecker
+Requires:       python3-enchant
 
 %description
 Jottr is a simple text editor designed specifically for writers, journalists,

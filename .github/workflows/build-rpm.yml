@@ -29,6 +29,7 @@ jobs:
           python3-qt5-webengine \
           python3-feedparser \
           python3-pyspellchecker \
+          python3-enchant \
           rpmdevtools \
           gcc \
           make
