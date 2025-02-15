@@ -31,6 +31,7 @@ jobs:
             python3-pyqt5 \
             python3-pyqt5.qtwebengine \
             python3-feedparser \
+            python3-enchant \
             python3-pip \
             unzip \
             git \
