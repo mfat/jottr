@@ -1,5 +1,5 @@
 Name:           jottr
-Version:        1.0.0
+Version:        1.1.0
 Release:        1%{?dist}
 Summary:        A simple text editor for writers, journalists and researchers
 
@@ -63,5 +63,5 @@ install -p -m 644 icons/jottr.png %{buildroot}%{_datadir}/icons/hicolor/256x256/
 %{_datadir}/icons/hicolor/256x256/apps/%{name}.png
 
 %changelog
-* Wed Mar 20 2024 mFat <mfat@github.com> - 1.0.0-1
-- Initial RPM release 
+* Sat Feb 15 2025 mFat <mfat@github.com> - 1.1.0-1
+- Bug fixes and improvements
