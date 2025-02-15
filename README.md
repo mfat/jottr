@@ -35,8 +35,7 @@ A simple, opinionated plain text editor designed for writers, journalists and re
 - Consistent feature set across all systems
 
 ### How to install Jottr:
-DEB and RPM packages are available in the [Releases](https://github.com/mfat/jottr/releases) section.
-Windows and Mac builds will be added later.
+Downloads are available from the [Releases](https://github.com/mfat/jottr/releases) section.
 
 ### How to run Jottr:
 
