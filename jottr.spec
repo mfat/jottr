@@ -33,8 +33,18 @@ cp -r src/jottr/* %{buildroot}%{_datadir}/%{name}/
 mkdir -p %{buildroot}%{_bindir}
 cat > %{buildroot}%{_bindir}/%{name} << EOF
 #!/bin/bash
+# Get the absolute path of any file arguments
+args=()
+for arg in "\$@"; do
+    if [ -f "\$arg" ]; then
+        args+=("\$(readlink -f "\$arg")")
+    else
+        args+=("\$arg")
+    fi
+done
+
 # Pass command-line arguments to the application
-exec python3 %{_datadir}/%{name}/main.py "$@"
+exec python3 %{_datadir}/%{name}/main.py "\${args[@]}"
 EOF
 chmod 755 %{buildroot}%{_bindir}/%{name}
 
@@ -44,12 +54,13 @@ cat > %{buildroot}%{_datadir}/applications/%{name}.desktop << EOF
 [Desktop Entry]
 Name=Jottr
 Comment=Text editor for writers
-Exec=jottr %f
+Exec=jottr %F
 Icon=jottr
 Terminal=false
 Type=Application
 Categories=Utility;TextEditor;
-MimeType=text/plain;
+MimeType=text/plain;text/markdown;text/x-markdown;
+StartupNotify=true
 EOF
 
 # Add icons

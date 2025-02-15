@@ -853,30 +853,30 @@ def main():
     # Enable high DPI scaling
     QApplication.setAttribute(Qt.AA_UseHighDpiPixmaps)
     QApplication.setAttribute(Qt.AA_EnableHighDpiScaling)
-    QApplication.setAttribute(Qt.AA_UseSoftwareOpenGL)
     
     # Create application instance
     app = QApplication(sys.argv)
     
-    # Set application name and organization
+    # Set application metadata
     app.setApplicationName("Jottr")
     app.setApplicationDisplayName("Jottr")
     app.setDesktopFileName("jottr")
-    app.setApplicationVersion("1.0")
+    app.setApplicationVersion("1.2.0")
     app.setOrganizationDomain("github.com/mfat/jottr")
     
-    # Set window class name for proper window management
-    if hasattr(app, 'setDesktopFileName'):
-        app.setDesktopFileName("jottr")
-    
-    # Get file path from command-line arguments
-    file_path = None
+    # Get file paths from command-line arguments
+    file_paths = []
     if len(sys.argv) > 1:
-        file_path = sys.argv[1]
+        file_paths = [arg for arg in sys.argv[1:] if os.path.isfile(arg)]
     
-    # Pass file_path to TextEditorApp
-    window = TextEditorApp(file_path)
+    # Create main window
+    window = TextEditorApp()
     window.show()
+    
+    # Open files from command line
+    for file_path in file_paths:
+        window.open_file(file_path)
+    
     return app.exec_()
 
 if __name__ == "__main__":
