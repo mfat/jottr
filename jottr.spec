@@ -20,8 +20,7 @@ Requires:       qt5-qtsvg
 
 %description
 Jottr is a simple text editor designed specifically for writers, journalists,
-and researchers. It features a clean interface, distraction-free writing mode,
-and integrated RSS feed reader.
+and researchers.
 
 %prep
 %autosetup
