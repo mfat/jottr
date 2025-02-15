@@ -65,3 +65,4 @@ install -p -m 644 icons/jottr.png %{buildroot}%{_datadir}/icons/hicolor/256x256/
 %changelog
 * Sat Feb 15 2025 mFat <mfat@github.com> - 1.1.0-1
 - Bug fixes and improvements
+
