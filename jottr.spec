@@ -15,11 +15,17 @@ Requires:       python3-qt5
 Requires:       python3-qt5-webengine
 Requires:       python3-feedparser
 Requires:       python3-enchant
+Requires:       python3-pyqt5-sip
+Requires:       qt5-qtsvg
+
+
+    
+
 
 %description
 Jottr is a simple text editor designed specifically for writers, journalists,
-and researchers. It features a clean interface, distraction-free writing mode,
-and integrated RSS feed reader.
+and researchers. It features a clean interface, distraction-free writing mode, smart autocomplete,
+and an integrated web browser.
 
 %prep
 %autosetup
