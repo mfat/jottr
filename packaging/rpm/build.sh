@@ -31,7 +31,7 @@ BuildRequires:  python3-devel
 BuildRequires:  python3-setuptools
 Requires:       python3-qt5
 Requires:       python3-qt5-webengine
-
+Requires:       python3-enchant
 %description
 Jottr is a feature-rich text editor designed specifically
 for writers and journalists, with features like smart
