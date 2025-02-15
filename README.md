@@ -1,3 +1,5 @@
+
+![jottr_icon_128x128](https://github.com/user-attachments/assets/d92bd9f3-d704-4c21-9b0b-88892061f19a)
 # Jottr
 
 A simple, opinionated plain text editor designed for writers, journalists and researchers. Jottr is not meant to be a full-featured text editor, but rather a simple and easy to use tool for writing. It's not aimed at developers.
@@ -32,6 +34,9 @@ A simple, opinionated plain text editor designed for writers, journalists and re
 - Native look and feel on each platform
 - Consistent feature set across all systems
 
+### How to install Jottr:
+DEB and RPM packages are available in the [Releases](https://github.com/mfat/jottr/releases) section.
+Windows and Mac builds will be added later.
 
 ### How to run Jottr:
 
