@@ -42,6 +42,9 @@ class TextEditorApp(QMainWindow):
         self.settings_manager = SettingsManager()
         self.snippet_manager = SnippetManager()
         
+        # Apply UI theme from settings
+        self.apply_ui_theme(self.settings_manager.get_ui_theme())
+        
         # Create toolbar first before styling
         self.toolbar = self.addToolBar("Main Toolbar")
         
@@ -421,14 +424,32 @@ class TextEditorApp(QMainWindow):
                     self.settings_manager.save_font(font)
 
     def show_theme_menu(self):
+        """Show theme selection menu"""
         menu = QMenu(self)
+        
+        # Add UI themes
+        ui_theme_menu = menu.addMenu("UI Theme")
+        for theme in ['system', 'Fusion', 'Windows', 'Macintosh']:
+            action = ui_theme_menu.addAction(theme)
+            action.triggered.connect(lambda checked, t=theme: self.apply_ui_theme(t))
+        
+        # Add editor themes
+        editor_theme_menu = menu.addMenu("Editor Theme")
         for theme_name in ThemeManager.get_themes():
-            action = menu.addAction(theme_name)
+            action = editor_theme_menu.addAction(theme_name)
             action.triggered.connect(lambda checked, tn=theme_name: self.apply_theme(tn))
         
         # Show menu under theme button
         button = self.toolbar.widgetForAction(self.sender())
         menu.exec_(button.mapToGlobal(button.rect().bottomLeft()))
+
+    def apply_ui_theme(self, theme):
+        """Apply UI theme to application"""
+        self.settings_manager.apply_ui_theme(theme)
+        
+        # Update all widgets
+        QApplication.setStyle(QStyleFactory.create(theme))
+        self.update()
 
     def apply_theme(self, theme_name):
         if editor_tab := self.tab_widget.currentWidget():
@@ -766,6 +787,8 @@ class TextEditorApp(QMainWindow):
             self.settings_manager.save_setting('homepage', settings['homepage'])
             self.settings_manager.save_setting('search_sites', settings['search_sites'])
             self.settings_manager.save_setting('user_dictionary', settings['user_dictionary'])
+            self.settings_manager.save_setting('ui_theme', settings['ui_theme'])
+            self.apply_ui_theme(settings['ui_theme'])  # Apply the new theme immediately
 
     def toggle_browser(self):
         """Toggle browser pane in current tab"""
