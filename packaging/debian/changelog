@@ -1,5 +1,9 @@
-jottr (1.0-1) unstable; urgency=medium
+jottr (1.1.0-1) unstable; urgency=medium
 
-  * Initial release
+  * Bug fixes
+  * Fixed browser pane not being revealed when called from editor context menu
+  * Replaced pyspellchecker with enchant for spellchecking
+  * Changed inline suggestions to show only untyped part of the word
+  * Autocompleting dictionary words now properly  preserves case and capitalization 
 
- -- mFat <newmfat@gmail.com>  Tue, 11 Feb 2025 03:57:03 +0330
+ -- mFat <newmfat@gmail.com>  Tue, 15 Feb 2025 03:57:03 +0330
