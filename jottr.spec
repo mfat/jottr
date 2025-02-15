@@ -44,12 +44,12 @@ cat > %{buildroot}%{_datadir}/applications/%{name}.desktop << EOF
 [Desktop Entry]
 Name=Jottr
 Comment=Text editor for writers
-Exec=jottr %F  # Use %F to pass file arguments
-Icon=%{name}
+Exec=jottr %f
+Icon=jottr
 Terminal=false
 Type=Application
 Categories=Utility;TextEditor;
-MimeType=text/plain;  # Add MIME type for text files
+MimeType=text/plain;
 EOF
 
 # Add icons
