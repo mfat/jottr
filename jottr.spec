@@ -33,7 +33,8 @@ cp -r src/jottr/* %{buildroot}%{_datadir}/%{name}/
 mkdir -p %{buildroot}%{_bindir}
 cat > %{buildroot}%{_bindir}/%{name} << EOF
 #!/bin/bash
-exec python3 %{_datadir}/%{name}/main.py
+# Pass command-line arguments to the application
+exec python3 %{_datadir}/%{name}/main.py "$@"
 EOF
 chmod 755 %{buildroot}%{_bindir}/%{name}
 
@@ -43,11 +44,12 @@ cat > %{buildroot}%{_datadir}/applications/%{name}.desktop << EOF
 [Desktop Entry]
 Name=Jottr
 Comment=Text editor for writers
-Exec=jottr
+Exec=jottr %F  # Use %F to pass file arguments
 Icon=%{name}
 Terminal=false
 Type=Application
 Categories=Utility;TextEditor;
+MimeType=text/plain;  # Add MIME type for text files
 EOF
 
 # Add icons
