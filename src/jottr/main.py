@@ -21,6 +21,9 @@ from PyQt5.QtGui import QPixmap
 from PyQt5.QtCore import QByteArray
 from settings_dialog import SettingsDialog
 from PyQt5.QtGui import QFont
+from PyQt5.QtSvg import QSvgRenderer
+from PyQt5.QtGui import QPainter
+from PyQt5.QtCore import QSize
 
 # Add vendor directory to path
 vendor_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'vendor')
@@ -164,39 +167,18 @@ class TextEditorApp(QMainWindow):
         
     def setup_toolbar(self):
         """Setup toolbar buttons and actions"""
+        # Prevent toolbar from being hidden
+        self.toolbar.setContextMenuPolicy(Qt.PreventContextMenu)
+        
         # Helper function to create themed action
-        def create_action(icon_path, fallback_icon, text, shortcut=None, handler=None):
-            # Create custom icons for toolbar
-            icons = {
-                "new": "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgdmlld0JveD0iMCAwIDI0IDI0IiBmaWxsPSJub25lIiBzdHJva2U9ImN1cnJlbnRDb2xvciIgc3Ryb2tlLXdpZHRoPSIyIiBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiPjxwYXRoIGQ9Ik0xNCwySDZDNC44OTU0MzA1LDIgNCwyLjg5NTQzMDUgNCw0VjIwQzQsMjEuMTA0NTY5NSA0Ljg5NTQzMDUsMjIgNiwyMkgxOEMxOS4xMDQ1Njk1LDIyIDIwLDIxLjEwNDU2OTUgMjAsMjBWOEwxNCwyWiIvPjxwb2x5bGluZSBwb2ludHM9IjE0IDIgMTQgOCAyMCA4Ii8+PC9zdmc+",
-                "open": "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgdmlld0JveD0iMCAwIDI0IDI0IiBmaWxsPSJub25lIiBzdHJva2U9ImN1cnJlbnRDb2xvciIgc3Ryb2tlLXdpZHRoPSIyIiBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiPjxwYXRoIGQ9Ik0yMiAxOWEyIDIgMCAwIDEtMiAySDRhMiAyIDAgMCAxLTItMlY1YTIgMiAwIDAgMSAyLTJoNWwyIDNoOWEyIDIgMCAwIDEgMiAyeiI+PC9wYXRoPjwvc3ZnPg==",
-                "save": "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgdmlld0JveD0iMCAwIDI0IDI0IiBmaWxsPSJub25lIiBzdHJva2U9ImN1cnJlbnRDb2xvciIgc3Ryb2tlLXdpZHRoPSIyIiBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiPjxwYXRoIGQ9Ik0xOSAyMUg1YTIgMiAwIDAgMS0yLTJWNWEyIDIgMCAwIDEgMi0yaDE0YTIgMiAwIDAgMSAyIDJ2MTRhMiAyIDAgMCAxLTIgMnoiPjwvcGF0aD48cG9seWxpbmUgcG9pbnRzPSIxNyAyMSAxNyAxMyA3IDEzIDcgMjEiPjwvcG9seWxpbmU+PHBvbHlsaW5lIHBvaW50cz0iNyAzIDcgOCAxNSA4Ij48L3BvbHlsaW5lPjwvc3ZnPg==",
-                "undo": "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgdmlld0JveD0iMCAwIDI0IDI0IiBmaWxsPSJub25lIiBzdHJva2U9ImN1cnJlbnRDb2xvciIgc3Ryb2tlLXdpZHRoPSIyIiBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiPjxwYXRoIGQ9Ik0zIDdoNmMyLjc2IDAgNSAyLjI0IDUgNXMtMi4yNCA1LTUgNUg0Ij48L3BhdGg+PHBhdGggZD0iTTMgN2wzLTNNMyA3bDMgMyI+PC9wYXRoPjwvc3ZnPg==",
-                "redo": "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgdmlld0JveD0iMCAwIDI0IDI0IiBmaWxsPSJub25lIiBzdHJva2U9ImN1cnJlbnRDb2xvciIgc3Ryb2tlLXdpZHRoPSIyIiBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiPjxwYXRoIGQ9Ik0yMSA3aC02Yy0yLjc2IDAtNSAyLjI0LTUgNXMyLjI0IDUgNSA1aDUiPjwvcGF0aD48cGF0aCBkPSJNMjEgN2wtMy0zTTIxIDdsLTMgMyI+PC9wYXRoPjwvc3ZnPg==",
-                "cut": "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgdmlld0JveD0iMCAwIDI0IDI0IiBmaWxsPSJub25lIiBzdHJva2U9ImN1cnJlbnRDb2xvciIgc3Ryb2tlLXdpZHRoPSIyIiBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiPjxjaXJjbGUgY3g9IjYiIGN5PSI2IiByPSIzIj48L2NpcmNsZT48Y2lyY2xlIGN4PSI2IiBjeT0iMTgiIHI9IjMiPjwvY2lyY2xlPjxsaW5lIHgxPSIyMCIgeTE9IjQiIHgyPSI4LjEyIiB5Mj0iMTUuODgiPjwvbGluZT48bGluZSB4MT0iMTQuNDciIHkxPSIxNC40OCIgeDI9IjIwIiB5Mj0iMjAiPjwvbGluZT48bGluZSB4MT0iOC4xMiIgeTE9IjguMTIiIHgyPSIxMiIgeTI9IjEyIj48L2xpbmU+PC9zdmc+",
-                "copy": "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgdmlld0JveD0iMCAwIDI0IDI0IiBmaWxsPSJub25lIiBzdHJva2U9ImN1cnJlbnRDb2xvciIgc3Ryb2tlLXdpZHRoPSIyIiBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiPjxyZWN0IHg9IjkiIHk9IjkiIHdpZHRoPSIxMyIgaGVpZ2h0PSIxMyIgcng9IjIiIHJ5PSIyIj48L3JlY3Q+PHBhdGggZD0iTTUgMTVINGEyIDIgMCAwIDEtMi0yVjRhMiAyIDAgMCAxIDItMmg5YTIgMiAwIDAgMSAyIDJ2MSI+PC9wYXRoPjwvc3ZnPg==",
-                "paste": "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgdmlld0JveD0iMCAwIDI0IDI0IiBmaWxsPSJub25lIiBzdHJva2U9ImN1cnJlbnRDb2xvciIgc3Ryb2tlLXdpZHRoPSIyIiBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiPjxwYXRoIGQ9Ik0xNiA0aDJhMiAyIDAgMCAxIDIgMnYxNGEyIDIgMCAwIDEtMiAySDZhMiAyIDAgMCAxLTItMlY2YTIgMiAwIDAgMSAyLTJoMiI+PC9wYXRoPjxyZWN0IHg9IjgiIHk9IjIiIHdpZHRoPSI4IiBoZWlnaHQ9IjQiIHJ4PSIxIiByeT0iMSI+PC9yZWN0Pjwvc3ZnPg==",
-                "font": "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgdmlld0JveD0iMCAwIDI0IDI0IiBmaWxsPSJub25lIiBzdHJva2U9ImN1cnJlbnRDb2xvciIgc3Ryb2tlLXdpZHRoPSIyIiBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiPjxwb2x5bGluZSBwb2ludHM9IjQgNyAxMCA3IDE2IDcgMjAgNyI+PC9wb2x5bGluZT48bGluZSB4MT0iMTIiIHkxPSI3IiB4Mj0iMTIiIHkyPSIyMCI+PC9saW5lPjwvc3ZnPg==",
-                "theme": "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgdmlld0JveD0iMCAwIDI0IDI0IiBmaWxsPSJub25lIiBzdHJva2U9ImN1cnJlbnRDb2xvciIgc3Ryb2tlLXdpZHRoPSIyIiBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiPjxwYXRoIGQ9Ik0xMiAyLjY5bDUuNjYgNS42NmE4IDggMCAxIDEtMTEuMzEgMHoiPjwvcGF0aD48L3N2Zz4=",
-                "focus": "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgdmlld0JveD0iMCAwIDI0IDI0IiBmaWxsPSJub25lIiBzdHJva2U9ImN1cnJlbnRDb2xvciIgc3Ryb2tlLXdpZHRoPSIyIiBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiPjxwYXRoIGQ9Ik04IDNINWEyIDIgMCAwIDAtMiAydjNtMTggMFY1YTIgMiAwIDAgMC0yLTJoLTNtMCAxOGgzYTIgMiAwIDAgMCAyLTJ2LTNNMyAxNnYzYTIgMiAwIDAgMCAyIDJoMyI+PC9wYXRoPjwvc3ZnPg==",
-                "snippets": "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgdmlld0JveD0iMCAwIDI0IDI0IiBmaWxsPSJub25lIiBzdHJva2U9ImN1cnJlbnRDb2xvciIgc3Ryb2tlLXdpZHRoPSIyIiBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiPjxsaW5lIHgxPSI4IiB5MT0iNiIgeDI9IjIxIiB5Mj0iNiI+PC9saW5lPjxsaW5lIHgxPSI4IiB5MT0iMTIiIHgyPSIyMSIgeTI9IjEyIj48L2xpbmU+PGxpbmUgeDE9IjgiIHkxPSIxOCIgeDI9IjIxIiB5Mj0iMTgiPjwvbGluZT48bGluZSB4MT0iMyIgeTE9IjYiIHgyPSIzLjAxIiB5Mj0iNiI+PC9saW5lPjxsaW5lIHgxPSIzIiB5MT0iMTIiIHgyPSIzLjAxIiB5Mj0iMTIiPjwvbGluZT48bGluZSB4MT0iMyIgeTE9IjE4IiB4Mj0iMy4wMSIgeTI9IjE4Ij48L2xpbmU+PC9zdmc+",
-                "browser": "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgdmlld0JveD0iMCAwIDI0IDI0IiBmaWxsPSJub25lIiBzdHJva2U9ImN1cnJlbnRDb2xvciIgc3Ryb2tlLXdpZHRoPSIyIiBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiPjxjaXJjbGUgY3g9IjEyIiBjeT0iMTIiIHI9IjEwIj48L2NpcmNsZT48bGluZSB4MT0iMiIgeTE9IjEyIiB4Mj0iMjIiIHkyPSIxMiI+PC9saW5lPjxwYXRoIGQ9Ik0xMiAyYTE1LjMgMTUuMyAwIDAgMSA0IDEwIDE1LjMgMTUuMyAwIDAgMS00IDEwIDE1LjMgMTUuMyAwIDAgMS00LTEwIDE1LjMgMTUuMyAwIDAgMSA0LTEweiI+PC9wYXRoPjwvc3ZnPg==",
-                "help": "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgdmlld0JveD0iMCAwIDI0IDI0IiBmaWxsPSJub25lIiBzdHJva2U9ImN1cnJlbnRDb2xvciIgc3Ryb2tlLXdpZHRoPSIyIiBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiPjxjaXJjbGUgY3g9IjEyIiBjeT0iMTIiIHI9IjEwIj48L2NpcmNsZT48cGF0aCBkPSJNOS4wOSA5YTMgMyAwIDAgMSA1LjgzIDFjMCAyLTMgMy0zIDMiPjwvcGF0aD48bGluZSB4MT0iMTIiIHkxPSIxNyIgeDI9IjEyLjAxIiB5Mj0iMTciPjwvbGluZT48L3N2Zz4=",
-                "about": "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgdmlld0JveD0iMCAwIDI0IDI0IiBmaWxsPSJub25lIiBzdHJva2U9ImN1cnJlbnRDb2xvciIgc3Ryb2tlLXdpZHRoPSIyIiBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiPjxjaXJjbGUgY3g9IjEyIiBjeT0iMTIiIHI9IjEwIj48L2NpcmNsZT48bGluZSB4MT0iMTIiIHkxPSIxNiIgeDI9IjEyIiB5Mj0iMTIiPjwvbGluZT48bGluZSB4MT0iMTIiIHkxPSI4IiB4Mj0iMTIuMDEiIHkyPSI4Ij48L2xpbmU+PC9zdmc+",
-                "ap-newsroom": "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgdmlld0JveD0iMCAwIDI0IDI0IiBmaWxsPSJub25lIiBzdHJva2U9ImN1cnJlbnRDb2xvciIgc3Ryb2tlLXdpZHRoPSIyIiBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiPjxwYXRoIGQ9Ik00IDIyaDEyYTIgMiAwIDAgMCAyLTJWOGwtNi02SDRhMiAyIDAgMCAwLTIgMnYxNmEyIDIgMCAwIDAgMiAyeiI+PC9wYXRoPjxwYXRoIGQ9Ik0xNCAydjZoNiI+PC9wYXRoPjxsaW5lIHgxPSI2IiB5MT0iMTIiIHgyPSIxOCIgeTI9IjEyIj48L2xpbmU+PGxpbmUgeDE9IjYiIHkxPSIxNiIgeDI9IjE4IiB5Mj0iMTYiPjwvbGluZT48L3N2Zz4=",
-                "ap-pronto": "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgdmlld0JveD0iMCAwIDI0IDI0IiBmaWxsPSJub25lIiBzdHJva2U9ImN1cnJlbnRDb2xvciIgc3Ryb2tlLXdpZHRoPSIyIiBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiPjxwYXRoIGQ9Ik0xNyAzYTIuODI4IDIuODI4IDAgMSAxIDQgNEw3LjUgMjAuNSAyIDIybDEuNS01LjVMMTcgM3oiPjwvcGF0aD48cGF0aCBkPSJNMTUgNWwyIDIiPjwvcGF0aD48L3N2Zz4=",
-                "zoom-in": "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgdmlld0JveD0iMCAwIDI0IDI0IiBmaWxsPSJub25lIiBzdHJva2U9ImN1cnJlbnRDb2xvciIgc3Ryb2tlLXdpZHRoPSIyIiBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiPjxjaXJjbGUgY3g9IjExIiBjeT0iMTEiIHI9IjgiPjwvY2lyY2xlPjxsaW5lIHgxPSIyMSIgeTE9IjIxIiB4Mj0iMTYuNjUiIHkyPSIxNi42NSI+PC9saW5lPjxsaW5lIHgxPSIxMSIgeTE9IjgiIHgyPSIxMSIgeTI9IjE0Ij48L2xpbmU+PGxpbmUgeDE9IjgiIHkxPSIxMSIgeDI9IjE0IiB5Mj0iMTEiPjwvbGluZT48L3N2Zz4=",
-                "zoom-out": "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgdmlld0JveD0iMCAwIDI0IDI0IiBmaWxsPSJub25lIiBzdHJva2U9ImN1cnJlbnRDb2xvciIgc3Ryb2tlLXdpZHRoPSIyIiBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiPjxjaXJjbGUgY3g9IjExIiBjeT0iMTEiIHI9IjgiPjwvY2lyY2xlPjxsaW5lIHgxPSIyMSIgeTE9IjIxIiB4Mj0iMTYuNjUiIHkyPSIxNi42NSI+PC9saW5lPjxsaW5lIHgxPSI4IiB5MT0iMTEiIHgyPSIxNCIgeTI9IjExIj48L2xpbmU+PC9zdmc+",
-                "zoom-reset": "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgdmlld0JveD0iMCAwIDI0IDI0IiBmaWxsPSJub25lIiBzdHJva2U9ImN1cnJlbnRDb2xvciIgc3Ryb2tlLXdpZHRoPSIyIiBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiPjxjaXJjbGUgY3g9IjExIiBjeT0iMTEiIHI9IjgiPjwvY2lyY2xlPjxsaW5lIHgxPSIyMSIgeTE9IjIxIiB4Mj0iMTYuNjUiIHkyPSIxNi42NSI+PC9saW5lPjxsaW5lIHgxPSIxMSIgeTE9IjgiIHgyPSIxMSIgeTI9IjE0Ij48L2xpbmU+PGxpbmUgeDE9IjgiIHkxPSIxMSIgeDI9IjE0IiB5Mj0iMTEiPjwvbGluZT48L3N2Zz4=",
-                "settings": "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgdmlld0JveD0iMCAwIDI0IDI0IiBmaWxsPSJub25lIiBzdHJva2U9ImN1cnJlbnRDb2xvciIgc3Ryb2tlLXdpZHRoPSIyIiBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiPjxsaW5lIHgxPSI0IiB5MT0iNiIgeDI9IjIwIiB5Mj0iNiI+PC9saW5lPjxsaW5lIHgxPSI0IiB5MT0iMTIiIHgyPSIyMCIgeTI9IjEyIj48L2xpbmU+PGxpbmUgeDE9IjQiIHkxPSIxOCIgeDI9IjIwIiB5Mj0iMTgiPjwvbGluZT48Y2lyY2xlIGN4PSI4IiBjeT0iNiIgcj0iMiI+PC9jaXJjbGU+PGNpcmNsZSBjeD0iMTYiIGN5PSIxMiIgcj0iMiI+PC9jaXJjbGU+PGNpcmNsZSBjeD0iOCIgY3k9IjE4IiByPSIyIj48L2NpcmNsZT48L3N2Zz4=",
-                "search": "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgdmlld0JveD0iMCAwIDI0IDI0IiBmaWxsPSJub25lIiBzdHJva2U9ImN1cnJlbnRDb2xvciIgc3Ryb2tlLXdpZHRoPSIyIiBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiPjxjaXJjbGUgY3g9IjExIiBjeT0iMTEiIHI9IjgiPjwvY2lyY2xlPjxsaW5lIHgxPSIyMSIgeTE9IjIxIiB4Mj0iMTYuNjUiIHkyPSIxNi42NSI+PC9saW5lPjwvc3ZnPg=="
-            }
+        def create_action(icon_name, fallback_icon, text, shortcut=None, handler=None):
+            # Create icon from SVG file in project root icons directory
+            project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+            icon_path = os.path.join(project_root, 'icons', f'{icon_name}.svg')
             
-            if icon_path in icons:
-                icon = QIcon()
-                pixmap = QPixmap()
-                pixmap.loadFromData(QByteArray.fromBase64(icons[icon_path].split(',')[1].encode()))
-                icon.addPixmap(pixmap)
+            if os.path.exists(icon_path):
+                # Load SVG directly
+                icon = QIcon(icon_path)
             else:
                 icon = self.style().standardIcon(fallback_icon)
             
@@ -205,7 +187,12 @@ class TextEditorApp(QMainWindow):
                 action.setShortcut(shortcut)
             if handler:
                 action.triggered.connect(handler)
+            
             return action
+
+        # Set toolbar properties for better icon rendering
+        self.toolbar.setIconSize(QSize(24, 24))
+        self.toolbar.setToolButtonStyle(Qt.ToolButtonTextUnderIcon)
 
         # File operations
         new_action = create_action("new", QStyle.SP_FileIcon, 
@@ -221,7 +208,7 @@ class TextEditorApp(QMainWindow):
         self.toolbar.addAction(save_action)
         
         # Add Save As button with same icon as Save
-        save_as_action = create_action("save", QStyle.SP_DialogSaveButton,  # Use "save" instead of "save-as"
+        save_as_action = create_action("save-as", QStyle.SP_DialogSaveButton,  # Use "save" instead of "save-as"
                                      "Save As", "Ctrl+Shift+S", self.save_file_as)
         self.toolbar.addAction(save_as_action)
         
@@ -248,7 +235,7 @@ class TextEditorApp(QMainWindow):
         self.toolbar.addAction(theme_action)
         
         # Focus mode
-        focus_action = create_action("focus", QStyle.SP_ComputerIcon,
+        focus_action = create_action("focus-mode", QStyle.SP_ComputerIcon,
                                    "Focus Mode", 
                                    "Ctrl+Shift+D" if sys.platform != 'darwin' else "⌘+Shift+D",
                                    self.toggle_focus_mode)
@@ -287,34 +274,37 @@ class TextEditorApp(QMainWindow):
         self.toolbar.addSeparator()
         
         # Add search button
-        search_action = create_action("search", QStyle.SP_FileDialogContentsView,
+        search_action = create_action("find", QStyle.SP_FileDialogContentsView,
                                     "Find/Replace", "Ctrl+F", self.toggle_find)
         self.toolbar.addAction(search_action)
-        
-        # Settings button
-        settings_action = create_action("settings", QStyle.SP_FileDialogDetailedView,
-                                      "Settings", handler=self.show_settings)
-        self.toolbar.addAction(settings_action)
         
         # Add flexible space
         spacer = QWidget()
         spacer.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         self.toolbar.addWidget(spacer)
         
-        # Help and About at the end
+        # Create menu button with dropdown
+        menu_button = create_action("menu", QStyle.SP_TitleBarMenuButton,
+                                  "Menu", handler=self.show_menu_dropdown)
+        self.toolbar.addAction(menu_button)
+        
+        # Create the dropdown menu (but don't show it yet)
+        self.menu_dropdown = QMenu(self)
+        
+        # Move settings, help, and about actions to the dropdown
+        settings_action = create_action("settings", QStyle.SP_FileDialogDetailedView,
+                                      "Settings", handler=self.show_settings)
+        self.menu_dropdown.addAction(settings_action)
+        
+        self.menu_dropdown.addSeparator()
+        
         help_action = create_action("help", QStyle.SP_MessageBoxQuestion,
                                   "Help", handler=self.show_help)
-        self.toolbar.addAction(help_action)
+        self.menu_dropdown.addAction(help_action)
         
         about_action = create_action("about", QStyle.SP_MessageBoxInformation,
                                    "About", handler=self.show_about)
-        self.toolbar.addAction(about_action)
-        
-        # Set toolbar properties based on platform
-        if sys.platform == 'darwin':
-            self.toolbar.setToolButtonStyle(Qt.ToolButtonTextUnderIcon)
-        else:
-            self.toolbar.setToolButtonStyle(Qt.ToolButtonTextBesideIcon)
+        self.menu_dropdown.addAction(about_action)
         
     def get_current_editor(self):
         current_tab = self.tab_widget.currentWidget()
@@ -427,16 +417,9 @@ class TextEditorApp(QMainWindow):
         """Show theme selection menu"""
         menu = QMenu(self)
         
-        # Add UI themes
-        ui_theme_menu = menu.addMenu("UI Theme")
-        for theme in ['system', 'Fusion', 'Windows', 'Macintosh']:
-            action = ui_theme_menu.addAction(theme)
-            action.triggered.connect(lambda checked, t=theme: self.apply_ui_theme(t))
-        
         # Add editor themes
-        editor_theme_menu = menu.addMenu("Editor Theme")
         for theme_name in ThemeManager.get_themes():
-            action = editor_theme_menu.addAction(theme_name)
+            action = menu.addAction(theme_name)
             action.triggered.connect(lambda checked, tn=theme_name: self.apply_theme(tn))
         
         # Show menu under theme button
@@ -808,7 +791,26 @@ class TextEditorApp(QMainWindow):
         if current_tab and isinstance(current_tab, EditorTab):
             current_tab.save_file(force_dialog=True)
 
+    def show_menu_dropdown(self):
+        """Show the menu dropdown under the menu button"""
+        # Find the menu button
+        menu_button = None
+        for action in self.toolbar.actions():
+            if action.text() == "Menu":
+                menu_button = self.toolbar.widgetForAction(action)
+                break
+        
+        if menu_button:
+            # Show menu below the button
+            pos = menu_button.mapToGlobal(menu_button.rect().bottomLeft())
+            self.menu_dropdown.popup(pos)
+
 def main():
+    # Enable high DPI scaling
+    QApplication.setAttribute(Qt.AA_UseHighDpiPixmaps)
+    QApplication.setAttribute(Qt.AA_EnableHighDpiScaling)
+    QApplication.setAttribute(Qt.AA_UseSoftwareOpenGL)
+    
     # Create application instance
     app = QApplication(sys.argv)
     
