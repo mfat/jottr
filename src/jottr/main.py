@@ -36,7 +36,7 @@ APP_VERSION = "1.1.0"
 APP_HOMEPAGE = "https://github.com/mfat/jottr"
 
 class TextEditorApp(QMainWindow):
-    def __init__(self):
+    def __init__(self, file_path=None):
         super().__init__()
         self.setWindowTitle(APP_NAME)
         self.setGeometry(100, 100, 1200, 800)
@@ -85,6 +85,10 @@ class TextEditorApp(QMainWindow):
         # Create new tab if no tabs were restored
         if self.tab_widget.count() == 0:
             self.new_editor_tab()
+        
+        # Open file if specified
+        if file_path:
+            self.open_file_path(file_path)
         
     def setup_platform_style(self):
         """Apply platform-specific styling"""
@@ -212,7 +216,6 @@ class TextEditorApp(QMainWindow):
                                      "Save As", "Ctrl+Shift+S", self.save_file_as)
         self.toolbar.addAction(save_as_action)
         
-        self.toolbar.addSeparator()
         
         # Edit operations
         undo_action = create_action("undo", QStyle.SP_ArrowBack,
@@ -223,7 +226,6 @@ class TextEditorApp(QMainWindow):
                                   "Redo", "Ctrl+Shift+Z", self.redo)
         self.toolbar.addAction(redo_action)
         
-        self.toolbar.addSeparator()
         
         # Font and Theme
         font_action = create_action("font", QStyle.SP_DesktopIcon, 
@@ -245,7 +247,6 @@ class TextEditorApp(QMainWindow):
                                "Shortcut: ⌘+Shift+D")
         self.toolbar.addAction(focus_action)
         
-        self.toolbar.addSeparator()
         
         # View toggles
         snippet_action = create_action("snippets", QStyle.SP_FileDialogListView,
@@ -256,7 +257,6 @@ class TextEditorApp(QMainWindow):
                                      "Browser", handler=lambda: self.toggle_browser())
         self.toolbar.addAction(browser_action)
         
-        self.toolbar.addSeparator()
         
         # Zoom controls
         zoom_in_action = create_action("zoom-in", QStyle.SP_TitleBarMaxButton,
@@ -271,7 +271,6 @@ class TextEditorApp(QMainWindow):
                                         "Reset Zoom", "Ctrl+0", self.zoom_reset)
         self.toolbar.addAction(zoom_reset_action)
         
-        self.toolbar.addSeparator()
         
         # Add search button
         search_action = create_action("find", QStyle.SP_FileDialogContentsView,
@@ -825,13 +824,15 @@ def main():
     if hasattr(app, 'setDesktopFileName'):
         app.setDesktopFileName("jottr")
     
-    # Create and show main window
-    window = TextEditorApp()
-    window.setWindowTitle("Jottr")
+    # Get file path from command-line arguments
+    file_path = None
+    if len(sys.argv) > 1:
+        file_path = sys.argv[1]
     
-    # Show window
+    # Pass file_path to TextEditorApp
+    window = TextEditorApp(file_path)
     window.show()
     return app.exec_()
 
 if __name__ == "__main__":
-    sys.exit(main()) 
+    main() 
