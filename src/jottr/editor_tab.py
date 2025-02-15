@@ -464,6 +464,7 @@ class EditorTab(QWidget):
         self.current_file = None
         self.current_font = self.settings_manager.get_font()
         self.web_view = None  # Initialize to None
+        self.main_window = None  # Initialize main_window to None
         
         # Initialize recovery ID and paths first
         self.recovery_id = str(int(time.time() * 1000))

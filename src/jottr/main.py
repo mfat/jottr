@@ -430,8 +430,13 @@ class TextEditorApp(QMainWindow):
     def new_editor_tab(self):
         """Create a new empty editor tab"""
         editor_tab = EditorTab(self.snippet_manager, self.settings_manager)
+        editor_tab.set_main_window(self)  # Set reference to main window
+        
+        # Add tab with default title
         self.tab_widget.addTab(editor_tab, f"Document {self.tab_widget.count() + 1}")
         self.tab_widget.setCurrentWidget(editor_tab)
+        editor_tab.editor.setFocus()
+        return editor_tab
         
     def new_rss_tab(self):
         rss_tab = RSSTab()
@@ -868,16 +873,21 @@ class TextEditorApp(QMainWindow):
 
         # Create new tab and load file
         editor_tab = EditorTab(self.snippet_manager, self.settings_manager)
-        editor_tab.set_main_window(self)  # Set reference to main window
+        editor_tab.set_main_window(self)  # Set main window reference
         
-        # Open the file in the editor tab
-        editor_tab.editor.setPlainText(open(file_path, 'r').read())  # Directly set text instead
+        try:
+            with open(file_path, 'r', encoding='utf-8') as f:
+                editor_tab.editor.setPlainText(f.read())
+                editor_tab.current_file = file_path
+        except Exception as e:
+            QMessageBox.critical(self, "Error", f"Could not open file: {str(e)}")
+            return
         
         # Add tab with filename as title
         filename = os.path.basename(file_path)
         self.tab_widget.addTab(editor_tab, filename)
         self.tab_widget.setCurrentWidget(editor_tab)
-        editor_tab.editor.setFocus()  # Set focus to editor
+        editor_tab.editor.setFocus()
 
 def main():
     # Enable high DPI scaling
