@@ -24,6 +24,7 @@ from PyQt5.QtGui import QFont
 from PyQt5.QtSvg import QSvgRenderer
 from PyQt5.QtGui import QPainter
 from PyQt5.QtCore import QSize
+from PyQt5.QtGui import QPalette, QColor
 
 # Add vendor directory to path
 vendor_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'vendor')
@@ -32,12 +33,16 @@ if os.path.exists(vendor_dir):
 
 # Application constants
 APP_NAME = "Jottr"
-APP_VERSION = "1.1.0"
+APP_VERSION = "1.2.0"
 APP_HOMEPAGE = "https://github.com/mfat/jottr"
 
 class TextEditorApp(QMainWindow):
-    def __init__(self, file_path=None):
+    def __init__(self, file_path=None): 
         super().__init__()
+        
+        # Force light mode by setting a light palette and style
+        self.set_light_mode()
+        
         self.setWindowTitle(APP_NAME)
         self.setGeometry(100, 100, 1200, 800)
         
@@ -90,6 +95,29 @@ class TextEditorApp(QMainWindow):
         if file_path:
             self.open_file_path(file_path)
         
+    def set_light_mode(self):
+        """Force the application to use a light theme, ignoring the OS dark mode."""
+        # Set a light style (e.g., "Fusion" or "Windows")
+        QApplication.setStyle(QStyleFactory.create("Fusion"))
+        
+        # Create a light palette
+        palette = QPalette()
+        palette.setColor(QPalette.Window, QColor(240, 240, 240))  # Light gray background
+        palette.setColor(QPalette.WindowText, QColor(0, 0, 0))    # Black text
+        palette.setColor(QPalette.Base, QColor(255, 255, 255))    # White base
+        palette.setColor(QPalette.AlternateBase, QColor(240, 240, 240))  # Light gray alternate base
+        palette.setColor(QPalette.ToolTipBase, QColor(255, 255, 255))     # White tooltip background
+        palette.setColor(QPalette.ToolTipText, QColor(0, 0, 0))          # Black tooltip text
+        palette.setColor(QPalette.Text, QColor(0, 0, 0))                 # Black text
+        palette.setColor(QPalette.Button, QColor(240, 240, 240))         # Light gray buttons
+        palette.setColor(QPalette.ButtonText, QColor(0, 0, 0))          # Black button text
+        palette.setColor(QPalette.BrightText, QColor(255, 0, 0))         # Bright red text
+        palette.setColor(QPalette.Highlight, QColor(0, 120, 215))        # Blue highlight
+        palette.setColor(QPalette.HighlightedText, QColor(255, 255, 255))# White highlighted text
+        
+        # Apply the palette
+        QApplication.setPalette(palette)
+
     def setup_platform_style(self):
         """Apply platform-specific styling"""
         platform = sys.platform
@@ -156,7 +184,7 @@ class TextEditorApp(QMainWindow):
                 available_styles = QStyleFactory.keys()
                 
                 # Try to find the best system style
-                preferred_styles = ['breeze', 'fusion', 'gtk2', 'oxygen']
+                preferred_styles = ['fusion', 'breeze', 'gtk2', 'oxygen']
                 for style_name in preferred_styles:
                     if style_name.lower() in [s.lower() for s in available_styles]:
                         system_style = QStyleFactory.create(style_name)
