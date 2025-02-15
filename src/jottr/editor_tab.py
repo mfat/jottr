@@ -13,7 +13,7 @@ from PyQt5.QtCore import Qt, QUrl, QTimer, QStringListModel, QRegExp, QEvent
 from PyQt5.QtGui import (QTextCharFormat, QSyntaxHighlighter, QIcon, QFont, QKeySequence, 
                         QPainter, QPen, QColor, QFontMetrics, QTextDocument, QTextCursor)
 from PyQt5.QtWebEngineWidgets import QWebEngineView, QWebEnginePage
-from spellchecker import SpellChecker
+from enchant import Dict, DictNotFoundError
 from urllib.parse import quote
 from snippet_editor_dialog import SnippetEditorDialog
 import os
@@ -28,12 +28,12 @@ class SpellCheckHighlighter(QSyntaxHighlighter):
         super().__init__(parent)
         self.settings_manager = settings_manager
         try:
-            # Initialize SpellChecker with English dictionary
-            self.spell = SpellChecker(language='en')
+            # Initialize enchant with English dictionary
+            self.spell = Dict("en_US")
             self.spell_check_enabled = True
             print("Spell checking enabled")
             
-        except Exception as e:
+        except DictNotFoundError as e:
             print(f"Warning: Spell checking disabled - {str(e)}")
             self.spell_check_enabled = False
 
@@ -67,9 +67,9 @@ class SpellCheckHighlighter(QSyntaxHighlighter):
             if self.is_latin_word(word):
                 # Check if word is in user dictionary first
                 if word not in user_dict:
-                    # If not in user dictionary, check against SpellChecker
+                    # If not in user dictionary, check against enchant
                     try:
-                        if not word.lower() in self.spell:
+                        if not self.spell.check(word):
                             self.setFormat(index, length, format)
                     except UnicodeEncodeError:
                         pass  # Skip words that can't be encoded
@@ -88,18 +88,14 @@ class SpellCheckHighlighter(QSyntaxHighlighter):
             if dict_word.lower().startswith(word.lower()):
                 suggestions.append(dict_word)
         
-        # Only get SpellChecker suggestions for Latin words
+        # Only get enchant suggestions for Latin words
         if self.is_latin_word(word):
             try:
-                # Get suggestions from pyspellchecker
-                spell_suggestions = self.spell.candidates(word)
-                if spell_suggestions:  # Check if suggestions exist
-                    # Convert to set if it's not already one
-                    if not isinstance(spell_suggestions, set):
-                        spell_suggestions = set(spell_suggestions)
+                # Get suggestions from enchant
+                spell_suggestions = self.spell.suggest(word)
+                if spell_suggestions:
                     # Remove the word itself from suggestions
-                    spell_suggestions.discard(word.lower())
-                    # Add remaining suggestions
+                    spell_suggestions = [s for s in spell_suggestions if s.lower() != word.lower()]
                     suggestions.extend(spell_suggestions)
             except UnicodeEncodeError:
                 pass
@@ -113,6 +109,8 @@ class SpellCheckHighlighter(QSyntaxHighlighter):
         if word not in user_dict:
             user_dict.append(word)
             self.settings_manager.save_setting('user_dictionary', user_dict)
+            # Add to enchant personal word list
+            self.spell.add(word)
             # Refresh spell checking
             self.rehighlight()
 
@@ -216,15 +214,9 @@ class CompletingTextEdit(QTextEdit):
         if self.completion_text and event.key() in (Qt.Key_Tab, Qt.Key_Return):
             cursor = self.textCursor()
             
-            # For both snippets and dictionary words, delete the partial word first
             block = cursor.block()
             text = block.text()
             pos = cursor.positionInBlock()
-            
-            # Find end of current word
-            end = pos
-            while end < len(text) and (text[end].isalnum() or text[end] == '_'):
-                end += 1
             
             # Find start of current word
             start = pos
@@ -234,14 +226,24 @@ class CompletingTextEdit(QTextEdit):
             # Calculate block position
             block_pos = cursor.block().position()
             
-            # Set position to start of word
-            cursor.setPosition(block_pos + start)
-            # Select to end of word
-            cursor.setPosition(block_pos + end, cursor.KeepAnchor)
-            # Delete selected text (entire partial word)
-            cursor.removeSelectedText()
-            # Insert completion text
-            cursor.insertText(self.completion_text)
+            if self.completion_start is not None:  # This is a snippet
+                # Set position to start of word
+                cursor.setPosition(block_pos + start)
+                # Select to end of word
+                cursor.setPosition(block_pos + pos, cursor.KeepAnchor)
+                # Delete selected text (entire partial word)
+                cursor.removeSelectedText()
+                # Insert completion text
+                cursor.insertText(self.completion_text)
+            else:  # This is a dictionary word
+                # Delete the typed part
+                cursor.setPosition(block_pos + start)
+                cursor.setPosition(block_pos + pos, cursor.KeepAnchor)
+                cursor.removeSelectedText()
+                # Insert the full word with correct case
+                if hasattr(self, '_current_dict_word'):
+                    cursor.insertText(self._current_dict_word)
+                    del self._current_dict_word
             
             self.completion_text = ""
             self.completion_start = None
@@ -317,7 +319,14 @@ class CompletingTextEdit(QTextEdit):
             for word in user_dict:
                 if word.lower().startswith(current_word.lower()) and word.lower() != current_word.lower():
                     has_word = True
-                    suggestions.append(('word', word, word))
+                    # For dictionary words, store the full word and the remaining part
+                    remaining_part = word[len(current_word):]
+                    if current_word.isupper():
+                        # If user typed in all caps, make suggestion all caps
+                        remaining_part = remaining_part.upper()
+                    suggestions.append(('word', word, remaining_part))
+                    # Store the full word for later use
+                    self._current_dict_word = word
             
             # If we have both types of matches, always show popup
             if has_snippet and has_word:
@@ -331,6 +340,8 @@ class CompletingTextEdit(QTextEdit):
                 # If only one suggestion, show inline
                 if len(suggestions) == 1:
                     suggestion = suggestions[0]
+                    # For dictionary words, only show remaining part
+                    # For snippets, show full content
                     self.completion_text = suggestion[2]
                     self.completion_start = start if suggestion[0] == 'snippet' else None
                     self.viewport().update()
@@ -356,10 +367,15 @@ class CompletingTextEdit(QTextEdit):
         
         # Add dictionary words first
         word_suggestions = [s for s in suggestions if s[0] == 'word']
+        first_action = None  # Track the first action added
+        
         if word_suggestions:
-            for _, word, _ in word_suggestions:
+            for _, word, remaining_part in word_suggestions:
+                # Show full word in menu but store both full word and remaining part
                 action = self.suggestion_menu.addAction(word)
                 action.triggered.connect(lambda checked, w=word: self.apply_suggestion('word', w, start_pos))
+                if not first_action:
+                    first_action = action
         
         # Add separator if we have both types
         if word_suggestions and any(s[0] == 'snippet' for s in suggestions):
@@ -373,11 +389,18 @@ class CompletingTextEdit(QTextEdit):
                 first_line = content.split('\n')[0][:50] + ('...' if len(content) > 50 else '')
                 action = self.suggestion_menu.addAction(f"{title} - {first_line}")
                 action.triggered.connect(lambda checked, c=content: self.apply_suggestion('snippet', c, start_pos))
+                if not first_action:
+                    first_action = action
         
         # Show menu under cursor
         cursor = self.textCursor()
         rect = self.cursorRect(cursor)
         pos = self.mapToGlobal(rect.bottomLeft())
+        
+        # Set the first action as the default action
+        if first_action:
+            self.suggestion_menu.setActiveAction(first_action)
+        
         self.suggestion_menu.popup(pos)
 
     def apply_suggestion(self, suggestion_type, content, start_pos):
@@ -403,8 +426,8 @@ class CompletingTextEdit(QTextEdit):
             cursor.setPosition(block_pos + end, cursor.KeepAnchor)
             cursor.removeSelectedText()
             cursor.insertText(content)
-        else:
-            # For dictionary words, replace the entire word to preserve capitalization
+        else:  # This is a dictionary word
+            # Replace the entire word with the full dictionary word
             block_pos = cursor.block().position()
             text = cursor.block().text()
             pos = cursor.positionInBlock()
@@ -418,7 +441,7 @@ class CompletingTextEdit(QTextEdit):
             cursor.setPosition(block_pos + start_pos)
             cursor.setPosition(block_pos + end, cursor.KeepAnchor)
             cursor.removeSelectedText()
-            cursor.insertText(content)
+            cursor.insertText(content)  # Insert the full word
         
         # Clear all suggestions
         self.suggestion_menu = None
@@ -905,6 +928,8 @@ class EditorTab(QWidget):
         if word not in user_dict:
             user_dict.append(word)
             self.settings_manager.save_setting('user_dictionary', user_dict)
+            # Add to enchant personal word list
+            self.highlighter.spell.add(word)
             # Refresh spell checking
             self.highlighter.rehighlight()
 
