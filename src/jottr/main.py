@@ -7,7 +7,7 @@ import os
 import json
 import hashlib
 from PyQt5.QtWidgets import (QApplication, QMainWindow, QTabWidget, QWidget, 
-                            QVBoxLayout, QHBoxLayout, QSplitter, QMenu, QToolBar, QAction, QStyle, QMessageBox, QFontDialog, QStyleFactory, QLabel, QDialog, QSizePolicy, QDialogButtonBox)
+                            QVBoxLayout, QHBoxLayout, QSplitter, QMenu, QToolBar, QAction, QStyle, QMessageBox, QFontDialog, QStyleFactory, QLabel, QDialog, QSizePolicy, QDialogButtonBox, QTabBar)
 from PyQt5.QtCore import Qt, QUrl
 from PyQt5.QtWebEngineWidgets import QWebEngineView
 from editor_tab import EditorTab
@@ -82,6 +82,10 @@ class TextEditorApp(QMainWindow):
                 alignment: left;
             }
         """)
+        
+        # Install event filter on the tab bar
+        self.tab_widget.tabBar().installEventFilter(self)
+        
         layout.addWidget(self.tab_widget)
         
         # Always restore last session
@@ -831,6 +835,15 @@ class TextEditorApp(QMainWindow):
             # Show menu below the button
             pos = menu_button.mapToGlobal(menu_button.rect().bottomLeft())
             self.menu_dropdown.popup(pos)
+
+    def eventFilter(self, obj, event):
+        """Handle double-click on empty area of tab bar."""
+        if obj == self.tab_widget.tabBar() and event.type() == event.MouseButtonDblClick:
+            # Check if the click was on an empty area (no tab)
+            if self.tab_widget.tabBar().tabAt(event.pos()) == -1:
+                self.new_editor_tab()
+                return True  # Event handled
+        return super().eventFilter(obj, event)  # Let other events pass through
 
 def main():
     # Enable high DPI scaling
