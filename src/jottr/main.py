@@ -7,7 +7,7 @@ import os
 import json
 import hashlib
 from PyQt5.QtWidgets import (QApplication, QMainWindow, QTabWidget, QWidget, 
-                            QVBoxLayout, QHBoxLayout, QSplitter, QMenu, QToolBar, QAction, QStyle, QMessageBox, QFontDialog, QStyleFactory, QLabel, QDialog, QSizePolicy, QDialogButtonBox, QTabBar)
+                            QVBoxLayout, QHBoxLayout, QSplitter, QMenu, QToolBar, QAction, QStyle, QMessageBox, QFontDialog, QStyleFactory, QLabel, QDialog, QSizePolicy, QDialogButtonBox, QTabBar, QFileDialog)
 from PyQt5.QtCore import Qt, QUrl
 from PyQt5.QtWebEngineWidgets import QWebEngineView
 from editor_tab import EditorTab
@@ -413,7 +413,7 @@ class TextEditorApp(QMainWindow):
         file_menu.addAction('New RSS Tab', self.new_rss_tab)
         file_menu.addSeparator()
         file_menu.addAction('Save', self.save_file)
-        file_menu.addAction('Open', self.open_file)
+        file_menu.addAction('Open', self.open_file_dialog)  # Changed from open_file to open_file_dialog
         file_menu.addSeparator()
         file_menu.addAction('Exit', self.close)
 
@@ -428,12 +428,10 @@ class TextEditorApp(QMainWindow):
             current_tab.open_file()
 
     def new_editor_tab(self):
+        """Create a new empty editor tab"""
         editor_tab = EditorTab(self.snippet_manager, self.settings_manager)
-        editor_tab.set_main_window(self)  # Set reference to main window
         self.tab_widget.addTab(editor_tab, f"Document {self.tab_widget.count() + 1}")
         self.tab_widget.setCurrentWidget(editor_tab)
-        editor_tab.editor.setFocus()  # Set focus to editor
-        return editor_tab
         
     def new_rss_tab(self):
         rss_tab = RSSTab()
@@ -848,6 +846,38 @@ class TextEditorApp(QMainWindow):
                 self.new_editor_tab()
                 return True  # Event handled
         return super().eventFilter(obj, event)  # Let other events pass through
+
+    def open_file_dialog(self):
+        """Open file from dialog"""
+        current_tab = self.tab_widget.currentWidget()
+        if current_tab:
+            current_tab.open_file()
+
+    def open_file(self, file_path=None):
+        """Open a file in a new tab"""
+        if file_path is None:
+            # Show file dialog if no path provided
+            file_path, _ = QFileDialog.getOpenFileName(
+                self,
+                "Open File",
+                "",
+                "Text Files (*.txt);;All Files (*.*)"
+            )
+            if not file_path:  # User cancelled
+                return
+
+        # Create new tab and load file
+        editor_tab = EditorTab(self.snippet_manager, self.settings_manager)
+        editor_tab.set_main_window(self)  # Set reference to main window
+        
+        # Open the file in the editor tab
+        editor_tab.editor.setPlainText(open(file_path, 'r').read())  # Directly set text instead
+        
+        # Add tab with filename as title
+        filename = os.path.basename(file_path)
+        self.tab_widget.addTab(editor_tab, filename)
+        self.tab_widget.setCurrentWidget(editor_tab)
+        editor_tab.editor.setFocus()  # Set focus to editor
 
 def main():
     # Enable high DPI scaling
