@@ -906,6 +906,15 @@ class EditorTab(QWidget):
         # Store URL to load
         self._pending_url = url
         
+        # Check if browser is visible but too narrow
+        if self.browser_widget.isVisible():
+            current_sizes = self.splitter.sizes()
+            if current_sizes[2] < 300:  # If browser pane is too narrow
+                editor_size = current_sizes[0]
+                new_browser_size = int(editor_size * 0.3)  # 30% of editor width
+                new_editor_size = editor_size - (new_browser_size - current_sizes[2])
+                self.splitter.setSizes([new_editor_size, current_sizes[1], new_browser_size])
+        
         # Make sure browser is visible and web view exists
         if not self.browser_widget.isVisible():
             # Mark browser as opened during focus mode BEFORE toggling
@@ -949,20 +958,29 @@ class EditorTab(QWidget):
         # Store URL and ensure browser is visible
         self._pending_url = url
         
+        # Check if browser is visible but too narrow
+        if self.browser_widget.isVisible():
+            current_sizes = self.splitter.sizes()
+            if current_sizes[2] < 300:  # If browser pane is too narrow
+                editor_size = current_sizes[0]
+                new_browser_size = int(editor_size * 0.3)  # 30% of editor width
+                new_editor_size = editor_size - (new_browser_size - current_sizes[2])
+                self.splitter.setSizes([new_editor_size, current_sizes[1], new_browser_size])
+        
         # If browser is not visible, show it first
         if not self.browser_widget.isVisible():
             self.toggle_pane("browser")
             return
-            
+        
         # If browser is visible but no web view exists, create it
         if not self.web_view:
             self.create_web_view()
-            
+        
         # Use existing web view
         self.web_view.stop()
         self.web_view.setUrl(QUrl(url))
         self.url_bar.setText(url)
-        
+
     def search_apnews(self, text):
         """Search AP News in browser pane"""
         url = f"https://apnews.com/search?q={quote(text)}"
@@ -1081,6 +1099,15 @@ class EditorTab(QWidget):
                 url = f"https://www.google.com/search?q={quote(url)}"
             else:
                 url = 'http://' + url
+        
+        # Check if browser is visible but too narrow
+        if self.browser_widget.isVisible():
+            current_sizes = self.splitter.sizes()
+            if current_sizes[2] < 300:  # If browser pane is too narrow
+                editor_size = current_sizes[0]
+                new_browser_size = int(editor_size * 0.3)  # 30% of editor width
+                new_editor_size = editor_size - (new_browser_size - current_sizes[2])
+                self.splitter.setSizes([new_editor_size, current_sizes[1], new_browser_size])
         
         # If browser is not visible, show it first
         if not self.browser_widget.isVisible():
