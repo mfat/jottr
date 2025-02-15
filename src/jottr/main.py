@@ -298,8 +298,8 @@ class TextEditorApp(QMainWindow):
         # New document action
         self.toolbar.addAction(create_action("new", "New", self.new_editor_tab))
         
-        # Open file action
-        self.toolbar.addAction(create_action("open", "Open", self.open_file))
+        # Open file action - connect to open_file_dialog instead of open_file
+        self.toolbar.addAction(create_action("open", "Open", self.open_file_dialog))
         
         # Save file action
         self.toolbar.addAction(create_action("save", "Save", self.save_file))
