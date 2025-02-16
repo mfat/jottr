@@ -7,8 +7,8 @@ import os
 import json
 import hashlib
 from PyQt5.QtWidgets import (QApplication, QMainWindow, QTabWidget, QWidget, 
-                            QVBoxLayout, QHBoxLayout, QSplitter, QMenu, QToolBar, QAction, QStyle, QMessageBox, QFontDialog, QStyleFactory, QLabel, QDialog, QSizePolicy, QDialogButtonBox, QTabBar, QFileDialog, QShortcut)
-from PyQt5.QtCore import Qt, QUrl
+                            QVBoxLayout, QHBoxLayout, QSplitter, QMenu, QToolBar, QAction, QStyle, QMessageBox, QFontDialog, QStyleFactory, QLabel, QDialog, QSizePolicy, QDialogButtonBox, QTabBar, QFileDialog, QShortcut, QToolButton)
+from PyQt5.QtCore import Qt, QUrl, QTimer
 from PyQt5.QtWebEngineWidgets import QWebEngineView
 from editor_tab import EditorTab
 from snippet_manager import SnippetManager
@@ -33,7 +33,7 @@ if os.path.exists(vendor_dir):
 
 # Application constants
 APP_NAME = "Jottr"
-APP_VERSION = "1.3.0"
+APP_VERSION = "1.4.0"
 APP_HOMEPAGE = "https://github.com/mfat/jottr"
 
 class TextEditorApp(QMainWindow):
@@ -242,9 +242,60 @@ class TextEditorApp(QMainWindow):
                     QApplication.setStyle(system_style)
         
     def setup_toolbar(self):
-        """Setup toolbar with embedded icons."""
+        """Setup the main toolbar"""
+        self.toolbar = QToolBar()
+        self.toolbar.setMovable(False)
+        self.toolbar.setStyleSheet("""
+            QToolBar {
+                border: none;
+                background: palette(window);
+            }
+            QToolButton {
+                padding: 4px;
+                border: none;
+            }
+            QToolButton:hover {
+                background-color: palette(highlight);
+                color: palette(highlighted-text);
+            }
+            QToolButton::menu-button {
+                border: none;
+                width: 16px;
+            }
+            QToolButton[popupMode="2"] {
+                padding-right: 16px;
+            }
+            /* Fix for overflow menu button on macOS */
+            QToolButton#qt_toolbar_ext_button {
+                background: palette(window);
+                width: 24px;
+                padding: 4px;
+                color: palette(text);
+                font-weight: bold;
+            }
+            QToolButton#qt_toolbar_ext_button:hover {
+                background: palette(highlight);
+                color: palette(highlighted-text);
+            }
+            /* Fix for overflow menu */
+            QMenu {
+                background: palette(window);
+                border: 1px solid palette(mid);
+            }
+            QMenu::item {
+                padding: 4px 20px;
+            }
+            QMenu::item:selected {
+                background: palette(highlight);
+                color: palette(highlighted-text);
+            }
+        """)
+        
         # Prevent toolbar from being hidden
         self.toolbar.setContextMenuPolicy(Qt.PreventContextMenu)
+        
+        # Add toolbar to main window
+        self.addToolBar(self.toolbar)
         
         # Set toolbar properties for better icon rendering
         self.toolbar.setIconSize(QSize(24, 24))
@@ -297,53 +348,47 @@ class TextEditorApp(QMainWindow):
         self.menu_dropdown.addAction(create_action("help", "Help", self.show_help))
         self.menu_dropdown.addAction(create_action("about", "About", self.show_about))
 
-        # New document action
+        # Add all toolbar items
         new_action = create_action("new", "New", self.new_editor_tab)
         new_action.setShortcut(QKeySequence.New)
         new_action.setToolTip(f"New (Ctrl+N)")
         self.toolbar.addAction(new_action)
         
-        # Open file action
         open_action = create_action("open", "Open", self.open_file_dialog)
         open_action.setShortcut(QKeySequence.Open)
         open_action.setToolTip(f"Open (Ctrl+O)")
         self.toolbar.addAction(open_action)
         
-        # Save file action
         save_action = create_action("save", "Save", self.save_file)
         save_action.setShortcut(QKeySequence.Save)
         save_action.setToolTip(f"Save (Ctrl+S)")
         self.toolbar.addAction(save_action)
         
-        # Save As action
         save_as_action = create_action("save-as", "Save As", self.save_file_as)
         save_as_action.setShortcut(QKeySequence.SaveAs)
         save_as_action.setToolTip(f"Save As (Ctrl+Shift+S)")
         self.toolbar.addAction(save_as_action)
         
-        # Add separator
         self.toolbar.addSeparator()
         
         # Undo/Redo
         undo_action = create_action("undo", "Undo", self.undo)
-        undo_action.setShortcut(QKeySequence.Undo)  # Typically Ctrl+Z
+        undo_action.setShortcut(QKeySequence.Undo)
         undo_action.setToolTip(f"Undo (Ctrl+Z)")
         self.toolbar.addAction(undo_action)
 
         redo_action = create_action("redo", "Redo", self.redo)
-        redo_action.setShortcut(QKeySequence.Redo)  # Typically Ctrl+Shift+Z or Ctrl+Y
+        redo_action.setShortcut(QKeySequence.Redo)
         redo_action.setToolTip(f"Redo (Ctrl+Shift+Z)")
         self.toolbar.addAction(redo_action)
         
-        # Add separator
         self.toolbar.addSeparator()
         
-        # Find/Replace
+        # Find/Replace and Focus Mode
         find_action = create_action("find", "Find/Replace", self.toggle_find)
         find_action.setToolTip(f"Find/Replace (Ctrl+F)")
         self.toolbar.addAction(find_action)
         
-        # Focus mode
         focus_action = create_action("focus-mode", "Focus Mode", self.toggle_focus_mode)
         focus_action.setShortcut(QKeySequence("Ctrl+Shift+D"))
         focus_action.setToolTip(f"Focus Mode (Ctrl+Shift+D)")
@@ -384,7 +429,17 @@ class TextEditorApp(QMainWindow):
         
         # Menu button at far right
         self.toolbar.addAction(create_action("menu", "Menu", self.show_menu_dropdown))
+
+        # Now set the overflow button text after all items are added
+        def update_overflow_button():
+            overflow_button = self.toolbar.findChild(QToolButton, "qt_toolbar_ext_button")
+            if overflow_button:
+                overflow_button.setText(">>")
+                overflow_button.setToolButtonStyle(Qt.ToolButtonTextOnly)
         
+        # Use a single-shot timer to ensure the overflow button exists
+        QTimer.singleShot(0, update_overflow_button)
+
     def get_current_editor(self):
         current_tab = self.tab_widget.currentWidget()
         if current_tab:

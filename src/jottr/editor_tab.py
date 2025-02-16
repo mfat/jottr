@@ -181,7 +181,7 @@ class CompletingTextEdit(QTextEdit):
         self.completion_text = ""
         self.completion_start = None
         self.suppress_completion = False
-        
+
     def keyPressEvent(self, event):
         """Handle key events"""
         # Handle suggestion navigation if parent has suggestions
@@ -210,20 +210,14 @@ class CompletingTextEdit(QTextEdit):
                     self.parent_tab.apply_suggestion(text)
                 # If there are multiple suggestions, cycle through them
                 else:
-                    # Always select next suggestion, wrapping around to first if at end
-                    if self.parent_tab.selected_suggestion_index < 0:
-                        self.parent_tab.selected_suggestion_index = 0
-                    else:
-                        self.parent_tab.select_next_suggestion()
-                    # Update the highlighting
-                    self.parent_tab.update_suggestion_highlighting()
+                    self.parent_tab.select_next_suggestion()
                 event.accept()
                 return
             elif event.key() == Qt.Key_Escape:
                 self.parent_tab.hide_suggestions()
                 event.accept()
                 return
-                
+
         super().keyPressEvent(event)
 
     def insertFromMimeData(self, source):
@@ -235,7 +229,7 @@ class CompletingTextEdit(QTextEdit):
     def paintEvent(self, event):
         super().paintEvent(event)
         # Remove old completion painting code
-        
+
     def check_for_completion(self):
         """Check current word against both user dictionary and snippets"""
         # This method is now handled by EditorTab's handle_text_changed
@@ -260,7 +254,7 @@ class CompletingTextEdit(QTextEdit):
         start = pos
         while start > 0 and (text[start-1].isalnum() or text[start-1] == '_'):
             start -= 1
-            
+        
         # Find if this is a snippet or word suggestion
         is_snippet = False
         for suggestion_type, title in self.current_suggestions:
@@ -338,7 +332,7 @@ class EditorTab(QWidget):
         self.selected_suggestion_index = -1
         self.current_suggestions = []
         self.editor.textChanged.connect(self.handle_text_changed)
-        
+
     def setup_ui(self):
         """Setup the UI components"""
         layout = QVBoxLayout(self)
@@ -1244,10 +1238,12 @@ class EditorTab(QWidget):
                 background-color: palette(window);
                 border: 1px solid palette(mid);
                 border-radius: 3px;
-                padding: 5px;
+                padding: 8px 16px;
+                min-width: 120px;
+                min-height: 32px;
             }
             QPushButton:hover {
-                background-color: palette(highlight);
+                background: palette(highlight);
                 color: palette(highlighted-text);
             }
         """)
