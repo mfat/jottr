@@ -411,7 +411,11 @@ class EditorTab(QWidget):
                 background-color: palette(highlight);
                 color: palette(highlighted-text);
             }
-            QListWidget::item:hover {
+            QListWidget::item:selected:hover {
+                background-color: palette(highlight);
+                color: palette(highlighted-text);
+            }
+            QListWidget::item:hover:!selected {
                 background-color: palette(alternate-base);
             }
         """)
