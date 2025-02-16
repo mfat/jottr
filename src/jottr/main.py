@@ -7,14 +7,14 @@ import os
 import json
 import hashlib
 from PyQt5.QtWidgets import (QApplication, QMainWindow, QTabWidget, QWidget, 
-                            QVBoxLayout, QHBoxLayout, QSplitter, QMenu, QToolBar, QAction, QStyle, QMessageBox, QFontDialog, QStyleFactory, QLabel, QDialog, QSizePolicy, QDialogButtonBox, QTabBar, QFileDialog)
+                            QVBoxLayout, QHBoxLayout, QSplitter, QMenu, QToolBar, QAction, QStyle, QMessageBox, QFontDialog, QStyleFactory, QLabel, QDialog, QSizePolicy, QDialogButtonBox, QTabBar, QFileDialog, QShortcut)
 from PyQt5.QtCore import Qt, QUrl
 from PyQt5.QtWebEngineWidgets import QWebEngineView
 from editor_tab import EditorTab
 from snippet_manager import SnippetManager
 from rss_tab import RSSTab
 import feedparser
-from PyQt5.QtGui import QIcon, QDesktopServices
+from PyQt5.QtGui import QIcon, QDesktopServices, QKeySequence
 from theme_manager import ThemeManager
 from settings_manager import SettingsManager
 from PyQt5.QtGui import QPixmap
@@ -136,6 +136,8 @@ class TextEditorApp(QMainWindow):
         # Open file if specified
         if file_path:
             self.open_file_path(file_path)
+        
+        self.setup_shortcuts()  # Add this line after setup_toolbar()
         
     def set_light_mode(self):
         """Force the application to use a light theme, ignoring the OS dark mode."""
@@ -296,41 +298,83 @@ class TextEditorApp(QMainWindow):
         self.menu_dropdown.addAction(create_action("about", "About", self.show_about))
 
         # New document action
-        self.toolbar.addAction(create_action("new", "New", self.new_editor_tab))
+        new_action = create_action("new", "New", self.new_editor_tab)
+        new_action.setShortcut(QKeySequence.New)
+        new_action.setToolTip(f"New (Ctrl+N)")
+        self.toolbar.addAction(new_action)
         
-        # Open file action - connect to open_file_dialog instead of open_file
-        self.toolbar.addAction(create_action("open", "Open", self.open_file_dialog))
+        # Open file action
+        open_action = create_action("open", "Open", self.open_file_dialog)
+        open_action.setShortcut(QKeySequence.Open)
+        open_action.setToolTip(f"Open (Ctrl+O)")
+        self.toolbar.addAction(open_action)
         
         # Save file action
-        self.toolbar.addAction(create_action("save", "Save", self.save_file))
+        save_action = create_action("save", "Save", self.save_file)
+        save_action.setShortcut(QKeySequence.Save)
+        save_action.setToolTip(f"Save (Ctrl+S)")
+        self.toolbar.addAction(save_action)
+        
+        # Save As action
+        save_as_action = create_action("save-as", "Save As", self.save_file_as)
+        save_as_action.setShortcut(QKeySequence.SaveAs)
+        save_as_action.setToolTip(f"Save As (Ctrl+Shift+S)")
+        self.toolbar.addAction(save_as_action)
         
         # Add separator
         self.toolbar.addSeparator()
         
         # Undo/Redo
-        self.toolbar.addAction(create_action("undo", "Undo", self.undo))
-        self.toolbar.addAction(create_action("redo", "Redo", self.redo))
+        undo_action = create_action("undo", "Undo", self.undo)
+        undo_action.setShortcut(QKeySequence.Undo)  # Typically Ctrl+Z
+        undo_action.setToolTip(f"Undo (Ctrl+Z)")
+        self.toolbar.addAction(undo_action)
+
+        redo_action = create_action("redo", "Redo", self.redo)
+        redo_action.setShortcut(QKeySequence.Redo)  # Typically Ctrl+Shift+Z or Ctrl+Y
+        redo_action.setToolTip(f"Redo (Ctrl+Shift+Z)")
+        self.toolbar.addAction(redo_action)
         
         # Add separator
         self.toolbar.addSeparator()
         
         # Find/Replace
-        self.toolbar.addAction(create_action("find", "Find/Replace", self.toggle_find))
+        find_action = create_action("find", "Find/Replace", self.toggle_find)
+        find_action.setToolTip(f"Find/Replace (Ctrl+F)")
+        self.toolbar.addAction(find_action)
         
         # Focus mode
-        self.toolbar.addAction(create_action("focus-mode", "Focus Mode", self.toggle_focus_mode))
+        focus_action = create_action("focus-mode", "Focus Mode", self.toggle_focus_mode)
+        focus_action.setShortcut(QKeySequence("Ctrl+Shift+D"))
+        focus_action.setToolTip(f"Focus Mode (Ctrl+Shift+D)")
+        self.toolbar.addAction(focus_action)
         
         # Font and Theme
         self.toolbar.addAction(create_action("font", "Font", self.show_font_dialog))
         self.toolbar.addAction(create_action("theme", "Theme", self.show_theme_menu))
         
         # View toggles
-        self.toolbar.addAction(create_action("snippets", "Snippets", lambda: self.toggle_snippets()))
-        self.toolbar.addAction(create_action("browser", "Browser", lambda: self.toggle_browser()))
+        snippets_action = create_action("snippets", "Snippets", lambda: self.toggle_snippets())
+        snippets_action.setShortcut(QKeySequence("Ctrl+Shift+N"))
+        snippets_action.setToolTip(f"Toggle Snippets (Ctrl+Shift+N)")
+        self.toolbar.addAction(snippets_action)
+
+        browser_action = create_action("browser", "Browser", lambda: self.toggle_browser())
+        browser_action.setShortcut(QKeySequence("Ctrl+Shift+B"))
+        browser_action.setToolTip(f"Toggle Browser (Ctrl+Shift+B)")
+        self.toolbar.addAction(browser_action)
         
         # Zoom controls
-        self.toolbar.addAction(create_action("zoom-in", "Zoom In", self.zoom_in))
-        self.toolbar.addAction(create_action("zoom-out", "Zoom Out", self.zoom_out))
+        zoom_in_action = create_action("zoom-in", "Zoom In", self.zoom_in)
+        zoom_in_action.setShortcut(QKeySequence("Ctrl+="))
+        zoom_in_action.setToolTip(f"Zoom In (Ctrl+=)")
+        self.toolbar.addAction(zoom_in_action)
+
+        zoom_out_action = create_action("zoom-out", "Zoom Out", self.zoom_out)
+        zoom_out_action.setShortcut(QKeySequence("Ctrl+-"))
+        zoom_out_action.setToolTip(f"Zoom Out (Ctrl+-)")
+        self.toolbar.addAction(zoom_out_action)
+
         self.toolbar.addAction(create_action("zoom-reset", "Reset Zoom", self.zoom_reset))
         
         # Add flexible space
@@ -409,13 +453,43 @@ class TextEditorApp(QMainWindow):
         
         # File menu
         file_menu = menubar.addMenu('File')
-        file_menu.addAction('New Editor Tab', self.new_editor_tab)
+        
+        new_action = file_menu.addAction('New Editor Tab', self.new_editor_tab)
+        new_action.setShortcut(QKeySequence.New)
+        
         file_menu.addAction('New RSS Tab', self.new_rss_tab)
         file_menu.addSeparator()
-        file_menu.addAction('Save', self.save_file)
-        file_menu.addAction('Open', self.open_file_dialog)  # Changed from open_file to open_file_dialog
+        
+        save_action = file_menu.addAction('Save', self.save_file)
+        save_action.setShortcut(QKeySequence.Save)
+        
+        save_as_action = file_menu.addAction('Save As...', self.save_file_as)
+        save_as_action.setShortcut(QKeySequence.SaveAs)  # Typically Ctrl+Shift+S
+        
+        open_action = file_menu.addAction('Open', self.open_file_dialog)
+        open_action.setShortcut(QKeySequence.Open)
+        
         file_menu.addSeparator()
         file_menu.addAction('Exit', self.close)
+
+        # View menu
+        view_menu = menubar.addMenu('View')
+        
+        snippets_action = view_menu.addAction('Toggle Snippets', self.toggle_snippets)
+        snippets_action.setShortcut(QKeySequence("Ctrl+Shift+N"))
+        
+        browser_action = view_menu.addAction('Toggle Browser', self.toggle_browser)
+        browser_action.setShortcut(QKeySequence("Ctrl+Shift+B"))
+        
+        view_menu.addSeparator()
+        
+        zoom_in_action = view_menu.addAction('Zoom In', self.zoom_in)
+        zoom_in_action.setShortcut(QKeySequence("Ctrl+="))
+        
+        zoom_out_action = view_menu.addAction('Zoom Out', self.zoom_out)
+        zoom_out_action.setShortcut(QKeySequence("Ctrl+-"))
+        
+        view_menu.addAction('Reset Zoom', self.zoom_reset)
 
     def save_file(self):
         current_tab = self.tab_widget.currentWidget()
@@ -888,6 +962,12 @@ class TextEditorApp(QMainWindow):
         self.tab_widget.addTab(editor_tab, filename)
         self.tab_widget.setCurrentWidget(editor_tab)
         editor_tab.editor.setFocus()
+
+    # Add a new method to set up the find shortcut
+    def setup_shortcuts(self):
+        """Set up additional keyboard shortcuts"""
+        find_shortcut = QShortcut(QKeySequence.Find, self)  # Typically Ctrl+F
+        find_shortcut.activated.connect(self.toggle_find)
 
 def main():
     # Enable high DPI scaling

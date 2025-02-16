@@ -904,7 +904,7 @@ class EditorTab(QWidget):
             if not ' ' in selected_text:
                 # Add spell check suggestions if word is misspelled
                 if self.highlighter.spell_check_enabled:
-                    suggestions = self.highlighter.suggest(selected_text)[:5]  # Limit to 5 suggestions
+                    suggestions = self.highlighter.suggest(selected_text)[:7]  # Limit to 7 suggestions
                     if suggestions:
                         menu.addAction("Spelling Suggestions:").setEnabled(False)
                         for suggestion in suggestions:
@@ -1396,7 +1396,7 @@ class EditorTab(QWidget):
         self.exit_focus_btn.clicked.connect(self.toggle_focus_mode)
         self.exit_focus_btn.setStyleSheet("""
             QPushButton {
-                background-color: rgba(0, 0, 0, 0.2);
+                background-color: rgba(211, 211, 211, 0.8);
                 border: 2px solid palette(text);
                 border-radius: 6px;
                 color: palette(text);
