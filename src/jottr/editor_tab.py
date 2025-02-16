@@ -1396,7 +1396,7 @@ class EditorTab(QWidget):
         self.exit_focus_btn.clicked.connect(self.toggle_focus_mode)
         self.exit_focus_btn.setStyleSheet("""
             QPushButton {
-                background-color: rgba(0, 0, 0, 0.2);
+                background-color: rgba(211, 211, 211, 0.8);
                 border: 2px solid palette(text);
                 border-radius: 6px;
                 color: palette(text);
