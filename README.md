@@ -34,8 +34,11 @@ A simple, opinionated plain text editor designed for writers, journalists and re
 - Native look and feel on each platform
 - Consistent feature set across all systems
 
-### How to install Jottr:
+### Download:
 Downloads are available from the [Releases](https://github.com/mfat/jottr/releases) section.
+Currently downloads for linux (deb, rpm) and macos (Intel macs only) are available.
+For other platforms, you can clone the repository and run it from source.
+
 
 ### How to run Jottr:
 
