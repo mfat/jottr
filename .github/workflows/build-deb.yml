@@ -1,7 +1,8 @@
 name: Build Debian Package
 
 on:
-  tags: [ 'v*' ]
+  push:
+    tags: [ 'v*' ]
   workflow_dispatch:
 
 # Add these permission settings
