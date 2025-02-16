@@ -2,6 +2,7 @@ import json
 import os
 from PyQt5.QtGui import QFont
 import time
+from PyQt5.QtWidgets import QApplication, QStyleFactory
 
 class SettingsManager:
     def __init__(self):
@@ -67,7 +68,8 @@ class SettingsManager:
                 "snippets_visible": False,
                 "browser_visible": False,
                 "sizes": [700, 300, 300]
-            }
+            },
+            "ui_theme": "system"
         }
         
         try:
@@ -273,4 +275,25 @@ class SettingsManager:
             with open(self.settings_file, 'w') as f:
                 json.dump(settings, f)
         except Exception as e:
-            print(f"Failed to save setting {key}: {str(e)}") 
+            print(f"Failed to save setting {key}: {str(e)}")
+
+    def get_ui_theme(self):
+        """Get current UI theme setting"""
+        return self.settings.get('ui_theme', 'system')
+
+    def save_ui_theme(self, theme):
+        """Save UI theme setting"""
+        self.settings['ui_theme'] = theme
+        self.save_settings()
+
+    def apply_ui_theme(self, theme):
+        """Apply UI theme to application"""
+        if theme == 'system':
+            # Use system default theme
+            QApplication.setStyle(QStyleFactory.create('Fusion'))
+        else:
+            # Apply custom theme
+            QApplication.setStyle(QStyleFactory.create(theme))
+        
+        # Save the theme
+        self.save_ui_theme(theme) 

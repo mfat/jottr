@@ -464,6 +464,7 @@ class EditorTab(QWidget):
         self.current_file = None
         self.current_font = self.settings_manager.get_font()
         self.web_view = None  # Initialize to None
+        self.main_window = None  # Initialize main_window to None
         
         # Initialize recovery ID and paths first
         self.recovery_id = str(int(time.time() * 1000))
@@ -537,26 +538,30 @@ class EditorTab(QWidget):
         
         # Snippet header
         snippet_header = QWidget()
-        # snippet_header.setStyleSheet("""
-        #     QWidget {
-        #         background-color: palette(window);
-        #         border-bottom: 1px solid palette(mid);
-        #     }
-        #     QPushButton {
-        #         border: none;
-        #         padding: 0px;
-        #         color: palette(text);
-        #     }
-        #     QPushButton:hover {
-        #         background-color: palette(highlight);
-        #         color: palette(highlighted-text);
-        #     }
-        # """)
+        snippet_header.setFixedHeight(28)  # Match browser toolbar height
+        snippet_header.setStyleSheet("""
+            QWidget {
+                background-color: palette(window);
+                padding: 0px;
+                margin: 0px;
+            }
+            QPushButton {
+                border: none;
+                padding: 0px;
+                margin: 0px;
+                color: palette(text);
+            }
+            QPushButton:hover {
+                background-color: palette(highlight);
+                color: palette(highlighted-text);
+            }
+        """)
         header_layout = QHBoxLayout(snippet_header)
-        header_layout.setContentsMargins(8, 4, 4, 4)
+        header_layout.setContentsMargins(4, 2, 4, 2)  # Tight margins to match browser toolbar
+        header_layout.setSpacing(4)  # Reduce spacing between widgets
         
         snippet_title = QLabel("Snippets")
-        snippet_title.setStyleSheet("font-weight: bold;")
+        snippet_title.setStyleSheet("font-weight: bold; padding: 0px; margin: 0px;")
         header_layout.addWidget(snippet_title)
         
         snippet_close = QPushButton("×")
@@ -568,6 +573,22 @@ class EditorTab(QWidget):
         
         # Snippet list
         self.snippet_list = QListWidget()
+        self.snippet_list.setStyleSheet("""
+            QListWidget {
+                border: 1px solid palette(mid);
+                border-radius: 0px;  # Explicitly remove rounded corners
+            }
+            QListWidget::item {
+                padding: 4px;
+                border-radius: 0px;  # Ensure items also have no rounded corners
+            }
+            QScrollBar:vertical {
+                border-radius: 0px;  # Ensure scrollbar has no rounded corners
+            }
+            QScrollBar:horizontal {
+                border-radius: 0px;  # Ensure scrollbar has no rounded corners
+            }
+        """)
         self.snippet_list.itemDoubleClicked.connect(self.insert_snippet)
         self.snippet_list.setContextMenuPolicy(Qt.CustomContextMenu)
         self.snippet_list.customContextMenuRequested.connect(self.show_snippet_context_menu)

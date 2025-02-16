@@ -1,5 +1,5 @@
 Name:           jottr
-Version:        1.1.0
+Version:        1.2.0
 Release:        1%{?dist}
 Summary:        A simple text editor for writers, journalists and researchers
 
@@ -15,11 +15,12 @@ Requires:       python3-qt5
 Requires:       python3-qt5-webengine
 Requires:       python3-feedparser
 Requires:       python3-enchant
+Requires:       python3-pyqt5-sip
+Requires:       qt5-qtsvg
 
 %description
 Jottr is a simple text editor designed specifically for writers, journalists,
-and researchers. It features a clean interface, distraction-free writing mode,
-and integrated RSS feed reader.
+and researchers.
 
 %prep
 %autosetup
@@ -33,7 +34,18 @@ cp -r src/jottr/* %{buildroot}%{_datadir}/%{name}/
 mkdir -p %{buildroot}%{_bindir}
 cat > %{buildroot}%{_bindir}/%{name} << EOF
 #!/bin/bash
-exec python3 %{_datadir}/%{name}/main.py
+# Get the absolute path of any file arguments
+args=()
+for arg in "\$@"; do
+    if [ -f "\$arg" ]; then
+        args+=("\$(readlink -f "\$arg")")
+    else
+        args+=("\$arg")
+    fi
+done
+
+# Pass command-line arguments to the application
+exec python3 %{_datadir}/%{name}/main.py "\${args[@]}"
 EOF
 chmod 755 %{buildroot}%{_bindir}/%{name}
 
@@ -43,11 +55,13 @@ cat > %{buildroot}%{_datadir}/applications/%{name}.desktop << EOF
 [Desktop Entry]
 Name=Jottr
 Comment=Text editor for writers
-Exec=jottr
-Icon=%{name}
+Exec=jottr %F
+Icon=jottr
 Terminal=false
 Type=Application
 Categories=Utility;TextEditor;
+MimeType=text/plain;text/markdown;text/x-markdown;
+StartupNotify=true
 EOF
 
 # Add icons
@@ -63,6 +77,6 @@ install -p -m 644 icons/jottr.png %{buildroot}%{_datadir}/icons/hicolor/256x256/
 %{_datadir}/icons/hicolor/256x256/apps/%{name}.png
 
 %changelog
-* Sat Feb 15 2025 mFat <mfat@github.com> - 1.1.0-1
+* Sat Feb 15 2025 mFat <mfat@github.com> - 1.2.0-1
 - Bug fixes and improvements
 

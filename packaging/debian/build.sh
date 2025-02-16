@@ -9,7 +9,7 @@ rm -rf build/ dist/ *.egg-info/
 
 # Install build dependencies
 sudo apt-get update
-sudo apt-get install -y devscripts debhelper python3-all python3-setuptools python3-enchant
+sudo apt-get install -y devscripts debhelper python3-all python3-setuptools python3-enchant python3-pyqt5.qtsvg
 
 # Create debian directory link
 rm -rf debian
