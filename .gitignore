@@ -14,3 +14,6 @@ packaging/rpm/SRPMS/
 
 .history/
 
+src/jottr/Jottr.spec
+src/.DS_Store
+.DS_Store
