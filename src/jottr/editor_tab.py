@@ -177,118 +177,81 @@ class CustomTextEdit(QTextEdit):
 class CompletingTextEdit(QTextEdit):
     def __init__(self, parent=None):
         super().__init__(parent)
+        self.parent_tab = parent
         self.completion_text = ""
         self.completion_start = None
-        self.parent_tab = parent
-        self.suggestion_menu = None
         self.suppress_completion = False
         
+    def keyPressEvent(self, event):
+        """Handle key events"""
+        # Handle suggestion navigation if parent has suggestions
+        if (self.parent_tab and 
+            self.parent_tab.suggestion_tooltip and 
+            self.parent_tab.current_suggestions):
+            
+            if event.key() == Qt.Key_Down:
+                self.parent_tab.select_next_suggestion()
+                event.accept()
+                return
+            elif event.key() == Qt.Key_Up:
+                self.parent_tab.select_previous_suggestion()
+                event.accept()
+                return
+            elif event.key() in (Qt.Key_Return, Qt.Key_Enter):
+                if self.parent_tab.selected_suggestion_index >= 0:
+                    suggestion_type, text = self.parent_tab.current_suggestions[self.parent_tab.selected_suggestion_index]
+                    self.parent_tab.apply_suggestion(text)
+                event.accept()
+                return
+            elif event.key() == Qt.Key_Tab:
+                # If there's only one suggestion, apply it
+                if len(self.parent_tab.current_suggestions) == 1:
+                    suggestion_type, text = self.parent_tab.current_suggestions[0]
+                    self.parent_tab.apply_suggestion(text)
+                # If there are multiple suggestions, cycle through them
+                else:
+                    # Always select next suggestion, wrapping around to first if at end
+                    if self.parent_tab.selected_suggestion_index < 0:
+                        self.parent_tab.selected_suggestion_index = 0
+                    else:
+                        self.parent_tab.select_next_suggestion()
+                    # Update the highlighting
+                    self.parent_tab.update_suggestion_highlighting()
+                event.accept()
+                return
+            elif event.key() == Qt.Key_Escape:
+                self.parent_tab.hide_suggestions()
+                event.accept()
+                return
+                
+        super().keyPressEvent(event)
+
     def insertFromMimeData(self, source):
         """Override paste to always use plain text"""
         if source.hasText():
-            # Insert as plain text, using the editor's current formatting
             cursor = self.textCursor()
             cursor.insertText(source.text())
         
     def paintEvent(self, event):
         super().paintEvent(event)
-        if self.completion_text:
-            # Get the cursor rectangle for positioning
-            cursor = self.textCursor()
-            rect = self.cursorRect(cursor)
-            
-            # Create painter
-            painter = QPainter(self.viewport())
-            painter.setPen(QPen(QColor(128, 128, 128)))  # Grey color
-            
-            # Calculate position for completion text
-            font_metrics = QFontMetrics(self.font())
-            x = rect.x()
-            y = rect.y() + font_metrics.ascent()
-            
-            # Draw the completion text
-            painter.drawText(x, y, self.completion_text)
-
-    def keyPressEvent(self, event):
-        # Handle tab/enter to accept completion
-        if self.completion_text and event.key() in (Qt.Key_Tab, Qt.Key_Return):
-            cursor = self.textCursor()
-            
-            block = cursor.block()
-            text = block.text()
-            pos = cursor.positionInBlock()
-            
-            # Find start of current word
-            start = pos
-            while start > 0 and (text[start-1].isalnum() or text[start-1] == '_'):
-                start -= 1
-            
-            # Calculate block position
-            block_pos = cursor.block().position()
-            
-            if self.completion_start is not None:  # This is a snippet
-                # Set position to start of word
-                cursor.setPosition(block_pos + start)
-                # Select to end of word
-                cursor.setPosition(block_pos + pos, cursor.KeepAnchor)
-                # Delete selected text (entire partial word)
-                cursor.removeSelectedText()
-                # Insert completion text
-                cursor.insertText(self.completion_text)
-            else:  # This is a dictionary word
-                # Delete the typed part
-                cursor.setPosition(block_pos + start)
-                cursor.setPosition(block_pos + pos, cursor.KeepAnchor)
-                cursor.removeSelectedText()
-                # Insert the full word with correct case
-                if hasattr(self, '_current_dict_word'):
-                    cursor.insertText(self._current_dict_word)
-                    del self._current_dict_word
-            
-            self.completion_text = ""
-            self.completion_start = None
-            self.viewport().update()
-            
-            # If it was Enter key, add a new line after insertion
-            if event.key() == Qt.Key_Return:
-                cursor = self.textCursor()
-                cursor.insertText("\n")
-            
-            event.accept()
-            return
-            
-        # Clear completion on escape
-        elif event.key() == Qt.Key_Escape:
-            self.completion_text = ""
-            self.completion_start = None
-            self.viewport().update()
-            event.accept()
-            return
-            
-        # Handle Enter key normally when no completion is active
-        elif event.key() == Qt.Key_Return and not self.completion_text:
-            super().keyPressEvent(event)
-            return
-            
-        super().keyPressEvent(event)
+        # Remove old completion painting code
         
-        # Check for completion after key press, but only if not suppressed
-        if event.text().isalnum() and not self.suppress_completion:
-            QTimer.singleShot(0, self.check_for_completion)
-
     def check_for_completion(self):
         """Check current word against both user dictionary and snippets"""
-        if not self.parent_tab:
+        # This method is now handled by EditorTab's handle_text_changed
+        pass
+
+    def show_suggestions_menu(self, suggestions, start_pos):
+        """Show popup menu with suggestions"""
+        # This method is now replaced by EditorTab's show_suggestion_tooltip
+        pass
+
+    def apply_suggestion(self, suggestion):
+        """Apply the clicked suggestion"""
+        if not self.suggestion_tooltip:
             return
             
-        # If suggestion menu is visible, don't show inline completions
-        if self.suggestion_menu and self.suggestion_menu.isVisible():
-            self.completion_text = ""
-            self.completion_start = None
-            self.viewport().update()
-            return
-            
-        cursor = self.textCursor()
+        cursor = self.editor.textCursor()
         block = cursor.block()
         text = block.text()
         pos = cursor.positionInBlock()
@@ -297,164 +260,33 @@ class CompletingTextEdit(QTextEdit):
         start = pos
         while start > 0 and (text[start-1].isalnum() or text[start-1] == '_'):
             start -= 1
-        
-        current_word = text[start:pos]
-        if len(current_word) >= 2:  # Only suggest after 2 characters
-            suggestions = []
-            has_snippet = False
-            has_word = False
             
-            # Check snippets
-            if hasattr(self.parent_tab, 'snippet_manager'):
-                snippets = self.parent_tab.snippet_manager.get_snippets()
-                for title in snippets:
-                    if title.lower().startswith(current_word.lower()):
-                        content = self.parent_tab.snippet_manager.get_snippet(title)
-                        if content:
-                            has_snippet = True
-                            suggestions.append(('snippet', title, content))
-
-            # Check user dictionary
-            user_dict = self.parent_tab.settings_manager.get_setting('user_dictionary', [])
-            for word in user_dict:
-                if word.lower().startswith(current_word.lower()) and word.lower() != current_word.lower():
-                    has_word = True
-                    # For dictionary words, store the full word and the remaining part
-                    remaining_part = word[len(current_word):]
-                    if current_word.isupper():
-                        # If user typed in all caps, make suggestion all caps
-                        remaining_part = remaining_part.upper()
-                    suggestions.append(('word', word, remaining_part))
-                    # Store the full word for later use
-                    self._current_dict_word = word
-            
-            # If we have both types of matches, always show popup
-            if has_snippet and has_word:
-                self.show_suggestions_menu(suggestions, start)
-                self.completion_text = ""
-                self.completion_start = None
-                self.viewport().update()
-                return
-                    
-            if len(suggestions) > 0:
-                # If only one suggestion, show inline
-                if len(suggestions) == 1:
-                    suggestion = suggestions[0]
-                    # For dictionary words, only show remaining part
-                    # For snippets, show full content
-                    self.completion_text = suggestion[2]
-                    self.completion_start = start if suggestion[0] == 'snippet' else None
-                    self.viewport().update()
-                else:
-                    # Show popup menu with all suggestions
-                    self.show_suggestions_menu(suggestions, start)
-                    # Clear inline suggestions when showing popup
-                    self.completion_text = ""
-                    self.completion_start = None
-                    self.viewport().update()
-                return
-                    
-        self.completion_text = ""
-        self.completion_start = None
-        self.viewport().update()
-
-    def show_suggestions_menu(self, suggestions, start_pos):
-        """Show popup menu with suggestions"""
-        if self.suggestion_menu:
-            self.suggestion_menu.close()
+        # Find if this is a snippet or word suggestion
+        is_snippet = False
+        for suggestion_type, title in self.current_suggestions:
+            if title == suggestion:
+                is_snippet = (suggestion_type == 'snippet')
+                break
         
-        self.suggestion_menu = QMenu(self)
+        # Replace the current word
+        cursor.movePosition(cursor.StartOfBlock)
+        cursor.movePosition(cursor.Right, cursor.MoveAnchor, start)
+        cursor.movePosition(cursor.Right, cursor.KeepAnchor, pos - start)
         
-        # Add dictionary words first
-        word_suggestions = [s for s in suggestions if s[0] == 'word']
-        first_action = None  # Track the first action added
+        if is_snippet:
+            # Get and insert snippet content
+            content = self.snippet_manager.get_snippet(suggestion)
+            if content:
+                cursor.insertText(content)
+        else:
+            # Insert the word suggestion directly
+            cursor.insertText(suggestion)
         
-        if word_suggestions:
-            for _, word, remaining_part in word_suggestions:
-                # Show full word in menu but store both full word and remaining part
-                action = self.suggestion_menu.addAction(word)
-                action.triggered.connect(lambda checked, w=word: self.apply_suggestion('word', w, start_pos))
-                if not first_action:
-                    first_action = action
+        # Hide tooltip
+        self.hide_suggestions()
         
-        # Add separator if we have both types
-        if word_suggestions and any(s[0] == 'snippet' for s in suggestions):
-            self.suggestion_menu.addSeparator()
-        
-        # Add snippets
-        snippet_suggestions = [s for s in suggestions if s[0] == 'snippet']
-        if snippet_suggestions:
-            for _, title, content in snippet_suggestions:
-                # Show first line of snippet content in menu
-                first_line = content.split('\n')[0][:50] + ('...' if len(content) > 50 else '')
-                action = self.suggestion_menu.addAction(f"{title} - {first_line}")
-                action.triggered.connect(lambda checked, c=content: self.apply_suggestion('snippet', c, start_pos))
-                if not first_action:
-                    first_action = action
-        
-        # Show menu under cursor
-        cursor = self.textCursor()
-        rect = self.cursorRect(cursor)
-        pos = self.mapToGlobal(rect.bottomLeft())
-        
-        # Set the first action as the default action
-        if first_action:
-            self.suggestion_menu.setActiveAction(first_action)
-        
-        self.suggestion_menu.popup(pos)
-
-    def apply_suggestion(self, suggestion_type, content, start_pos):
-        """Apply the selected suggestion"""
-        # Temporarily suppress completion checking
-        self.suppress_completion = True
-        
-        cursor = self.textCursor()
-        
-        if suggestion_type == 'snippet':
-            # Delete partial word and insert snippet
-            block_pos = cursor.block().position()
-            text = cursor.block().text()
-            pos = cursor.positionInBlock()
-            
-            # Find end of current word
-            end = pos
-            while end < len(text) and (text[end].isalnum() or text[end] == '_'):
-                end += 1
-            
-            # Select and replace word
-            cursor.setPosition(block_pos + start_pos)
-            cursor.setPosition(block_pos + end, cursor.KeepAnchor)
-            cursor.removeSelectedText()
-            cursor.insertText(content)
-        else:  # This is a dictionary word
-            # Replace the entire word with the full dictionary word
-            block_pos = cursor.block().position()
-            text = cursor.block().text()
-            pos = cursor.positionInBlock()
-            
-            # Find end of current word
-            end = pos
-            while end < len(text) and (text[end].isalnum() or text[end] == '_'):
-                end += 1
-            
-            # Select and replace entire word
-            cursor.setPosition(block_pos + start_pos)
-            cursor.setPosition(block_pos + end, cursor.KeepAnchor)
-            cursor.removeSelectedText()
-            cursor.insertText(content)  # Insert the full word
-        
-        # Clear all suggestions
-        self.suggestion_menu = None
-        self.completion_text = ""
-        self.completion_start = None
-        self.viewport().update()
-        
-        # Re-enable completion checking after a short delay
-        QTimer.singleShot(500, self.enable_completion)
-
-    def enable_completion(self):
-        """Re-enable completion checking"""
-        self.suppress_completion = False
+        # Set focus back to editor
+        self.editor.setFocus()
 
 class EditorTab(QWidget):
     def __init__(self, snippet_manager, settings_manager):
@@ -493,11 +325,6 @@ class EditorTab(QWidget):
         self.editor.document().modificationChanged.connect(self.handle_modification)
         self.editor.document().setModified(False)
         
-        # Setup autocomplete
-        self.current_word = ""
-        self.current_suggestions = []
-        self.suggestion_index = -1
-        
         # Install event filter for key handling
         self.editor.installEventFilter(self)
         
@@ -507,7 +334,11 @@ class EditorTab(QWidget):
         
         self.focus_mode = False
         self.panes_opened_in_focus = {'browser': False, 'snippets': False}  # Track panes opened during focus mode
-
+        self.suggestion_tooltip = None
+        self.selected_suggestion_index = -1
+        self.current_suggestions = []
+        self.editor.textChanged.connect(self.handle_text_changed)
+        
     def setup_ui(self):
         """Setup the UI components"""
         layout = QVBoxLayout(self)
@@ -575,18 +406,19 @@ class EditorTab(QWidget):
         self.snippet_list = QListWidget()
         self.snippet_list.setStyleSheet("""
             QListWidget {
-                border: 1px solid palette(mid);
-                border-radius: 0px;  # Explicitly remove rounded corners
+                border: none;
+                background-color: palette(base);
             }
             QListWidget::item {
                 padding: 4px;
-                border-radius: 0px;  # Ensure items also have no rounded corners
+                border-radius: 2px;
             }
-            QScrollBar:vertical {
-                border-radius: 0px;  # Ensure scrollbar has no rounded corners
+            QListWidget::item:selected {
+                background-color: palette(highlight);
+                color: palette(highlighted-text);
             }
-            QScrollBar:horizontal {
-                border-radius: 0px;  # Ensure scrollbar has no rounded corners
+            QListWidget::item:hover {
+                background-color: palette(alternate-base);
             }
         """)
         self.snippet_list.itemDoubleClicked.connect(self.insert_snippet)
@@ -1369,214 +1201,6 @@ class EditorTab(QWidget):
         # Update status bar
         self.main_window.statusBar.showMessage(f"Words: {words} | Characters: {chars}")
 
-    def enable_focus_mode(self):
-        """Enable focus mode"""
-        self.focus_mode = True
-        
-        # Save current state before changing anything
-        window = self.window()
-        self.pre_focus_state = window.windowState()
-        self.pre_focus_states = {
-            'snippets_visible': self.snippet_widget.isVisible(),
-            'browser_visible': self.browser_widget.isVisible(),
-            'sizes': self.splitter.sizes()
-        }
-        
-        # Reset tracking of panes opened during focus mode
-        self.panes_opened_in_focus = {'browser': False, 'snippets': False}
-        
-        # Hide UI elements
-        self.snippet_widget.hide()
-        self.browser_widget.hide()
-        self.window().toolbar.hide()
-        self.window().tab_widget.tabBar().hide()
-        
-        # Create exit button as overlay
-        self.exit_focus_btn = QPushButton("Exit Focus Mode (Esc)", self)
-        self.exit_focus_btn.clicked.connect(self.toggle_focus_mode)
-        self.exit_focus_btn.setStyleSheet("""
-            QPushButton {
-                background-color: rgba(211, 211, 211, 0.8);
-                border: 2px solid palette(text);
-                border-radius: 6px;
-                color: palette(text);
-                padding: 8px 16px;
-                font-size: 13px;
-                font-weight: bold;
-            }
-            QPushButton:hover {
-                background-color: palette(highlight);
-                border-color: palette(highlight);
-                color: palette(highlighted-text);
-            }
-        """)
-        
-        # Position button at bottom right with margin
-        self.exit_focus_btn.setFixedSize(180, 36)
-        self.update_exit_button_position()
-        self.exit_focus_btn.raise_()
-        self.exit_focus_btn.show()
-        
-        # Go full screen without changing the stored state
-        window.setWindowState(window.windowState() | Qt.WindowFullScreen)
-
-    def update_exit_button_position(self):
-        """Update exit button position based on current window size"""
-        if hasattr(self, 'exit_focus_btn'):
-            margin = 20
-            self.exit_focus_btn.move(
-                self.width() - self.exit_focus_btn.width() - margin,
-                self.height() - self.exit_focus_btn.height() - margin
-            )
-
-    def resizeEvent(self, event):
-        """Handle resize events to keep exit button positioned correctly"""
-        super().resizeEvent(event)
-        if hasattr(self, 'focus_mode') and self.focus_mode:
-            self.update_exit_button_position()
-
-    def keyPressEvent(self, event):
-        """Handle escape key for focus mode"""
-        if event.key() == Qt.Key_Escape and hasattr(self, 'focus_mode') and self.focus_mode:
-            self.toggle_focus_mode()
-            event.accept()
-        else:
-            super().keyPressEvent(event)
-
-    def cleanup_session_files(self):
-        """Clean up session files for this tab"""
-        try:
-            if os.path.exists(self.session_path):
-                os.remove(self.session_path)
-            if os.path.exists(self.meta_path):
-                os.remove(self.meta_path)
-        except Exception as e:
-            print(f"Failed to cleanup session files: {str(e)}")
-
-    def set_main_window(self, main_window):
-        """Set reference to main window and initialize session state"""
-        self.main_window = main_window
-        # Update session state to include this tab
-        current_tabs = self.main_window.get_open_tab_ids()
-        if self.recovery_id not in current_tabs:
-            current_tabs.append(self.recovery_id)
-            self.settings_manager.save_session_state(current_tabs)
-
-    def handle_text_changed(self):
-        """Handle text changes for autocompletion"""
-        cursor = self.editor.textCursor()
-        current_line = cursor.block().text()
-        current_position = cursor.positionInBlock()
-        
-        # Find the word being typed (include numbers and letters)
-        word_start = current_position
-        while word_start > 0 and (current_line[word_start - 1].isalnum() or 
-                                 current_line[word_start - 1] in '_-'):
-            word_start -= 1
-        
-        if word_start <= len(current_line):
-            current_word = current_line[word_start:current_position]
-            
-            if len(current_word) >= 2:  # Only show suggestions after 2 characters
-                rect = self.editor.cursorRect()
-                self.completer.setCompletionPrefix(current_word)
-                
-                if self.completer.completionCount() > 0:
-                    popup = self.completer.popup()
-                    # Always show popup but don't auto-complete
-                    popup.setCurrentIndex(self.completer.completionModel().index(0, 0))
-                    
-                    # Calculate popup position
-                    rect.setWidth(self.completer.popup().sizeHintForColumn(0) + 
-                                self.completer.popup().verticalScrollBar().sizeHint().width())
-                    self.completer.complete(rect)
-                else:
-                    self.completer.popup().hide()
-            else:
-                self.completer.popup().hide()
-
-    def get_word_at_cursor(self):
-        """Get the word under the cursor"""
-        cursor = self.editor.textCursor()
-        cursor.select(cursor.WordUnderCursor)
-        return cursor.selectedText()
-
-    def replace_word(self, new_word):
-        """Replace the word under cursor with new word"""
-        cursor = self.editor.textCursor()
-        cursor.beginEditBlock()
-        cursor.select(cursor.WordUnderCursor)
-        cursor.removeSelectedText()
-        cursor.insertText(new_word)
-        cursor.endEditBlock()
-
-    def save_pane_states(self):
-        """Save pane visibility and sizes"""
-        states = {
-            'snippets_visible': self.snippet_widget.isVisible(),
-            'browser_visible': self.browser_widget.isVisible(),
-            'sizes': self.splitter.sizes()
-        }
-        self.settings_manager.save_setting('pane_states', states)
-
-    def eventFilter(self, obj, event):
-        """Filter events for focus mode"""
-        if obj == self.editor and event.type() == QEvent.KeyPress:
-            # Handle Escape key
-            if event.key() == Qt.Key_Escape and hasattr(self, 'focus_mode') and self.focus_mode:
-                self.toggle_focus_mode()
-                event.accept()
-                return True
-            # Handle Ctrl+Shift+D (or Cmd+Shift+D on Mac)
-            elif (event.key() == Qt.Key_D and 
-                  event.modifiers() & Qt.ShiftModifier and 
-                  event.modifiers() & (Qt.ControlModifier if sys.platform != 'darwin' else Qt.MetaModifier)):
-                if self.focus_mode:
-                    self.disable_focus_mode()
-                else:
-                    self.toggle_focus_mode()
-                event.accept()
-                return True
-        return super().eventFilter(obj, event)  # Let other events pass through
-
-    def apply_suggestion(self, word):
-        """Apply a word suggestion"""
-        cursor = self.editor.textCursor()
-        cursor.select(cursor.WordUnderCursor)
-        cursor.insertText(word)
-        self.current_suggestions = []
-        self.suggestion_index = -1
-        self.editor.completion_text = ""
-        self.editor.viewport().update()
-
-    def update_nav_buttons(self):
-        """Update navigation button states"""
-        if self.web_view:
-            self.back_btn.setEnabled(self.web_view.page().action(QWebEnginePage.Back).isEnabled())
-            self.forward_btn.setEnabled(self.web_view.page().action(QWebEnginePage.Forward).isEnabled())
-
-    def handle_navigation(self, navigation_type, url):
-        """Handle navigation requests"""
-        # Update navigation buttons
-        self.update_nav_buttons()
-        return True  # Allow navigation
-
-    def handle_escape(self):
-        """Handle ESC key press"""
-        if self.focus_mode:
-            self.disable_focus_mode()
-            # Update menu if possible
-            if hasattr(self, 'main_window'):
-                # Try to update focus mode action if method exists
-                if hasattr(self.main_window, 'update_focus_mode_action'):
-                    self.main_window.update_focus_mode_action(False)
-                # Otherwise just update the View menu if it exists
-                elif hasattr(self.main_window, 'view_menu'):
-                    for action in self.main_window.view_menu.actions():
-                        if action.text() == "Focus Mode":
-                            action.setChecked(False)
-                            break
-
     def toggle_focus_mode(self):
         """Toggle focus mode"""
         if not hasattr(self, 'focus_mode'):
@@ -1588,6 +1212,50 @@ class EditorTab(QWidget):
             self.enable_focus_mode()
         else:
             self.disable_focus_mode()
+
+    def enable_focus_mode(self):
+        """Enable focus mode"""
+        self.focus_mode = True
+        
+        # Store current window state
+        window = self.window()
+        self.pre_focus_state = window.windowState()
+        
+        # Store current pane states
+        self.pre_focus_states = {
+            'snippets_visible': self.snippet_widget.isVisible(),
+            'browser_visible': self.browser_widget.isVisible(),
+            'sizes': self.splitter.sizes()
+        }
+        
+        # Hide UI elements
+        window.toolbar.hide()
+        window.tab_widget.tabBar().hide()
+        
+        # Hide panes
+        self.snippet_widget.hide()
+        self.browser_widget.hide()
+        
+        # Add exit button
+        self.exit_focus_btn = QPushButton("Exit Focus Mode", self)
+        self.exit_focus_btn.clicked.connect(self.disable_focus_mode)
+        self.exit_focus_btn.setStyleSheet("""
+            QPushButton {
+                background-color: palette(window);
+                border: 1px solid palette(mid);
+                border-radius: 3px;
+                padding: 5px;
+            }
+            QPushButton:hover {
+                background-color: palette(highlight);
+                color: palette(highlighted-text);
+            }
+        """)
+        self.update_exit_button_position()
+        self.exit_focus_btn.show()
+        
+        # Set fullscreen
+        window.setWindowState(window.windowState() | Qt.WindowFullScreen)
 
     def disable_focus_mode(self):
         """Disable focus mode"""
@@ -1634,6 +1302,43 @@ class EditorTab(QWidget):
                 self.splitter.setSizes([editor_width, snippet_width, browser_width])
             else:
                 self.splitter.setSizes(self.pre_focus_states['sizes'])
+
+    def update_exit_button_position(self):
+        """Update exit button position based on current window size"""
+        if hasattr(self, 'exit_focus_btn'):
+            margin = 20
+            self.exit_focus_btn.move(
+                self.width() - self.exit_focus_btn.width() - margin,
+                self.height() - self.exit_focus_btn.height() - margin
+            )
+
+    def resizeEvent(self, event):
+        """Handle resize events to keep exit button positioned correctly"""
+        super().resizeEvent(event)
+        if hasattr(self, 'focus_mode') and self.focus_mode:
+            self.update_exit_button_position()
+
+    def handle_escape(self):
+        """Handle ESC key press"""
+        if self.suggestion_tooltip:
+            self.suggestion_tooltip.hide()
+            self.suggestion_tooltip.deleteLater()
+            self.suggestion_tooltip = None
+            return
+            
+        if self.focus_mode:
+            self.disable_focus_mode()
+            # Update menu if possible
+            if hasattr(self, 'main_window'):
+                # Try to update focus mode action if method exists
+                if hasattr(self.main_window, 'update_focus_mode_action'):
+                    self.main_window.update_focus_mode_action(False)
+                # Otherwise just update the View menu if it exists
+                elif hasattr(self.main_window, 'view_menu'):
+                    for action in self.main_window.view_menu.actions():
+                        if action.text() == "Focus Mode":
+                            action.setChecked(False)
+                            break
 
     def toggle_find(self):
         """Toggle find/replace toolbar visibility"""
@@ -1773,3 +1478,292 @@ class EditorTab(QWidget):
         
         # Show menu at cursor position
         menu.exec_(self.editor.mapToGlobal(position))
+
+    def handle_text_changed(self):
+        """Handle text changes for autocompletion"""
+        if self.suggestion_tooltip:
+            self.suggestion_tooltip.hide()
+            self.suggestion_tooltip.deleteLater()
+            self.suggestion_tooltip = None
+            
+        cursor = self.editor.textCursor()
+        current_line = cursor.block().text()
+        current_position = cursor.positionInBlock()
+        
+        # Find the word being typed
+        word_start = current_position
+        while word_start > 0 and (current_line[word_start - 1].isalnum() or 
+                                 current_line[word_start - 1] in '_-'):
+            word_start -= 1
+        
+        current_word = current_line[word_start:current_position]
+        
+        if len(current_word) >= 2:  # Only show suggestions after 2 characters
+            suggestions = []
+            
+            # Get snippet suggestions
+            if hasattr(self, 'snippet_manager'):
+                for title in self.snippet_manager.get_snippets():
+                    if title.lower().startswith(current_word.lower()):
+                        suggestions.append(('snippet', title))
+
+            # Get dictionary suggestions
+            user_dict = self.settings_manager.get_setting('user_dictionary', [])
+            for word in user_dict:
+                if word.lower().startswith(current_word.lower()) and word.lower() != current_word.lower():
+                    suggestions.append(('word', word))
+            
+            if suggestions:
+                self.show_suggestion_tooltip(suggestions, cursor)
+
+    def save_pane_states(self):
+        """Save pane visibility and sizes"""
+        states = {
+            'snippets_visible': self.snippet_widget.isVisible(),
+            'browser_visible': self.browser_widget.isVisible(),
+            'sizes': self.splitter.sizes()
+        }
+        self.settings_manager.save_setting('pane_states', states)
+
+    def set_main_window(self, main_window):
+        """Set reference to main window and initialize session state"""
+        self.main_window = main_window
+        # Update session state to include this tab
+        current_tabs = self.main_window.get_open_tab_ids()
+        if self.recovery_id not in current_tabs:
+            current_tabs.append(self.recovery_id)
+            self.settings_manager.save_session_state(current_tabs)
+
+    def cleanup_session_files(self):
+        """Clean up session files for this tab"""
+        try:
+            if os.path.exists(self.session_path):
+                os.remove(self.session_path)
+            if os.path.exists(self.meta_path):
+                os.remove(self.meta_path)
+        except Exception as e:
+            print(f"Failed to cleanup session files: {str(e)}")
+
+    def keyPressEvent(self, event):
+        """Handle key events"""
+        super().keyPressEvent(event)  # Just pass through to parent
+
+    def show_suggestion_tooltip(self, suggestions, cursor):
+        """Show suggestions in a tooltip-like widget"""
+        self.hide_suggestions()
+        self.current_suggestions = suggestions
+        self.selected_suggestion_index = -1
+        
+        # Create tooltip widget
+        self.suggestion_tooltip = QWidget(self.editor, Qt.ToolTip)
+        layout = QVBoxLayout(self.suggestion_tooltip)
+        layout.setContentsMargins(4, 4, 4, 4)
+        layout.setSpacing(2)
+        
+        # Style the tooltip
+        self.suggestion_tooltip.setStyleSheet("""
+            QWidget {
+                background-color: palette(window);
+                border: 1px solid palette(mid);
+                border-radius: 3px;
+            }
+            QLabel {
+                padding: 2px 8px;
+                color: palette(text);
+                border-radius: 2px;
+                margin: 1px;
+                font-family: "Courier New", "DejaVu Sans Mono", monospace;
+            }
+        """)
+        
+        # Add suggestions (limited to 7)
+        for i, (suggestion_type, text) in enumerate(suggestions[:7]):
+            container = QWidget()
+            container_layout = QVBoxLayout(container)
+            container_layout.setContentsMargins(0, 0, 0, 0)
+            container_layout.setSpacing(1)
+            
+            if suggestion_type == 'snippet':
+                # For snippets, show content directly
+                content = self.snippet_manager.get_snippet(text)
+                if content:
+                    # Limit preview to first line or 50 chars
+                    preview = content.split('\n')[0][:50]
+                    if len(preview) < len(content):
+                        preview += "..."
+                    label = QLabel(preview)
+            else:
+                # For words, just show the word
+                label = QLabel(text)
+            
+            container_layout.addWidget(label)
+            
+            # Make container clickable
+            container.mousePressEvent = lambda _, t=text: self.apply_suggestion(t)
+            container.setCursor(Qt.PointingHandCursor)
+            
+            layout.addWidget(container)
+        
+        # Position tooltip below the cursor
+        rect = self.editor.cursorRect(cursor)
+        pos = self.editor.mapToGlobal(rect.bottomLeft())
+        pos.setY(pos.y() + 5)  # Add a small offset
+        self.suggestion_tooltip.move(pos)
+        
+        # Calculate and set fixed size
+        self.suggestion_tooltip.adjustSize()
+        
+        # Show tooltip
+        self.suggestion_tooltip.show()
+        self.suggestion_tooltip.raise_()
+
+    def select_next_suggestion(self):
+        """Select next suggestion in the list"""
+        if not self.current_suggestions:
+            return
+            
+        self.selected_suggestion_index = (self.selected_suggestion_index + 1) % len(self.current_suggestions)
+        self.update_suggestion_highlighting()
+
+    def select_previous_suggestion(self):
+        """Select previous suggestion in the list"""
+        if not self.current_suggestions:
+            return
+            
+        self.selected_suggestion_index = (self.selected_suggestion_index - 1) % len(self.current_suggestions)
+        self.update_suggestion_highlighting()
+
+    def update_suggestion_highlighting(self):
+        """Update the visual highlighting of selected suggestion"""
+        if not self.suggestion_tooltip:
+            return
+            
+        layout = self.suggestion_tooltip.layout()
+        for i in range(layout.count()):
+            container = layout.itemAt(i).widget()
+            if i == self.selected_suggestion_index:
+                container.setStyleSheet("""
+                    background-color: palette(highlight);
+                    border-radius: 2px;
+                    QLabel { color: palette(highlighted-text); }
+                """)
+            else:
+                container.setStyleSheet("")
+
+    def hide_suggestions(self):
+        """Hide suggestion tooltip"""
+        if self.suggestion_tooltip:
+            self.suggestion_tooltip.hide()
+            self.suggestion_tooltip.deleteLater()
+            self.suggestion_tooltip = None
+        self.selected_suggestion_index = -1
+        self.current_suggestions = []
+
+    def apply_suggestion(self, suggestion):
+        """Apply the clicked suggestion"""
+        if not self.suggestion_tooltip:
+            return
+            
+        cursor = self.editor.textCursor()
+        block = cursor.block()
+        text = block.text()
+        pos = cursor.positionInBlock()
+        
+        # Find start of current word
+        start = pos
+        while start > 0 and (text[start-1].isalnum() or text[start-1] == '_'):
+            start -= 1
+            
+        # Find if this is a snippet or word suggestion
+        is_snippet = False
+        for suggestion_type, title in self.current_suggestions:
+            if title == suggestion:
+                is_snippet = (suggestion_type == 'snippet')
+                break
+        
+        # Replace the current word
+        cursor.movePosition(cursor.StartOfBlock)
+        cursor.movePosition(cursor.Right, cursor.MoveAnchor, start)
+        cursor.movePosition(cursor.Right, cursor.KeepAnchor, pos - start)
+        
+        if is_snippet:
+            # Get and insert snippet content
+            content = self.snippet_manager.get_snippet(suggestion)
+            if content:
+                cursor.insertText(content)
+        else:
+            # Insert the word suggestion directly
+            cursor.insertText(suggestion)
+        
+        # Hide tooltip
+        self.hide_suggestions()
+        
+        # Set focus back to editor
+        self.editor.setFocus()
+
+    def replace_word(self, new_word):
+        """Replace the word under cursor with new word"""
+        cursor = self.editor.textCursor()
+        cursor.beginEditBlock()
+
+        # Get the current position and text
+        block = cursor.block()
+        text = block.text()
+        pos = cursor.positionInBlock()
+
+        # Find start of word (including alphanumeric and underscores)
+        start = pos
+        while start > 0 and (text[start-1].isalnum() or text[start-1] == '_'):
+            start -= 1
+
+        # Find end of word (including alphanumeric and underscores)
+        end = pos
+        while end < len(text) and (text[end].isalnum() or text[end] == '_'):
+            end += 1
+
+        # Select and replace the word
+        cursor.setPosition(block.position() + start)
+        cursor.setPosition(block.position() + end, cursor.KeepAnchor)
+        cursor.removeSelectedText()
+        cursor.insertText(new_word)
+
+        cursor.endEditBlock()
+
+    def eventFilter(self, obj, event):
+        """Filter events for focus mode"""
+        if obj == self.editor and event.type() == QEvent.KeyPress:
+            # Handle Escape key
+            if event.key() == Qt.Key_Escape and hasattr(self, 'focus_mode') and self.focus_mode:
+                self.disable_focus_mode()
+                event.accept()
+                return True
+            # Handle Ctrl+Shift+D (or Cmd+Shift+D on Mac)
+            elif (event.key() == Qt.Key_D and 
+                  event.modifiers() & Qt.ShiftModifier and 
+                  event.modifiers() & (Qt.ControlModifier if sys.platform != 'darwin' else Qt.MetaModifier)):
+                if self.focus_mode:
+                    self.disable_focus_mode()
+                else:
+                    self.toggle_focus_mode()
+                event.accept()
+                return True
+        return super().eventFilter(obj, event)  # Let other events pass through
+
+    def update_nav_buttons(self):
+        """Update navigation button states"""
+        if self.web_view:
+            self.back_btn.setEnabled(self.web_view.page().action(QWebEnginePage.Back).isEnabled())
+            self.forward_btn.setEnabled(self.web_view.page().action(QWebEnginePage.Forward).isEnabled())
+
+    def handle_navigation(self, navigation_type, url):
+        """Handle navigation requests"""
+        # Update navigation buttons
+        self.update_nav_buttons()
+        return True  # Allow navigation
+
+    def navigate_url(self):
+        """Navigate to URL in browser"""
+        url = self.url_bar.text()
+        if not url.startswith(('http://', 'https://')):
+            url = 'https://' + url
+        self.web_view.setUrl(QUrl(url))
