@@ -904,7 +904,7 @@ class EditorTab(QWidget):
             if not ' ' in selected_text:
                 # Add spell check suggestions if word is misspelled
                 if self.highlighter.spell_check_enabled:
-                    suggestions = self.highlighter.suggest(selected_text)[:5]  # Limit to 5 suggestions
+                    suggestions = self.highlighter.suggest(selected_text)[:7]  # Limit to 7 suggestions
                     if suggestions:
                         menu.addAction("Spelling Suggestions:").setEnabled(False)
                         for suggestion in suggestions:
