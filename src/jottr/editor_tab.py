@@ -1505,9 +1505,28 @@ class EditorTab(QWidget):
         """Replace the word under cursor with new word"""
         cursor = self.editor.textCursor()
         cursor.beginEditBlock()
-        cursor.select(cursor.WordUnderCursor)
+        
+        # Get the current position and text
+        block = cursor.block()
+        text = block.text()
+        pos = cursor.positionInBlock()
+        
+        # Find start of word (including alphanumeric and underscores)
+        start = pos
+        while start > 0 and (text[start-1].isalnum() or text[start-1] == '_'):
+            start -= 1
+            
+        # Find end of word (including alphanumeric and underscores)
+        end = pos
+        while end < len(text) and (text[end].isalnum() or text[end] == '_'):
+            end += 1
+            
+        # Select and replace the word
+        cursor.setPosition(block.position() + start)
+        cursor.setPosition(block.position() + end, cursor.KeepAnchor)
         cursor.removeSelectedText()
         cursor.insertText(new_word)
+        
         cursor.endEditBlock()
 
     def save_pane_states(self):
