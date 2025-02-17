@@ -2,17 +2,23 @@ import json
 import os
 
 class SnippetManager:
-    def __init__(self):
+    def __init__(self, settings_manager):
+        self.settings_manager = settings_manager
+        self.file_path = os.path.join(
+            self.settings_manager.config_dir,
+            'snippets.json'
+        )
         self.snippets = {}
-        self.file_path = "snippets.json"
         self.load_snippets()
         
     def load_snippets(self):
+        """Load snippets from file"""
         if os.path.exists(self.file_path):
             try:
-                with open(self.file_path, 'r') as file:
-                    self.snippets = json.load(file)
-            except:
+                with open(self.file_path, 'r', encoding='utf-8') as f:
+                    self.snippets = json.load(f)
+            except Exception as e:
+                print(f"Error loading snippets: {str(e)}")
                 self.snippets = {}
                 
     def save_snippets(self):

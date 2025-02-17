@@ -40,6 +40,12 @@ class TextEditorApp(QMainWindow):
     def __init__(self, file_path=None): 
         super().__init__()
         
+        # Create settings manager first
+        self.settings_manager = SettingsManager()
+        
+        # Create snippet manager with settings manager
+        self.snippet_manager = SnippetManager(self.settings_manager)
+        
         # Force light mode by setting a light palette and style
         self.set_light_mode()
         
@@ -86,13 +92,15 @@ class TextEditorApp(QMainWindow):
         
         # Initialize managers first
         self.settings_manager = SettingsManager()
-        self.snippet_manager = SnippetManager()
+        self.snippet_manager = SnippetManager(self.settings_manager)
         
-        # Apply UI theme from settings
-        self.apply_ui_theme(self.settings_manager.get_ui_theme())
+        # Force light mode by setting a light palette and style
+        self.set_light_mode()
         
         # Create toolbar first before styling
-        self.toolbar = self.addToolBar("Main Toolbar")
+        self.toolbar = QToolBar("Main Toolbar")  # Add name here
+        self.toolbar.setObjectName("mainToolBar")  # Add this line
+        self.toolbar.setMovable(False)
         
         # Now we can safely set platform style since toolbar exists
         self.setup_platform_style()
@@ -126,8 +134,7 @@ class TextEditorApp(QMainWindow):
         
         layout.addWidget(self.tab_widget)
         
-        # Always restore last session
-        self.restore_session()
+        
         
         # Create new tab if no tabs were restored
         if self.tab_widget.count() == 0:
@@ -243,8 +250,13 @@ class TextEditorApp(QMainWindow):
         
     def setup_toolbar(self):
         """Setup the main toolbar"""
-        self.toolbar = QToolBar()
+        self.toolbar = QToolBar("Main Toolbar")
+        self.toolbar.setObjectName("mainToolBar")
         self.toolbar.setMovable(False)
+        
+        # Add toolbar to main window
+        self.addToolBar(self.toolbar)
+        
         self.toolbar.setStyleSheet("""
             QToolBar {
                 border: none;
@@ -293,9 +305,6 @@ class TextEditorApp(QMainWindow):
         
         # Prevent toolbar from being hidden
         self.toolbar.setContextMenuPolicy(Qt.PreventContextMenu)
-        
-        # Add toolbar to main window
-        self.addToolBar(self.toolbar)
         
         # Set toolbar properties for better icon rendering
         self.toolbar.setIconSize(QSize(24, 24))
@@ -495,8 +504,6 @@ class TextEditorApp(QMainWindow):
             elif reply == QMessageBox.Cancel:
                 return
         
-        # Clean up session files for this tab
-        tab.cleanup_session_files()
         self.tab_widget.removeTab(index)
         
         # Create new tab if last tab was closed
@@ -686,20 +693,15 @@ class TextEditorApp(QMainWindow):
         return open_files
 
     def closeEvent(self, event):
-        """Handle application close"""
-        # First autosave all tabs to capture final state
-        for i in range(self.tab_widget.count()):
-            tab = self.tab_widget.widget(i)
-            tab.autosave()
-        
-        # Handle unsaved changes
+        """Handle application close event"""
         if self.handle_unsaved_changes():
-            # Only mark as clean exit if all changes were handled
-            self.settings_manager.save_session_state(self.get_open_tab_ids(), clean_exit=True)
+            # Save window state
+            self.settings_manager.save_setting('window_state', {
+                'geometry': self.saveGeometry().toBase64().data().decode(),
+                'state': self.saveState().toBase64().data().decode()
+            })
             event.accept()
         else:
-            # Mark as unclean exit if closing was cancelled
-            self.settings_manager.save_session_state(self.get_open_tab_ids(), clean_exit=False)
             event.ignore()
 
     def open_external_url(self, url):
@@ -813,119 +815,7 @@ class TextEditorApp(QMainWindow):
             new_font.setPointSize(default_font.pointSize())
             current_tab.update_font(new_font)
 
-    def restore_session(self):
-        """Restore previous session with integrity checks"""
-        recovery_dir = self.settings_manager.get_recovery_dir()
-        
-        try:
-            with open(os.path.join(recovery_dir, "session_state.json"), 'r') as f:
-                state = json.load(f)
-                open_tab_ids = state.get('open_tabs', [])
-                if not open_tab_ids:
-                    return
-        except:
-            return
-            
-        session_files = []
-        corrupted_files = []
-        
-        # Find and verify all session files
-        for tab_id in open_tab_ids:
-            file_path = os.path.join(recovery_dir, f"session_{tab_id}.txt")
-            meta_path = file_path + '.json'
-            
-            try:
-                if os.path.exists(meta_path) and os.path.exists(file_path):
-                    with open(meta_path, 'r') as f:
-                        metadata = json.load(f)
-                    with open(file_path, 'r', encoding='utf-8') as f:
-                        content = f.read()
-                        if content.strip():
-                            current_checksum = hashlib.md5(content.encode()).hexdigest()
-                            if current_checksum == metadata.get('checksum'):
-                                session_files.append((file_path, content, metadata))
-                            else:
-                                corrupted_files.append(file_path)
-            except:
-                corrupted_files.append(file_path)
-                continue
-
-        if not session_files:
-            return
-
-        # Sort and restore files
-        session_files.sort(key=lambda x: x[2].get('tab_index', 0))
-        active_index = 0
-        
-        for file_path, content, metadata in session_files:
-            tab = self.new_editor_tab()
-            tab.editor.setPlainText(content)
-            
-            # Restore cursor and scroll position
-            cursor = tab.editor.textCursor()
-            cursor.setPosition(metadata.get('cursor_position', 0))
-            tab.editor.setTextCursor(cursor)
-            tab.editor.verticalScrollBar().setValue(
-                metadata.get('scroll_position', 0)
-            )
-            
-            # Restore file path and state
-            original_file = metadata.get('original_file')
-            if original_file:
-                tab.current_file = original_file
-                title = os.path.basename(original_file)
-            else:
-                title = "Untitled"
-            
-            if metadata.get('modified', False):
-                tab.editor.document().setModified(True)
-                title += "*"
-            
-            current_index = self.tab_widget.indexOf(tab)
-            self.tab_widget.setTabText(current_index, title)
-            
-            if metadata.get('active', False):
-                active_index = current_index
-        
-        if self.tab_widget.count() > 0:
-            self.tab_widget.setCurrentIndex(active_index)
-
-    def get_open_tab_ids(self):
-        """Get list of recovery IDs for all open tabs"""
-        tab_ids = []
-        for i in range(self.tab_widget.count()):
-            tab = self.tab_widget.widget(i)
-            if hasattr(tab, 'recovery_id'):
-                tab_ids.append(tab.recovery_id)
-        return tab_ids
-
-    def handle_unsaved_changes(self):
-        """Handle unsaved changes before closing"""
-        unsaved_tabs = []
-        for i in range(self.tab_widget.count()):
-            tab = self.tab_widget.widget(i)
-            if tab.editor.document().isModified():
-                unsaved_tabs.append(i)
-        
-        if unsaved_tabs:
-            reply = QMessageBox.question(
-                self,
-                "Unsaved Changes",
-                "You have unsaved changes. Do you want to save them before closing?",
-                QMessageBox.Save | QMessageBox.Discard | QMessageBox.Cancel
-            )
-            
-            if reply == QMessageBox.Save:
-                for i in unsaved_tabs:
-                    self.tab_widget.setCurrentIndex(i)
-                    if not self.tab_widget.widget(i).save_file():  # If save is cancelled
-                        return False
-                return True
-            elif reply == QMessageBox.Cancel:
-                return False
-            # If Discard, continue with close
-        
-        return True
+    
 
     def show_settings(self):
         """Show settings dialog"""
@@ -1023,6 +913,34 @@ class TextEditorApp(QMainWindow):
         """Set up additional keyboard shortcuts"""
         find_shortcut = QShortcut(QKeySequence.Find, self)  # Typically Ctrl+F
         find_shortcut.activated.connect(self.toggle_find)
+
+    def handle_unsaved_changes(self):
+        """Handle unsaved changes before closing"""
+        unsaved_tabs = []
+        for i in range(self.tab_widget.count()):
+            tab = self.tab_widget.widget(i)
+            if tab.editor.document().isModified():
+                unsaved_tabs.append(i)
+        
+        if unsaved_tabs:
+            reply = QMessageBox.question(
+                self,
+                "Unsaved Changes",
+                "You have unsaved changes. Do you want to save them before closing?",
+                QMessageBox.Save | QMessageBox.Discard | QMessageBox.Cancel
+            )
+            
+            if reply == QMessageBox.Save:
+                for i in unsaved_tabs:
+                    self.tab_widget.setCurrentIndex(i)
+                    if not self.tab_widget.widget(i).save_file():  # If save is cancelled
+                        return False
+                return True
+            elif reply == QMessageBox.Cancel:
+                return False
+            # If Discard, continue with close
+        
+        return True
 
 def main():
     # Enable high DPI scaling
