@@ -181,7 +181,7 @@ class CompletingTextEdit(QTextEdit):
         self.completion_text = ""
         self.completion_start = None
         self.suppress_completion = False
-        
+
     def keyPressEvent(self, event):
         """Handle key events"""
         # Handle suggestion navigation if parent has suggestions
@@ -210,20 +210,14 @@ class CompletingTextEdit(QTextEdit):
                     self.parent_tab.apply_suggestion(text)
                 # If there are multiple suggestions, cycle through them
                 else:
-                    # Always select next suggestion, wrapping around to first if at end
-                    if self.parent_tab.selected_suggestion_index < 0:
-                        self.parent_tab.selected_suggestion_index = 0
-                    else:
-                        self.parent_tab.select_next_suggestion()
-                    # Update the highlighting
-                    self.parent_tab.update_suggestion_highlighting()
+                    self.parent_tab.select_next_suggestion()
                 event.accept()
                 return
             elif event.key() == Qt.Key_Escape:
                 self.parent_tab.hide_suggestions()
                 event.accept()
                 return
-                
+
         super().keyPressEvent(event)
 
     def insertFromMimeData(self, source):
@@ -235,7 +229,7 @@ class CompletingTextEdit(QTextEdit):
     def paintEvent(self, event):
         super().paintEvent(event)
         # Remove old completion painting code
-        
+
     def check_for_completion(self):
         """Check current word against both user dictionary and snippets"""
         # This method is now handled by EditorTab's handle_text_changed
@@ -260,7 +254,7 @@ class CompletingTextEdit(QTextEdit):
         start = pos
         while start > 0 and (text[start-1].isalnum() or text[start-1] == '_'):
             start -= 1
-            
+        
         # Find if this is a snippet or word suggestion
         is_snippet = False
         for suggestion_type, title in self.current_suggestions:
@@ -298,13 +292,13 @@ class EditorTab(QWidget):
         self.web_view = None  # Initialize to None
         self.main_window = None  # Initialize main_window to None
         
-        # Initialize recovery ID and paths first
-        self.recovery_id = str(int(time.time() * 1000))
-        self.session_path = os.path.join(
-            self.settings_manager.get_recovery_dir(),
-            f"session_{self.recovery_id}.txt"
-        )
-        self.meta_path = self.session_path + '.json'
+        # # Initialize recovery ID and paths first
+        # self.recovery_id = str(int(time.time() * 1000))
+        # self.session_path = os.path.join(
+        #     self.settings_manager.get_recovery_dir(),
+        #     f"session_{self.recovery_id}.txt"
+        # )
+        # self.meta_path = self.session_path + '.json'
         
         # Setup UI components
         self.setup_ui()
@@ -338,7 +332,7 @@ class EditorTab(QWidget):
         self.selected_suggestion_index = -1
         self.current_suggestions = []
         self.editor.textChanged.connect(self.handle_text_changed)
-        
+
     def setup_ui(self):
         """Setup the UI components"""
         layout = QVBoxLayout(self)
@@ -417,7 +411,11 @@ class EditorTab(QWidget):
                 background-color: palette(highlight);
                 color: palette(highlighted-text);
             }
-            QListWidget::item:hover {
+            QListWidget::item:selected:hover {
+                background-color: palette(highlight);
+                color: palette(highlighted-text);
+            }
+            QListWidget::item:hover:!selected {
                 background-color: palette(alternate-base);
             }
         """)
@@ -728,6 +726,41 @@ class EditorTab(QWidget):
             google_action = search_menu.addAction("Google")
             google_url = f"https://www.google.com/search?q={quote(selected_text)}"
             google_action.triggered.connect(lambda checked, url=google_url: 
+                self.search_in_browser(url))
+            # Add Wikipedia search
+            wiki_action = search_menu.addAction("Wikipedia")
+            wiki_url = f"https://en.wikipedia.org/w/index.php?search={quote(selected_text)}"
+            wiki_action.triggered.connect(lambda checked, url=wiki_url: 
+                self.search_in_browser(url))
+            
+            # Add Google Scholar search
+            scholar_action = search_menu.addAction("Google Scholar")
+            scholar_url = f"https://scholar.google.com/scholar?q={quote(selected_text)}"
+            scholar_action.triggered.connect(lambda checked, url=scholar_url: 
+                self.search_in_browser(url))
+            
+            # Add Google Maps search
+            maps_action = search_menu.addAction("Google Maps")
+            maps_url = f"https://www.google.com/maps/search/{quote(selected_text)}"
+            maps_action.triggered.connect(lambda checked, url=maps_url: 
+                self.search_in_browser(url))
+            
+            # Add Google News search
+            news_action = search_menu.addAction("Google News")
+            news_url = f"https://news.google.com/search?q={quote(selected_text)}"
+            news_action.triggered.connect(lambda checked, url=news_url: 
+                self.search_in_browser(url))
+            
+            # add google translate search
+            translate_action = search_menu.addAction("Google Translate")
+            translate_url = f"https://translate.google.com/?sl=auto&tl=en&text={quote(selected_text)}"
+            translate_action.triggered.connect(lambda checked, url=translate_url: 
+                self.search_in_browser(url))
+            
+            # Add Google define search
+            dictionary_action = search_menu.addAction("Google Define")
+            dictionary_url = f"https://www.google.com/search?q=define+{quote(selected_text)}"
+            dictionary_action.triggered.connect(lambda checked, url=dictionary_url: 
                 self.search_in_browser(url))
             
             menu.addSeparator()
@@ -1244,10 +1277,12 @@ class EditorTab(QWidget):
                 background-color: palette(window);
                 border: 1px solid palette(mid);
                 border-radius: 3px;
-                padding: 5px;
+                padding: 8px 16px;
+                min-width: 120px;
+                min-height: 32px;
             }
             QPushButton:hover {
-                background-color: palette(highlight);
+                background: palette(highlight);
                 color: palette(highlighted-text);
             }
         """)
@@ -1528,21 +1563,21 @@ class EditorTab(QWidget):
     def set_main_window(self, main_window):
         """Set reference to main window and initialize session state"""
         self.main_window = main_window
-        # Update session state to include this tab
-        current_tabs = self.main_window.get_open_tab_ids()
-        if self.recovery_id not in current_tabs:
-            current_tabs.append(self.recovery_id)
-            self.settings_manager.save_session_state(current_tabs)
+        # # Update session state to include this tab
+        # current_tabs = self.main_window.get_open_tab_ids()
+        # if self.recovery_id not in current_tabs:
+        #     current_tabs.append(self.recovery_id)
+        #     self.settings_manager.save_session_state(current_tabs)
 
-    def cleanup_session_files(self):
-        """Clean up session files for this tab"""
-        try:
-            if os.path.exists(self.session_path):
-                os.remove(self.session_path)
-            if os.path.exists(self.meta_path):
-                os.remove(self.meta_path)
-        except Exception as e:
-            print(f"Failed to cleanup session files: {str(e)}")
+    # def cleanup_session_files(self):
+    #     """Clean up session files for this tab"""
+    #     try:
+    #         if os.path.exists(self.session_path):
+    #             os.remove(self.session_path)
+    #         if os.path.exists(self.meta_path):
+    #             os.remove(self.meta_path)
+    #     except Exception as e:
+    #         print(f"Failed to cleanup session files: {str(e)}")
 
     def keyPressEvent(self, event):
         """Handle key events"""

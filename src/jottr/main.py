@@ -7,8 +7,8 @@ import os
 import json
 import hashlib
 from PyQt5.QtWidgets import (QApplication, QMainWindow, QTabWidget, QWidget, 
-                            QVBoxLayout, QHBoxLayout, QSplitter, QMenu, QToolBar, QAction, QStyle, QMessageBox, QFontDialog, QStyleFactory, QLabel, QDialog, QSizePolicy, QDialogButtonBox, QTabBar, QFileDialog, QShortcut)
-from PyQt5.QtCore import Qt, QUrl
+                            QVBoxLayout, QHBoxLayout, QSplitter, QMenu, QToolBar, QAction, QStyle, QMessageBox, QFontDialog, QStyleFactory, QLabel, QDialog, QSizePolicy, QDialogButtonBox, QTabBar, QFileDialog, QShortcut, QToolButton)
+from PyQt5.QtCore import Qt, QUrl, QTimer
 from PyQt5.QtWebEngineWidgets import QWebEngineView
 from editor_tab import EditorTab
 from snippet_manager import SnippetManager
@@ -33,12 +33,18 @@ if os.path.exists(vendor_dir):
 
 # Application constants
 APP_NAME = "Jottr"
-APP_VERSION = "1.3.0"
+APP_VERSION = "1.4.0"
 APP_HOMEPAGE = "https://github.com/mfat/jottr"
 
 class TextEditorApp(QMainWindow):
     def __init__(self, file_path=None): 
         super().__init__()
+        
+        # Create settings manager first
+        self.settings_manager = SettingsManager()
+        
+        # Create snippet manager with settings manager
+        self.snippet_manager = SnippetManager(self.settings_manager)
         
         # Force light mode by setting a light palette and style
         self.set_light_mode()
@@ -86,13 +92,15 @@ class TextEditorApp(QMainWindow):
         
         # Initialize managers first
         self.settings_manager = SettingsManager()
-        self.snippet_manager = SnippetManager()
+        self.snippet_manager = SnippetManager(self.settings_manager)
         
-        # Apply UI theme from settings
-        self.apply_ui_theme(self.settings_manager.get_ui_theme())
+        # Force light mode by setting a light palette and style
+        self.set_light_mode()
         
         # Create toolbar first before styling
-        self.toolbar = self.addToolBar("Main Toolbar")
+        self.toolbar = QToolBar("Main Toolbar")  # Add name here
+        self.toolbar.setObjectName("mainToolBar")  # Add this line
+        self.toolbar.setMovable(False)
         
         # Now we can safely set platform style since toolbar exists
         self.setup_platform_style()
@@ -126,8 +134,7 @@ class TextEditorApp(QMainWindow):
         
         layout.addWidget(self.tab_widget)
         
-        # Always restore last session
-        self.restore_session()
+        
         
         # Create new tab if no tabs were restored
         if self.tab_widget.count() == 0:
@@ -242,7 +249,60 @@ class TextEditorApp(QMainWindow):
                     QApplication.setStyle(system_style)
         
     def setup_toolbar(self):
-        """Setup toolbar with embedded icons."""
+        """Setup the main toolbar"""
+        self.toolbar = QToolBar("Main Toolbar")
+        self.toolbar.setObjectName("mainToolBar")
+        self.toolbar.setMovable(False)
+        
+        # Add toolbar to main window
+        self.addToolBar(self.toolbar)
+        
+        self.toolbar.setStyleSheet("""
+            QToolBar {
+                border: none;
+                background: palette(window);
+            }
+            QToolButton {
+                padding: 4px;
+                border: none;
+            }
+            QToolButton:hover {
+                background-color: palette(highlight);
+                color: palette(highlighted-text);
+            }
+            QToolButton::menu-button {
+                border: none;
+                width: 16px;
+            }
+            QToolButton[popupMode="2"] {
+                padding-right: 16px;
+            }
+            /* Fix for overflow menu button on macOS */
+            QToolButton#qt_toolbar_ext_button {
+                background: palette(window);
+                width: 24px;
+                padding: 4px;
+                color: palette(text);
+                font-weight: bold;
+            }
+            QToolButton#qt_toolbar_ext_button:hover {
+                background: palette(highlight);
+                color: palette(highlighted-text);
+            }
+            /* Fix for overflow menu */
+            QMenu {
+                background: palette(window);
+                border: 1px solid palette(mid);
+            }
+            QMenu::item {
+                padding: 4px 20px;
+            }
+            QMenu::item:selected {
+                background: palette(highlight);
+                color: palette(highlighted-text);
+            }
+        """)
+        
         # Prevent toolbar from being hidden
         self.toolbar.setContextMenuPolicy(Qt.PreventContextMenu)
         
@@ -297,53 +357,47 @@ class TextEditorApp(QMainWindow):
         self.menu_dropdown.addAction(create_action("help", "Help", self.show_help))
         self.menu_dropdown.addAction(create_action("about", "About", self.show_about))
 
-        # New document action
+        # Add all toolbar items
         new_action = create_action("new", "New", self.new_editor_tab)
         new_action.setShortcut(QKeySequence.New)
         new_action.setToolTip(f"New (Ctrl+N)")
         self.toolbar.addAction(new_action)
         
-        # Open file action
         open_action = create_action("open", "Open", self.open_file_dialog)
         open_action.setShortcut(QKeySequence.Open)
         open_action.setToolTip(f"Open (Ctrl+O)")
         self.toolbar.addAction(open_action)
         
-        # Save file action
         save_action = create_action("save", "Save", self.save_file)
         save_action.setShortcut(QKeySequence.Save)
         save_action.setToolTip(f"Save (Ctrl+S)")
         self.toolbar.addAction(save_action)
         
-        # Save As action
         save_as_action = create_action("save-as", "Save As", self.save_file_as)
         save_as_action.setShortcut(QKeySequence.SaveAs)
         save_as_action.setToolTip(f"Save As (Ctrl+Shift+S)")
         self.toolbar.addAction(save_as_action)
         
-        # Add separator
         self.toolbar.addSeparator()
         
         # Undo/Redo
         undo_action = create_action("undo", "Undo", self.undo)
-        undo_action.setShortcut(QKeySequence.Undo)  # Typically Ctrl+Z
+        undo_action.setShortcut(QKeySequence.Undo)
         undo_action.setToolTip(f"Undo (Ctrl+Z)")
         self.toolbar.addAction(undo_action)
 
         redo_action = create_action("redo", "Redo", self.redo)
-        redo_action.setShortcut(QKeySequence.Redo)  # Typically Ctrl+Shift+Z or Ctrl+Y
+        redo_action.setShortcut(QKeySequence.Redo)
         redo_action.setToolTip(f"Redo (Ctrl+Shift+Z)")
         self.toolbar.addAction(redo_action)
         
-        # Add separator
         self.toolbar.addSeparator()
         
-        # Find/Replace
+        # Find/Replace and Focus Mode
         find_action = create_action("find", "Find/Replace", self.toggle_find)
         find_action.setToolTip(f"Find/Replace (Ctrl+F)")
         self.toolbar.addAction(find_action)
         
-        # Focus mode
         focus_action = create_action("focus-mode", "Focus Mode", self.toggle_focus_mode)
         focus_action.setShortcut(QKeySequence("Ctrl+Shift+D"))
         focus_action.setToolTip(f"Focus Mode (Ctrl+Shift+D)")
@@ -384,7 +438,17 @@ class TextEditorApp(QMainWindow):
         
         # Menu button at far right
         self.toolbar.addAction(create_action("menu", "Menu", self.show_menu_dropdown))
+
+        # Now set the overflow button text after all items are added
+        def update_overflow_button():
+            overflow_button = self.toolbar.findChild(QToolButton, "qt_toolbar_ext_button")
+            if overflow_button:
+                overflow_button.setText(">>")
+                overflow_button.setToolButtonStyle(Qt.ToolButtonTextOnly)
         
+        # Use a single-shot timer to ensure the overflow button exists
+        QTimer.singleShot(0, update_overflow_button)
+
     def get_current_editor(self):
         current_tab = self.tab_widget.currentWidget()
         if current_tab:
@@ -440,8 +504,6 @@ class TextEditorApp(QMainWindow):
             elif reply == QMessageBox.Cancel:
                 return
         
-        # Clean up session files for this tab
-        tab.cleanup_session_files()
         self.tab_widget.removeTab(index)
         
         # Create new tab if last tab was closed
@@ -631,20 +693,15 @@ class TextEditorApp(QMainWindow):
         return open_files
 
     def closeEvent(self, event):
-        """Handle application close"""
-        # First autosave all tabs to capture final state
-        for i in range(self.tab_widget.count()):
-            tab = self.tab_widget.widget(i)
-            tab.autosave()
-        
-        # Handle unsaved changes
+        """Handle application close event"""
         if self.handle_unsaved_changes():
-            # Only mark as clean exit if all changes were handled
-            self.settings_manager.save_session_state(self.get_open_tab_ids(), clean_exit=True)
+            # Save window state
+            self.settings_manager.save_setting('window_state', {
+                'geometry': self.saveGeometry().toBase64().data().decode(),
+                'state': self.saveState().toBase64().data().decode()
+            })
             event.accept()
         else:
-            # Mark as unclean exit if closing was cancelled
-            self.settings_manager.save_session_state(self.get_open_tab_ids(), clean_exit=False)
             event.ignore()
 
     def open_external_url(self, url):
@@ -758,119 +815,7 @@ class TextEditorApp(QMainWindow):
             new_font.setPointSize(default_font.pointSize())
             current_tab.update_font(new_font)
 
-    def restore_session(self):
-        """Restore previous session with integrity checks"""
-        recovery_dir = self.settings_manager.get_recovery_dir()
-        
-        try:
-            with open(os.path.join(recovery_dir, "session_state.json"), 'r') as f:
-                state = json.load(f)
-                open_tab_ids = state.get('open_tabs', [])
-                if not open_tab_ids:
-                    return
-        except:
-            return
-            
-        session_files = []
-        corrupted_files = []
-        
-        # Find and verify all session files
-        for tab_id in open_tab_ids:
-            file_path = os.path.join(recovery_dir, f"session_{tab_id}.txt")
-            meta_path = file_path + '.json'
-            
-            try:
-                if os.path.exists(meta_path) and os.path.exists(file_path):
-                    with open(meta_path, 'r') as f:
-                        metadata = json.load(f)
-                    with open(file_path, 'r', encoding='utf-8') as f:
-                        content = f.read()
-                        if content.strip():
-                            current_checksum = hashlib.md5(content.encode()).hexdigest()
-                            if current_checksum == metadata.get('checksum'):
-                                session_files.append((file_path, content, metadata))
-                            else:
-                                corrupted_files.append(file_path)
-            except:
-                corrupted_files.append(file_path)
-                continue
-
-        if not session_files:
-            return
-
-        # Sort and restore files
-        session_files.sort(key=lambda x: x[2].get('tab_index', 0))
-        active_index = 0
-        
-        for file_path, content, metadata in session_files:
-            tab = self.new_editor_tab()
-            tab.editor.setPlainText(content)
-            
-            # Restore cursor and scroll position
-            cursor = tab.editor.textCursor()
-            cursor.setPosition(metadata.get('cursor_position', 0))
-            tab.editor.setTextCursor(cursor)
-            tab.editor.verticalScrollBar().setValue(
-                metadata.get('scroll_position', 0)
-            )
-            
-            # Restore file path and state
-            original_file = metadata.get('original_file')
-            if original_file:
-                tab.current_file = original_file
-                title = os.path.basename(original_file)
-            else:
-                title = "Untitled"
-            
-            if metadata.get('modified', False):
-                tab.editor.document().setModified(True)
-                title += "*"
-            
-            current_index = self.tab_widget.indexOf(tab)
-            self.tab_widget.setTabText(current_index, title)
-            
-            if metadata.get('active', False):
-                active_index = current_index
-        
-        if self.tab_widget.count() > 0:
-            self.tab_widget.setCurrentIndex(active_index)
-
-    def get_open_tab_ids(self):
-        """Get list of recovery IDs for all open tabs"""
-        tab_ids = []
-        for i in range(self.tab_widget.count()):
-            tab = self.tab_widget.widget(i)
-            if hasattr(tab, 'recovery_id'):
-                tab_ids.append(tab.recovery_id)
-        return tab_ids
-
-    def handle_unsaved_changes(self):
-        """Handle unsaved changes before closing"""
-        unsaved_tabs = []
-        for i in range(self.tab_widget.count()):
-            tab = self.tab_widget.widget(i)
-            if tab.editor.document().isModified():
-                unsaved_tabs.append(i)
-        
-        if unsaved_tabs:
-            reply = QMessageBox.question(
-                self,
-                "Unsaved Changes",
-                "You have unsaved changes. Do you want to save them before closing?",
-                QMessageBox.Save | QMessageBox.Discard | QMessageBox.Cancel
-            )
-            
-            if reply == QMessageBox.Save:
-                for i in unsaved_tabs:
-                    self.tab_widget.setCurrentIndex(i)
-                    if not self.tab_widget.widget(i).save_file():  # If save is cancelled
-                        return False
-                return True
-            elif reply == QMessageBox.Cancel:
-                return False
-            # If Discard, continue with close
-        
-        return True
+    
 
     def show_settings(self):
         """Show settings dialog"""
@@ -968,6 +913,34 @@ class TextEditorApp(QMainWindow):
         """Set up additional keyboard shortcuts"""
         find_shortcut = QShortcut(QKeySequence.Find, self)  # Typically Ctrl+F
         find_shortcut.activated.connect(self.toggle_find)
+
+    def handle_unsaved_changes(self):
+        """Handle unsaved changes before closing"""
+        unsaved_tabs = []
+        for i in range(self.tab_widget.count()):
+            tab = self.tab_widget.widget(i)
+            if tab.editor.document().isModified():
+                unsaved_tabs.append(i)
+        
+        if unsaved_tabs:
+            reply = QMessageBox.question(
+                self,
+                "Unsaved Changes",
+                "You have unsaved changes. Do you want to save them before closing?",
+                QMessageBox.Save | QMessageBox.Discard | QMessageBox.Cancel
+            )
+            
+            if reply == QMessageBox.Save:
+                for i in unsaved_tabs:
+                    self.tab_widget.setCurrentIndex(i)
+                    if not self.tab_widget.widget(i).save_file():  # If save is cancelled
+                        return False
+                return True
+            elif reply == QMessageBox.Cancel:
+                return False
+            # If Discard, continue with close
+        
+        return True
 
 def main():
     # Enable high DPI scaling

@@ -38,10 +38,10 @@ jobs:
 
     - name: Create source tarball
       run: |
-        mkdir -p /tmp/jottr-1.3.0
-        cp -r src LICENSE README.md icons /tmp/jottr-1.3.0/
+        mkdir -p /tmp/jottr-1.4.0
+        cp -r src LICENSE README.md icons /tmp/jottr-1.4.0/
         cd /tmp
-        tar czf ~/rpmbuild/SOURCES/jottr-1.3.0.tar.gz jottr-1.3.0/
+        tar czf ~/rpmbuild/SOURCES/jottr-1.4.0.tar.gz jottr-1.4.0/
 
     - name: Build RPM package
       run: |
