@@ -31,7 +31,6 @@ override_dh_auto_install:
 
 	# Install program files
 	cp -r src/jottr/* debian/jottr/usr/share/jottr/
-	cp -r help debian/jottr/usr/share/jottr/
 
 	# Install desktop file
 	cp packaging/debian/jottr.desktop debian/jottr/usr/share/applications/

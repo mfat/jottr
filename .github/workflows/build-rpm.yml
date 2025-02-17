@@ -39,7 +39,7 @@ jobs:
     - name: Create source tarball
       run: |
         mkdir -p /tmp/jottr-1.4.0
-        cp -r src help LICENSE README.md icons /tmp/jottr-1.4.0/
+        cp -r src LICENSE README.md icons /tmp/jottr-1.4.0/
         cd /tmp
         tar czf ~/rpmbuild/SOURCES/jottr-1.4.0.tar.gz jottr-1.4.0/
 
