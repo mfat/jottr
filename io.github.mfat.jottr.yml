@@ -1,9 +1,9 @@
 app-id: io.github.mfat.jottr
 runtime: org.kde.Platform
-runtime-version: '6.7'
+runtime-version: '6.8'
 sdk: org.kde.Sdk
 base: com.riverbankcomputing.PyQt.BaseApp
-base-version: '6.7'
+base-version: '6.8'
 command: jottr
 separate-locales: false
 cleanup-commands:
@@ -11,8 +11,8 @@ cleanup-commands:
 finish-args:
   - --share=network
   - --share=ipc
-  - --socket=fallback-x11
   - --socket=wayland
+  - --socket=x11
   - --filesystem=home
   - --device=dri
   - --socket=pulseaudio
@@ -20,22 +20,26 @@ finish-args:
   - --env=QTWEBENGINE_DICTIONARIES_PATH=/app/qtwebengine_dictionaries
   - --env=QTWEBENGINEPROCESS_PATH=/app/bin/QtWebEngineProcess
   - --env=PYTHONPATH=/app/lib/python3.11/site-packages:/app/lib/python3/site-packages:/app/lib/python3.11/dist-packages
+  - --env=PYENCHANT_LIBRARY_PATH=/app/lib/libenchant-2.so.2
+  - --env=LD_LIBRARY_PATH=/app/lib
+  - --env=QT_QPA_PLATFORM=xcb
+  - --env=DISPLAY=:0
 modules:
-  - name: bundled-fonts
-    buildsystem: simple
+  - name: enchant
+    buildsystem: autotools
+    config-opts:
+      - --prefix=/app
+      - --disable-static
+      - --enable-relocatable
     build-commands:
-      - mkdir -p /app/share/fonts
-      - cp -r dejavu/* /app/share/fonts/
-      - cp -r droid/* /app/share/fonts/
-      - cp -r firacode/* /app/share/fonts/
-      - cp -r jetbrains-mono/* /app/share/fonts/
-      - cp -r liberation/* /app/share/fonts/
-      - cp -r noto/* /app/share/fonts/
-      - fc-cache -fv /app/share/fonts
+      - ln -sf /app/lib/libenchant-2.so.2 /app/lib/libenchant.so
     sources:
-      - type: dir
-        path: fonts
-        dest: .
+      - type: archive
+        url: https://github.com/rrthomas/enchant/releases/download/v2.8.2/enchant-2.8.2.tar.gz
+        sha256: 8f19535adb5577b83b00e02f330fe9b9eb40dd21f19e2899636fc4d3a7696375
+    cleanup:
+      - /share/doc
+      - /share/man
 
   - name: python-dependencies
     buildsystem: simple
@@ -47,15 +51,15 @@ modules:
     build-commands:
       - mkdir -p /app/lib/python3.11/site-packages
       - mkdir -p /app/lib/python3.11/dist-packages
+      - mkdir -p /app/lib
       - pip3 install --no-cache-dir --prefix=/app PyQt5==5.15.11 PyQtWebEngine==5.15.7
       - pip3 install --no-cache-dir --prefix=/app requests
+      - pip3 install --no-cache-dir --prefix=/app pyenchant
       - pip3 install --no-cache-dir --prefix=/app -r requirements.txt
       - python3 -c "import sys; print('Python path:', sys.path); from PyQt5 import QtCore; print('PyQt5 version:', QtCore.PYQT_VERSION_STR)"
     sources:
       - type: file
         path: requirements.txt
-      - type: file
-        path: python-modules.json
       - type: shell
         commands:
           - echo "Network access enabled for Python dependencies"
@@ -63,11 +67,14 @@ modules:
   - name: jottr
     buildsystem: simple
     build-commands:
-      # Install launcher script
-      - install -D jottr /app/bin/jottr
-      # Install Python modules
-      - mkdir -p /app/lib/jottr
-      - install -D *.py /app/lib/jottr/
+      # Install application files
+      - mkdir -p /app/bin
+      - mkdir -p /app/share/jottr
+      - cp -r src/jottr/* /app/share/jottr/
+      # Create launcher script
+      - echo '#!/bin/sh' > /app/bin/jottr
+      - echo 'python3 /app/share/jottr/main.py "$@"' >> /app/bin/jottr
+      - chmod +x /app/bin/jottr
       # Install desktop file
       - mkdir -p /app/share/applications
       - install -D -m644 io.github.mfat.jottr.desktop /app/share/applications/
@@ -85,12 +92,10 @@ modules:
       - install -D -m644 io.github.mfat.jottr.metainfo.xml /app/share/metainfo/
     sources:
       - type: dir
-        path: src/jottr
+        path: .
       - type: dir
         path: icons
       - type: file
         path: io.github.mfat.jottr.desktop
-      - type: file
-        path: jottr
       - type: file
         path: io.github.mfat.jottr.metainfo.xml

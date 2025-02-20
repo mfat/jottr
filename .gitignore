@@ -17,3 +17,5 @@ packaging/rpm/SRPMS/
 src/jottr/Jottr.spec
 src/.DS_Store
 .DS_Store
+/.flatpak-builder
+/repo
