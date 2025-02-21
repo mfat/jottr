@@ -36,9 +36,11 @@ A simple, opinionated plain text editor designed for writers, journalists and re
 
 ### Download:
 Downloads are available from the [Releases](https://github.com/mfat/jottr/releases) section.
-Currently downloads for linux (deb, rpm) and macos (Intel macs only) are available.
+Currently downloads for linux (deb, rpm, flatpak) and macos (Intel macs only) are available.
 For other platforms, you can clone the repository and run it from source.
+**Note for macOS users** To run Jottr on Mac you need to install the requirements (see below) and echant through [homebrew](https://brew.sh/).
 
+`brew install enchant`
 
 ### How to run Jottr:
 
