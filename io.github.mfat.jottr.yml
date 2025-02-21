@@ -12,15 +12,12 @@ finish-args:
   - --share=network
   - --share=ipc
   - --socket=wayland
-  - --filesystem=home
+  - --socket=x11
   - --device=dri
-  - --env=FLATPAK_ENABLE_SDK_EXT=*
   - --env=QTWEBENGINEPROCESS_PATH=/app/bin/QtWebEngineProcess
   - --env=QTWEBENGINE_DISABLE_SANDBOX=1
   - --env=PYENCHANT_LIBRARY_PATH=/app/lib/libenchant-2.so.2
   - --env=LD_LIBRARY_PATH=/app/lib
-  - --env=QT_QPA_PLATFORM=xcb
-  - --env=DISPLAY=:0
 modules:
   - name: enchant
     buildsystem: autotools
@@ -28,8 +25,6 @@ modules:
       - --prefix=/app
       - --disable-static
       - --enable-relocatable
-    build-commands:
-      - ln -sf /app/lib/libenchant-2.so.2 /app/lib/libenchant.so
     sources:
       - type: archive
         url: https://github.com/rrthomas/enchant/releases/download/v2.2.15/enchant-2.2.15.tar.gz
@@ -59,13 +54,8 @@ modules:
       - mkdir -p /app/share/metainfo
       - install -D -m644 io.github.mfat.jottr.metainfo.xml /app/share/metainfo/
     sources:
-      - type: dir
-        path: .
-      - type: dir
-        path: icons
-      - type: file
-        path: io.github.mfat.jottr.desktop
-      - type: file
-        path: io.github.mfat.jottr.metainfo.xml
+      - type: git
+        url: "https://github.com/mfat/jottr.git"
+        tag: v1.4
       - type: file
         path: jottr.sh
