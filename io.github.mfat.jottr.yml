@@ -12,27 +12,17 @@ finish-args:
   - --share=network
   - --share=ipc
   - --socket=wayland
-  - --socket=x11
-  - --filesystem=home
+  - --socket=fallback-x11
   - --device=dri
-  - --socket=pulseaudio
-  - --env=FLATPAK_ENABLE_SDK_EXT=*
+  - --persist=.config/Jottr
   - --env=QTWEBENGINEPROCESS_PATH=/app/bin/QtWebEngineProcess
   - --env=QTWEBENGINE_DISABLE_SANDBOX=1
-  - --env=PYTHONPATH=/app/lib/python3.9/site-packages
-  - --env=PYENCHANT_LIBRARY_PATH=/app/lib/libenchant-2.so.2
-  - --env=LD_LIBRARY_PATH=/app/lib
-  - --env=QT_QPA_PLATFORM=xcb
-  - --env=DISPLAY=:0
 modules:
   - name: enchant
     buildsystem: autotools
     config-opts:
-      - --prefix=/app
       - --disable-static
       - --enable-relocatable
-    build-commands:
-      - ln -sf /app/lib/libenchant-2.so.2 /app/lib/libenchant.so
     sources:
       - type: archive
         url: https://github.com/rrthomas/enchant/releases/download/v2.2.15/enchant-2.2.15.tar.gz
@@ -46,30 +36,21 @@ modules:
   - name: jottr
     buildsystem: simple
     build-commands:
-      - mkdir -p /app/bin
       - mkdir -p /app/share/jottr
       - cp -r src/jottr/* /app/share/jottr/
-      - echo '#!/bin/sh' > /app/bin/jottr
-      - echo 'python3 /app/share/jottr/main.py "$@"' >> /app/bin/jottr
-      - chmod +x /app/bin/jottr
-      - mkdir -p /app/share/applications
-      - install -D -m644 io.github.mfat.jottr.desktop /app/share/applications/
-      - mkdir -p /app/share/icons/hicolor/{16x16,32x32,48x48,64x64,128x128,256x256,512x512}/apps
-      - if [ -f icons/jottr_icon_16x16.png ]; then install -D icons/jottr_icon_16x16.png /app/share/icons/hicolor/16x16/apps/io.github.mfat.jottr.png; fi
-      - if [ -f icons/jottr_icon_32x32.png ]; then install -D icons/jottr_icon_32x32.png /app/share/icons/hicolor/32x32/apps/io.github.mfat.jottr.png; fi
-      - if [ -f icons/jottr_icon_48x48.png ]; then install -D icons/jottr_icon_48x48.png /app/share/icons/hicolor/48x48/apps/io.github.mfat.jottr.png; fi
-      - if [ -f icons/jottr_icon_64x64.png ]; then install -D icons/jottr_icon_64x64.png /app/share/icons/hicolor/64x64/apps/io.github.mfat.jottr.png; fi
-      - if [ -f icons/jottr_icon_128x128.png ]; then install -D icons/jottr_icon_128x128.png /app/share/icons/hicolor/128x128/apps/io.github.mfat.jottr.png; fi
-      - if [ -f icons/jottr_icon_256x256.png ]; then install -D icons/jottr_icon_256x256.png /app/share/icons/hicolor/256x256/apps/io.github.mfat.jottr.png; fi
-      - if [ -f icons/jottr_icon_512x512.png ]; then install -D icons/jottr_icon_512x512.png /app/share/icons/hicolor/512x512/apps/io.github.mfat.jottr.png; fi
-      - mkdir -p /app/share/metainfo
-      - install -D -m644 io.github.mfat.jottr.metainfo.xml /app/share/metainfo/
+      - install -D -m755 jottr.sh /app/bin/jottr
+      - install -D -m644 io.github.mfat.jottr.desktop -t /app/share/applications/
+      - install -D icons/jottr_icon_16x16.png /app/share/icons/hicolor/16x16/apps/io.github.mfat.jottr.png
+      - install -D icons/jottr_icon_32x32.png /app/share/icons/hicolor/32x32/apps/io.github.mfat.jottr.png
+      - install -D icons/jottr_icon_48x48.png /app/share/icons/hicolor/48x48/apps/io.github.mfat.jottr.png
+      - install -D icons/jottr_icon_64x64.png /app/share/icons/hicolor/64x64/apps/io.github.mfat.jottr.png
+      - install -D icons/jottr_icon_128x128.png /app/share/icons/hicolor/128x128/apps/io.github.mfat.jottr.png
+      - install -D icons/jottr_icon_256x256.png /app/share/icons/hicolor/256x256/apps/io.github.mfat.jottr.png
+      - install -D icons/jottr_icon_512x512.png /app/share/icons/hicolor/512x512/apps/io.github.mfat.jottr.png
+      - install -D -m644 io.github.mfat.jottr.metainfo.xml -t /app/share/metainfo/
     sources:
-      - type: dir
-        path: .
-      - type: dir
-        path: icons
+      - type: git
+        url: "https://github.com/mfat/jottr.git"
+        tag: v1.4
       - type: file
-        path: io.github.mfat.jottr.desktop
-      - type: file
-        path: io.github.mfat.jottr.metainfo.xml
+        path: jottr.sh
