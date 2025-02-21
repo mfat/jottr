@@ -23,9 +23,9 @@
 
   <!-- Release information -->
   <releases>
-    <release version="1.0.0" date="2024-03-19">
+    <release version="1.4.0" date="2025-02-21">
       <description>
-        <p>Initial release</p>
+        <p>Initial stable release</p>
       </description>
     </release>
   </releases>
