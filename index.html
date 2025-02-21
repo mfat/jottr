@@ -13,32 +13,57 @@
             background-color: #f4f4f4;
         }
         .container {
-            max-width: 800px;
+            max-width: 900px;
             margin: 50px auto;
             background: white;
-            padding: 20px;
-            border-radius: 10px;
-            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
         }
         h1 {
-            color: #333;
+            color: #222;
+            font-size: 2.5em;
+            margin-bottom: 10px;
         }
         p {
-            color: #666;
-            font-size: 18px;
+            color: #555;
+            font-size: 1.2em;
+            margin-bottom: 20px;
         }
         .btn {
             display: inline-block;
-            padding: 10px 20px;
+            padding: 12px 25px;
             margin-top: 20px;
             text-decoration: none;
             color: white;
             background: #007bff;
-            border-radius: 5px;
-            font-size: 18px;
+            border-radius: 8px;
+            font-size: 1.2em;
+            transition: background 0.3s ease;
         }
         .btn:hover {
             background: #0056b3;
+        }
+        .features {
+            display: flex;
+            justify-content: space-around;
+            flex-wrap: wrap;
+            margin-top: 30px;
+        }
+        .feature-box {
+            width: 250px;
+            padding: 20px;
+            background: #fff;
+            border-radius: 10px;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+            margin: 10px;
+        }
+        .footer {
+            margin-top: 40px;
+            padding: 20px;
+            background: #222;
+            color: white;
+            font-size: 0.9em;
         }
     </style>
 </head>
@@ -47,6 +72,25 @@
         <h1>Jottr - The Distraction-Free Text Editor</h1>
         <p>Simple, fast, and elegant. Jottr helps you focus on what matters most—your writing.</p>
         <a href="#" class="btn">Download Jottr</a>
+        
+        <div class="features">
+            <div class="feature-box">
+                <h2>Minimalist Design</h2>
+                <p>A clean interface to keep your focus on writing.</p>
+            </div>
+            <div class="feature-box">
+                <h2>Cross-Platform</h2>
+                <p>Available on Windows, macOS, and Linux.</p>
+            </div>
+            <div class="feature-box">
+                <h2>Customizable</h2>
+                <p>Change themes and font settings as you like.</p>
+            </div>
+        </div>
+    </div>
+    
+    <div class="footer">
+        &copy; 2025 Jottr. All rights reserved.
     </div>
 </body>
 </html>
