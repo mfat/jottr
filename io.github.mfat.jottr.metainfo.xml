@@ -30,9 +30,9 @@
     </release>
   </releases>
 
-  <screenshots>
+   <screenshots>
     <screenshot type="default">
-      <image>https://raw.githubusercontent.com/mfat/jottr/main/screenshots/main.png</image>
+      <image>https://raw.githubusercontent.com/mfat/jottr/266df5566ca0834bd1f29aeb84a9def9070cc5e3/screenshots/main.png</image>
       <caption>Main window of Jottr</caption>
     </screenshot>
   </screenshots>
