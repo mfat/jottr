@@ -4,5 +4,5 @@ Comment=A simple text editor for writers, journalists and researchers
 Exec=jottr
 Icon=io.github.mfat.jottr
 Type=Application
-Categories=Office;TextEditor;
-StartupNotify=true 
+Categories=Utility;TextEditor;
+StartupNotify=true

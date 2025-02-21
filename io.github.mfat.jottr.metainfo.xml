@@ -15,9 +15,25 @@
   </description>
   
   <launchable type="desktop-id">io.github.mfat.jottr.desktop</launchable>
+
+  <!-- Required fields -->
+  <url type="homepage">https://github.com/mfat/jottr</url>
+  <developer_name>mFat</developer_name>
+  <content_rating type="oars-1.1" />
+
+  <!-- Release information -->
+  <releases>
+    <release version="1.0.0" date="2024-03-19">
+      <description>
+        <p>Initial release</p>
+      </description>
+    </release>
+  </releases>
+
   <screenshots>
     <screenshot type="default">
-      <image>https://private-user-images.githubusercontent.com/423263/412049625-ee7b18fc-73cc-4f0b-a8bf-6508dd67defa.png?jwt=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJnaXRodWIuY29tIiwiYXVkIjoicmF3LmdpdGh1YnVzZXJjb250ZW50LmNvbSIsImtleSI6ImtleTUiLCJleHAiOjE3Mzk0NTk0NjksIm5iZiI6MTczOTQ1OTE2OSwicGF0aCI6Ii80MjMyNjMvNDEyMDQ5NjI1LWVlN2IxOGZjLTczY2MtNGYwYi1hOGJmLTY1MDhkZDY3ZGVmYS5wbmc_WC1BbXotQWxnb3JpdGhtPUFXUzQtSE1BQy1TSEEyNTYmWC1BbXotQ3JlZGVudGlhbD1BS0lBVkNPRFlMU0E1M1BRSzRaQSUyRjIwMjUwMjEzJTJGdXMtZWFzdC0xJTJGczMlMkZhd3M0X3JlcXVlc3QmWC1BbXotRGF0ZT0yMDI1MDIxM1QxNTA2MDlaJlgtQW16LUV4cGlyZXM9MzAwJlgtQW16LVNpZ25hdHVyZT04NmQyNTA4ZjIxZTFiZDg1M2E2MDYxNzVlZDJlOTVlY2FkYjg3M2I5MDgxN2MxNzUwMTk1Nzg1NjQ0ZDgwOTI3JlgtQW16LVNpZ25lZEhlYWRlcnM9aG9zdCJ9.sdmzIAdnm9UYc8sxGN9OfhehUTR6hcyJHYRX4hrI-Kk</image>
+      <image>https://raw.githubusercontent.com/mfat/jottr/main/screenshots/main.png</image>
+      <caption>Main window of Jottr</caption>
     </screenshot>
   </screenshots>
 </component>
