@@ -30,20 +30,14 @@ class SettingsManager:
             }
         }
         
-        # Set up config directory
-        self.config_dir = os.path.expanduser("~/.config/jottr")
-        os.makedirs(self.config_dir, exist_ok=True)
-        
-        # Load saved settings
-        self.load_settings()
-        
-        # Get platform-specific config directory
+        # Set up config directory based on platform
         if sys.platform == 'darwin':
             self.config_dir = os.path.join(os.path.expanduser('~/Library/Application Support'), 'Jottr')
         elif sys.platform == 'win32':
             self.config_dir = os.path.join(os.getenv('APPDATA'), 'Jottr')
         else:  # Linux/Unix
-            self.config_dir = os.path.join(os.path.expanduser('~/.config'), 'Jottr')
+            CONFIG_HOME = os.environ.get("XDG_CONFIG_HOME", os.path.expanduser("~/.config"))
+            self.config_dir = os.path.join(CONFIG_HOME, "Jottr")
         
         # Create config directory if it doesn't exist
         os.makedirs(self.config_dir, exist_ok=True)
