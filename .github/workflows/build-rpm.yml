@@ -13,6 +13,12 @@ jobs:
 
     steps:
     - uses: actions/checkout@v4
+      with:
+        fetch-tags: true
+
+    - name: Extract version from Git tag
+      id: get_version
+      run: echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_ENV
 
     - name: Install build dependencies
       run: |
@@ -38,10 +44,10 @@ jobs:
 
     - name: Create source tarball
       run: |
-        mkdir -p /tmp/jottr-1.4.2
-        cp -r src LICENSE README.md icons /tmp/jottr-1.4.2/
+        mkdir -p /tmp/jottr-${VERSION}
+        cp -r src LICENSE README.md icons /tmp/jottr-${VERSION}/
         cd /tmp
-        tar czf ~/rpmbuild/SOURCES/jottr-1.4.2.tar.gz jottr-1.4.2/
+        tar czf ~/rpmbuild/SOURCES/jottr-${VERSION}.tar.gz jottr-${VERSION}/
 
     - name: Build RPM package
       run: |
@@ -72,4 +78,4 @@ jobs:
           ~/rpmbuild/RPMS/noarch/jottr-*.rpm
           ~/rpmbuild/SRPMS/jottr-*.rpm
       env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} 
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
