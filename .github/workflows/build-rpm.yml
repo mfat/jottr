@@ -36,12 +36,18 @@ jobs:
         mkdir -p ~/rpmbuild/{BUILD,RPMS,SOURCES,SPECS,SRPMS}
         cp jottr.spec ~/rpmbuild/SPECS/
 
+    - name: Get version from spec
+      id: get_version
+      run: |
+        VERSION=$(grep "Version:" jottr.spec | awk '{print $2}')
+        echo "version=$VERSION" >> $GITHUB_OUTPUT
+
     - name: Create source tarball
       run: |
-        mkdir -p /tmp/jottr-1.4.2
-        cp -r src LICENSE README.md icons /tmp/jottr-1.4.2/
+        mkdir -p /tmp/jottr-${{ steps.get_version.outputs.version }}
+        cp -r src LICENSE README.md icons /tmp/jottr-${{ steps.get_version.outputs.version }}/
         cd /tmp
-        tar czf ~/rpmbuild/SOURCES/jottr-1.4.2.tar.gz jottr-1.4.2/
+        tar czf ~/rpmbuild/SOURCES/jottr-${{ steps.get_version.outputs.version }}.tar.gz jottr-${{ steps.get_version.outputs.version }}/
 
     - name: Build RPM package
       run: |
