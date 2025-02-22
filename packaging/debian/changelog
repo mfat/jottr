@@ -1,6 +1,6 @@
-jottr (1.4.1-1) unstable; urgency=medium
+jottr (1.4.2-1) unstable; urgency=medium
 
   * Bug fixes
-  * Use standard xdg data dirs
+  * Updated icon
 
--- mFat <new-email@example.com>  Sat, 16 Feb 2025 12:00:00 +0000
+-- mFat <newmfat@gmail.com>  Sat, 22 Feb 2025 12:00:00 +0000
