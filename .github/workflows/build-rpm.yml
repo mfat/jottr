@@ -19,12 +19,15 @@ jobs:
     - name: Extract version from Git reference
       id: get_version
       run: |
+        echo "GITHUB_REF=${GITHUB_REF}"  # Debugging line
         if [[ "${GITHUB_REF}" == refs/tags/* ]]; then
           VERSION="${GITHUB_REF#refs/tags/v}"
         else
           VERSION="unknown"
         fi
+        echo "VERSION=${VERSION}"  # Debugging line
         echo "VERSION=${VERSION}" >> $GITHUB_ENV
+  
 
     - name: Install build dependencies
       run: |
