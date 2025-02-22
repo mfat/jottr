@@ -50,6 +50,6 @@ modules:
     sources:
       - type: git
         url: "https://github.com/mfat/jottr.git"
-        tag: v1.4
+        tag: v1.4.1
       - type: file
         path: jottr.sh
