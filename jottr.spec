@@ -1,5 +1,5 @@
 Name:           jottr
-Version:        1.4.0
+Version:        1.4.1
 Release:        1%{?dist}
 Summary:        A simple text editor for writers, journalists and researchers
 
@@ -17,6 +17,7 @@ Requires:       python3-feedparser
 Requires:       python3-enchant
 Requires:       python3-pyqt5-sip
 Requires:       qt5-qtsvg
+Requires:       python3-pyxdg
 
 %description
 Jottr is a simple text editor designed specifically for writers, journalists,
@@ -77,6 +78,6 @@ install -p -m 644 icons/jottr.png %{buildroot}%{_datadir}/icons/hicolor/256x256/
 %{_datadir}/icons/hicolor/256x256/apps/%{name}.png
 
 %changelog
-* Sat Feb 16 2025 mFat <mfat@github.com> - 1.4.0-1
+* Sat Feb 22 2025 mFat <mfat@github.com> - 1.4.1-1
 - Bug fixes and improvements
 

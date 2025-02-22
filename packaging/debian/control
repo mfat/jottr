@@ -12,6 +12,7 @@ Depends: ${misc:Depends},
          python3-pyqt5.qtwebengine,
          python3-feedparser,
          python3-enchant,
+         python3-xdg,
          python3-pyqt5.qtsvg
 Description: Modern text editor for writers and journalists
  Jottr is a feature-rich text editor designed specifically
