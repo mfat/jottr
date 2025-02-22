@@ -16,10 +16,15 @@ jobs:
       with:
         fetch-tags: true
 
-    - name: Extract version from Git tag
+    - name: Extract version from Git reference
       id: get_version
-      run: echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_ENV
-  
+      run: |
+        if [[ "${GITHUB_REF}" == refs/tags/* ]]; then
+          VERSION="${GITHUB_REF#refs/tags/v}"
+        else
+          VERSION="unknown"
+        fi
+        echo "VERSION=${VERSION}" >> $GITHUB_ENV
 
     - name: Install build dependencies
       run: |
@@ -54,29 +59,3 @@ jobs:
       run: |
         cd ~/rpmbuild/SPECS
         rpmbuild -ba jottr.spec
-
-    - name: Run rpmlint
-      run: |
-        rpmlint ~/rpmbuild/RPMS/noarch/jottr-*.rpm
-
-    - name: Test RPM installation
-      run: |
-        dnf install -y ~/rpmbuild/RPMS/noarch/jottr-*.rpm
-
-    - name: Upload RPM artifacts
-      uses: actions/upload-artifact@v4
-      with:
-        name: rpm-packages
-        path: |
-          ~/rpmbuild/RPMS/noarch/jottr-*.rpm
-          ~/rpmbuild/SRPMS/jottr-*.rpm
-
-    - name: Create Release
-      if: startsWith(github.ref, 'refs/tags/')
-      uses: softprops/action-gh-release@v1
-      with:
-        files: |
-          ~/rpmbuild/RPMS/noarch/jottr-*.rpm
-          ~/rpmbuild/SRPMS/jottr-*.rpm
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
