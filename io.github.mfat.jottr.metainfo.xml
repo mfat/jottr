@@ -23,7 +23,7 @@
 
   <!-- Release information -->
   <releases>
-    <release version="1.4.0" date="2025-02-21">
+    <release version="1.4.2" date="2025-02-22">
       <description>
         <p>Initial stable release</p>
       </description>
