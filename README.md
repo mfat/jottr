@@ -2,6 +2,10 @@
 ![jottr_icon_128x128](https://github.com/user-attachments/assets/d92bd9f3-d704-4c21-9b0b-88892061f19a)
 # Jottr
 
+<a href='https://flathub.org/apps/io.github.mfat.jottr'>
+    <img width='240' alt='Get it on Flathub' src='https://flathub.org/api/badge?locale=en'/>
+  </a>
+
 A simple, opinionated plain text editor designed for writers, journalists and researchers. Jottr is not meant to be a full-featured text editor, but rather a simple and easy to use tool for writing. It's not aimed at developers.
 
 ![image](https://github.com/user-attachments/assets/ee7b18fc-73cc-4f0b-a8bf-6508dd67defa)
