@@ -44,7 +44,7 @@ A simple, opinionated plain text editor designed for writers, journalists and re
     <img width='240' alt='Get it on Flathub' src='https://flathub.org/api/badge?locale=en'/>
   </a
 
-
+\
 
 Downloads are available from the [Releases](https://github.com/mfat/jottr/releases) section.
 Currently downloads for linux (deb, rpm, flatpak) and macos (Intel macs only) are available.
