@@ -1,5 +1,4 @@
 
-![jottr_icon_128x128](https://github.com/user-attachments/assets/d92bd9f3-d704-4c21-9b0b-88892061f19a)
 # Jottr
 
 <a href='https://flathub.org/apps/io.github.mfat.jottr'>
@@ -39,10 +38,18 @@ A simple, opinionated plain text editor designed for writers, journalists and re
 - Consistent feature set across all systems
 
 ### Download:
+
+<a href='https://flathub.org/apps/io.github.mfat.jottr'>
+    <img width='240' alt='Get it on Flathub' src='https://flathub.org/api/badge?locale=en'/>
+  </a
+
 Downloads are available from the [Releases](https://github.com/mfat/jottr/releases) section.
 Currently downloads for linux (deb, rpm, flatpak) and macos (Intel macs only) are available.
 For other platforms, you can clone the repository and run it from source.
-**Note for macOS users** To run Jottr on Mac you need to install the requirements (see below) and echant through [homebrew](https://brew.sh/).
+
+**Note for macOS users** 
+
+To run Jottr on Mac you need to install the requirements (see below) and echant through [homebrew](https://brew.sh/).
 
 `brew install enchant`
 
