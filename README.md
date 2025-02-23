@@ -37,17 +37,18 @@ A simple, opinionated plain text editor designed for writers, journalists and re
 - Native look and feel on each platform
 - Consistent feature set across all systems
 
-### Download:
-
 
 <a href='https://flathub.org/apps/io.github.mfat.jottr'>
     <img width='240' alt='Get it on Flathub' src='https://flathub.org/api/badge?locale=en'/>
-  </a \
+  </a
 
-## How to download
+      
+### Download:
+
 Downloads are available from the [Releases](https://github.com/mfat/jottr/releases) section.
 Currently downloads for linux (deb, rpm, flatpak), Windows and macos (Intel macs only) are available.
 For other platforms, you can clone the repository and run it from source.
+
 
 **Note for macOS users** 
 
