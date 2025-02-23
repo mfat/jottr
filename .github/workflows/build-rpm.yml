@@ -34,12 +34,12 @@ jobs:
     - name: Set up RPM build environment
       run: |
         mkdir -p ~/rpmbuild/{BUILD,RPMS,SOURCES,SPECS,SRPMS}
-        cp jottr.spec ~/rpmbuild/SPECS/
+        cp rpm.spec ~/rpmbuild/SPECS/
 
     - name: Get version from spec
       id: get_version
       run: |
-        VERSION=$(grep "Version:" jottr.spec | awk '{print $2}')
+        VERSION=$(grep "Version:" rpm.spec | awk '{print $2}')
         echo "version=$VERSION" >> $GITHUB_OUTPUT
 
     - name: Create source tarball
@@ -52,7 +52,7 @@ jobs:
     - name: Build RPM package
       run: |
         cd ~/rpmbuild/SPECS
-        rpmbuild -ba jottr.spec
+        rpmbuild -ba rpm.spec
 
     - name: Run rpmlint
       run: |
