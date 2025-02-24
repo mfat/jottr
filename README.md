@@ -9,7 +9,10 @@ A simple, opinionated plain text editor designed for writers, journalists and re
 
 
 
-https://github.com/user-attachments/assets/23e9f91b-7824-4a38-83f6-b29ff1bbfce8
+
+https://github.com/user-attachments/assets/d478920b-1d99-41e9-b37a-7c63d7384781
+
+
 
 
 
