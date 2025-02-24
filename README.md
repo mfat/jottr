@@ -39,7 +39,7 @@ If you use linux, you gan get jottr from [Flathub](https://flathub.org/apps/io.g
 
 
 **Note for macOS users:** 
-To run Jottr on Mac you need to install the requirements (see below) and echant through [homebrew](https://brew.sh/).
+To run Jottr on Mac you need to install  echant through [homebrew](https://brew.sh/).
 
 `brew install enchant`
 
