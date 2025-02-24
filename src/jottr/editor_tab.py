@@ -13,37 +13,95 @@ from PyQt5.QtCore import Qt, QUrl, QTimer, QStringListModel, QRegExp, QEvent
 from PyQt5.QtGui import (QTextCharFormat, QSyntaxHighlighter, QIcon, QFont, QKeySequence, 
                         QPainter, QPen, QColor, QFontMetrics, QTextDocument, QTextCursor)
 from PyQt5.QtWebEngineWidgets import QWebEngineView, QWebEnginePage
-from enchant import Dict, DictNotFoundError
 from urllib.parse import quote
 from snippet_editor_dialog import SnippetEditorDialog
-import os
 from rss_reader import RSSReader
 import json
 import time
 from theme_manager import ThemeManager
 import hashlib
 
+# Try enchant first, fallback to pyspellchecker
+try:
+    from enchant import Dict, DictNotFoundError
+    USE_ENCHANT = True
+except (ImportError, ModuleNotFoundError) as e:
+    print("Enchant not available, falling back to pyspellchecker:", str(e))
+    from spellchecker import SpellChecker
+    USE_ENCHANT = False
+
 class SpellCheckHighlighter(QSyntaxHighlighter):
     def __init__(self, parent, settings_manager):
         super().__init__(parent)
         self.settings_manager = settings_manager
+        self.spell_check_enabled = True
+        self.USE_ENCHANT = USE_ENCHANT  # Store the global flag
+        
         try:
-            # Initialize enchant with English dictionary
-            self.spell = Dict("en_US")
-            self.spell_check_enabled = True
-            print("Spell checking enabled")
-            
-        except DictNotFoundError as e:
-            print(f"Warning: Spell checking disabled - {str(e)}")
-            self.spell_check_enabled = False
+            if self.USE_ENCHANT:
+                self.spell = Dict("en_US")
+                print("Using Enchant for spell checking")
+            else:
+                self.spell = SpellChecker()
+                print("Using pyspellchecker for spell checking")
+        except Exception as e:
+            print(f"Spell checker initialization error: {str(e)}, falling back to pyspellchecker")
+            self.spell = SpellChecker()
+            self.USE_ENCHANT = False
 
-    def is_latin_word(self, word):
-        """Check if word contains only Latin characters"""
-        try:
-            word.encode('latin-1')
+    def check_word(self, word):
+        """Check if a word is spelled correctly"""
+        if not self.spell_check_enabled:
             return True
-        except UnicodeEncodeError:
-            return False
+            
+        if self.USE_ENCHANT:
+            return self.spell.check(word)
+        else:
+            # pyspellchecker considers unknown words misspelled
+            return word.lower() in self.spell
+
+    def suggest(self, word):
+        """Get suggestions for a word"""
+        if not self.spell_check_enabled:
+            return []
+            
+        # Get user dictionary
+        user_dict = self.settings_manager.get_setting('user_dictionary', [])
+        
+        # Add matching words from user dictionary first
+        suggestions = [dict_word for dict_word in user_dict 
+                      if dict_word.lower().startswith(word.lower())]
+        
+        # Only get spell checker suggestions for Latin words
+        if self.is_latin_word(word):
+            try:
+                if self.USE_ENCHANT:
+                    spell_suggestions = self.spell.suggest(word)
+                else:
+                    spell_suggestions = self.spell.candidates(word)
+                
+                if spell_suggestions:
+                    # Remove the word itself from suggestions
+                    spell_suggestions = [s for s in spell_suggestions 
+                                      if s.lower() != word.lower()]
+                    suggestions.extend(spell_suggestions)
+            except UnicodeEncodeError:
+                pass
+        
+        # Remove duplicates while preserving order
+        return list(dict.fromkeys(suggestions))
+
+    def add_to_dictionary(self, word):
+        """Add word to user dictionary"""
+        user_dict = self.settings_manager.get_setting('user_dictionary', [])
+        if word not in user_dict:
+            user_dict.append(word)
+            self.settings_manager.save_setting('user_dictionary', user_dict)
+            if self.USE_ENCHANT:
+                self.spell.add(word)
+            else:
+                self.spell.word_frequency.add(word)
+            self.rehighlight()
 
     def highlightBlock(self, text):
         if not self.spell_check_enabled:
@@ -67,52 +125,21 @@ class SpellCheckHighlighter(QSyntaxHighlighter):
             if self.is_latin_word(word):
                 # Check if word is in user dictionary first
                 if word not in user_dict:
-                    # If not in user dictionary, check against enchant
                     try:
-                        if not self.spell.check(word):
+                        if not self.check_word(word):
                             self.setFormat(index, length, format)
                     except UnicodeEncodeError:
                         pass  # Skip words that can't be encoded
             
             index = expression.indexIn(text, index + length)
 
-    def suggest(self, word):
-        """Get suggestions for a word, including user dictionary matches"""
-        suggestions = []
-        
-        # Get user dictionary
-        user_dict = self.settings_manager.get_setting('user_dictionary', [])
-        
-        # Add matching words from user dictionary first
-        for dict_word in user_dict:
-            if dict_word.lower().startswith(word.lower()):
-                suggestions.append(dict_word)
-        
-        # Only get enchant suggestions for Latin words
-        if self.is_latin_word(word):
-            try:
-                # Get suggestions from enchant
-                spell_suggestions = self.spell.suggest(word)
-                if spell_suggestions:
-                    # Remove the word itself from suggestions
-                    spell_suggestions = [s for s in spell_suggestions if s.lower() != word.lower()]
-                    suggestions.extend(spell_suggestions)
-            except UnicodeEncodeError:
-                pass
-        
-        # Remove duplicates while preserving order
-        return list(dict.fromkeys(suggestions))
-
-    def add_to_dictionary(self, word):
-        """Add word to user dictionary"""
-        user_dict = self.settings_manager.get_setting('user_dictionary', [])
-        if word not in user_dict:
-            user_dict.append(word)
-            self.settings_manager.save_setting('user_dictionary', user_dict)
-            # Add to enchant personal word list
-            self.spell.add(word)
-            # Refresh spell checking
-            self.rehighlight()
+    def is_latin_word(self, word):
+        """Check if word contains only Latin characters"""
+        try:
+            word.encode('latin-1')
+            return True
+        except UnicodeEncodeError:
+            return False
 
 class CustomTextEdit(QTextEdit):
     def __init__(self, parent=None):
@@ -181,6 +208,16 @@ class CompletingTextEdit(QTextEdit):
         self.completion_text = ""
         self.completion_start = None
         self.suppress_completion = False
+        
+        # Initialize spell checker
+        if USE_ENCHANT:
+            try:
+                self.spell_checker = Dict("en_US")
+            except:
+                self.spell_checker = SpellChecker()
+                print("Fallback to pyspellchecker in CompletingTextEdit")
+        else:
+            self.spell_checker = SpellChecker()
 
     def keyPressEvent(self, event):
         """Handle key events"""
@@ -332,6 +369,16 @@ class EditorTab(QWidget):
         self.selected_suggestion_index = -1
         self.current_suggestions = []
         self.editor.textChanged.connect(self.handle_text_changed)
+
+        # Initialize spell checker
+        if USE_ENCHANT:
+            try:
+                self.spell_checker = Dict("en_US")
+            except:
+                self.spell_checker = SpellChecker()
+                print("Fallback to pyspellchecker in EditorTab")
+        else:
+            self.spell_checker = SpellChecker()
 
     def setup_ui(self):
         """Setup the UI components"""
@@ -823,9 +870,10 @@ class EditorTab(QWidget):
         if word not in user_dict:
             user_dict.append(word)
             self.settings_manager.save_setting('user_dictionary', user_dict)
-            # Add to enchant personal word list
-            self.highlighter.spell.add(word)
-            # Refresh spell checking
+            if self.USE_ENCHANT:
+                self.highlighter.spell.add(word)
+            else:
+                self.highlighter.spell.word_frequency.add(word)
             self.highlighter.rehighlight()
 
     def ensure_browser_visible(self):
@@ -1565,9 +1613,9 @@ class EditorTab(QWidget):
         self.main_window = main_window
         # # Update session state to include this tab
         # current_tabs = self.main_window.get_open_tab_ids()
-        # if self.recovery_id not in current_tabs:
-        #     current_tabs.append(self.recovery_id)
-        #     self.settings_manager.save_session_state(current_tabs)
+        # # if self.recovery_id not in current_tabs:
+        # #     current_tabs.append(self.recovery_id)
+        # #     self.settings_manager.save_session_state(current_tabs)
 
     # def cleanup_session_files(self):
     #     """Clean up session files for this tab"""
