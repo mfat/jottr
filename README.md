@@ -29,7 +29,7 @@ It has cool features including:
 [Video overview](https://www.youtube.com/watch?v=P2nyr5V01SU)
       
 ### Download:    
-Downloads are available from the [Releases](https://github.com/mfat/jottr/releases) section.
+Downloads for Linux, Mac and Windows are available from the [Releases](https://github.com/mfat/jottr/releases) section.
 
 If you use linux, you gan get jottr from [Flathub](https://flathub.org/apps/io.github.mfat.jottr) using the button below, or install the DEB or RPM packages.
 
@@ -39,13 +39,13 @@ If you use linux, you gan get jottr from [Flathub](https://flathub.org/apps/io.g
 
 
 **Note for macOS users:** 
-To run Jottr on Mac you need to install  echant through [homebrew](https://brew.sh/).
+To run Jottr on Mac you need to install  echant through [homebrew](https://brew.sh/). 
 
 `brew install enchant`
 
-### How to run Jottr:
+There is no binary for Apple silicon yet. If you use an M series mac,you need to run Jottr from the source. 
 
-Either download the package for your distribution or clone the repository:
+### How to run Jottr from source:
 
 `git clone https://github.com/mfat/jottr`
 
