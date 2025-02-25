@@ -93,15 +93,20 @@ class SpellCheckHighlighter(QSyntaxHighlighter):
 
     def add_to_dictionary(self, word):
         """Add word to user dictionary"""
+        if self.USE_ENCHANT:
+            # Enchant spell checker implementation
+            self.spell.add(word)
+        else:
+            # PySpellChecker implementation
+            self.spell.word_frequency.add(word)
+            # Force a recheck of the document
+            self.highlighter.rehighlight()
+        
+        # Add to user dictionary in settings
         user_dict = self.settings_manager.get_setting('user_dictionary', [])
         if word not in user_dict:
             user_dict.append(word)
             self.settings_manager.save_setting('user_dictionary', user_dict)
-            if self.USE_ENCHANT:
-                self.spell.add(word)
-            else:
-                self.spell.word_frequency.add(word)
-            self.rehighlight()
 
     def highlightBlock(self, text):
         if not self.spell_check_enabled:
@@ -329,13 +334,19 @@ class EditorTab(QWidget):
         self.web_view = None  # Initialize to None
         self.main_window = None  # Initialize main_window to None
         
-        # # Initialize recovery ID and paths first
-        # self.recovery_id = str(int(time.time() * 1000))
-        # self.session_path = os.path.join(
-        #     self.settings_manager.get_recovery_dir(),
-        #     f"session_{self.recovery_id}.txt"
-        # )
-        # self.meta_path = self.session_path + '.json'
+        # Add USE_ENCHANT as instance attribute
+        self.USE_ENCHANT = USE_ENCHANT  # Use the module-level variable
+        
+        # Initialize spell checker
+        if self.USE_ENCHANT:
+            try:
+                self.spell_checker = Dict("en_US")
+            except:
+                self.USE_ENCHANT = False  # Fall back if enchant fails
+                self.spell_checker = SpellChecker()
+                print("Fallback to pyspellchecker in EditorTab")
+        else:
+            self.spell_checker = SpellChecker()
         
         # Setup UI components
         self.setup_ui()
@@ -369,16 +380,6 @@ class EditorTab(QWidget):
         self.selected_suggestion_index = -1
         self.current_suggestions = []
         self.editor.textChanged.connect(self.handle_text_changed)
-
-        # Initialize spell checker
-        if USE_ENCHANT:
-            try:
-                self.spell_checker = Dict("en_US")
-            except:
-                self.spell_checker = SpellChecker()
-                print("Fallback to pyspellchecker in EditorTab")
-        else:
-            self.spell_checker = SpellChecker()
 
     def setup_ui(self):
         """Setup the UI components"""
@@ -866,15 +867,20 @@ class EditorTab(QWidget):
 
     def add_to_dictionary(self, word):
         """Add word to user dictionary"""
+        if self.USE_ENCHANT:
+            # Enchant spell checker implementation
+            self.spell_checker.add(word)
+        else:
+            # PySpellChecker implementation
+            self.spell_checker.word_frequency.add(word)
+            # Force a recheck of the document
+            self.highlighter.rehighlight()
+        
+        # Add to user dictionary in settings
         user_dict = self.settings_manager.get_setting('user_dictionary', [])
         if word not in user_dict:
             user_dict.append(word)
             self.settings_manager.save_setting('user_dictionary', user_dict)
-            if self.USE_ENCHANT:
-                self.highlighter.spell.add(word)
-            else:
-                self.highlighter.spell.word_frequency.add(word)
-            self.highlighter.rehighlight()
 
     def ensure_browser_visible(self):
         """Ensure browser pane is visible"""
