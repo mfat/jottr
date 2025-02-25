@@ -736,6 +736,11 @@ class EditorTab(QWidget):
             cursor.select(cursor.WordUnderCursor)
             self.editor.setTextCursor(cursor)
         
+        # Create menu with a slight delay to prevent accidental triggers
+        QTimer.singleShot(100, lambda: self._show_context_menu_impl(pos))
+
+    def _show_context_menu_impl(self, pos):
+        """Implementation of context menu display"""
         menu = QMenu(self)
         
         # Cut/Copy/Paste actions
@@ -745,7 +750,7 @@ class EditorTab(QWidget):
         menu.addSeparator()
         
         # Get selected text
-        selected_text = cursor.selectedText()
+        selected_text = self.editor.textCursor().selectedText()
         
         if selected_text:
             # Add "Save as Snippet" option
