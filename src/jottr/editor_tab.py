@@ -743,19 +743,17 @@ class EditorTab(QWidget):
         """Implementation of context menu display"""
         menu = QMenu(self)
         
-        # Cut/Copy/Paste actions
-        menu.addAction("Cut", self.editor.cut)
-        menu.addAction("Copy", self.editor.copy)
-        menu.addAction("Paste", self.editor.paste)
-        menu.addSeparator()
+        # # Cut/Copy/Paste actions
+        # menu.addAction("Cut", self.editor.cut)
+        # menu.addAction("Copy", self.editor.copy)
+        # menu.addAction("Paste", self.editor.paste)
+        # menu.addSeparator()
         
         # Get selected text
         selected_text = self.editor.textCursor().selectedText()
         
         if selected_text:
-            # Add "Save as Snippet" option
-            menu.addAction("Save as Snippet", lambda: self.save_snippet(selected_text))
-            menu.addSeparator()
+            
             
             # Add search submenu
             search_menu = menu.addMenu("Search in...")
@@ -836,6 +834,14 @@ class EditorTab(QWidget):
                     add_action = menu.addAction("Add to Dictionary")
                     add_action.triggered.connect(lambda: self.add_to_dictionary(selected_text))
                     menu.addSeparator()
+            # Add "Save as Snippet" option
+            menu.addAction("Save as Snippet", lambda: self.save_snippet(selected_text))
+            menu.addSeparator()
+        # Cut/Copy/Paste actions
+        menu.addAction("Cut", self.editor.cut)
+        menu.addAction("Copy", self.editor.copy)
+        menu.addAction("Paste", self.editor.paste)
+        menu.addSeparator()            
         
         # Show menu
         menu.exec_(self.editor.mapToGlobal(pos))
