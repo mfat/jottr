@@ -33,7 +33,7 @@ if os.path.exists(vendor_dir):
 
 # Application constants
 APP_NAME = "Jottr"
-APP_VERSION = "1.4.2"
+APP_VERSION = "1.4.3"
 APP_HOMEPAGE = "https://github.com/mfat/jottr"
 
 class TextEditorApp(QMainWindow):

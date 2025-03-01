@@ -20,3 +20,5 @@ src/.DS_Store
 /.flatpak-builder
 /repo
 io.github.mfat.jottr-1.4.1.flatpak
+/deb_dist
+/deb_dist
