@@ -5,56 +5,47 @@
     <img width='240' alt='Get it on Flathub' src='https://flathub.org/api/badge?locale=en'/>
   </a>
 
-A simple, opinionated plain text editor designed for writers, journalists and researchers. Jottr is not meant to be a full-featured text editor, but rather a simple and easy to use tool for writing. It's not aimed at developers.
+
+https://github.com/user-attachments/assets/d478920b-1d99-41e9-b37a-7c63d7384781
+
+
+
+
 
 ![image](https://github.com/user-attachments/assets/ee7b18fc-73cc-4f0b-a8bf-6508dd67defa)
 
 
-## Key Features
+ Jottr is a free, cross-platform, small and fast text editor released under GPL v3 license.
 
-### Smart Writing Tools
-- **Tab Autocompletion**: Inline autocompletion suggestions based on your personal dictionary
-- **User Dictionary**: Build your own vocabulary for better suggestions
-- **Text Snippets**: Save and reuse frequently used text blocks. Just save any text as snippet and insert it anywhere by double-clicking the snippet.
-- **Word Count**: Real-time statistics for words and characters.
+It has cool features including:
 
-### Research & Fact-Checking
-- **Integrated Browser**: Browse reference materials without leaving the editor
-- **Custom Search Contexts**: Right-click any text to perform a Google search or a custom search on your desired website:
-  - AP News
-  - Reuters
-  - BBC
-  - or any custom websites
-    
-### Focus on Writing
-- **Distraction-Free Mode**: Clean, minimal interface for focused writing
-- **Customizable Themes**: Light, dark and sepia themes for the editor
-- **Font Customization**: Choose your perfect writing font and size
-- **Zoom Controls**: Easily adjust text size with keyboard shortcuts
+* An integrated web browser for quickly looking up selected text in various sources, including user-defined websites
+* A "Focus Mode", for distraction-free writing
+* Two methods to quickly inserting frequently used text blocks: add words to your dictionary or create text snippets and insert with custom keywords
+* Smart, intuitive autocompletion with tab key
+* Themes: choose between, light, dark and Sepia (paper-like) themes for the editor
+* Familiar, intuitive keyboard shortcuts (ctrl+= to make text bigger, for example)
 
-### Cross-Platform
-- Works on Windows, macOS, and Linux
-- Native look and feel on each platform
-- Consistent feature set across all systems
+[Video overview](https://www.youtube.com/watch?v=P2nyr5V01SU)
       
 ### Download:    
-Downloads are available from the [Releases](https://github.com/mfat/jottr/releases) section.
+Downloads for Linux, Mac and Windows are available from the [Releases](https://github.com/mfat/jottr/releases) section.
 
-If you use linux, you gan get jottr from [Flathub](https://flathub.org/apps/io.github.mfat.jottr) using the button below, or you can install the DEB or RPM packages.
+If you use linux, you gan get jottr from [Flathub](https://flathub.org/apps/io.github.mfat.jottr) using the button below, or install the DEB or RPM packages.
 
 <a href='https://flathub.org/apps/io.github.mfat.jottr'>
     <img width='240' alt='Get it on Flathub' src='https://flathub.org/api/badge?locale=en'/></a>
 
 
-**Note for macOS users** 
 
-To run Jottr on Mac you need to install the requirements (see below) and echant through [homebrew](https://brew.sh/).
+**Note for macOS users:** 
+To run Jottr on Mac you need to install  echant through [homebrew](https://brew.sh/). 
 
 `brew install enchant`
 
-### How to run Jottr:
+There is no binary for Apple silicon yet. If you use an M series mac,you need to run Jottr from the source. 
 
-Either download the package for your distribution or clone the repository:
+### How to run Jottr from source:
 
 `git clone https://github.com/mfat/jottr`
 
