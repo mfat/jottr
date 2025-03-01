@@ -78,6 +78,6 @@ install -p -m 644 icons/jottr.png %{buildroot}%{_datadir}/icons/hicolor/256x256/
 %{_datadir}/icons/hicolor/256x256/apps/%{name}.png
 
 %changelog
-* Sat March 01 2025 mFat <newmfat@gmail.com> - 1.4.3-1
+* Sat Mar 01 2025 mFat <newmfat@gmail.com> - 1.4.3-1
 - Bug fixes and improvements
 
