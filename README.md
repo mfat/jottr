@@ -43,7 +43,6 @@ To run Jottr on Mac you need to install  echant through [homebrew](https://brew.
 
 `brew install enchant`
 
-There is no binary for Apple silicon yet. If you use an M series mac,you need to run Jottr from the source. 
 
 ### How to run Jottr from source:
 
