@@ -15,6 +15,7 @@ from PyQt5.QtWidgets import (
     QHBoxLayout,
     QToolButton,
     QVBoxLayout,
+
 )
 
 from editor_tab import EditorTab
@@ -26,6 +27,7 @@ from settings_manager import SettingsManager
 
 class MainWindow(QMainWindow):
     """Modern, cross-platform window with a ribbon and tabbed editor."""
+
 
     def __init__(self, settings_manager: SettingsManager) -> None:
         super().__init__()
@@ -50,6 +52,7 @@ class MainWindow(QMainWindow):
         self.setCentralWidget(central)
 
         self._init_menu()
+
         self.statusBar().showMessage("Ready")
 
         self.new_editor_tab()
@@ -79,6 +82,7 @@ class MainWindow(QMainWindow):
     def _init_menu(self) -> None:
         file_menu = self.menuBar().addMenu("&File")
         file_menu.addActions([self.new_action, self.open_action, self.save_action])
+
         file_menu.addSeparator()
         exit_action = file_menu.addAction("Exit", self.close)
         exit_action.setShortcut(QKeySequence.Quit)
@@ -128,6 +132,7 @@ class MainWindow(QMainWindow):
         ribbon.addTab(settings, "Settings")
 
         return ribbon
+
 
     # ------------------------------------------------------------------
     # helpers
