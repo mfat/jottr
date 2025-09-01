@@ -5,6 +5,7 @@ from typing import Optional, Iterator
 from PyQt5.QtCore import QUrl, pyqtSlot
 from PyQt5.QtGui import QKeySequence
 from PyQt5.QtQuickWidgets import QQuickWidget
+
 from PyQt5.QtWidgets import (
     QMainWindow,
     QAction,
@@ -14,6 +15,7 @@ from PyQt5.QtWidgets import (
     QMessageBox,
     QStyle,
     QVBoxLayout,
+
 )
 
 from editor_tab import EditorTab
@@ -26,6 +28,7 @@ from ui_theme_manager import UIThemeManager
 
 class MainWindow(QMainWindow):
     """Modern, cross-platform window using a QML toolbar and tabbed editor."""
+
 
     def __init__(self, settings_manager: SettingsManager) -> None:
         super().__init__()
@@ -53,10 +56,12 @@ class MainWindow(QMainWindow):
         self.toolbar.setSource(QUrl.fromLocalFile(toolbar_qml))
 
         layout.addWidget(self.toolbar)
+
         layout.addWidget(self.tab_widget)
         self.setCentralWidget(central)
 
         self._init_menu()
+
         self.statusBar().showMessage("Ready")
 
         self.new_editor_tab()
@@ -86,6 +91,7 @@ class MainWindow(QMainWindow):
     def _init_menu(self) -> None:
         file_menu = self.menuBar().addMenu("&File")
         file_menu.addActions([self.new_action, self.open_action, self.save_action])
+
         file_menu.addSeparator()
         exit_action = file_menu.addAction("Exit", self.close)
         exit_action.setShortcut(QKeySequence.Quit)
@@ -105,6 +111,7 @@ class MainWindow(QMainWindow):
         tools_menu = self.menuBar().addMenu("&Tools")
         tools_menu.addAction(self.settings_action)
 
+
     # ------------------------------------------------------------------
     # helpers
     def current_editor_tab(self) -> Optional[EditorTab]:
@@ -120,6 +127,7 @@ class MainWindow(QMainWindow):
     # ------------------------------------------------------------------
     # tab management
     @pyqtSlot()
+
     def new_editor_tab(self) -> EditorTab:
         tab = EditorTab(self.snippet_manager, self.settings_manager)
         tab.set_main_window(self)
@@ -129,6 +137,7 @@ class MainWindow(QMainWindow):
         return tab
 
     @pyqtSlot()
+
     def new_rss_tab(self) -> None:
         tab = RSSTab()
         index = self.tab_widget.addTab(tab, "RSS Reader")
@@ -137,6 +146,7 @@ class MainWindow(QMainWindow):
     # ------------------------------------------------------------------
     # file operations
     @pyqtSlot()
+
     def open_file_dialog(self) -> None:
         path, _ = QFileDialog.getOpenFileName(self, "Open", "", "Text Files (*.txt);;All Files (*)")
         if path:
@@ -162,6 +172,7 @@ class MainWindow(QMainWindow):
         self.tab_widget.setTabText(self.tab_widget.indexOf(tab), os.path.basename(path))
 
     @pyqtSlot()
+
     def save_file(self) -> None:
         tab = self.current_editor_tab()
         if not tab:
@@ -185,6 +196,7 @@ class MainWindow(QMainWindow):
 
     # ------------------------------------------------------------------
     @pyqtSlot()
+
     def show_settings(self) -> None:
         dialog = SettingsDialog(self.settings_manager, self)
         if dialog.exec_():
@@ -211,3 +223,4 @@ class MainWindow(QMainWindow):
     def set_theme(self, name: str) -> None:
         """Switch the UI theme."""
         self.settings_manager.apply_ui_theme(name.lower())
+

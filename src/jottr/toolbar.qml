@@ -55,6 +55,7 @@ ToolBar {
             onClicked: mainWindow.set_theme("dark")
             ToolTip.visible: hovered
             ToolTip.text: "Dark Theme"
+
         }
     }
 }
