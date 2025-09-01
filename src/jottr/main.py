@@ -6,8 +6,8 @@ if sys.version_info < (3, 10):
 import os
 import json
 import hashlib
-from PyQt5.QtWidgets import (QApplication, QMainWindow, QTabWidget, QWidget, 
-                            QVBoxLayout, QHBoxLayout, QSplitter, QMenu, QToolBar, QAction, QStyle, QMessageBox, QFontDialog, QStyleFactory, QLabel, QDialog, QSizePolicy, QDialogButtonBox, QTabBar, QFileDialog, QShortcut, QToolButton)
+from PyQt5.QtWidgets import (QApplication, QMainWindow, QTabWidget, QWidget,
+                            QVBoxLayout, QHBoxLayout, QSplitter, QMenu, QToolBar, QAction, QMessageBox, QFontDialog, QStyleFactory, QLabel, QDialog, QSizePolicy, QDialogButtonBox, QTabBar, QFileDialog, QShortcut, QToolButton)
 from PyQt5.QtCore import Qt, QUrl, QTimer
 from PyQt5.QtWebEngineWidgets import QWebEngineView
 from editor_tab import EditorTab
@@ -24,7 +24,6 @@ from PyQt5.QtGui import QFont
 from PyQt5.QtSvg import QSvgRenderer
 from PyQt5.QtGui import QPainter
 from PyQt5.QtCore import QSize
-from PyQt5.QtGui import QPalette, QColor
 
 # Add vendor directory to path
 vendor_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'vendor')
@@ -39,15 +38,6 @@ APP_HOMEPAGE = "https://github.com/mfat/jottr"
 class TextEditorApp(QMainWindow):
     def __init__(self, file_path=None): 
         super().__init__()
-        
-        # Create settings manager first
-        self.settings_manager = SettingsManager()
-        
-        # Create snippet manager with settings manager
-        self.snippet_manager = SnippetManager(self.settings_manager)
-        
-        # Force light mode by setting a light palette and style
-        self.set_light_mode()
         
         # Load icons from Base64-encoded SVG data
         self.icons = {
@@ -90,12 +80,10 @@ class TextEditorApp(QMainWindow):
         self.setWindowTitle(APP_NAME)
         self.setGeometry(100, 100, 1200, 800)
         
-        # Initialize managers first
+        # Initialize managers and apply UI theme
         self.settings_manager = SettingsManager()
         self.snippet_manager = SnippetManager(self.settings_manager)
-        
-        # Force light mode by setting a light palette and style
-        self.set_light_mode()
+        self.apply_ui_theme(self.settings_manager.get_ui_theme())
         
         # Create toolbar first before styling
         self.toolbar = QToolBar("Main Toolbar")  # Add name here
@@ -146,29 +134,6 @@ class TextEditorApp(QMainWindow):
         
         self.setup_shortcuts()  # Add this line after setup_toolbar()
         
-    def set_light_mode(self):
-        """Force the application to use a light theme, ignoring the OS dark mode."""
-        # Set a light style (e.g., "Fusion" or "Windows")
-        QApplication.setStyle(QStyleFactory.create("Fusion"))
-        
-        # Create a light palette
-        palette = QPalette()
-        palette.setColor(QPalette.Window, QColor(240, 240, 240))  # Light gray background
-        palette.setColor(QPalette.WindowText, QColor(0, 0, 0))    # Black text
-        palette.setColor(QPalette.Base, QColor(255, 255, 255))    # White base
-        palette.setColor(QPalette.AlternateBase, QColor(240, 240, 240))  # Light gray alternate base
-        palette.setColor(QPalette.ToolTipBase, QColor(255, 255, 255))     # White tooltip background
-        palette.setColor(QPalette.ToolTipText, QColor(0, 0, 0))          # Black tooltip text
-        palette.setColor(QPalette.Text, QColor(0, 0, 0))                 # Black text
-        palette.setColor(QPalette.Button, QColor(240, 240, 240))         # Light gray buttons
-        palette.setColor(QPalette.ButtonText, QColor(0, 0, 0))          # Black button text
-        palette.setColor(QPalette.BrightText, QColor(255, 0, 0))         # Bright red text
-        palette.setColor(QPalette.Highlight, QColor(0, 120, 215))        # Blue highlight
-        palette.setColor(QPalette.HighlightedText, QColor(255, 255, 255))# White highlighted text
-        
-        # Apply the palette
-        QApplication.setPalette(palette)
-
     def setup_platform_style(self):
         """Apply platform-specific styling"""
         platform = sys.platform
@@ -603,9 +568,6 @@ class TextEditorApp(QMainWindow):
     def apply_ui_theme(self, theme):
         """Apply UI theme to application"""
         self.settings_manager.apply_ui_theme(theme)
-        
-        # Update all widgets
-        QApplication.setStyle(QStyleFactory.create(theme))
         self.update()
 
     def apply_theme(self, theme_name):
