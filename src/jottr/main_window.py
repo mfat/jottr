@@ -9,9 +9,13 @@ from PyQt5.QtWidgets import (
     QAction,
     QFileDialog,
     QTabWidget,
-    QToolBar,
+    QWidget,
     QMessageBox,
     QStyle,
+    QHBoxLayout,
+    QToolButton,
+    QVBoxLayout,
+
 )
 
 from editor_tab import EditorTab
@@ -22,7 +26,8 @@ from settings_manager import SettingsManager
 
 
 class MainWindow(QMainWindow):
-    """Modernised application window with toolbar and tabbed editor."""
+    """Modern, cross-platform window with a ribbon and tabbed editor."""
+
 
     def __init__(self, settings_manager: SettingsManager) -> None:
         super().__init__()
@@ -32,52 +37,102 @@ class MainWindow(QMainWindow):
         self.setWindowTitle("Jottr")
         self.resize(1024, 768)
 
+        self._create_actions()
+
         self.tab_widget = QTabWidget()
         self.tab_widget.setTabsClosable(True)
         self.tab_widget.tabCloseRequested.connect(self.tab_widget.removeTab)
-        self.setCentralWidget(self.tab_widget)
 
-        self._init_toolbar()
+        central = QWidget()
+        layout = QVBoxLayout(central)
+        layout.setContentsMargins(0, 0, 0, 0)
+        self.ribbon = self._init_ribbon()
+        layout.addWidget(self.ribbon)
+        layout.addWidget(self.tab_widget)
+        self.setCentralWidget(central)
+
+        self._init_menu()
+
         self.statusBar().showMessage("Ready")
 
         self.new_editor_tab()
 
     # ------------------------------------------------------------------
-    # toolbar
-    def _init_toolbar(self) -> None:
+    # setup helpers
+    def _create_actions(self) -> None:
         style = self.style()
-        toolbar = QToolBar("Main")
-        toolbar.setMovable(False)
-        toolbar.setIconSize(QSize(16, 16))
-        self.addToolBar(toolbar)
+        self.new_action = QAction(style.standardIcon(QStyle.SP_FileIcon), "New", self)
+        self.new_action.setShortcut(QKeySequence.New)
+        self.new_action.triggered.connect(self.new_editor_tab)
 
-        new_action = QAction(style.standardIcon(QStyle.SP_FileIcon), "New", self)
-        new_action.setShortcut(QKeySequence.New)
-        new_action.triggered.connect(self.new_editor_tab)
-        open_action = QAction(style.standardIcon(QStyle.SP_DialogOpenButton), "Open", self)
-        open_action.setShortcut(QKeySequence.Open)
-        open_action.triggered.connect(self.open_file_dialog)
-        save_action = QAction(style.standardIcon(QStyle.SP_DialogSaveButton), "Save", self)
-        save_action.setShortcut(QKeySequence.Save)
-        save_action.triggered.connect(self.save_file)
-        rss_action = QAction("RSS", self)
-        rss_action.triggered.connect(self.new_rss_tab)
-        settings_action = QAction("Settings", self)
-        settings_action.triggered.connect(self.show_settings)
+        self.open_action = QAction(style.standardIcon(QStyle.SP_DialogOpenButton), "Open", self)
+        self.open_action.setShortcut(QKeySequence.Open)
+        self.open_action.triggered.connect(self.open_file_dialog)
 
-        toolbar.addActions([new_action, open_action, save_action, rss_action, settings_action])
+        self.save_action = QAction(style.standardIcon(QStyle.SP_DialogSaveButton), "Save", self)
+        self.save_action.setShortcut(QKeySequence.Save)
+        self.save_action.triggered.connect(self.save_file)
 
+        self.rss_action = QAction("RSS", self)
+        self.rss_action.triggered.connect(self.new_rss_tab)
+
+        self.settings_action = QAction("Settings", self)
+        self.settings_action.triggered.connect(self.show_settings)
+
+    def _init_menu(self) -> None:
         file_menu = self.menuBar().addMenu("&File")
-        file_menu.addActions([new_action, open_action, save_action])
+        file_menu.addActions([self.new_action, self.open_action, self.save_action])
+
         file_menu.addSeparator()
         exit_action = file_menu.addAction("Exit", self.close)
         exit_action.setShortcut(QKeySequence.Quit)
 
-        tools_menu = self.menuBar().addMenu("&Tools")
-        tools_menu.addAction(settings_action)
-
         view_menu = self.menuBar().addMenu("&View")
-        view_menu.addAction(rss_action)
+        view_menu.addAction(self.rss_action)
+
+        tools_menu = self.menuBar().addMenu("&Tools")
+        tools_menu.addAction(self.settings_action)
+
+    def _init_ribbon(self) -> QTabWidget:
+        ribbon = QTabWidget()
+        ribbon.setDocumentMode(True)
+
+        home = QWidget()
+        home_layout = QHBoxLayout(home)
+        home_layout.setContentsMargins(8, 4, 8, 4)
+        for action in (self.new_action, self.open_action, self.save_action):
+            btn = QToolButton()
+            btn.setDefaultAction(action)
+            btn.setToolButtonStyle(Qt.ToolButtonTextUnderIcon)
+            btn.setIconSize(QSize(32, 32))
+            home_layout.addWidget(btn)
+        home_layout.addStretch()
+        ribbon.addTab(home, "Home")
+
+        view = QWidget()
+        view_layout = QHBoxLayout(view)
+        view_layout.setContentsMargins(8, 4, 8, 4)
+        rss_btn = QToolButton()
+        rss_btn.setDefaultAction(self.rss_action)
+        rss_btn.setToolButtonStyle(Qt.ToolButtonTextUnderIcon)
+        rss_btn.setIconSize(QSize(32, 32))
+        view_layout.addWidget(rss_btn)
+        view_layout.addStretch()
+        ribbon.addTab(view, "View")
+
+        settings = QWidget()
+        settings_layout = QHBoxLayout(settings)
+        settings_layout.setContentsMargins(8, 4, 8, 4)
+        settings_btn = QToolButton()
+        settings_btn.setDefaultAction(self.settings_action)
+        settings_btn.setToolButtonStyle(Qt.ToolButtonTextUnderIcon)
+        settings_btn.setIconSize(QSize(32, 32))
+        settings_layout.addWidget(settings_btn)
+        settings_layout.addStretch()
+        ribbon.addTab(settings, "Settings")
+
+        return ribbon
+
 
     # ------------------------------------------------------------------
     # helpers
