@@ -308,3 +308,4 @@ class SettingsManager:
             theme = 'light'
         UIThemeManager.apply_theme(theme)
         self.save_ui_theme(theme)
+

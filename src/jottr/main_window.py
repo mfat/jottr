@@ -2,7 +2,7 @@ from __future__ import annotations
 import os
 from typing import Optional, Iterator
 
-from PyQt5.QtCore import Qt, QSize
+
 from PyQt5.QtGui import QKeySequence
 from PyQt5.QtWidgets import (
     QMainWindow,
@@ -12,9 +12,8 @@ from PyQt5.QtWidgets import (
     QWidget,
     QMessageBox,
     QStyle,
-    QHBoxLayout,
-    QToolButton,
     QVBoxLayout,
+    QComboBox,
 
 )
 
@@ -23,6 +22,9 @@ from rss_tab import RSSTab
 from snippet_manager import SnippetManager
 from settings_dialog import SettingsDialog
 from settings_manager import SettingsManager
+from ui_theme_manager import UIThemeManager
+from ribbon import RibbonBar
+
 
 
 class MainWindow(QMainWindow):
@@ -46,7 +48,8 @@ class MainWindow(QMainWindow):
         central = QWidget()
         layout = QVBoxLayout(central)
         layout.setContentsMargins(0, 0, 0, 0)
-        self.ribbon = self._init_ribbon()
+        self.ribbon = self._build_ribbon()
+
         layout.addWidget(self.ribbon)
         layout.addWidget(self.tab_widget)
         self.setCentralWidget(central)
@@ -89,48 +92,33 @@ class MainWindow(QMainWindow):
 
         view_menu = self.menuBar().addMenu("&View")
         view_menu.addAction(self.rss_action)
+        theme_menu = view_menu.addMenu("Theme")
+        current_theme = self.settings_manager.get_ui_theme()
+        for name in UIThemeManager.available_themes():
+            act = theme_menu.addAction(name)
+            act.setCheckable(True)
+            act.setChecked(name.lower() == current_theme)
+            act.triggered.connect(
+                lambda checked, n=name.lower(): self.settings_manager.apply_ui_theme(n)
+            )
+
 
         tools_menu = self.menuBar().addMenu("&Tools")
         tools_menu.addAction(self.settings_action)
 
-    def _init_ribbon(self) -> QTabWidget:
-        ribbon = QTabWidget()
-        ribbon.setDocumentMode(True)
+    def _build_ribbon(self) -> RibbonBar:
+        ribbon = RibbonBar()
+        ribbon.add_page("Home", [self.new_action, self.open_action, self.save_action])
 
-        home = QWidget()
-        home_layout = QHBoxLayout(home)
-        home_layout.setContentsMargins(8, 4, 8, 4)
-        for action in (self.new_action, self.open_action, self.save_action):
-            btn = QToolButton()
-            btn.setDefaultAction(action)
-            btn.setToolButtonStyle(Qt.ToolButtonTextUnderIcon)
-            btn.setIconSize(QSize(32, 32))
-            home_layout.addWidget(btn)
-        home_layout.addStretch()
-        ribbon.addTab(home, "Home")
+        self.theme_selector = QComboBox()
+        self.theme_selector.addItems(UIThemeManager.available_themes())
+        self.theme_selector.setCurrentText(self.settings_manager.get_ui_theme().title())
+        self.theme_selector.currentTextChanged.connect(
+            lambda name: self.settings_manager.apply_ui_theme(name.lower())
+        )
 
-        view = QWidget()
-        view_layout = QHBoxLayout(view)
-        view_layout.setContentsMargins(8, 4, 8, 4)
-        rss_btn = QToolButton()
-        rss_btn.setDefaultAction(self.rss_action)
-        rss_btn.setToolButtonStyle(Qt.ToolButtonTextUnderIcon)
-        rss_btn.setIconSize(QSize(32, 32))
-        view_layout.addWidget(rss_btn)
-        view_layout.addStretch()
-        ribbon.addTab(view, "View")
-
-        settings = QWidget()
-        settings_layout = QHBoxLayout(settings)
-        settings_layout.setContentsMargins(8, 4, 8, 4)
-        settings_btn = QToolButton()
-        settings_btn.setDefaultAction(self.settings_action)
-        settings_btn.setToolButtonStyle(Qt.ToolButtonTextUnderIcon)
-        settings_btn.setIconSize(QSize(32, 32))
-        settings_layout.addWidget(settings_btn)
-        settings_layout.addStretch()
-        ribbon.addTab(settings, "Settings")
-
+        ribbon.add_page("View", [self.rss_action, self.theme_selector])
+        ribbon.add_page("Settings", [self.settings_action])
         return ribbon
 
 
