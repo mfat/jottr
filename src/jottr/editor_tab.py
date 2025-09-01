@@ -1297,7 +1297,9 @@ class EditorTab(QWidget):
         chars = len(text)
         
         # Update status bar
-        self.main_window.statusBar.showMessage(f"Words: {words} | Characters: {chars}")
+        self.main_window.statusBar().showMessage(
+            f"Words: {words} | Characters: {chars}"
+        )
 
     def toggle_focus_mode(self):
         """Toggle focus mode"""
