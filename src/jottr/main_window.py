@@ -25,7 +25,7 @@ from settings_manager import SettingsManager
 
 
 class MainWindow(QMainWindow):
-    """Modern application window with a ribbon and tabbed editor."""
+    """Modern, cross-platform window with a ribbon and tabbed editor."""
 
     def __init__(self, settings_manager: SettingsManager) -> None:
         super().__init__()
