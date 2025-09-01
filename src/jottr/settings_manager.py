@@ -2,8 +2,8 @@ import json
 import os
 from PyQt5.QtGui import QFont
 import time
-from PyQt5.QtWidgets import QApplication, QStyleFactory
 import sys
+from ui_theme_manager import UIThemeManager
 
 class SettingsManager:
     def __init__(self):
@@ -294,7 +294,7 @@ class SettingsManager:
 
     def get_ui_theme(self):
         """Get current UI theme setting"""
-        return self.settings.get('ui_theme', 'system')
+        return self.settings.get('ui_theme', 'light')
 
     def save_ui_theme(self, theme):
         """Save UI theme setting"""
@@ -303,12 +303,8 @@ class SettingsManager:
 
     def apply_ui_theme(self, theme):
         """Apply UI theme to application"""
-        if theme == 'system':
-            # Use system default theme
-            QApplication.setStyle(QStyleFactory.create('Fusion'))
-        else:
-            # Apply custom theme
-            QApplication.setStyle(QStyleFactory.create(theme))
-        
-        # Save the theme
-        self.save_ui_theme(theme) 
+        theme = (theme or 'light').lower()
+        if theme not in ('light', 'dark'):
+            theme = 'light'
+        UIThemeManager.apply_theme(theme)
+        self.save_ui_theme(theme)
