@@ -1,17 +1,20 @@
 from __future__ import annotations
+import os
 from typing import Optional, Iterator
 
 from PyQt5.QtCore import pyqtSlot
-from PyQt5.QtGui import QKeySequence
+from PyQt5.QtGui import QKeySequence, QIcon
 from PyQt5.QtWidgets import (
     QAction,
     QActionGroup,
     QFileDialog,
     QMainWindow,
     QMessageBox,
+    QMenu,
     QStyle,
     QTabWidget,
     QToolBar,
+    QToolButton,
 )
 
 from editor_tab import EditorTab
@@ -20,6 +23,14 @@ from snippet_manager import SnippetManager
 from settings_dialog import SettingsDialog
 from settings_manager import SettingsManager
 from ui_theme_manager import UIThemeManager
+
+
+ICON_DIR = os.path.join(os.path.dirname(__file__), "icons")
+
+
+def _icon(name: str) -> QIcon:
+    """Return an icon from the bundled icon directory."""
+    return QIcon(os.path.join(ICON_DIR, name))
 
 
 class MainWindow(QMainWindow):
@@ -50,15 +61,15 @@ class MainWindow(QMainWindow):
     # setup helpers
     def _create_actions(self) -> None:
         style = self.style()
-        self.new_action = QAction(style.standardIcon(QStyle.SP_FileIcon), "New", self)
+        self.new_action = QAction(_icon("new.svg"), "New", self)
         self.new_action.setShortcut(QKeySequence.New)
         self.new_action.triggered.connect(self.new_editor_tab)
 
-        self.open_action = QAction(style.standardIcon(QStyle.SP_DialogOpenButton), "Open", self)
+        self.open_action = QAction(_icon("open.svg"), "Open", self)
         self.open_action.setShortcut(QKeySequence.Open)
         self.open_action.triggered.connect(self.open_file_dialog)
 
-        self.save_action = QAction(style.standardIcon(QStyle.SP_DialogSaveButton), "Save", self)
+        self.save_action = QAction(_icon("save.svg"), "Save", self)
         self.save_action.setShortcut(QKeySequence.Save)
         self.save_action.triggered.connect(self.save_file)
 
@@ -66,10 +77,11 @@ class MainWindow(QMainWindow):
         self.save_as_action.setShortcut(QKeySequence.SaveAs)
         self.save_as_action.triggered.connect(self.save_file_as)
 
-        self.rss_action = QAction("RSS Reader", self)
+        self.rss_action = QAction(_icon("globe.svg"), "RSS Reader", self)
         self.rss_action.triggered.connect(self.new_rss_tab)
-
-        self.settings_action = QAction("Settings", self)
+        self.settings_action = QAction(
+            style.standardIcon(QStyle.SP_FileDialogDetailedView), "Settings", self
+        )
         self.settings_action.triggered.connect(self.show_settings)
 
         # theme actions
@@ -113,6 +125,38 @@ class MainWindow(QMainWindow):
         toolbar.addAction(self.save_action)
         toolbar.addSeparator()
         toolbar.addAction(self.rss_action)
+        toolbar.addAction(self.settings_action)
+
+        # theme chooser
+        theme_button = QToolButton(self)
+        theme_button.setIcon(_icon("color-mode-invert-text.svg"))
+        theme_button.setToolTip("Theme")
+        theme_menu = QMenu(self)
+        for act in self.theme_actions.values():
+            theme_menu.addAction(act)
+        theme_button.setMenu(theme_menu)
+        theme_button.setPopupMode(QToolButton.InstantPopup)
+        toolbar.addWidget(theme_button)
+
+        # hamburger menu with extra actions
+        menu_button = QToolButton(self)
+        menu_button.setIcon(_icon("menu.svg"))
+        menu_button.setToolTip("Menu")
+        main_menu = QMenu(self)
+        main_menu.addAction(self.new_action)
+        main_menu.addAction(self.open_action)
+        main_menu.addAction(self.save_action)
+        main_menu.addAction(self.save_as_action)
+        main_menu.addSeparator()
+        main_menu.addAction(self.rss_action)
+        main_menu.addAction(self.settings_action)
+        main_menu.addSeparator()
+        exit_action = main_menu.addAction("Exit", self.close)
+        exit_action.setShortcut(QKeySequence.Quit)
+        menu_button.setMenu(main_menu)
+        menu_button.setPopupMode(QToolButton.InstantPopup)
+        toolbar.addWidget(menu_button)
+
         self.addToolBar(toolbar)
         self.toolbar = toolbar
 
