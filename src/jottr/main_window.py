@@ -2,6 +2,7 @@ from __future__ import annotations
 import os
 from typing import Optional, Iterator
 
+
 from PyQt5.QtGui import QKeySequence
 from PyQt5.QtWidgets import (
     QMainWindow,
@@ -13,6 +14,7 @@ from PyQt5.QtWidgets import (
     QStyle,
     QVBoxLayout,
     QComboBox,
+
 )
 
 from editor_tab import EditorTab
@@ -24,8 +26,10 @@ from ui_theme_manager import UIThemeManager
 from ribbon import RibbonBar
 
 
+
 class MainWindow(QMainWindow):
     """Modern, cross-platform window with a ribbon and tabbed editor."""
+
 
     def __init__(self, settings_manager: SettingsManager) -> None:
         super().__init__()
@@ -45,11 +49,13 @@ class MainWindow(QMainWindow):
         layout = QVBoxLayout(central)
         layout.setContentsMargins(0, 0, 0, 0)
         self.ribbon = self._build_ribbon()
+
         layout.addWidget(self.ribbon)
         layout.addWidget(self.tab_widget)
         self.setCentralWidget(central)
 
         self._init_menu()
+
         self.statusBar().showMessage("Ready")
 
         self.new_editor_tab()
@@ -79,6 +85,7 @@ class MainWindow(QMainWindow):
     def _init_menu(self) -> None:
         file_menu = self.menuBar().addMenu("&File")
         file_menu.addActions([self.new_action, self.open_action, self.save_action])
+
         file_menu.addSeparator()
         exit_action = file_menu.addAction("Exit", self.close)
         exit_action.setShortcut(QKeySequence.Quit)
@@ -94,6 +101,7 @@ class MainWindow(QMainWindow):
             act.triggered.connect(
                 lambda checked, n=name.lower(): self.settings_manager.apply_ui_theme(n)
             )
+
 
         tools_menu = self.menuBar().addMenu("&Tools")
         tools_menu.addAction(self.settings_action)
@@ -112,6 +120,7 @@ class MainWindow(QMainWindow):
         ribbon.add_page("View", [self.rss_action, self.theme_selector])
         ribbon.add_page("Settings", [self.settings_action])
         return ribbon
+
 
     # ------------------------------------------------------------------
     # helpers
