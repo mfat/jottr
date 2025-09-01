@@ -1,9 +1,10 @@
-from PyQt5.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QLabel, 
+from PyQt5.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QLabel,
                             QLineEdit, QPushButton, QListWidget, QTabWidget,
                             QWidget, QCheckBox, QMessageBox, QInputDialog, QComboBox)
 from PyQt5.QtCore import Qt
 import json
 import os
+from ui_theme_manager import UIThemeManager
 
 class SettingsDialog(QDialog):
     def __init__(self, settings_manager, parent=None):
@@ -30,8 +31,8 @@ class SettingsDialog(QDialog):
         theme_layout = QHBoxLayout()
         theme_label = QLabel("UI Theme:")
         self.theme_combo = QComboBox()
-        self.theme_combo.addItems(['system', 'Fusion', 'Windows', 'Macintosh'])
-        self.theme_combo.setCurrentText(self.settings_manager.get_ui_theme())
+        self.theme_combo.addItems(UIThemeManager.available_themes())
+        self.theme_combo.setCurrentText(self.settings_manager.get_ui_theme().title())
         theme_layout.addWidget(theme_label)
         theme_layout.addWidget(self.theme_combo)
         appearance_layout.addLayout(theme_layout)
@@ -166,7 +167,7 @@ class SettingsDialog(QDialog):
             'homepage': self.homepage_edit.text(),
             'search_sites': self.get_search_sites(),
             'user_dictionary': self.get_user_dictionary(),
-            'ui_theme': self.theme_combo.currentText()
+            'ui_theme': self.theme_combo.currentText().lower()
         }
 
     def get_search_sites(self):
