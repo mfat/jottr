@@ -2,8 +2,10 @@ from __future__ import annotations
 import os
 from typing import Optional, Iterator
 
-
+from PyQt5.QtCore import QUrl, pyqtSlot
 from PyQt5.QtGui import QKeySequence
+from PyQt5.QtQuickWidgets import QQuickWidget
+
 from PyQt5.QtWidgets import (
     QMainWindow,
     QAction,
@@ -13,7 +15,6 @@ from PyQt5.QtWidgets import (
     QMessageBox,
     QStyle,
     QVBoxLayout,
-    QComboBox,
 
 )
 
@@ -23,12 +24,10 @@ from snippet_manager import SnippetManager
 from settings_dialog import SettingsDialog
 from settings_manager import SettingsManager
 from ui_theme_manager import UIThemeManager
-from ribbon import RibbonBar
-
 
 
 class MainWindow(QMainWindow):
-    """Modern, cross-platform window with a ribbon and tabbed editor."""
+    """Modern, cross-platform window using a QML toolbar and tabbed editor."""
 
 
     def __init__(self, settings_manager: SettingsManager) -> None:
@@ -48,9 +47,16 @@ class MainWindow(QMainWindow):
         central = QWidget()
         layout = QVBoxLayout(central)
         layout.setContentsMargins(0, 0, 0, 0)
-        self.ribbon = self._build_ribbon()
 
-        layout.addWidget(self.ribbon)
+        toolbar_qml = os.path.join(os.path.dirname(__file__), "toolbar.qml")
+        self.toolbar = QQuickWidget()
+        self.toolbar.setResizeMode(QQuickWidget.SizeRootObjectToView)
+        ctx = self.toolbar.rootContext()
+        ctx.setContextProperty("mainWindow", self)
+        self.toolbar.setSource(QUrl.fromLocalFile(toolbar_qml))
+
+        layout.addWidget(self.toolbar)
+
         layout.addWidget(self.tab_widget)
         self.setCentralWidget(central)
 
@@ -102,24 +108,8 @@ class MainWindow(QMainWindow):
                 lambda checked, n=name.lower(): self.settings_manager.apply_ui_theme(n)
             )
 
-
         tools_menu = self.menuBar().addMenu("&Tools")
         tools_menu.addAction(self.settings_action)
-
-    def _build_ribbon(self) -> RibbonBar:
-        ribbon = RibbonBar()
-        ribbon.add_page("Home", [self.new_action, self.open_action, self.save_action])
-
-        self.theme_selector = QComboBox()
-        self.theme_selector.addItems(UIThemeManager.available_themes())
-        self.theme_selector.setCurrentText(self.settings_manager.get_ui_theme().title())
-        self.theme_selector.currentTextChanged.connect(
-            lambda name: self.settings_manager.apply_ui_theme(name.lower())
-        )
-
-        ribbon.add_page("View", [self.rss_action, self.theme_selector])
-        ribbon.add_page("Settings", [self.settings_action])
-        return ribbon
 
 
     # ------------------------------------------------------------------
@@ -216,3 +206,11 @@ class MainWindow(QMainWindow):
             self.settings_manager.save_setting("user_dictionary", words)
 
             self.statusBar().showMessage("Settings saved", 2000)
+
+    # ------------------------------------------------------------------
+    # slots exposed to QML
+    @pyqtSlot(str)
+    def set_theme(self, name: str) -> None:
+        """Switch the UI theme."""
+        self.settings_manager.apply_ui_theme(name.lower())
+
