@@ -1,5 +1,2 @@
-"""Editor package utilities."""
+"""Editor-related utilities and controllers."""
 
-from .spellcheck import SpellCheckHighlighter, SpellCheckerHelper
-
-__all__ = ["SpellCheckHighlighter", "SpellCheckerHelper"]

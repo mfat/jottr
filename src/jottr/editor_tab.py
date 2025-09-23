@@ -9,15 +9,16 @@ if os.path.exists(vendor_dir):
 from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QSplitter,
 
                             QTextEdit, QListWidget, QInputDialog, QMenu, QFileDialog, QDialog,
-                            QToolBar, QAction, QCompleter, QListWidgetItem, QLineEdit, QPushButton, QMessageBox, QLabel, QShortcut, QToolTip)
-from PyQt5.QtCore import Qt, QUrl, QTimer, QStringListModel, QEvent
-from PyQt5.QtGui import (QIcon, QFont, QKeySequence, QPainter, QPen, QColor,
-                        QFontMetrics, QTextDocument, QTextCursor)
+                            QToolBar, QAction, QCompleter, QListWidgetItem, QLineEdit, QPushButton, QMessageBox, QLabel, QShortcut)
+from PyQt5.QtCore import Qt, QUrl, QTimer, QStringListModel, QRegExp, QEvent
+from PyQt5.QtGui import (QTextCharFormat, QSyntaxHighlighter, QIcon, QFont, QKeySequence, 
+                        QPainter, QPen, QColor, QFontMetrics, QTextDocument, QTextCursor)
 
 from PyQt5.QtWebEngineWidgets import QWebEngineView, QWebEnginePage
 from urllib.parse import quote
 from snippet_editor_dialog import SnippetEditorDialog
 from rss_reader import RSSReader
+from editor.completion import CompletionController
 import json
 import time
 from theme_manager import ThemeManager
@@ -89,47 +90,27 @@ class CustomTextEdit(QTextEdit):
 class CompletingTextEdit(QTextEdit):
     def __init__(self, parent=None, spell_helper=None):
         super().__init__(parent)
-        self.parent_tab = parent
-        self.spell_helper = spell_helper
-        self.completion_text = ""
-        self.completion_start = None
-        self.suppress_completion = False
+        self._completion_controller = None
+
+        # Initialize spell checker
+        if USE_ENCHANT:
+            try:
+                self.spell_checker = Dict("en_US")
+            except:
+                self.spell_checker = SpellChecker()
+                print("Fallback to pyspellchecker in CompletingTextEdit")
+        else:
+            self.spell_checker = SpellChecker()
+
+
+    def set_completion_controller(self, controller):
+        self._completion_controller = controller
 
     def keyPressEvent(self, event):
-        """Handle key events"""
-        # Handle suggestion navigation if parent has suggestions
-        if (self.parent_tab and 
-            self.parent_tab.suggestion_tooltip and 
-            self.parent_tab.current_suggestions):
-            
-            if event.key() == Qt.Key_Down:
-                self.parent_tab.select_next_suggestion()
-                event.accept()
-                return
-            elif event.key() == Qt.Key_Up:
-                self.parent_tab.select_previous_suggestion()
-                event.accept()
-                return
-            elif event.key() in (Qt.Key_Return, Qt.Key_Enter):
-                if self.parent_tab.selected_suggestion_index >= 0:
-                    suggestion_type, text = self.parent_tab.current_suggestions[self.parent_tab.selected_suggestion_index]
-                    self.parent_tab.apply_suggestion(text)
-                event.accept()
-                return
-            elif event.key() == Qt.Key_Tab:
-                # If there's only one suggestion, apply it
-                if len(self.parent_tab.current_suggestions) == 1:
-                    suggestion_type, text = self.parent_tab.current_suggestions[0]
-                    self.parent_tab.apply_suggestion(text)
-                # If there are multiple suggestions, cycle through them
-                else:
-                    self.parent_tab.select_next_suggestion()
-                event.accept()
-                return
-            elif event.key() == Qt.Key_Escape:
-                self.parent_tab.hide_suggestions()
-                event.accept()
-                return
+        """Handle key events, delegating to the completion controller."""
+        if self._completion_controller and self._completion_controller.handle_key_press(event):
+            event.accept()
+            return
 
         super().keyPressEvent(event)
 
@@ -142,58 +123,6 @@ class CompletingTextEdit(QTextEdit):
     def paintEvent(self, event):
         super().paintEvent(event)
         # Remove old completion painting code
-
-    def check_for_completion(self):
-        """Check current word against both user dictionary and snippets"""
-        # This method is now handled by EditorTab's handle_text_changed
-        pass
-
-    def show_suggestions_menu(self, suggestions, start_pos):
-        """Show popup menu with suggestions"""
-        # This method is now replaced by EditorTab's show_suggestion_tooltip
-        pass
-
-    def apply_suggestion(self, suggestion):
-        """Apply the clicked suggestion"""
-        if not self.suggestion_tooltip:
-            return
-            
-        cursor = self.editor.textCursor()
-        block = cursor.block()
-        text = block.text()
-        pos = cursor.positionInBlock()
-        
-        # Find start of current word
-        start = pos
-        while start > 0 and (text[start-1].isalnum() or text[start-1] == '_'):
-            start -= 1
-        
-        # Find if this is a snippet or word suggestion
-        is_snippet = False
-        for suggestion_type, title in self.current_suggestions:
-            if title == suggestion:
-                is_snippet = (suggestion_type == 'snippet')
-                break
-        
-        # Replace the current word
-        cursor.movePosition(cursor.StartOfBlock)
-        cursor.movePosition(cursor.Right, cursor.MoveAnchor, start)
-        cursor.movePosition(cursor.Right, cursor.KeepAnchor, pos - start)
-        
-        if is_snippet:
-            # Get and insert snippet content
-            content = self.snippet_manager.get_snippet(suggestion)
-            if content:
-                cursor.insertText(content)
-        else:
-            # Insert the word suggestion directly
-            cursor.insertText(suggestion)
-        
-        # Hide tooltip
-        self.hide_suggestions()
-        
-        # Set focus back to editor
-        self.editor.setFocus()
 
 class EditorTab(QWidget):
     def __init__(self, snippet_manager, settings_manager):
@@ -236,10 +165,6 @@ class EditorTab(QWidget):
         
         self.focus_mode = False
         self.panes_opened_in_focus = {'browser': False, 'snippets': False}  # Track panes opened during focus mode
-        self.suggestion_tooltip = None
-        self.selected_suggestion_index = -1
-        self.current_suggestions = []
-        self.editor.textChanged.connect(self.handle_text_changed)
 
     def setup_ui(self):
         """Setup the UI components"""
@@ -257,6 +182,15 @@ class EditorTab(QWidget):
 
         # Connect text changed signal to update status
         self.editor.textChanged.connect(self.update_status)
+
+        # Wire up completion controller
+        self.completion_controller = CompletionController(
+            self.editor,
+            snippet_manager=self.snippet_manager,
+            settings_manager=self.settings_manager,
+        )
+        self.editor.set_completion_controller(self.completion_controller)
+
 
         # Create spell checker
 
@@ -1217,12 +1151,10 @@ class EditorTab(QWidget):
 
     def handle_escape(self):
         """Handle ESC key press"""
-        if self.suggestion_tooltip:
-            self.suggestion_tooltip.hide()
-            self.suggestion_tooltip.deleteLater()
-            self.suggestion_tooltip = None
+        if hasattr(self, 'completion_controller') and self.completion_controller.has_suggestions():
+            self.completion_controller.hide_suggestions()
             return
-            
+
         if self.focus_mode:
             self.disable_focus_mode()
             # Update menu if possible
@@ -1376,227 +1308,6 @@ class EditorTab(QWidget):
         # Show menu at cursor position
         menu.exec_(self.editor.mapToGlobal(position))
 
-    def handle_text_changed(self):
-        """Handle text changes for autocompletion"""
-        if self.suggestion_tooltip:
-            self.suggestion_tooltip.hide()
-            self.suggestion_tooltip.deleteLater()
-            self.suggestion_tooltip = None
-            
-        cursor = self.editor.textCursor()
-        current_line = cursor.block().text()
-        current_position = cursor.positionInBlock()
-        
-        # Find the word being typed
-        word_start = current_position
-        while word_start > 0 and (current_line[word_start - 1].isalnum() or 
-                                 current_line[word_start - 1] in '_-'):
-            word_start -= 1
-        
-        current_word = current_line[word_start:current_position]
-        
-        if len(current_word) >= 2:  # Only show suggestions after 2 characters
-            suggestions = []
-            
-            # Get snippet suggestions
-            if hasattr(self, 'snippet_manager'):
-                for title in self.snippet_manager.get_snippets():
-                    if title.lower().startswith(current_word.lower()):
-                        suggestions.append(('snippet', title))
-
-            # Get dictionary suggestions
-            user_dict = self.spell_helper.get_user_dictionary()
-            for word in user_dict:
-                if word.lower().startswith(current_word.lower()) and word.lower() != current_word.lower():
-                    suggestions.append(('word', word))
-            
-            if suggestions:
-                self.show_suggestion_tooltip(suggestions, cursor)
-
-    def save_pane_states(self):
-        """Save pane visibility and sizes"""
-        states = {
-            'snippets_visible': self.snippet_pane.isVisible(),
-            'browser_visible': self.browser_pane.isVisible(),
-            'sizes': self.splitter.sizes()
-        }
-        self.settings_manager.save_setting('pane_states', states)
-
-    def set_main_window(self, main_window):
-        """Set reference to main window and initialize session state"""
-        self.main_window = main_window
-        # # Update session state to include this tab
-        # current_tabs = self.main_window.get_open_tab_ids()
-        # # if self.recovery_id not in current_tabs:
-        # #     current_tabs.append(self.recovery_id)
-        # #     self.settings_manager.save_session_state(current_tabs)
-
-    # def cleanup_session_files(self):
-    #     """Clean up session files for this tab"""
-    #     try:
-    #         if os.path.exists(self.session_path):
-    #             os.remove(self.session_path)
-    #         if os.path.exists(self.meta_path):
-    #             os.remove(self.meta_path)
-    #     except Exception as e:
-    #         print(f"Failed to cleanup session files: {str(e)}")
-
-    def keyPressEvent(self, event):
-        """Handle key events"""
-        super().keyPressEvent(event)  # Just pass through to parent
-
-    def show_suggestion_tooltip(self, suggestions, cursor):
-        """Show suggestions in a tooltip-like widget"""
-        self.hide_suggestions()
-        self.current_suggestions = suggestions
-        self.selected_suggestion_index = -1
-        
-        # Create tooltip widget
-        self.suggestion_tooltip = QWidget(self.editor, Qt.ToolTip)
-        layout = QVBoxLayout(self.suggestion_tooltip)
-        layout.setContentsMargins(4, 4, 4, 4)
-        layout.setSpacing(2)
-        
-        # Style the tooltip
-        self.suggestion_tooltip.setStyleSheet("""
-            QWidget {
-                background-color: palette(window);
-                border: 1px solid palette(mid);
-                border-radius: 3px;
-            }
-            QLabel {
-                padding: 2px 8px;
-                color: palette(text);
-                border-radius: 2px;
-                margin: 1px;
-                font-family: "Courier New", "DejaVu Sans Mono", monospace;
-            }
-        """)
-        
-        # Add suggestions (limited to 7)
-        for i, (suggestion_type, text) in enumerate(suggestions[:7]):
-            container = QWidget()
-            container_layout = QVBoxLayout(container)
-            container_layout.setContentsMargins(0, 0, 0, 0)
-            container_layout.setSpacing(1)
-            
-            if suggestion_type == 'snippet':
-                # For snippets, show content directly
-                content = self.snippet_manager.get_snippet(text)
-                if content:
-                    # Limit preview to first line or 50 chars
-                    preview = content.split('\n')[0][:50]
-                    if len(preview) < len(content):
-                        preview += "..."
-                    label = QLabel(preview)
-            else:
-                # For words, just show the word
-                label = QLabel(text)
-            
-            container_layout.addWidget(label)
-            
-            # Make container clickable
-            container.mousePressEvent = lambda _, t=text: self.apply_suggestion(t)
-            container.setCursor(Qt.PointingHandCursor)
-            
-            layout.addWidget(container)
-        
-        # Position tooltip below the cursor
-        rect = self.editor.cursorRect(cursor)
-        pos = self.editor.mapToGlobal(rect.bottomLeft())
-        pos.setY(pos.y() + 5)  # Add a small offset
-        self.suggestion_tooltip.move(pos)
-        
-        # Calculate and set fixed size
-        self.suggestion_tooltip.adjustSize()
-        
-        # Show tooltip
-        self.suggestion_tooltip.show()
-        self.suggestion_tooltip.raise_()
-
-    def select_next_suggestion(self):
-        """Select next suggestion in the list"""
-        if not self.current_suggestions:
-            return
-            
-        self.selected_suggestion_index = (self.selected_suggestion_index + 1) % len(self.current_suggestions)
-        self.update_suggestion_highlighting()
-
-    def select_previous_suggestion(self):
-        """Select previous suggestion in the list"""
-        if not self.current_suggestions:
-            return
-            
-        self.selected_suggestion_index = (self.selected_suggestion_index - 1) % len(self.current_suggestions)
-        self.update_suggestion_highlighting()
-
-    def update_suggestion_highlighting(self):
-        """Update the visual highlighting of selected suggestion"""
-        if not self.suggestion_tooltip:
-            return
-            
-        layout = self.suggestion_tooltip.layout()
-        for i in range(layout.count()):
-            container = layout.itemAt(i).widget()
-            if i == self.selected_suggestion_index:
-                container.setStyleSheet("""
-                    background-color: palette(highlight);
-                    border-radius: 2px;
-                    QLabel { color: palette(highlighted-text); }
-                """)
-            else:
-                container.setStyleSheet("")
-
-    def hide_suggestions(self):
-        """Hide suggestion tooltip"""
-        if self.suggestion_tooltip:
-            self.suggestion_tooltip.hide()
-            self.suggestion_tooltip.deleteLater()
-            self.suggestion_tooltip = None
-        self.selected_suggestion_index = -1
-        self.current_suggestions = []
-
-    def apply_suggestion(self, suggestion):
-        """Apply the clicked suggestion"""
-        if not self.suggestion_tooltip:
-            return
-            
-        cursor = self.editor.textCursor()
-        block = cursor.block()
-        text = block.text()
-        pos = cursor.positionInBlock()
-        
-        # Find start of current word
-        start = pos
-        while start > 0 and (text[start-1].isalnum() or text[start-1] == '_'):
-            start -= 1
-            
-        # Find if this is a snippet or word suggestion
-        is_snippet = False
-        for suggestion_type, title in self.current_suggestions:
-            if title == suggestion:
-                is_snippet = (suggestion_type == 'snippet')
-                break
-        
-        # Replace the current word
-        cursor.movePosition(cursor.StartOfBlock)
-        cursor.movePosition(cursor.Right, cursor.MoveAnchor, start)
-        cursor.movePosition(cursor.Right, cursor.KeepAnchor, pos - start)
-        
-        if is_snippet:
-            # Get and insert snippet content
-            content = self.snippet_manager.get_snippet(suggestion)
-            if content:
-                cursor.insertText(content)
-        else:
-            # Insert the word suggestion directly
-            cursor.insertText(suggestion)
-        
-        # Hide tooltip
-        self.hide_suggestions()
-        
-        # Set focus back to editor
-        self.editor.setFocus()
 
     def replace_word(self, new_word):
         """Replace the word under cursor with new word"""
