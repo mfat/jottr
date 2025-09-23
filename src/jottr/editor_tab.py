@@ -7,11 +7,13 @@ if os.path.exists(vendor_dir):
     sys.path.insert(0, vendor_dir)
 
 from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QSplitter,
+
                             QTextEdit, QListWidget, QInputDialog, QMenu, QFileDialog, QDialog,
                             QToolBar, QAction, QCompleter, QListWidgetItem, QLineEdit, QPushButton, QMessageBox, QLabel, QShortcut, QToolTip)
 from PyQt5.QtCore import Qt, QUrl, QTimer, QStringListModel, QEvent
 from PyQt5.QtGui import (QIcon, QFont, QKeySequence, QPainter, QPen, QColor,
                         QFontMetrics, QTextDocument, QTextCursor)
+
 from PyQt5.QtWebEngineWidgets import QWebEngineView, QWebEnginePage
 from urllib.parse import quote
 from snippet_editor_dialog import SnippetEditorDialog
@@ -20,6 +22,7 @@ import json
 import time
 from theme_manager import ThemeManager
 import hashlib
+from jottr.ui.editor_layout import EditorPane, SnippetPane, BrowserPane
 
 from editor.spellcheck import SpellCheckHighlighter, SpellCheckerHelper
 
@@ -242,20 +245,21 @@ class EditorTab(QWidget):
         """Setup the UI components"""
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
-        
+
         # Create splitter for editor and side panes
         self.splitter = QSplitter(Qt.Horizontal)
-        
+
         # Create text editor with default font
         self.editor = CompletingTextEdit(self, self.spell_helper)  # Pass helper for spell features
         self.editor.setContextMenuPolicy(Qt.CustomContextMenu)
         self.editor.customContextMenuRequested.connect(self.show_context_menu)
         self.update_font(self.current_font)
-        
+
         # Connect text changed signal to update status
         self.editor.textChanged.connect(self.update_status)
-        
+
         # Create spell checker
+
         self.highlighter = SpellCheckHighlighter(self.editor.document(), self.spell_helper)
         
         # Add editor to splitter
@@ -346,16 +350,18 @@ class EditorTab(QWidget):
         web_container_layout.setSpacing(0)                     # No spacing
         browser_layout.addWidget(self.web_container)
         
+
         # Add widgets to splitter
-        self.splitter.addWidget(self.snippet_widget)
-        self.splitter.addWidget(self.browser_widget)
-        
+        self.splitter.addWidget(self.editor_pane)
+        self.splitter.addWidget(self.snippet_pane)
+        self.splitter.addWidget(self.browser_pane)
+
         # Add splitter to layout
         layout.addWidget(self.splitter)
-        
+
         # Hide side panes by default
-        self.snippet_widget.hide()
-        self.browser_widget.hide()
+        self.snippet_pane.hide()
+        self.browser_pane.hide()
         
         # Restore pane states
         states = self.settings_manager.get_setting('pane_states', {
@@ -365,8 +371,8 @@ class EditorTab(QWidget):
         })
         
         # Apply visibility
-        self.snippet_widget.setVisible(states.get('snippets_visible', False))
-        self.browser_widget.setVisible(states.get('browser_visible', False))
+        self.snippet_pane.setVisible(states.get('snippets_visible', False))
+        self.browser_pane.setVisible(states.get('browser_visible', False))
         
         # Apply sizes
         if 'sizes' in states:
@@ -570,14 +576,13 @@ class EditorTab(QWidget):
             
     def update_snippet_list(self):
         """Update snippet list and completer"""
-        if hasattr(self, 'snippet_list'):
-            self.snippet_list.clear()
-            for title in self.snippet_manager.get_snippets():
-                self.snippet_list.addItem(title)
+        if hasattr(self, 'snippet_pane'):
+            snippets = list(self.snippet_manager.get_snippets())
+            self.snippet_pane.set_snippets(snippets)
             self.update_completer_model()
             
-    def insert_snippet(self, item):
-        text = self.snippet_manager.get_snippet(item.text())
+    def insert_snippet(self, snippet_title):
+        text = self.snippet_manager.get_snippet(snippet_title)
         if text:
             self.editor.insertPlainText(text)
             
@@ -710,16 +715,16 @@ class EditorTab(QWidget):
         self._pending_url = url
         
         # Check if browser is visible but too narrow
-        if self.browser_widget.isVisible():
+        if self.browser_pane.isVisible():
             current_sizes = self.splitter.sizes()
             if current_sizes[2] < 300:  # If browser pane is too narrow
                 editor_size = current_sizes[0]
                 new_browser_size = int(editor_size * 0.3)  # 30% of editor width
                 new_editor_size = editor_size - (new_browser_size - current_sizes[2])
                 self.splitter.setSizes([new_editor_size, current_sizes[1], new_browser_size])
-        
+
         # Make sure browser is visible and web view exists
-        if not self.browser_widget.isVisible():
+        if not self.browser_pane.isVisible():
             # Mark browser as opened during focus mode BEFORE toggling
             if self.focus_mode:
                 self.panes_opened_in_focus['browser'] = True
@@ -741,10 +746,10 @@ class EditorTab(QWidget):
 
     def ensure_browser_visible(self):
         """Ensure browser pane is visible"""
-        if not self.browser_widget.isVisible():
-            self.browser_widget.setVisible(True)
+        if not self.browser_pane.isVisible():
+            self.browser_pane.setVisible(True)
             self.settings_manager.save_pane_visibility(
-                self.snippet_widget.isVisible(),
+                self.snippet_pane.isVisible(),
                 True
             )
 
@@ -756,19 +761,19 @@ class EditorTab(QWidget):
         self._pending_url = url
         
         # Check if browser is visible but too narrow
-        if self.browser_widget.isVisible():
+        if self.browser_pane.isVisible():
             current_sizes = self.splitter.sizes()
             if current_sizes[2] < 300:  # If browser pane is too narrow
                 editor_size = current_sizes[0]
                 new_browser_size = int(editor_size * 0.3)  # 30% of editor width
                 new_editor_size = editor_size - (new_browser_size - current_sizes[2])
                 self.splitter.setSizes([new_editor_size, current_sizes[1], new_browser_size])
-        
+
         # If browser is not visible, show it first
-        if not self.browser_widget.isVisible():
+        if not self.browser_pane.isVisible():
             self.toggle_pane("browser")
             return
-        
+
         # If browser is visible but no web view exists, create it
         if not self.web_view:
             self.create_web_view()
@@ -776,7 +781,7 @@ class EditorTab(QWidget):
         # Use existing web view
         self.web_view.stop()
         self.web_view.setUrl(QUrl(url))
-        self.url_bar.setText(url)
+        self.browser_pane.set_url(url)
 
     def search_apnews(self, text):
         """Search AP News in browser pane"""
@@ -786,7 +791,7 @@ class EditorTab(QWidget):
         self._pending_url = url
         
         # If browser is not visible, show it first
-        if not self.browser_widget.isVisible():
+        if not self.browser_pane.isVisible():
             self.toggle_pane("browser")
             return
             
@@ -797,7 +802,7 @@ class EditorTab(QWidget):
         # Use existing web view
         self.web_view.stop()
         self.web_view.setUrl(QUrl(url))
-        self.url_bar.setText(url)
+        self.browser_pane.set_url(url)
         
     def search_google_site_apnews(self, text):
         """Search AP News via Google in browser pane"""
@@ -807,7 +812,7 @@ class EditorTab(QWidget):
         self._pending_url = url
         
         # If browser is not visible, show it first
-        if not self.browser_widget.isVisible():
+        if not self.browser_pane.isVisible():
             self.toggle_pane("browser")
             return
             
@@ -818,7 +823,7 @@ class EditorTab(QWidget):
         # Use existing web view
         self.web_view.stop()
         self.web_view.setUrl(QUrl(url))
-        self.url_bar.setText(url)
+        self.browser_pane.set_url(url)
         
     def save_snippet(self, text):
         """Save selected text as a snippet"""
@@ -828,11 +833,11 @@ class EditorTab(QWidget):
             self.update_snippet_list()
             
     def edit_current_snippet(self):
-        current_item = self.snippet_list.currentItem()
-        if not current_item:
+        current_title = self.snippet_pane.current_snippet()
+        if not current_title:
             return
-            
-        old_title = current_item.text()
+
+        old_title = current_title
         content = self.snippet_manager.get_snippet(old_title)
         
         dialog = SnippetEditorDialog(old_title, content, self)
@@ -845,19 +850,19 @@ class EditorTab(QWidget):
             self.update_snippet_list()
     
     def delete_current_snippet(self):
-        current_item = self.snippet_list.currentItem()
-        if current_item:
-            self.snippet_manager.delete_snippet(current_item.text())
+        current_title = self.snippet_pane.current_snippet()
+        if current_title:
+            self.snippet_manager.delete_snippet(current_title)
             self.update_snippet_list()
 
-    def show_snippet_context_menu(self, position):
+    def show_snippet_context_menu(self, position, global_position):
         menu = QMenu()
-        current_item = self.snippet_list.currentItem()
-        
-        if current_item:
+        current_title = self.snippet_pane.current_snippet()
+
+        if current_title:
             menu.addAction("Edit Snippet", self.edit_current_snippet)
             menu.addAction("Delete Snippet", self.delete_current_snippet)
-            menu.exec_(self.snippet_list.mapToGlobal(position))
+            menu.exec_(global_position)
 
     def update_completer_model(self):
         """Update completer with current snippets"""
@@ -883,12 +888,17 @@ class EditorTab(QWidget):
         if snippet_content:
             cursor.insertText(snippet_content)
     
-    def navigate_to_url(self):
+    def navigate_to_url(self, url=None):
         """Navigate to URL entered in URL bar"""
-        url = self.url_bar.text().strip()
+        if url is None:
+            url = self.browser_pane.url()
+        else:
+            self.browser_pane.set_url(url)
+
+        url = url.strip()
         if not url:
             return
-            
+
         # Add http:// if no protocol specified
         if not url.startswith(('http://', 'https://')):
             # Check if it's a search query
@@ -896,46 +906,53 @@ class EditorTab(QWidget):
                 url = f"https://www.google.com/search?q={quote(url)}"
             else:
                 url = 'http://' + url
-        
+
         # Check if browser is visible but too narrow
-        if self.browser_widget.isVisible():
+        if self.browser_pane.isVisible():
             current_sizes = self.splitter.sizes()
             if current_sizes[2] < 300:  # If browser pane is too narrow
                 editor_size = current_sizes[0]
                 new_browser_size = int(editor_size * 0.3)  # 30% of editor width
                 new_editor_size = editor_size - (new_browser_size - current_sizes[2])
                 self.splitter.setSizes([new_editor_size, current_sizes[1], new_browser_size])
-        
+
         # If browser is not visible, show it first
-        if not self.browser_widget.isVisible():
+        if not self.browser_pane.isVisible():
             self._pending_url = url
             self.toggle_pane("browser")
             return
-        
+
         # If browser is visible but no web view exists, create it
         if not self.web_view:
             self.create_web_view()
-        
+
         # Stop any current loading and load new URL
         self.web_view.stop()
         self.web_view.setUrl(QUrl(url))
+        self.browser_pane.set_url(url)
+
+    def handle_browser_back(self):
+        """Handle back navigation requests from the browser pane."""
+        if self.web_view:
+            self.web_view.back()
+
+    def handle_browser_forward(self):
+        """Handle forward navigation requests from the browser pane."""
+        if self.web_view:
+            self.web_view.forward()
 
     def create_web_view(self):
         """Create and set up web view"""
         self.web_view = QWebEngineView()
-        
+
         # Connect all web view signals
         self.web_view.urlChanged.connect(self.update_url)
-        self.web_view.loadStarted.connect(lambda: self.url_bar.setEnabled(False))
-        self.web_view.loadFinished.connect(lambda: self.url_bar.setEnabled(True))
+        self.web_view.loadStarted.connect(lambda: self.browser_pane.set_url_enabled(False))
+        self.web_view.loadFinished.connect(lambda: self.browser_pane.set_url_enabled(True))
         self.web_view.loadFinished.connect(self.update_nav_buttons)
-        
-        # Connect navigation buttons
-        self.back_btn.clicked.connect(self.web_view.back)
-        self.forward_btn.clicked.connect(self.web_view.forward)
-        
+
         # Add to layout
-        self.web_container.layout().addWidget(self.web_view)
+        self.browser_pane.set_web_view(self.web_view)
 
     def update_font(self, font):
         """Update editor font"""
@@ -981,33 +998,30 @@ class EditorTab(QWidget):
     def toggle_pane(self, pane_type):
         """Toggle visibility of side panes"""
         if pane_type == "snippets":
-            self.snippet_widget.setVisible(not self.snippet_widget.isVisible())
+            self.snippet_pane.setVisible(not self.snippet_pane.isVisible())
             # If showing snippets, make sure it has reasonable size
-            if self.snippet_widget.isVisible():
+            if self.snippet_pane.isVisible():
                 current_sizes = self.splitter.sizes()
                 if current_sizes[1] < 100:  # If snippet pane is too small
                     editor_size = current_sizes[0]
                     new_snippet_size = int(editor_size * 0.2)  # 20% for snippets
                     new_editor_size = editor_size - new_snippet_size
                     self.splitter.setSizes([new_editor_size, new_snippet_size, current_sizes[2]])
-                    
+
         elif pane_type == "browser":
-            is_visible = self.browser_widget.isVisible()
-            
+            is_visible = self.browser_pane.isVisible()
+
             if is_visible:
                 # If currently visible, hide it and destroy web view
-                self.browser_widget.setVisible(False)
+                self.browser_pane.setVisible(False)
                 if self.web_view:
                     self.web_view.stop()
                     self.web_view.setParent(None)
                     self.web_view.deleteLater()
                     self.web_view = None
-                    
+
                     # Clear the container layout
-                    while self.web_container.layout().count():
-                        item = self.web_container.layout().takeAt(0)
-                        if item.widget():
-                            item.widget().deleteLater()
+                    self.browser_pane.clear_web_view()
             else:
                 # If showing browser, make sure it has reasonable size first
                 current_sizes = self.splitter.sizes()
@@ -1016,9 +1030,9 @@ class EditorTab(QWidget):
                     new_browser_size = int(editor_size * 0.3)
                     new_editor_size = editor_size - new_browser_size
                     self.splitter.setSizes([new_editor_size, current_sizes[1], new_browser_size])
-        
-                self.browser_widget.setVisible(True)
-                
+
+                self.browser_pane.setVisible(True)
+
                 # Create web view and load URL
                 self.create_web_view()
                 if hasattr(self, '_pending_url'):
@@ -1032,9 +1046,9 @@ class EditorTab(QWidget):
         if self.focus_mode:
             if pane_type == "browser":
                 # Only track as opened if we're showing it
-                self.panes_opened_in_focus['browser'] = self.browser_widget.isVisible()
+                self.panes_opened_in_focus['browser'] = self.browser_pane.isVisible()
             elif pane_type == "snippets":
-                self.panes_opened_in_focus['snippets'] = self.snippet_widget.isVisible()
+                self.panes_opened_in_focus['snippets'] = self.snippet_pane.isVisible()
         
         # Save states after toggle
         self.save_pane_states()
@@ -1066,70 +1080,7 @@ class EditorTab(QWidget):
         self.web_view.addAction(paste_action)
         
     def update_url(self, url):
-        self.url_bar.setText(url.toString())
-
-    def setup_browser_toolbar(self):
-        """Setup browser toolbar with navigation controls"""
-        # Browser toolbar
-        toolbar = QWidget()
-        toolbar.setFixedHeight(32)
-        toolbar.setStyleSheet("""
-            QWidget {
-                background: palette(window);
-                border-bottom: 1px solid palette(mid);
-            }
-            QLineEdit {
-                border: 1px solid palette(mid);
-                border-radius: 3px;
-                padding: 2px 8px;
-                background: palette(base);
-                selection-background-color: palette(highlight);
-                margin: 4px;
-            }
-            QPushButton {
-                background: transparent;
-                border: none;
-                border-radius: 3px;
-                padding: 4px;
-                margin: 2px;
-                color: palette(text);
-            }
-            QPushButton:hover {
-                background: palette(highlight);
-                color: palette(highlighted-text);
-            }
-        """)
-        
-        toolbar_layout = QHBoxLayout(toolbar)
-        toolbar_layout.setContentsMargins(4, 0, 4, 0)
-        toolbar_layout.setSpacing(2)
-        
-        # Navigation buttons
-        self.back_btn = QPushButton("←")
-        self.back_btn.setFixedSize(24, 24)
-        self.back_btn.setEnabled(False)  # Initially disabled
-        toolbar_layout.addWidget(self.back_btn)
-        
-        self.forward_btn = QPushButton("→")
-        self.forward_btn.setFixedSize(24, 24)
-        self.forward_btn.setEnabled(False)  # Initially disabled
-        toolbar_layout.addWidget(self.forward_btn)
-        
-        # URL bar
-        self.url_bar = QLineEdit()
-        self.url_bar.setPlaceholderText("Search or enter address")
-        self.url_bar.returnPressed.connect(self.navigate_to_url)
-        toolbar_layout.addWidget(self.url_bar)
-        
-        # Close button
-        close_btn = QPushButton("×")
-        close_btn.setFixedSize(24, 24)
-        close_btn.setFont(QFont("Arial", 14))
-        close_btn.clicked.connect(lambda: self.toggle_pane("browser"))
-        toolbar_layout.addWidget(close_btn)
-        
-        # Add toolbar to browser layout
-        self.browser_widget.layout().addWidget(toolbar)
+        self.browser_pane.set_url(url.toString())
 
     def update_status(self):
         """Update word and character count"""
@@ -1167,8 +1118,8 @@ class EditorTab(QWidget):
         
         # Store current pane states
         self.pre_focus_states = {
-            'snippets_visible': self.snippet_widget.isVisible(),
-            'browser_visible': self.browser_widget.isVisible(),
+            'snippets_visible': self.snippet_pane.isVisible(),
+            'browser_visible': self.browser_pane.isVisible(),
             'sizes': self.splitter.sizes()
         }
         
@@ -1177,8 +1128,8 @@ class EditorTab(QWidget):
         window.tab_widget.tabBar().hide()
         
         # Hide panes
-        self.snippet_widget.hide()
-        self.browser_widget.hide()
+        self.snippet_pane.hide()
+        self.browser_pane.hide()
         
         # Add exit button
         self.exit_focus_btn = QPushButton("Exit Focus Mode", self)
@@ -1229,11 +1180,11 @@ class EditorTab(QWidget):
         # Restore pane states
         if hasattr(self, 'pre_focus_states'):
             browser_should_be_visible = (self.pre_focus_states['browser_visible'] or
-                                       self.browser_widget.isVisible() or
+                                       self.browser_pane.isVisible() or
                                        self.panes_opened_in_focus['browser'])
-            
-            self.snippet_widget.setVisible(self.pre_focus_states['snippets_visible'])
-            self.browser_widget.setVisible(browser_should_be_visible)
+
+            self.snippet_pane.setVisible(self.pre_focus_states['snippets_visible'])
+            self.browser_pane.setVisible(browser_should_be_visible)
             
             # Calculate proper sizes
             total_width = sum(self.pre_focus_states['sizes'])
@@ -1465,8 +1416,8 @@ class EditorTab(QWidget):
     def save_pane_states(self):
         """Save pane visibility and sizes"""
         states = {
-            'snippets_visible': self.snippet_widget.isVisible(),
-            'browser_visible': self.browser_widget.isVisible(),
+            'snippets_visible': self.snippet_pane.isVisible(),
+            'browser_visible': self.browser_pane.isVisible(),
             'sizes': self.splitter.sizes()
         }
         self.settings_manager.save_setting('pane_states', states)
@@ -1698,8 +1649,9 @@ class EditorTab(QWidget):
     def update_nav_buttons(self):
         """Update navigation button states"""
         if self.web_view:
-            self.back_btn.setEnabled(self.web_view.page().action(QWebEnginePage.Back).isEnabled())
-            self.forward_btn.setEnabled(self.web_view.page().action(QWebEnginePage.Forward).isEnabled())
+            back_enabled = self.web_view.page().action(QWebEnginePage.Back).isEnabled()
+            forward_enabled = self.web_view.page().action(QWebEnginePage.Forward).isEnabled()
+            self.browser_pane.set_navigation_enabled(back_enabled, forward_enabled)
 
     def handle_navigation(self, navigation_type, url):
         """Handle navigation requests"""
@@ -1709,7 +1661,4 @@ class EditorTab(QWidget):
 
     def navigate_url(self):
         """Navigate to URL in browser"""
-        url = self.url_bar.text()
-        if not url.startswith(('http://', 'https://')):
-            url = 'https://' + url
-        self.web_view.setUrl(QUrl(url))
+        self.navigate_to_url()
