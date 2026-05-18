@@ -506,17 +506,29 @@ class ThemeManager:
                 alternate-background-color: {app['surface']};
                 color: {app['text']};
                 border: none;
+<<<<<<< HEAD
                 padding: 8px 4px;
                 selection-background-color: {app['surface_active']};
                 selection-color: {app['accent_text']};
                 outline: 0px;
                 show-decoration-selected: 1;
+=======
+                padding: 8px 6px;
+                selection-background-color: {app['surface_active']};
+                selection-color: {app['accent_text']};
+                outline: 0px;
+>>>>>>> parent of 429d996 (Revert "Implementing the workspaces.")
             }}
             QTreeView#workspaceTree::item {{
                 min-height: 26px;
                 border-radius: 4px;
+<<<<<<< HEAD
                 padding: 4px 7px;
                 margin: 1px 4px 1px 0px;
+=======
+                padding: 4px 8px;
+                margin: 1px 2px;
+>>>>>>> parent of 429d996 (Revert "Implementing the workspaces.")
             }}
             QTreeView#workspaceTree::item:hover {{
                 background: {app['surface_hover']};
@@ -530,6 +542,7 @@ class ThemeManager:
             }}
             QTreeView#workspaceTree::branch {{
                 background: transparent;
+<<<<<<< HEAD
                 border-image: none;
                 image: none;
                 width: 18px;
@@ -544,6 +557,8 @@ class ThemeManager:
             }}
             QTreeView#workspaceTree::branch:!has-children {{
                 border-left: 1px solid {app['border']};
+=======
+>>>>>>> parent of 429d996 (Revert "Implementing the workspaces.")
             }}
             QTabBar::tab {{
                 background: transparent;

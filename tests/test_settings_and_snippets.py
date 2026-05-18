@@ -46,6 +46,13 @@ class SettingsAndSnippetTests(unittest.TestCase):
         self.assertEqual(manager.get_setting("font_size"), 12)
         self.assertTrue(manager.get_setting("spell_check"))
         self.assertEqual(manager.get_setting("icon_contrast"), "auto")
+        self.assertFalse(manager.get_setting("autosave_enabled"))
+        self.assertEqual(manager.get_setting("autosave_interval_seconds"), 30)
+        self.assertEqual(manager.get_setting("workspace_path"), "")
+        self.assertEqual(manager.get_setting("recent_workspaces"), [])
+        self.assertEqual(manager.get_setting("workspace_sessions"), {})
+        self.assertEqual(manager.get_setting("workspace_open_files"), [])
+        self.assertEqual(manager.get_setting("workspace_markdown_files"), [])
         self.assertEqual(manager.get_setting("missing", "fallback"), "fallback")
 
     def test_settings_manager_persists_single_settings_and_font(self):

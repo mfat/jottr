@@ -1,7 +1,7 @@
 from PyQt6.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QLabel, 
                             QLineEdit, QPushButton, QListWidget, QTabWidget,
                             QWidget, QCheckBox, QMessageBox, QInputDialog, QComboBox,
-                            QGroupBox, QPlainTextEdit)
+                            QGroupBox, QPlainTextEdit, QSpinBox)
 from PyQt6.QtCore import Qt
 import json
 import os
@@ -100,6 +100,27 @@ class SettingsDialog(QDialog):
             self.settings_manager.get_setting('editor_line_numbers', True)
         )
         appearance_layout.addWidget(self.editor_line_numbers_check)
+
+        autosave_box = QGroupBox("Autosave")
+        autosave_layout = QVBoxLayout(autosave_box)
+        self.autosave_enabled_check = QCheckBox("Automatically save changed files")
+        self.autosave_enabled_check.setChecked(
+            self.settings_manager.get_setting('autosave_enabled', False)
+        )
+        autosave_layout.addWidget(self.autosave_enabled_check)
+
+        autosave_interval_layout = QHBoxLayout()
+        autosave_interval_label = QLabel("Save changed files every:")
+        self.autosave_interval_spin = QSpinBox()
+        self.autosave_interval_spin.setRange(1, 3600)
+        self.autosave_interval_spin.setSuffix(" seconds")
+        self.autosave_interval_spin.setValue(
+            int(self.settings_manager.get_setting('autosave_interval_seconds', 30))
+        )
+        autosave_interval_layout.addWidget(autosave_interval_label)
+        autosave_interval_layout.addWidget(self.autosave_interval_spin)
+        autosave_layout.addLayout(autosave_interval_layout)
+        appearance_layout.addWidget(autosave_box)
         appearance_layout.addStretch()
         
         # Add appearance tab
@@ -342,7 +363,9 @@ class SettingsDialog(QDialog):
             'custom_themes': self.get_custom_themes(),
             'icon_contrast': self.icon_contrast_combo.currentText(),
             'markdown_scroll_sync': self.markdown_scroll_sync_check.isChecked(),
-            'editor_line_numbers': self.editor_line_numbers_check.isChecked()
+            'editor_line_numbers': self.editor_line_numbers_check.isChecked(),
+            'autosave_enabled': self.autosave_enabled_check.isChecked(),
+            'autosave_interval_seconds': self.autosave_interval_spin.value()
         }
 
     def get_search_sites(self):

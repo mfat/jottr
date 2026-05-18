@@ -49,6 +49,8 @@ class DialogAndRssTests(unittest.TestCase):
         manager = SettingsManager()
         manager.save_setting("search_sites", {"News": "site:news.example"})
         manager.save_setting("user_dictionary", ["jottr"])
+        manager.save_setting("autosave_enabled", True)
+        manager.save_setting("autosave_interval_seconds", 12)
         manager.save_custom_themes({
             "Forest": {
                 "bg": "#102018",
@@ -64,6 +66,8 @@ class DialogAndRssTests(unittest.TestCase):
         dialog.icon_contrast_combo.setCurrentText("light")
         dialog.markdown_scroll_sync_check.setChecked(False)
         dialog.editor_line_numbers_check.setChecked(False)
+        dialog.autosave_enabled_check.setChecked(True)
+        dialog.autosave_interval_spin.setValue(15)
 
         data = dialog.get_data()
 
@@ -75,6 +79,8 @@ class DialogAndRssTests(unittest.TestCase):
         self.assertEqual(data["icon_contrast"], "light")
         self.assertFalse(data["markdown_scroll_sync"])
         self.assertFalse(data["editor_line_numbers"])
+        self.assertTrue(data["autosave_enabled"])
+        self.assertEqual(data["autosave_interval_seconds"], 15)
 
     def test_settings_dialog_creates_and_deletes_custom_theme(self):
         manager = SettingsManager()
