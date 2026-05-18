@@ -10,7 +10,7 @@ from PyQt6.QtWidgets import (QApplication, QMainWindow, QTabWidget, QWidget,
                             QVBoxLayout, QHBoxLayout, QSplitter, QMenu, QToolBar, QMessageBox, QFontDialog, QLabel, QDialog, QSizePolicy, QDialogButtonBox, QTabBar, QFileDialog, QToolButton, QTreeView, QInputDialog, QPushButton)
 from PyQt6.QtCore import Qt, QUrl, QTimer, QEvent, QDir
 from PyQt6.QtWebEngineWidgets import QWebEngineView
-from PyQt6.QtGui import QAction, QShortcut, QFileSystemModel
+from PyQt6.QtGui import QAction, QShortcut, QFileSystemModel, QPen
 from editor_tab import EditorTab
 from snippet_manager import SnippetManager
 from rss_tab import RSSTab
@@ -42,6 +42,25 @@ class WorkspaceFileSystemModel(QFileSystemModel):
         if role == Qt.ItemDataRole.ToolTipRole and index.isValid():
             return self.filePath(index)
         return super().data(index, role)
+
+
+class WorkspaceTreeView(QTreeView):
+    """Tree view with subtle branch guides for workspace hierarchy."""
+
+    def drawBranches(self, painter, rect, index):
+        super().drawBranches(painter, rect, index)
+        if not index.isValid() or rect.width() <= 0:
+            return
+
+        color = self.palette().mid().color()
+        color.setAlpha(130)
+        painter.save()
+        painter.setPen(QPen(color, 1))
+        center_x = rect.right() - max(8, self.indentation() // 2)
+        center_y = rect.center().y()
+        painter.drawLine(center_x, rect.top(), center_x, rect.bottom())
+        painter.drawLine(center_x, center_y, rect.right(), center_y)
+        painter.restore()
 
 
 class TextEditorApp(QMainWindow):
@@ -269,11 +288,16 @@ class TextEditorApp(QMainWindow):
             QDir.Filter.NoDotAndDotDot
         )
 
-        self.workspace_tree = QTreeView()
+        self.workspace_tree = WorkspaceTreeView()
         self.workspace_tree.setObjectName("workspaceTree")
         self.workspace_tree.setModel(self.workspace_model)
         self.workspace_tree.setHeaderHidden(True)
         self.workspace_tree.setAnimated(True)
+        self.workspace_tree.setAlternatingRowColors(True)
+        self.workspace_tree.setAllColumnsShowFocus(True)
+        self.workspace_tree.setExpandsOnDoubleClick(True)
+        self.workspace_tree.setIndentation(18)
+        self.workspace_tree.setRootIsDecorated(True)
         self.workspace_tree.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         self.workspace_tree.doubleClicked.connect(self.open_workspace_index)
         self.workspace_tree.customContextMenuRequested.connect(self.show_workspace_context_menu)

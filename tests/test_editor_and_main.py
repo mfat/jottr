@@ -20,7 +20,7 @@ from PyQt6.QtWidgets import QApplication, QTextEdit, QWidget
 from editor_tab import EditorTab, SpellCheckHighlighter
 import editor_tab as editor_tab_module
 import main as main_module
-from main import APP_NAME, TextEditorApp, WorkspaceFileSystemModel
+from main import APP_NAME, TextEditorApp, WorkspaceFileSystemModel, WorkspaceTreeView
 from settings_manager import SettingsManager
 from snippet_manager import SnippetManager
 
@@ -93,6 +93,20 @@ class EditorAndMainTests(unittest.TestCase):
         index = model.index(str(note))
 
         self.assertEqual(model.data(index, Qt.ItemDataRole.ToolTipRole), str(note))
+
+    def test_workspace_tree_uses_visible_hierarchy_settings(self):
+        tree = WorkspaceTreeView()
+        self.addCleanup(tree.deleteLater)
+
+        tree.setIndentation(18)
+        tree.setRootIsDecorated(True)
+        tree.setAlternatingRowColors(True)
+        tree.setAllColumnsShowFocus(True)
+
+        self.assertEqual(tree.indentation(), 18)
+        self.assertTrue(tree.rootIsDecorated())
+        self.assertTrue(tree.alternatingRowColors())
+        self.assertTrue(tree.allColumnsShowFocus())
 
     def make_editor(self):
         web_view_patch = patch.object(editor_tab_module, "QWebEngineView", _FakeWebEngineView)

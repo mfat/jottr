@@ -506,16 +506,17 @@ class ThemeManager:
                 alternate-background-color: {app['surface']};
                 color: {app['text']};
                 border: none;
-                padding: 8px 6px;
+                padding: 8px 4px;
                 selection-background-color: {app['surface_active']};
                 selection-color: {app['accent_text']};
                 outline: 0px;
+                show-decoration-selected: 1;
             }}
             QTreeView#workspaceTree::item {{
                 min-height: 26px;
                 border-radius: 4px;
-                padding: 4px 8px;
-                margin: 1px 2px;
+                padding: 4px 7px;
+                margin: 1px 4px 1px 0px;
             }}
             QTreeView#workspaceTree::item:hover {{
                 background: {app['surface_hover']};
@@ -529,6 +530,20 @@ class ThemeManager:
             }}
             QTreeView#workspaceTree::branch {{
                 background: transparent;
+                border-image: none;
+                image: none;
+                width: 18px;
+            }}
+            QTreeView#workspaceTree::branch:has-children:closed {{
+                border: none;
+                border-left: 1px solid {app['border']};
+            }}
+            QTreeView#workspaceTree::branch:has-children:open {{
+                border: none;
+                border-left: 1px solid {app['border_active']};
+            }}
+            QTreeView#workspaceTree::branch:!has-children {{
+                border-left: 1px solid {app['border']};
             }}
             QTabBar::tab {{
                 background: transparent;
