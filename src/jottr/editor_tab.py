@@ -17,8 +17,10 @@ from PyQt6.QtWebEngineCore import QWebEnginePage, QWebEngineSettings
 from urllib.parse import quote
 from snippet_editor_dialog import SnippetEditorDialog
 from rss_reader import RSSReader
+import json
 import time
 from theme_manager import ThemeManager
+import hashlib
 import html
 import re
 import base64
@@ -572,10 +574,10 @@ class EditorTab(QWidget):
         self.last_save_time = time.time()
         self.changes_pending = False
         
-        # Start configurable autosave timer
-        self.backup_timer = QTimer(self)
+        # Start periodic backup timer
+        self.backup_timer = QTimer()
         self.backup_timer.timeout.connect(self.force_save)
-        self.configure_autosave_timer()
+        self.backup_timer.start(5000)  # Backup every 5 seconds
 
         self.preview_scroll_timer = QTimer(self)
         self.preview_scroll_timer.timeout.connect(self.schedule_editor_scroll_sync)
@@ -610,7 +612,6 @@ class EditorTab(QWidget):
         self.selected_suggestion_index = -1
         self.current_suggestions = []
         self.editor.textChanged.connect(self.handle_text_changed)
-        self.editor.textChanged.connect(self.mark_autosave_pending)
         self.editor.textChanged.connect(self.schedule_markdown_preview_update)
         self.editor.cursorPositionChanged.connect(self.schedule_markdown_cursor_sync)
         self.editor.verticalScrollBar().valueChanged.connect(self.schedule_markdown_scroll_sync)
@@ -819,83 +820,78 @@ class EditorTab(QWidget):
             self.settings_manager.get_custom_themes()
         )
         self.setStyleSheet(ThemeManager.build_workspace_stylesheet(theme))
-
-    def autosave_enabled(self):
-        """Return whether autosave should write existing files."""
-        return bool(self.settings_manager.get_setting('autosave_enabled', False))
-
-    def autosave_interval_ms(self):
-        """Return configured autosave interval in milliseconds."""
-        try:
-            seconds = int(self.settings_manager.get_setting('autosave_interval_seconds', 30))
-        except (TypeError, ValueError):
-            seconds = 30
-        return max(1, seconds) * 1000
-
-    def configure_autosave_timer(self):
-        """Apply autosave settings to this tab."""
-        self.backup_timer.setInterval(self.autosave_interval_ms())
-        if self.autosave_enabled():
-            self.backup_timer.start()
-        else:
-            self.backup_timer.stop()
-
-    def mark_autosave_pending(self):
-        """Mark the current file as needing autosave."""
-        if not self.autosave_enabled():
-            return
-        if not self.current_file:
-            return
-        self.changes_pending = True
         
     def on_text_changed(self):
         """Handle text changes"""
-        self.mark_autosave_pending()
+        if not hasattr(self, 'main_window') or not self.main_window:
+            return  # Don't autosave if not properly initialized
+            
+        self.changes_pending = True
+        current_time = time.time()
+        
+        # Save if it's been more than 1 second since last save
+        if current_time - self.last_save_time > 1.0:
+            self.autosave()
+            self.last_save_time = current_time
 
     def force_save(self):
         """Force save if there are pending changes"""
-        if self.autosave_enabled() and self.changes_pending:
+        if self.changes_pending:
             self.autosave()
             self.last_save_time = time.time()
             self.changes_pending = False
 
     def autosave(self):
-        """Autosave the current file with an atomic replace."""
-        if not self.current_file:
-            self.changes_pending = False
-            return False
-
+        """Perform autosave with integrity checks"""
         content = self.editor.toPlainText()
-        temp_content = self.current_file + '.tmp'
         
         try:
+            # Create temporary files first
+            temp_content = self.session_path + '.tmp'
+            temp_meta = self.meta_path + '.tmp'
+            
+            # Save content with integrity check
             with open(temp_content, 'w', encoding='utf-8') as f:
                 f.write(content)
                 f.flush()
                 os.fsync(f.fileno())
-
+            
+            # Verify content was written correctly
             with open(temp_content, 'r', encoding='utf-8') as f:
                 saved_content = f.read()
                 if saved_content != content:
                     raise ValueError("Content verification failed")
-
-            os.replace(temp_content, self.current_file)
+            
+            # Save metadata
+            metadata = {
+                'timestamp': time.time(),
+                'original_file': self.current_file,
+                'cursor_position': self.editor.textCursor().position(),
+                'scroll_position': self.editor.verticalScrollBar().value(),
+                'modified': self.editor.document().isModified(),
+                'tab_index': self.main_window.tab_widget.indexOf(self) if self.main_window else 0,
+                'active': self.main_window.tab_widget.currentWidget() == self if self.main_window else False,
+                'checksum': hashlib.md5(content.encode()).hexdigest()
+            }
+            
+            with open(temp_meta, 'w') as f:
+                json.dump(metadata, f)
+                f.flush()
+                os.fsync(f.fileno())
+            
+            # Atomically replace old files with new ones
+            os.replace(temp_content, self.session_path)
+            os.replace(temp_meta, self.meta_path)
+            
+            # Update session state
+            if self.main_window:
+                current_tabs = self.main_window.get_open_tab_ids()
+                self.settings_manager.save_session_state(current_tabs)
+            
+            self.changes_pending = False
+                
         except Exception as e:
-            try:
-                if os.path.exists(temp_content):
-                    os.remove(temp_content)
-            except OSError:
-                pass
             print(f"Autosave failed: {str(e)}")
-            return False
-
-        self.changes_pending = False
-        self.editor.document().setModified(False)
-        if self.main_window and hasattr(self.main_window, 'save_workspace_open_files'):
-            self.main_window.save_workspace_open_files()
-        if self.main_window and hasattr(self.main_window, 'save_workspace_markdown_files'):
-            self.main_window.save_workspace_markdown_files()
-        return True
 
     def save_file(self, force_dialog=False):
         """Save file, optionally forcing Save As dialog"""
@@ -922,10 +918,6 @@ class EditorTab(QWidget):
             
             # Mark document as unmodified
             self.editor.document().setModified(False)
-            if self.main_window and hasattr(self.main_window, 'save_workspace_open_files'):
-                self.main_window.save_workspace_open_files()
-            if self.main_window and hasattr(self.main_window, 'save_workspace_markdown_files'):
-                self.main_window.save_workspace_markdown_files()
             return True
         except Exception as e:
             QMessageBox.critical(self, "Error", f"Could not save file: {str(e)}")
