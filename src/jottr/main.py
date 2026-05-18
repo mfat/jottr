@@ -7,8 +7,8 @@ import os
 import json
 import hashlib
 from PyQt6.QtWidgets import (QApplication, QMainWindow, QTabWidget, QWidget, 
-                            QVBoxLayout, QHBoxLayout, QSplitter, QMenu, QToolBar, QMessageBox, QFontDialog, QLabel, QDialog, QSizePolicy, QDialogButtonBox, QTabBar, QFileDialog, QToolButton, QTreeView, QInputDialog, QPushButton)
-from PyQt6.QtCore import Qt, QUrl, QTimer, QEvent, QDir
+                            QVBoxLayout, QHBoxLayout, QSplitter, QMenu, QToolBar, QMessageBox, QFontDialog, QLabel, QDialog, QSizePolicy, QDialogButtonBox, QTabBar, QFileDialog, QToolButton)
+from PyQt6.QtCore import Qt, QUrl, QTimer, QEvent
 from PyQt6.QtWebEngineWidgets import QWebEngineView
 from PyQt6.QtGui import QAction, QShortcut, QFileSystemModel, QPen
 from editor_tab import EditorTab
@@ -142,11 +142,6 @@ class TextEditorApp(QMainWindow):
         layout.setSpacing(0)
         
         # Create tab widget
-        self.main_splitter = QSplitter(Qt.Orientation.Horizontal)
-        self.main_splitter.setObjectName("mainSplitter")
-        self.workspace_path = ""
-        self.setup_workspace_explorer()
-
         self.tab_widget = QTabWidget()
         self.tab_widget.setObjectName("documentTabs")
         self.tab_widget.setDocumentMode(False)
@@ -158,13 +153,9 @@ class TextEditorApp(QMainWindow):
         # Install event filter on the tab bar
         self.tab_widget.tabBar().installEventFilter(self)
         
-        self.main_splitter.addWidget(self.workspace_widget)
-        self.main_splitter.addWidget(self.tab_widget)
-        self.main_splitter.setStretchFactor(0, 0)
-        self.main_splitter.setStretchFactor(1, 1)
-        self.main_splitter.setSizes([260, 940])
-        layout.addWidget(self.main_splitter)
-        self.restore_workspace()
+        layout.addWidget(self.tab_widget)
+        
+        
         
         # Create new tab if no tabs were restored
         if self.tab_widget.count() == 0:
@@ -681,13 +672,6 @@ class TextEditorApp(QMainWindow):
         settings_action.setToolTip("Open Settings")
         self.menu_dropdown.addAction(settings_action)
         self.menu_dropdown.addSeparator()
-        workspace_action = create_action("document-open", "Open Workspace", self.open_workspace_dialog)
-        workspace_action.setToolTip("Open Workspace")
-        self.menu_dropdown.addAction(workspace_action)
-        new_workspace_file_action = create_action("new", "New Workspace File", self.create_workspace_file)
-        new_workspace_file_action.setToolTip("New File in Workspace")
-        self.menu_dropdown.addAction(new_workspace_file_action)
-        self.menu_dropdown.addSeparator()
         help_action = create_action("help", "Help", self.show_help)
         help_action.setToolTip("Open Help")
         self.menu_dropdown.addAction(help_action)
@@ -705,10 +689,6 @@ class TextEditorApp(QMainWindow):
         open_action.setShortcut(QKeySequence.StandardKey.Open)
         open_action.setToolTip(f"Open (Ctrl+O)")
         self.toolbar.addAction(open_action)
-
-        workspace_toolbar_action = create_action("document-open", "Workspace", self.open_workspace_dialog)
-        workspace_toolbar_action.setToolTip("Open Workspace")
-        self.toolbar.addAction(workspace_toolbar_action)
         
         save_action = create_action("save", "Save", self.save_file)
         save_action.setShortcut(QKeySequence.StandardKey.Save)
@@ -866,7 +846,6 @@ class TextEditorApp(QMainWindow):
                 return
         
         self.tab_widget.removeTab(index)
-        self.save_workspace_open_files()
         
         # Create new tab if last tab was closed
         if self.tab_widget.count() == 0:
@@ -882,9 +861,6 @@ class TextEditorApp(QMainWindow):
         new_action.setShortcut(QKeySequence.StandardKey.New)
         
         file_menu.addAction('New RSS Tab', self.new_rss_tab)
-        file_menu.addSeparator()
-        file_menu.addAction('Open Workspace...', self.open_workspace_dialog)
-        file_menu.addAction('New Workspace File...', self.create_workspace_file)
         file_menu.addSeparator()
         
         save_action = file_menu.addAction('Save', self.save_file)
@@ -940,7 +916,6 @@ class TextEditorApp(QMainWindow):
         self.tab_widget.addTab(editor_tab, f"Document {self.tab_widget.count() + 1}")
         self.tab_widget.setCurrentWidget(editor_tab)
         editor_tab.editor.setFocus()
-        self.save_workspace_open_files()
         return editor_tab
         
     def new_rss_tab(self):
@@ -989,7 +964,20 @@ class TextEditorApp(QMainWindow):
 
     def open_file_path(self, file_path):
         """Open a file by its path"""
-        return self.open_file(file_path)
+        try:
+            with open(file_path, 'r', encoding='utf-8') as f:
+                content = f.read()
+                tab = self.new_editor_tab()
+                tab.editor.setPlainText(content)
+                tab.current_file = file_path
+                if tab.is_markdown_file(file_path):
+                    tab.set_markdown_preview_visible(True)
+                current_index = self.tab_widget.indexOf(tab)
+                self.tab_widget.setTabText(current_index, os.path.basename(file_path))
+                return True
+        except Exception as e:
+            print(f"Failed to open file {file_path}: {str(e)}")
+            return False
 
     def check_crash_recovery(self):
         """Check for and recover unsaved files from crash"""
@@ -1051,8 +1039,6 @@ class TextEditorApp(QMainWindow):
     def closeEvent(self, event):
         """Handle application close event"""
         if self.handle_unsaved_changes():
-            self.save_workspace_markdown_files()
-            self.save_workspace_open_files()
             # Save window state
             self.settings_manager.save_setting('window_state', {
                 'geometry': self.saveGeometry().toBase64().data().decode(),
@@ -1196,11 +1182,8 @@ class TextEditorApp(QMainWindow):
             self.settings_manager.save_setting('icon_contrast', settings['icon_contrast'])
             self.settings_manager.save_setting('markdown_scroll_sync', settings['markdown_scroll_sync'])
             self.settings_manager.save_setting('editor_line_numbers', settings['editor_line_numbers'])
-            self.settings_manager.save_setting('autosave_enabled', settings['autosave_enabled'])
-            self.settings_manager.save_setting('autosave_interval_seconds', settings['autosave_interval_seconds'])
             self.apply_editor_theme_to_tabs(settings['theme'])
             self.apply_editor_line_numbers(settings['editor_line_numbers'])
-            self.apply_autosave_settings()
 
     def toggle_browser(self):
         """Toggle browser pane in current tab"""
@@ -1214,13 +1197,6 @@ class TextEditorApp(QMainWindow):
             tab = self.tab_widget.widget(i)
             if isinstance(tab, EditorTab):
                 tab.set_line_numbers_visible(visible)
-
-    def apply_autosave_settings(self):
-        """Apply autosave settings to all open editor tabs."""
-        for i in range(self.tab_widget.count()):
-            tab = self.tab_widget.widget(i)
-            if isinstance(tab, EditorTab):
-                tab.configure_autosave_timer()
 
     def toggle_markdown_preview(self):
         """Toggle markdown preview in current editor tab"""
@@ -1265,10 +1241,12 @@ class TextEditorApp(QMainWindow):
 
     def open_file_dialog(self):
         """Open file from dialog"""
-        self.open_file()
+        current_tab = self.tab_widget.currentWidget()
+        if current_tab:
+            current_tab.open_file()
 
     def open_file(self, file_path=None):
-        """Open a file immediately, reusing an empty untitled tab when possible."""
+        """Open a file in a new tab"""
         if file_path is None:
             # Show file dialog if no path provided
             file_path, _ = QFileDialog.getOpenFileName(
@@ -1280,56 +1258,25 @@ class TextEditorApp(QMainWindow):
             if not file_path:  # User cancelled
                 return
 
-        file_path = os.path.abspath(file_path)
-
-        for index in range(self.tab_widget.count()):
-            tab = self.tab_widget.widget(index)
-            if getattr(tab, "current_file", None) and os.path.abspath(tab.current_file) == file_path:
-                self.tab_widget.setCurrentIndex(index)
-                tab.editor.setFocus()
-                return True
+        # Create new tab and load file
+        editor_tab = EditorTab(self.snippet_manager, self.settings_manager)
+        editor_tab.set_main_window(self)  # Set main window reference
         
         try:
             with open(file_path, 'r', encoding='utf-8') as f:
-                content = f.read()
+                editor_tab.editor.setPlainText(f.read())
+                editor_tab.current_file = file_path
+                if editor_tab.is_markdown_file(file_path):
+                    editor_tab.set_markdown_preview_visible(True)
         except Exception as e:
             QMessageBox.critical(self, "Error", f"Could not open file: {str(e)}")
-            return False
-
-        editor_tab = self.reusable_empty_editor_tab()
-        if editor_tab is None:
-            editor_tab = EditorTab(self.snippet_manager, self.settings_manager)
-            editor_tab.set_main_window(self)
-            self.tab_widget.addTab(editor_tab, os.path.basename(file_path))
-        else:
-            current_index = self.tab_widget.indexOf(editor_tab)
-            self.tab_widget.setTabText(current_index, os.path.basename(file_path))
-
-        editor_tab.editor.setPlainText(content)
-        editor_tab.current_file = file_path
-        editor_tab.editor.document().setModified(False)
-        if editor_tab.is_markdown_file(file_path):
-            editor_tab.set_markdown_preview_visible(True)
-        else:
-            editor_tab.set_markdown_preview_visible(False)
+            return
         
+        # Add tab with filename as title
+        filename = os.path.basename(file_path)
+        self.tab_widget.addTab(editor_tab, filename)
         self.tab_widget.setCurrentWidget(editor_tab)
         editor_tab.editor.setFocus()
-        self.save_workspace_open_files()
-        return True
-
-    def reusable_empty_editor_tab(self):
-        """Return an untouched untitled editor tab that can be replaced by an opened file."""
-        current_tab = self.tab_widget.currentWidget()
-        if not isinstance(current_tab, EditorTab):
-            return None
-        if getattr(current_tab, "current_file", None):
-            return None
-        if current_tab.editor.toPlainText():
-            return None
-        if current_tab.editor.document().isModified():
-            return None
-        return current_tab
 
     # Add a new method to set up the find shortcut
     def setup_shortcuts(self):
