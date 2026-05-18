@@ -13,6 +13,7 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 SRC_DIR = PROJECT_ROOT / "src" / "jottr"
 sys.path.insert(0, str(SRC_DIR))
 
+from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QFont, QTextDocument
 from PyQt6.QtWidgets import QApplication, QTextEdit, QWidget
 
