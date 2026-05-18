@@ -16,6 +16,8 @@ class SettingsManager:
             "custom_themes": {},
             "icon_contrast": "auto",
             "spell_check": True,
+            "autosave_enabled": False,
+            "autosave_interval_seconds": 30,
             "markdown_scroll_sync": True,
             "editor_line_numbers": True,
             "search_sites": {
@@ -25,6 +27,11 @@ class SettingsManager:
             },
             "show_snippets": False,
             "show_browser": False,
+            "workspace_path": "",
+            "recent_workspaces": [],
+            "workspace_sessions": {},
+            "workspace_open_files": [],
+            "workspace_markdown_files": [],
             "pane_states": {
                 "snippets_visible": False,
                 "browser_visible": False,
