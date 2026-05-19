@@ -14,6 +14,7 @@ class SettingsManager:
             "font_italic": False,
             "theme": "default",
             "custom_themes": {},
+            "language": "en_US",
             "icon_contrast": "auto",
             "spell_check": True,
             "autosave_enabled": False,

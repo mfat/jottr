@@ -20,6 +20,7 @@ from rss_reader import RSSReader
 from settings_dialog import SearchSiteDialog, SettingsDialog
 from settings_manager import SettingsManager
 from snippet_editor_dialog import SnippetEditorDialog
+import translation_manager
 
 
 _APP = None
@@ -67,11 +68,13 @@ class DialogAndRssTests(unittest.TestCase):
         dialog.markdown_scroll_sync_check.setChecked(False)
         dialog.editor_line_numbers_check.setChecked(False)
         dialog.autosave_enabled_check.setChecked(True)
-        dialog.autosave_interval_spin.setValue(15)
+        dialog.autosave_interval_combo.setCurrentText("15")
 
         data = dialog.get_data()
 
         self.assertEqual(data["homepage"], "https://home.example")
+        self.assertEqual(data["language"], "en_US")
+        self.assertGreaterEqual(dialog.language_combo.count(), 1)
         self.assertEqual(data["search_sites"], {"News": "site:news.example"})
         self.assertEqual(data["user_dictionary"], ["jottr"])
         self.assertEqual(data["theme"], "Forest")
@@ -81,6 +84,44 @@ class DialogAndRssTests(unittest.TestCase):
         self.assertFalse(data["editor_line_numbers"])
         self.assertTrue(data["autosave_enabled"])
         self.assertEqual(data["autosave_interval_seconds"], 15)
+
+    def test_settings_dialog_autosave_seconds_uses_dropdown_values(self):
+        manager = SettingsManager()
+        manager.save_setting("autosave_interval_seconds", 45)
+
+        dialog = SettingsDialog(manager)
+        self.addCleanup(dialog.deleteLater)
+
+        self.assertEqual(dialog.autosave_interval_combo.currentText(), "45")
+        self.assertIn("30", [dialog.autosave_interval_combo.itemText(i) for i in range(dialog.autosave_interval_combo.count())])
+
+        dialog.autosave_interval_combo.setCurrentText("7200")
+        self.assertEqual(dialog.get_data()["autosave_interval_seconds"], 3600)
+
+        dialog.autosave_interval_combo.setCurrentText("bad")
+        self.assertEqual(dialog.get_data()["autosave_interval_seconds"], 30)
+
+    def test_settings_dialog_translates_autosave_seconds_label(self):
+        translations_dir = Path(self.temp_dir.name) / "translations"
+        translations_dir.mkdir()
+        (translations_dir / "zz_ZZ.po").write_text(
+            'msgid ""\n'
+            'msgstr ""\n'
+            '"Language: zz_ZZ\\n"\n\n'
+            'msgid "Seconds"\n'
+            'msgstr "Translated Seconds"\n',
+            encoding="utf-8"
+        )
+        manager = SettingsManager()
+        manager.save_setting("language", "zz_ZZ")
+
+        with patch.object(translation_manager, "get_translations_dir", return_value=translations_dir):
+            dialog = SettingsDialog(manager)
+            self.addCleanup(dialog.deleteLater)
+
+            self.assertEqual(dialog.autosave_interval_unit_label.text(), "Translated Seconds")
+
+        translation_manager.set_language("en_US")
 
     def test_settings_dialog_creates_and_deletes_custom_theme(self):
         manager = SettingsManager()

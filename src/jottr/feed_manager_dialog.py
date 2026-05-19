@@ -3,12 +3,13 @@ from PyQt6.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QPushButton,
                             QMessageBox, QHeaderView)
 import requests
 import feedparser
+from translation_manager import _
 
 class FeedManagerDialog(QDialog):
     def __init__(self, feeds, parent=None):
         super().__init__(parent)
         self.feeds = feeds.copy()  # Work with a copy of the feeds
-        self.setWindowTitle("Feed Manager")
+        self.setWindowTitle(_("Feed Manager"))
         self.setMinimumWidth(600)
         self.setMinimumHeight(400)
         self.setup_ui()
@@ -18,7 +19,7 @@ class FeedManagerDialog(QDialog):
         
         # Create table
         self.table = QTableWidget(0, 2)
-        self.table.setHorizontalHeaderLabels(["Feed Title", "URL"])
+        self.table.setHorizontalHeaderLabels([_("Feed Title"), _("URL")])
         self.table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.ResizeToContents)
         self.table.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
         layout.addWidget(self.table)
@@ -26,10 +27,10 @@ class FeedManagerDialog(QDialog):
         # Buttons
         button_layout = QHBoxLayout()
         
-        add_button = QPushButton("Add Feed")
-        edit_button = QPushButton("Edit Feed")
-        remove_button = QPushButton("Remove Feed")
-        test_button = QPushButton("Test Feed")
+        add_button = QPushButton(_("Add Feed"))
+        edit_button = QPushButton(_("Edit Feed"))
+        remove_button = QPushButton(_("Remove Feed"))
+        test_button = QPushButton(_("Test Feed"))
         
         add_button.clicked.connect(self.add_feed)
         edit_button.clicked.connect(self.edit_feed)
@@ -42,8 +43,8 @@ class FeedManagerDialog(QDialog):
         button_layout.addWidget(test_button)
         button_layout.addStretch()
         
-        ok_button = QPushButton("OK")
-        cancel_button = QPushButton("Cancel")
+        ok_button = QPushButton(_("OK"))
+        cancel_button = QPushButton(_("Cancel"))
         
         ok_button.clicked.connect(self.accept)
         cancel_button.clicked.connect(self.reject)
@@ -65,13 +66,13 @@ class FeedManagerDialog(QDialog):
             self.table.setItem(row, 1, QTableWidgetItem(url))
             
     def add_feed(self):
-        title, ok = QInputDialog.getText(self, 'Add Feed', 'Feed Title:')
+        title, ok = QInputDialog.getText(self, _("Add Feed"), _("Feed Title:"))
         if ok and title:
             if title in self.feeds:
-                QMessageBox.warning(self, "Error", "A feed with this title already exists")
+                QMessageBox.warning(self, _("Error"), _("A feed with this title already exists"))
                 return
                 
-            url, ok = QInputDialog.getText(self, 'Add Feed', 'Feed URL:')
+            url, ok = QInputDialog.getText(self, _("Add Feed"), _("Feed URL:"))
             if ok and url:
                 # Don't test by default, just add
                 self.feeds[title] = url
@@ -80,20 +81,20 @@ class FeedManagerDialog(QDialog):
     def edit_feed(self):
         current_row = self.table.currentRow()
         if current_row < 0:
-            QMessageBox.warning(self, "Error", "Please select a feed to edit")
+            QMessageBox.warning(self, _("Error"), _("Please select a feed to edit"))
             return
             
         old_title = self.table.item(current_row, 0).text()
         old_url = self.table.item(current_row, 1).text()
         
-        title, ok = QInputDialog.getText(self, 'Edit Feed', 'Feed Title:', 
+        title, ok = QInputDialog.getText(self, _("Edit Feed"), _("Feed Title:"),
                                        text=old_title)
         if ok and title:
             if title != old_title and title in self.feeds:
-                QMessageBox.warning(self, "Error", "A feed with this title already exists")
+                QMessageBox.warning(self, _("Error"), _("A feed with this title already exists"))
                 return
                 
-            url, ok = QInputDialog.getText(self, 'Edit Feed', 'Feed URL:', 
+            url, ok = QInputDialog.getText(self, _("Edit Feed"), _("Feed URL:"),
                                          text=old_url)
             if ok and url:
                 # Don't test by default, just update
@@ -105,12 +106,12 @@ class FeedManagerDialog(QDialog):
     def remove_feed(self):
         current_row = self.table.currentRow()
         if current_row < 0:
-            QMessageBox.warning(self, "Error", "Please select a feed to remove")
+            QMessageBox.warning(self, _("Error"), _("Please select a feed to remove"))
             return
             
         title = self.table.item(current_row, 0).text()
-        reply = QMessageBox.question(self, 'Remove Feed', 
-                                   f'Remove feed "{title}"?',
+        reply = QMessageBox.question(self, _("Remove Feed"),
+                                   _('Remove feed "{title}"?').format(title=title),
                                    QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
         if reply == QMessageBox.StandardButton.Yes:
             del self.feeds[title]
@@ -119,12 +120,12 @@ class FeedManagerDialog(QDialog):
     def test_feed(self):
         current_row = self.table.currentRow()
         if current_row < 0:
-            QMessageBox.warning(self, "Error", "Please select a feed to test")
+            QMessageBox.warning(self, _("Error"), _("Please select a feed to test"))
             return
             
         url = self.table.item(current_row, 1).text()
         if self.test_feed_url(url):
-            QMessageBox.information(self, "Success", "Feed is valid and accessible")
+            QMessageBox.information(self, _("Success"), _("Feed is valid and accessible"))
             
     def test_feed_url(self, url):
         try:
@@ -135,10 +136,10 @@ class FeedManagerDialog(QDialog):
             if hasattr(feed, 'entries') and feed.entries:
                 return True
             else:
-                QMessageBox.warning(self, "Error", "Invalid RSS feed (no entries found)")
+                QMessageBox.warning(self, _("Error"), _("Invalid RSS feed (no entries found)"))
                 return False
         except Exception as e:
-            QMessageBox.warning(self, "Error", f"Could not parse RSS feed: {str(e)}")
+            QMessageBox.warning(self, _("Error"), _("Could not parse RSS feed: {error}").format(error=str(e)))
             return False
             
     def get_feeds(self):

@@ -20,7 +20,8 @@ from PyQt6.QtWidgets import QApplication, QTextEdit, QWidget
 from editor_tab import EditorTab, SpellCheckHighlighter
 import editor_tab as editor_tab_module
 import main as main_module
-from main import APP_NAME, TextEditorApp, WorkspaceFileSystemModel, WorkspaceTreeView
+import translation_manager
+from main import APP_NAME, FontSelectionDialog, TextEditorApp, WorkspaceFileSystemModel, WorkspaceTreeView
 from settings_manager import SettingsManager
 from snippet_manager import SnippetManager
 
@@ -94,7 +95,6 @@ class EditorAndMainTests(unittest.TestCase):
 
         self.assertEqual(model.data(index, Qt.ItemDataRole.ToolTipRole), str(note))
 
-<<<<<<< HEAD
     def test_workspace_tree_uses_visible_hierarchy_settings(self):
         tree = WorkspaceTreeView()
         self.addCleanup(tree.deleteLater)
@@ -109,8 +109,6 @@ class EditorAndMainTests(unittest.TestCase):
         self.assertTrue(tree.alternatingRowColors())
         self.assertTrue(tree.allColumnsShowFocus())
 
-=======
->>>>>>> parent of 429d996 (Revert "Implementing the workspaces.")
     def make_editor(self):
         web_view_patch = patch.object(editor_tab_module, "QWebEngineView", _FakeWebEngineView)
         preview_page_patch = patch.object(editor_tab_module, "MarkdownPreviewPage", lambda parent=None: object())
@@ -157,6 +155,101 @@ class EditorAndMainTests(unittest.TestCase):
 
         self.assertIn('font-family: "Liberation Serif"', html)
         self.assertIn("font-size: 16pt", html)
+
+    def test_editor_font_updates_visible_editor_style_and_document(self):
+        editor = self.make_editor()
+        font = QFont("Liberation Serif", 16)
+
+        editor.update_font(font)
+
+        self.assertEqual(editor.editor.font().family(), "Liberation Serif")
+        self.assertEqual(editor.editor.font().pointSize(), 16)
+        self.assertEqual(editor.editor.document().defaultFont().family(), "Liberation Serif")
+        self.assertEqual(editor.editor.document().defaultFont().pointSize(), 16)
+        self.assertIn("QTextEdit#writingEditor", editor.editor.styleSheet())
+        self.assertIn('font-family: "Liberation Serif"', editor.editor.styleSheet())
+        self.assertIn("font-size: 16pt", editor.editor.styleSheet())
+
+    def test_editor_and_markdown_preview_use_rtl_for_rtl_language(self):
+        self.settings.save_setting("language", "fa_IR")
+        editor = self.make_editor()
+
+        html = editor.render_markdown_html("# عنوان")
+
+        self.assertEqual(editor.layoutDirection(), Qt.LayoutDirection.RightToLeft)
+        self.assertEqual(editor.editor.layoutDirection(), Qt.LayoutDirection.RightToLeft)
+        self.assertEqual(editor.markdown_preview.layoutDirection(), Qt.LayoutDirection.RightToLeft)
+        self.assertIn('<html dir="rtl">', html)
+        self.assertIn('<body dir="rtl">', html)
+        self.assertIn("direction: rtl;", html)
+        self.assertIn("text-align: right;", html)
+
+    def test_rtl_editor_places_line_numbers_on_right(self):
+        self.settings.save_setting("language", "fa_IR")
+        editor = self.make_editor()
+        code_editor = editor.editor
+
+        code_editor.resize(420, 280)
+        app().processEvents()
+
+        self.assertTrue(code_editor.line_numbers_visible)
+        self.assertTrue(code_editor.line_number_area_on_right())
+        self.assertEqual(
+            code_editor.line_number_alignment(),
+            Qt.AlignmentFlag.AlignHCenter | Qt.AlignmentFlag.AlignVCenter
+        )
+        self.assertEqual(
+            code_editor.line_number_area.geometry().left(),
+            code_editor.viewport().geometry().right() + 1
+        )
+
+        self.settings.save_setting("language", "en_US")
+        editor.apply_language_direction()
+        code_editor.resize(420, 280)
+        app().processEvents()
+
+        self.assertFalse(code_editor.line_number_area_on_right())
+        self.assertEqual(
+            code_editor.line_number_area.geometry().right(),
+            code_editor.viewport().geometry().left() - 1
+        )
+
+    def test_line_numbers_use_language_digit_shape(self):
+        self.settings.save_setting("language", "en_US")
+        editor = self.make_editor()
+
+        self.assertEqual(editor.editor.format_line_number(123), "123")
+
+        self.settings.save_setting("language", "de_DE")
+        self.assertEqual(editor.editor.format_line_number(123), "123")
+
+        self.settings.save_setting("language", "fa_IR")
+        self.assertEqual(editor.editor.format_line_number(123), "۱۲۳")
+
+        self.settings.save_setting("language", "ar_SA")
+        self.assertEqual(editor.editor.format_line_number(123), "١٢٣")
+
+    def test_line_number_background_matches_editor_theme(self):
+        self.settings.save_theme("Dracula")
+        editor = self.make_editor()
+
+        self.assertEqual(
+            editor.editor.line_number_background_color().name(),
+            "#282a36"
+        )
+
+    def test_editor_and_markdown_preview_use_ltr_for_ltr_language(self):
+        self.settings.save_setting("language", "en_US")
+        editor = self.make_editor()
+
+        html = editor.render_markdown_html("# Title")
+
+        self.assertEqual(editor.layoutDirection(), Qt.LayoutDirection.LeftToRight)
+        self.assertEqual(editor.editor.layoutDirection(), Qt.LayoutDirection.LeftToRight)
+        self.assertEqual(editor.markdown_preview.layoutDirection(), Qt.LayoutDirection.LeftToRight)
+        self.assertIn('<html dir="ltr">', html)
+        self.assertIn('<body dir="ltr">', html)
+        self.assertIn("direction: ltr;", html)
 
     def test_editor_file_and_line_number_state(self):
         editor = self.make_editor()
@@ -325,6 +418,184 @@ class EditorAndMainTests(unittest.TestCase):
             self.assertEqual(toolbar_tooltips["Theme"], "Choose Editor Theme")
             self.assertEqual(toolbar_tooltips["Menu"], "More Actions")
             self.assertTrue(all(toolbar_tooltips.values()))
+
+    def test_main_window_applies_font_to_all_editor_tabs(self):
+        class FakeEditorTab(QWidget):
+            def __init__(self, snippet_manager, settings_manager):
+                super().__init__()
+                self.editor = QTextEdit(self)
+                self.current_font = settings_manager.get_font()
+                self.current_file = None
+
+            def set_main_window(self, main_window):
+                self.main_window = main_window
+
+            def update_font(self, font):
+                self.current_font = QFont(font)
+                self.editor.setFont(self.current_font)
+
+        with patch.object(main_module, "EditorTab", FakeEditorTab):
+            window = TextEditorApp()
+            self.addCleanup(window.close)
+            self.addCleanup(window.deleteLater)
+            self.addCleanup(lambda: QApplication.instance().setStyleSheet(""))
+
+            first_tab = window.tab_widget.widget(0)
+            second_tab = window.new_editor_tab()
+            font = QFont("Liberation Serif", 16)
+
+            window.apply_font_to_tabs(font)
+
+            self.assertEqual(QApplication.instance().font().family(), "Liberation Serif")
+            self.assertEqual(QApplication.instance().font().pointSize(), 16)
+            self.assertIn('font-family: "Liberation Serif"', QApplication.instance().styleSheet())
+            self.assertIn("QToolTip", QApplication.instance().styleSheet())
+            self.assertEqual(first_tab.current_font.family(), "Liberation Serif")
+            self.assertEqual(first_tab.current_font.pointSize(), 16)
+            self.assertEqual(second_tab.current_font.family(), "Liberation Serif")
+            self.assertEqual(second_tab.current_font.pointSize(), 16)
+
+    def test_font_dialog_uses_translated_text(self):
+        translations_dir = Path(self.temp_dir.name) / "translations"
+        translations_dir.mkdir()
+        (translations_dir / "zz_ZZ.po").write_text(
+            'msgid ""\n'
+            'msgstr ""\n'
+            '"Language: zz_ZZ\\n"\n'
+            '\n'
+            'msgid "Choose Editor Font"\n'
+            'msgstr "Translated Font Picker"\n'
+            '\n'
+            'msgid "Font:"\n'
+            'msgstr "Translated Font:"\n'
+            '\n'
+            'msgid "Size:"\n'
+            'msgstr "Translated Size:"\n'
+            '\n'
+            'msgid "Style:"\n'
+            'msgstr "Translated Style:"\n'
+            '\n'
+            'msgid "Preview:"\n'
+            'msgstr "Translated Preview:"\n'
+            '\n'
+            'msgid "Regular"\n'
+            'msgstr "Translated Regular"\n'
+            '\n'
+            'msgid "Bold Italic"\n'
+            'msgstr "Translated Bold Italic"\n'
+            '\n'
+            'msgid "The quick brown fox jumps over the lazy dog."\n'
+            'msgstr "Translated preview text."\n',
+            encoding="utf-8"
+        )
+
+        with patch.object(translation_manager, "get_translations_dir", return_value=translations_dir):
+            translation_manager.set_language("zz_ZZ")
+            dialog = FontSelectionDialog(QFont("Serif", 12))
+            self.addCleanup(dialog.deleteLater)
+
+            self.assertEqual(dialog.windowTitle(), "Translated Font Picker")
+            self.assertEqual(dialog.font_label.text(), "Translated Font:")
+            self.assertEqual(dialog.size_label.text(), "Translated Size:")
+            self.assertEqual(dialog.style_label.text(), "Translated Style:")
+            self.assertEqual(dialog.preview_label.text(), "Translated Preview:")
+            self.assertEqual(dialog.size_combo.currentText(), "12")
+            self.assertEqual(dialog.style_combo.itemText(0), "Translated Regular")
+            self.assertEqual(dialog.style_combo.itemText(3), "Translated Bold Italic")
+            self.assertEqual(dialog.preview_text.text(), "Translated preview text.")
+            self.assertIn("QFontComboBox", dialog.styleSheet())
+            self.assertIn("QFontComboBox::down-arrow", dialog.styleSheet())
+            self.assertIn("QComboBox::down-arrow", dialog.styleSheet())
+            self.assertIn("QAbstractItemView", dialog.styleSheet())
+
+        translation_manager.set_language("en_US")
+
+    def test_main_window_retranslates_toolbar_menu_actions(self):
+        class FakeEditorTab(QWidget):
+            def __init__(self, snippet_manager, settings_manager):
+                super().__init__()
+                self.editor = QTextEdit(self)
+                self.current_font = settings_manager.get_font()
+                self.current_file = None
+
+            def set_main_window(self, main_window):
+                self.main_window = main_window
+
+        translations_dir = Path(self.temp_dir.name) / "translations"
+        translations_dir.mkdir()
+        (translations_dir / "zz_ZZ.po").write_text(
+            'msgid ""\n'
+            'msgstr ""\n'
+            '"Language: zz_ZZ\\n"\n'
+            '\n'
+            'msgid "Menu"\n'
+            'msgstr "Translated Menu"\n'
+            '\n'
+            'msgid "More Actions"\n'
+            'msgstr "Translated More Actions"\n'
+            '\n'
+            'msgid "Settings"\n'
+            'msgstr "Translated Settings"\n'
+            '\n'
+            'msgid "Open Settings"\n'
+            'msgstr "Translated Open Settings"\n',
+            encoding="utf-8"
+        )
+
+        with (
+            patch.object(main_module, "EditorTab", FakeEditorTab),
+            patch.object(translation_manager, "get_translations_dir", return_value=translations_dir),
+        ):
+            window = TextEditorApp()
+            self.addCleanup(window.close)
+            self.addCleanup(window.deleteLater)
+
+            translation_manager.set_language("zz_ZZ")
+            window.retranslate_actions()
+
+            toolbar_tooltips = {
+                action.text(): action.toolTip()
+                for action in window.toolbar.actions()
+                if not action.isSeparator() and action.text()
+            }
+            menu_actions = {
+                action.text(): action.toolTip()
+                for action in window.menu_dropdown.actions()
+                if not action.isSeparator() and action.text()
+            }
+
+            self.assertEqual(toolbar_tooltips["Translated Menu"], "Translated More Actions")
+            self.assertEqual(menu_actions["Translated Settings"], "Translated Open Settings")
+
+        translation_manager.set_language("en_US")
+
+    def test_main_window_applies_rtl_layout_for_rtl_language(self):
+        class FakeEditorTab(QWidget):
+            def __init__(self, snippet_manager, settings_manager):
+                super().__init__()
+                self.editor = QTextEdit(self)
+                self.current_font = settings_manager.get_font()
+                self.current_file = None
+
+            def set_main_window(self, main_window):
+                self.main_window = main_window
+
+        self.settings.save_setting("language", "fa_IR")
+        self.addCleanup(lambda: QApplication.instance().setLayoutDirection(Qt.LayoutDirection.LeftToRight))
+        self.addCleanup(lambda: translation_manager.set_language("en_US"))
+
+        with patch.object(main_module, "EditorTab", FakeEditorTab):
+            window = TextEditorApp()
+            self.addCleanup(window.close)
+            self.addCleanup(window.deleteLater)
+
+            self.assertEqual(window.layoutDirection(), Qt.LayoutDirection.RightToLeft)
+            self.assertEqual(QApplication.instance().layoutDirection(), Qt.LayoutDirection.RightToLeft)
+
+            window.apply_layout_direction("en_US")
+
+            self.assertEqual(window.layoutDirection(), Qt.LayoutDirection.LeftToRight)
+            self.assertEqual(QApplication.instance().layoutDirection(), Qt.LayoutDirection.LeftToRight)
 
     def test_main_window_opens_file_in_new_tab(self):
         class FakeEditorTab(QWidget):

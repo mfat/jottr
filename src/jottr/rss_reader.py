@@ -7,6 +7,7 @@ import json
 import os
 import requests
 from feed_manager_dialog import FeedManagerDialog
+from translation_manager import _
 
 class RSSReader(QWidget):
     def __init__(self, parent=None):
@@ -37,10 +38,10 @@ class RSSReader(QWidget):
         controls_layout.addWidget(self.feed_selector)
         
         # Buttons
-        add_button = QPushButton("Add Feed")
-        remove_button = QPushButton("Remove Feed")
-        refresh_button = QPushButton("Refresh")
-        manage_button = QPushButton("Manage Feeds")
+        add_button = QPushButton(_("Add Feed"))
+        remove_button = QPushButton(_("Remove Feed"))
+        refresh_button = QPushButton(_("Refresh"))
+        manage_button = QPushButton(_("Manage Feeds"))
         
         add_button.clicked.connect(self.add_feed)
         remove_button.clicked.connect(self.remove_feed)
@@ -139,28 +140,28 @@ class RSSReader(QWidget):
                 print(f"Feed bozo: {feed.get('bozo', 'unknown')}")
                 if hasattr(feed, 'debug_message'):
                     print(f"Feed debug: {feed.debug_message}")
-                QMessageBox.warning(self, "Error", f"No entries found in feed: {feed_title}")
+                QMessageBox.warning(self, _("Error"), _("No entries found in feed: {feed_title}").format(feed_title=feed_title))
             
         except requests.exceptions.HTTPError as e:
             if e.response.status_code == 429:
                 print(f"Rate limit headers: {e.response.headers}")  # Debug rate limit info
-                QMessageBox.warning(self, "Error", 
-                                  f"Rate limit exceeded for {feed_title}. Please try again later.")
+                QMessageBox.warning(self, _("Error"),
+                                  _("Rate limit exceeded for {feed_title}. Please try again later.").format(feed_title=feed_title))
             else:
-                QMessageBox.warning(self, "Error", 
-                                  f"Could not fetch feed {feed_title}: {str(e)}")
+                QMessageBox.warning(self, _("Error"),
+                                  _("Could not fetch feed {feed_title}: {error}").format(feed_title=feed_title, error=str(e)))
         except Exception as e:
             print(f"Error fetching feed {feed_title}: {str(e)}")
-            QMessageBox.warning(self, "Error", 
-                              f"Could not fetch feed {feed_title}: {str(e)}")
+            QMessageBox.warning(self, _("Error"),
+                              _("Could not fetch feed {feed_title}: {error}").format(feed_title=feed_title, error=str(e)))
             
     def refresh_feeds(self):
         self.refresh_current_feed()
             
     def add_feed(self):
-        title, ok = QInputDialog.getText(self, 'Add RSS Feed', 'Feed Title:')
+        title, ok = QInputDialog.getText(self, _("Add RSS Feed"), _("Feed Title:"))
         if ok and title:
-            url, ok = QInputDialog.getText(self, 'Add RSS Feed', 'Feed URL:')
+            url, ok = QInputDialog.getText(self, _("Add RSS Feed"), _("Feed URL:"))
             if ok and url:
                 try:
                     response = requests.get(url, timeout=10)
@@ -173,15 +174,15 @@ class RSSReader(QWidget):
                         self.update_feed_selector()
                         self.feed_selector.setCurrentText(title)
                     else:
-                        QMessageBox.warning(self, "Error", "Invalid RSS feed")
+                        QMessageBox.warning(self, _("Error"), _("Invalid RSS feed"))
                 except Exception as e:
-                    QMessageBox.warning(self, "Error", f"Could not parse RSS feed: {str(e)}")
+                    QMessageBox.warning(self, _("Error"), _("Could not parse RSS feed: {error}").format(error=str(e)))
                     
     def remove_feed(self):
         current_feed = self.feed_selector.currentText()
         if current_feed:
-            reply = QMessageBox.question(self, 'Remove Feed', 
-                                       f'Remove feed "{current_feed}"?',
+            reply = QMessageBox.question(self, _("Remove Feed"),
+                                       _('Remove feed "{title}"?').format(title=current_feed),
                                        QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
             if reply == QMessageBox.StandardButton.Yes:
                 del self.feeds[current_feed]
@@ -194,11 +195,11 @@ class RSSReader(QWidget):
             entry = current.data(Qt.ItemDataRole.UserRole)
             content = f"<h2>{entry.title}</h2>"
             if hasattr(entry, 'published'):
-                content += f"<p><i>Published: {entry.published}</i></p>"
+                content += f"<p><i>{_('Published:')} {entry.published}</i></p>"
             if hasattr(entry, 'description'):
                 content += f"<p>{entry.description}</p>"
             if hasattr(entry, 'link'):
-                content += f'<p><a href="{entry.link}">Read more...</a></p>'
+                content += f'<p><a href="{entry.link}">{_("Read more...")}</a></p>'
             self.content_viewer.setHtml(content)
 
     def manage_feeds(self):
