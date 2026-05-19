@@ -18,6 +18,7 @@ from PyQt6.QtWidgets import QApplication
 from settings_manager import SettingsManager
 from snippet_manager import SnippetManager
 from theme_manager import ThemeManager
+import translation_manager
 
 
 _APP = None
@@ -46,6 +47,7 @@ class SettingsAndSnippetTests(unittest.TestCase):
         self.assertEqual(manager.get_setting("font_size"), 12)
         self.assertTrue(manager.get_setting("spell_check"))
         self.assertEqual(manager.get_setting("icon_contrast"), "auto")
+        self.assertEqual(manager.get_setting("language"), "en_US")
         self.assertFalse(manager.get_setting("autosave_enabled"))
         self.assertEqual(manager.get_setting("autosave_interval_seconds"), 30)
         self.assertEqual(manager.get_setting("workspace_path"), "")
@@ -54,6 +56,44 @@ class SettingsAndSnippetTests(unittest.TestCase):
         self.assertEqual(manager.get_setting("workspace_open_files"), [])
         self.assertEqual(manager.get_setting("workspace_markdown_files"), [])
         self.assertEqual(manager.get_setting("missing", "fallback"), "fallback")
+
+    def test_translation_manager_loads_selected_po_file(self):
+        translations_dir = Path(self.temp_dir.name) / "translations"
+        translations_dir.mkdir()
+        (translations_dir / "zz_ZZ.po").write_text(
+            'msgid ""\n'
+            'msgstr ""\n'
+            '"Language: zz_ZZ\\n"\n'
+            '\n'
+            'msgid "Settings"\n'
+            'msgstr "Translated Settings"\n'
+            '\n'
+            'msgid "Language:"\n'
+            'msgstr "Translated Language:"\n',
+            encoding="utf-8"
+        )
+
+        with patch.object(translation_manager, "get_translations_dir", return_value=translations_dir):
+            translation_manager.set_language("zz_ZZ")
+
+            self.assertEqual(translation_manager.translate("Settings"), "Translated Settings")
+            self.assertEqual(translation_manager.translate("Language:"), "Translated Language:")
+            self.assertEqual(translation_manager.translate("Missing"), "Missing")
+
+        translation_manager.set_language("en_US")
+
+    def test_translation_manager_detects_rtl_languages(self):
+        self.assertTrue(translation_manager.is_rtl_language("fa_IR"))
+        self.assertTrue(translation_manager.is_rtl_language("ar_SA"))
+        self.assertTrue(translation_manager.is_rtl_language("he_IL"))
+        self.assertFalse(translation_manager.is_rtl_language("en_US"))
+        self.assertFalse(translation_manager.is_rtl_language("de_DE"))
+
+    def test_translation_manager_localizes_digits_for_persian_and_arabic(self):
+        self.assertEqual(translation_manager.localize_digits(123, "en_US"), "123")
+        self.assertEqual(translation_manager.localize_digits(123, "de_DE"), "123")
+        self.assertEqual(translation_manager.localize_digits(123, "fa_IR"), "۱۲۳")
+        self.assertEqual(translation_manager.localize_digits(123, "ar_SA"), "١٢٣")
 
     def test_settings_manager_persists_single_settings_and_font(self):
         manager = SettingsManager()
@@ -149,11 +189,14 @@ class SettingsAndSnippetTests(unittest.TestCase):
         from PyQt6.QtWidgets import QTextEdit
 
         editor = QTextEdit()
+        editor.setFont(QFont("Liberation Serif", 15))
         ThemeManager.apply_theme(editor, "Dark")
 
         style = editor.styleSheet()
         self.assertIn("#111827", style)
         self.assertIn("#e5e7eb", style)
+        self.assertIn('font-family: "Liberation Serif"', style)
+        self.assertIn("font-size: 15pt", style)
 
         ThemeManager.apply_theme(editor, "Forest", {
             "Forest": {
@@ -168,10 +211,24 @@ class SettingsAndSnippetTests(unittest.TestCase):
         self.assertEqual(dracula["editor"]["background"], "#282a36")
         self.assertEqual(dracula["syntax"]["keyword"], "#ff79c6")
         self.assertIn("#282a36", ThemeManager.build_app_stylesheet(dracula))
-        dialog_style = ThemeManager.build_dialog_stylesheet(dracula)
+        app_style = ThemeManager.build_app_stylesheet(dracula, QFont("Liberation Serif", 15))
+        self.assertIn('font-family: "Liberation Serif"', app_style)
+        self.assertIn("font-size: 15pt", app_style)
+        self.assertIn("QToolTip", app_style)
+        dialog_style = ThemeManager.build_dialog_stylesheet(dracula, QFont("Liberation Serif", 15))
         self.assertIn("QComboBox QAbstractItemView", dialog_style)
+        self.assertIn("QFontComboBox", dialog_style)
+        self.assertIn("QLabel#fontPreview", dialog_style)
         self.assertIn("selection-color", dialog_style)
         self.assertIn("#f8f8f2", dialog_style)
+        self.assertIn('font-family: "Liberation Serif"', dialog_style)
+        font_dialog_style = ThemeManager.build_font_dialog_stylesheet(dracula, QFont("Liberation Serif", 15))
+        self.assertIn("QFontComboBox::drop-down", font_dialog_style)
+        self.assertIn("QFontComboBox::down-arrow", font_dialog_style)
+        self.assertIn("border-top: 6px solid #bd93f9", font_dialog_style)
+        self.assertIn("#f8f8f2", font_dialog_style)
+        self.assertIn("#282a36", font_dialog_style)
+        self.assertIn('font-family: "Liberation Serif"', font_dialog_style)
 
 
 if __name__ == "__main__":

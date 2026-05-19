@@ -11,7 +11,7 @@ from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QSplitter,
                             QToolBar, QCompleter, QListWidgetItem, QLineEdit, QPushButton, QMessageBox, QLabel, QToolTip)
 from PyQt6.QtCore import Qt, QUrl, QTimer, QStringListModel, QEvent, QSize, QRect, QPropertyAnimation, QEasingCurve
 from PyQt6.QtGui import (QAction, QShortcut, QTextCharFormat, QSyntaxHighlighter, QIcon, QFont, QKeySequence,
-                        QPainter, QPen, QColor, QFontMetrics, QTextDocument, QTextCursor)
+                        QPainter, QPen, QColor, QFontMetrics, QTextDocument, QTextCursor, QTextOption)
 from PyQt6.QtWebEngineWidgets import QWebEngineView
 from PyQt6.QtWebEngineCore import QWebEnginePage, QWebEngineSettings
 from urllib.parse import quote
@@ -19,7 +19,9 @@ from snippet_editor_dialog import SnippetEditorDialog
 from rss_reader import RSSReader
 import time
 from theme_manager import ThemeManager
+from translation_manager import _, is_rtl_language, localize_digits
 import html
+import json
 import re
 import base64
 import mimetypes
@@ -372,6 +374,23 @@ class CompletingTextEdit(QTextEdit):
         digits = max(2, len(str(max(1, self.document().blockCount()))))
         return 10 + self.fontMetrics().horizontalAdvance('9') * digits
 
+    def line_number_area_on_right(self):
+        return self.layoutDirection() == Qt.LayoutDirection.RightToLeft
+
+    def line_number_alignment(self):
+        return Qt.AlignmentFlag.AlignHCenter | Qt.AlignmentFlag.AlignVCenter
+
+    def line_number_background_color(self):
+        return self.palette().color(self.backgroundRole())
+
+    def line_number_language(self):
+        if self.parent_tab and hasattr(self.parent_tab, "settings_manager"):
+            return self.parent_tab.settings_manager.get_setting("language", "en_US")
+        return None
+
+    def format_line_number(self, number):
+        return localize_digits(number, self.line_number_language())
+
     def set_line_numbers_visible(self, visible):
         self.line_numbers_visible = visible
         self.line_number_area.setVisible(visible)
@@ -379,7 +398,12 @@ class CompletingTextEdit(QTextEdit):
         self.update_line_number_area()
 
     def update_line_number_area_width(self):
-        self.setViewportMargins(self.line_number_area_width() if self.line_numbers_visible else 0, 0, 0, 0)
+        width = self.line_number_area_width() if self.line_numbers_visible else 0
+        if self.line_number_area_on_right():
+            self.setViewportMargins(0, 0, width, 0)
+        else:
+            self.setViewportMargins(width, 0, 0, 0)
+        self.update_line_number_area_geometry()
 
     def update_line_number_area(self):
         if self.line_numbers_visible:
@@ -387,12 +411,20 @@ class CompletingTextEdit(QTextEdit):
 
     def resizeEvent(self, event):
         super().resizeEvent(event)
-        rect = self.contentsRect()
-        self.line_number_area.setGeometry(QRect(rect.left(), rect.top(), self.line_number_area_width(), rect.height()))
+        self.update_line_number_area_geometry()
+
+    def update_line_number_area_geometry(self):
+        viewport_rect = self.viewport().geometry()
+        width = self.line_number_area_width()
+        if self.line_number_area_on_right():
+            left = viewport_rect.right() + 1
+        else:
+            left = viewport_rect.left() - width
+        self.line_number_area.setGeometry(QRect(left, viewport_rect.top(), width, viewport_rect.height()))
 
     def paint_line_numbers(self, event):
         painter = QPainter(self.line_number_area)
-        painter.fillRect(event.rect(), QColor(245, 245, 245))
+        painter.fillRect(event.rect(), self.line_number_background_color())
         painter.setPen(QColor(120, 120, 120))
 
         block = self.document().firstBlock()
@@ -407,13 +439,13 @@ class CompletingTextEdit(QTextEdit):
             bottom = int(block_rect.bottom() - scroll_offset)
 
             if bottom >= viewport_top and top <= viewport_bottom:
-                number = str(block.blockNumber() + 1)
+                number = self.format_line_number(block.blockNumber() + 1)
                 painter.drawText(
                     0,
                     top,
-                    self.line_number_area.width() - 4,
+                    self.line_number_area.width(),
                     self.fontMetrics().height(),
-                    Qt.AlignmentFlag.AlignRight,
+                    self.line_number_alignment(),
                     number
                 )
 
@@ -590,7 +622,8 @@ class EditorTab(QWidget):
         ThemeManager.apply_theme(
             self.editor,
             self.current_theme,
-            self.settings_manager.get_custom_themes()
+            self.settings_manager.get_custom_themes(),
+            self.current_font
         )
         
         # Track if content has been modified
@@ -658,6 +691,7 @@ class EditorTab(QWidget):
         self.markdown_splitter.setSizes([600, 600])
         self.markdown_splitter.splitterMoved.connect(self.save_pane_states)
         editor_pane_layout.addWidget(self.markdown_splitter)
+        self.apply_language_direction()
         
         # Connect text changed signal to update status
         self.editor.textChanged.connect(self.update_status)
@@ -683,7 +717,7 @@ class EditorTab(QWidget):
         header_layout.setContentsMargins(10, 4, 8, 4)
         header_layout.setSpacing(6)
         
-        snippet_title = QLabel("Snippets")
+        snippet_title = QLabel(_("Snippets"))
         snippet_title.setObjectName("panelTitle")
         header_layout.addWidget(snippet_title)
         header_layout.addStretch()
@@ -691,7 +725,7 @@ class EditorTab(QWidget):
         snippet_close = QPushButton("×")
         snippet_close.setObjectName("panelCloseButton")
         snippet_close.setFixedSize(24, 24)
-        snippet_close.setToolTip("Close snippets")
+        snippet_close.setToolTip(_("Close snippets"))
         snippet_close.clicked.connect(lambda: self.toggle_pane("snippets"))
         header_layout.addWidget(snippet_close)
         
@@ -772,14 +806,14 @@ class EditorTab(QWidget):
         
         # Find input
         self.find_input = QLineEdit()
-        self.find_input.setPlaceholderText("Find")
+        self.find_input.setPlaceholderText(_("Find"))
         self.find_input.textChanged.connect(self.find_text)
         self.find_input.setFixedHeight(28)
         find_layout.addWidget(self.find_input)
         
         # Replace input
         self.replace_input = QLineEdit()
-        self.replace_input.setPlaceholderText("Replace with")
+        self.replace_input.setPlaceholderText(_("Replace with"))
         self.replace_input.setFixedHeight(28)
         find_layout.addWidget(self.replace_input)
         
@@ -794,8 +828,8 @@ class EditorTab(QWidget):
         find_layout.addWidget(self.find_next_btn)
         
         # Replace buttons
-        self.replace_btn = QPushButton("Replace")
-        self.replace_all_btn = QPushButton("All")  # Shortened text
+        self.replace_btn = QPushButton(_("Replace"))
+        self.replace_all_btn = QPushButton(_("All"))  # Shortened text
         self.replace_btn.setFixedHeight(28)
         self.replace_all_btn.setFixedHeight(28)
         self.replace_btn.clicked.connect(self.replace_text)
@@ -902,9 +936,9 @@ class EditorTab(QWidget):
         if not self.current_file or force_dialog:
             file_name, _ = QFileDialog.getSaveFileName(
                 self,
-                "Save File",
+                _("Save File"),
                 os.path.expanduser("~"),
-                "Markdown Files (*.md *.markdown);;Text Files (*.txt);;All Files (*.*)"
+                _("Markdown Files (*.md *.markdown);;Text Files (*.txt);;All Files (*.*)")
             )
             if file_name:
                 self.current_file = file_name
@@ -928,12 +962,16 @@ class EditorTab(QWidget):
                 self.main_window.save_workspace_markdown_files()
             return True
         except Exception as e:
-            QMessageBox.critical(self, "Error", f"Could not save file: {str(e)}")
+            QMessageBox.critical(self, _("Error"), _("Could not save file: {error}").format(error=str(e)))
             return False
 
     def open_file(self):
-        file_name, _ = QFileDialog.getOpenFileName(self, "Open File", "", 
-                                                 "Markdown Files (*.md *.markdown);;Text Files (*.txt);;All Files (*)")
+        file_name, _ = QFileDialog.getOpenFileName(
+            self,
+            _("Open File"),
+            "",
+            _("Markdown Files (*.md *.markdown);;Text Files (*.txt);;All Files (*)")
+        )
         if file_name:
             self.current_file = file_name
             with open(file_name, 'r', encoding='utf-8') as file:
@@ -994,7 +1032,7 @@ class EditorTab(QWidget):
             
             
             # Add search submenu
-            search_menu = menu.addMenu("Search in...")
+            search_menu = menu.addMenu(_("Search in..."))
             
             # Get site-specific searches from settings
             search_sites = self.settings_manager.get_setting('search_sites', {
@@ -1012,42 +1050,42 @@ class EditorTab(QWidget):
             
             # Add separator and regular Google search
             search_menu.addSeparator()
-            google_action = search_menu.addAction("Google")
+            google_action = search_menu.addAction(_("Google"))
             google_url = f"https://www.google.com/search?q={quote(selected_text)}"
             google_action.triggered.connect(lambda checked, url=google_url: 
                 self.search_in_browser(url))
             # Add Wikipedia search
-            wiki_action = search_menu.addAction("Wikipedia")
+            wiki_action = search_menu.addAction(_("Wikipedia"))
             wiki_url = f"https://en.wikipedia.org/w/index.php?search={quote(selected_text)}"
             wiki_action.triggered.connect(lambda checked, url=wiki_url: 
                 self.search_in_browser(url))
             
             # Add Google Scholar search
-            scholar_action = search_menu.addAction("Google Scholar")
+            scholar_action = search_menu.addAction(_("Google Scholar"))
             scholar_url = f"https://scholar.google.com/scholar?q={quote(selected_text)}"
             scholar_action.triggered.connect(lambda checked, url=scholar_url: 
                 self.search_in_browser(url))
             
             # Add Google Maps search
-            maps_action = search_menu.addAction("Google Maps")
+            maps_action = search_menu.addAction(_("Google Maps"))
             maps_url = f"https://www.google.com/maps/search/{quote(selected_text)}"
             maps_action.triggered.connect(lambda checked, url=maps_url: 
                 self.search_in_browser(url))
             
             # Add Google News search
-            news_action = search_menu.addAction("Google News")
+            news_action = search_menu.addAction(_("Google News"))
             news_url = f"https://news.google.com/search?q={quote(selected_text)}"
             news_action.triggered.connect(lambda checked, url=news_url: 
                 self.search_in_browser(url))
             
             # add google translate search
-            translate_action = search_menu.addAction("Google Translate")
+            translate_action = search_menu.addAction(_("Google Translate"))
             translate_url = f"https://translate.google.com/?sl=auto&tl=en&text={quote(selected_text)}"
             translate_action.triggered.connect(lambda checked, url=translate_url: 
                 self.search_in_browser(url))
             
             # Add Google define search
-            dictionary_action = search_menu.addAction("Google Define")
+            dictionary_action = search_menu.addAction(_("Google Define"))
             dictionary_url = f"https://www.google.com/search?q=define+{quote(selected_text)}"
             dictionary_action.triggered.connect(lambda checked, url=dictionary_url: 
                 self.search_in_browser(url))
@@ -1060,7 +1098,7 @@ class EditorTab(QWidget):
                 if self.highlighter.spell_check_enabled:
                     suggestions = self.highlighter.suggest(selected_text)[:7]  # Limit to 7 suggestions
                     if suggestions:
-                        menu.addAction("Spelling Suggestions:").setEnabled(False)
+                        menu.addAction(_("Spelling Suggestions:")).setEnabled(False)
                         for suggestion in suggestions:
                             action = menu.addAction(suggestion)
                             action.triggered.connect(lambda checked, word=suggestion: 
@@ -1069,16 +1107,16 @@ class EditorTab(QWidget):
                 
                 # Add to dictionary option if not already in it
                 if selected_text not in self.settings_manager.get_setting('user_dictionary', []):
-                    add_action = menu.addAction("Add to Dictionary")
+                    add_action = menu.addAction(_("Add to Dictionary"))
                     add_action.triggered.connect(lambda: self.add_to_dictionary(selected_text))
                     menu.addSeparator()
             # Add "Save as Snippet" option
-            menu.addAction("Save as Snippet", lambda: self.save_snippet(selected_text))
+            menu.addAction(_("Save as Snippet"), lambda: self.save_snippet(selected_text))
             menu.addSeparator()
         # Cut/Copy/Paste actions
-        menu.addAction("Cut", self.editor.cut)
-        menu.addAction("Copy", self.editor.copy)
-        menu.addAction("Paste", self.editor.paste)
+        menu.addAction(_("Cut"), self.editor.cut)
+        menu.addAction(_("Copy"), self.editor.copy)
+        menu.addAction(_("Paste"), self.editor.paste)
         menu.addSeparator()            
         
         # Show menu
@@ -1214,7 +1252,7 @@ class EditorTab(QWidget):
         
     def save_snippet(self, text):
         """Save selected text as a snippet"""
-        title, ok = QInputDialog.getText(self, "Save Snippet", "Enter snippet title:")
+        title, ok = QInputDialog.getText(self, _("Save Snippet"), _("Enter snippet title:"))
         if ok and title:
             self.snippet_manager.add_snippet(title, text)
             self.update_snippet_list()
@@ -1247,8 +1285,8 @@ class EditorTab(QWidget):
         current_item = self.snippet_list.currentItem()
         
         if current_item:
-            menu.addAction("Edit Snippet", self.edit_current_snippet)
-            menu.addAction("Delete Snippet", self.delete_current_snippet)
+            menu.addAction(_("Edit Snippet"), self.edit_current_snippet)
+            menu.addAction(_("Delete Snippet"), self.delete_current_snippet)
             menu.exec(self.snippet_list.mapToGlobal(position))
 
     def update_completer_model(self):
@@ -1336,11 +1374,13 @@ class EditorTab(QWidget):
         
         # Update font for the editor
         self.editor.setFont(self.current_font)
+        self.editor.document().setDefaultFont(self.current_font)
         
         ThemeManager.apply_theme(
             self.editor,
             self.current_theme,
-            self.settings_manager.get_custom_themes()
+            self.settings_manager.get_custom_themes(),
+            self.current_font
         )
         if hasattr(self, "highlighter"):
             self.highlighter.set_theme(
@@ -1349,6 +1389,29 @@ class EditorTab(QWidget):
             )
         self.editor.update_line_number_area_width()
         self.editor.update_line_number_area()
+        self.update_markdown_preview()
+
+    def get_language_direction(self):
+        language = self.settings_manager.get_setting("language", "en_US")
+        return (
+            Qt.LayoutDirection.RightToLeft
+            if is_rtl_language(language)
+            else Qt.LayoutDirection.LeftToRight
+        )
+
+    def apply_language_direction(self):
+        """Apply writing direction to editor and markdown preview."""
+        direction = self.get_language_direction()
+        self.setLayoutDirection(direction)
+        if hasattr(self, "editor"):
+            self.editor.setLayoutDirection(direction)
+            text_option = QTextOption(self.editor.document().defaultTextOption())
+            text_option.setTextDirection(direction)
+            self.editor.document().setDefaultTextOption(text_option)
+            self.editor.update_line_number_area_width()
+            self.editor.update_line_number_area()
+        if hasattr(self, "markdown_preview"):
+            self.markdown_preview.setLayoutDirection(direction)
         self.update_markdown_preview()
 
     def apply_theme(self, theme_name):
@@ -1436,7 +1499,8 @@ class EditorTab(QWidget):
         if not hasattr(self, 'markdown_preview') or not self.markdown_preview_visible:
             return
 
-        self.markdown_preview.page().runJavaScript("""
+        mermaid_render_error = json.dumps(_("Mermaid render error:"))
+        script = """
             (async function () {
                 let rendered = false;
                 if (window.mermaid) {
@@ -1496,7 +1560,7 @@ class EditorTab(QWidget):
                             rendered = true;
                         } catch (error) {
                             diagram.classList.add('mermaid-error');
-                            diagram.textContent = 'Mermaid render error: ' + error.message + '\\n\\n' + source;
+                            diagram.textContent = __MERMAID_RENDER_ERROR__ + ' ' + error.message + '\\n\\n' + source;
                             rendered = true;
                         }
                     }
@@ -1516,7 +1580,11 @@ class EditorTab(QWidget):
 
                 return rendered;
             })();
-        """, lambda _result: QTimer.singleShot(50, self.sync_markdown_preview_scroll))
+        """.replace("__MERMAID_RENDER_ERROR__", mermaid_render_error)
+        self.markdown_preview.page().runJavaScript(
+            script,
+            lambda _result: QTimer.singleShot(50, self.sync_markdown_preview_scroll)
+        )
 
     def get_editor_scroll_ratio(self):
         """Return editor vertical scroll progress as a 0..1 ratio."""
@@ -2615,17 +2683,28 @@ class EditorTab(QWidget):
         preview_font = QFont(getattr(self, "current_font", self.editor.font()))
         preview_family = html.escape(preview_font.family().replace("\\", "\\\\").replace('"', '\\"'), quote=True)
         preview_size = max(8, preview_font.pointSize() if preview_font.pointSize() > 0 else 14)
+        rtl = self.get_language_direction() == Qt.LayoutDirection.RightToLeft
+        dir_attr = "rtl" if rtl else "ltr"
+        text_align = "right" if rtl else "left"
+        mermaid_runtime_error = json.dumps(_("Mermaid runtime could not be loaded."))
+        mermaid_render_error = json.dumps(_("Mermaid render error:"))
+        blockquote_border_side = "right" if rtl else "left"
+        blockquote_padding_side = "right" if rtl else "left"
+        list_margin = "0.4em 1.4em 0.8em 0" if rtl else "0.4em 0 0.8em 1.4em"
+        checkbox_margin = "0 0 0 0.45em" if rtl else "0 0.45em 0 0"
         return f"""
-        <html>
+        <html dir="{dir_attr}">
         <head>
             {base_tag}
             <style>
                 body {{
                     color: #202124;
+                    direction: {dir_attr};
                     font-family: "{preview_family}", "Segoe UI", sans-serif;
                     font-size: {preview_size}pt;
                     line-height: 1.55;
                     margin: 18px;
+                    text-align: {text_align};
                 }}
                 h1, h2, h3, h4, h5, h6 {{
                     color: #111827;
@@ -2655,15 +2734,15 @@ class EditorTab(QWidget):
                 }}
                 pre code {{ background: transparent; padding: 0; }}
                 blockquote {{
-                    border-left: 4px solid #d0d7de;
+                    border-{blockquote_border_side}: 4px solid #d0d7de;
                     color: #57606a;
                     margin: 0.8em 0;
-                    padding-left: 12px;
+                    padding-{blockquote_padding_side}: 12px;
                 }}
-                ul, ol {{ margin: 0.4em 0 0.8em 1.4em; }}
+                ul, ol {{ margin: {list_margin}; }}
                 li {{ margin: 0.2em 0; }}
                 .task-list-item-checkbox {{
-                    margin-right: 0.45em;
+                    margin: {checkbox_margin};
                     vertical-align: -0.1em;
                 }}
                 a {{ color: #0969da; }}
@@ -2730,7 +2809,7 @@ class EditorTab(QWidget):
                 .mermaid-error {{
                     color: #b42318;
                     font-family: "DejaVu Sans Mono", "Consolas", monospace;
-                    text-align: left;
+                    text-align: {text_align};
                     white-space: pre-wrap;
                 }}
             </style>
@@ -2755,7 +2834,7 @@ class EditorTab(QWidget):
                     if (!window.mermaid) {{
                         document.querySelectorAll('.mermaid').forEach(function (diagram) {{
                             diagram.classList.add('mermaid-error');
-                            diagram.textContent = 'Mermaid runtime could not be loaded.\\n\\n' + diagram.textContent;
+                            diagram.textContent = {mermaid_runtime_error} + '\\n\\n' + diagram.textContent;
                         }});
                         return;
                     }}
@@ -2815,7 +2894,7 @@ class EditorTab(QWidget):
                                 }}
                             }} catch (error) {{
                                 diagram.classList.add('mermaid-error');
-                                diagram.textContent = 'Mermaid render error: ' + error.message + '\\n\\n' + source;
+                                diagram.textContent = {mermaid_render_error} + ' ' + error.message + '\\n\\n' + source;
                             }}
                         }}
                     }} catch (error) {{
@@ -2832,7 +2911,7 @@ class EditorTab(QWidget):
                 window.addEventListener('load', renderMermaidDiagrams);
             </script>
         </head>
-        <body>
+        <body dir="{dir_attr}">
             {body_html}
         </body>
         </html>
@@ -2979,7 +3058,7 @@ class EditorTab(QWidget):
         
         # URL bar
         self.url_bar = QLineEdit()
-        self.url_bar.setPlaceholderText("Search or enter address")
+        self.url_bar.setPlaceholderText(_("Search or enter address"))
         self.url_bar.returnPressed.connect(self.navigate_to_url)
         toolbar_layout.addWidget(self.url_bar)
         
@@ -3005,7 +3084,7 @@ class EditorTab(QWidget):
         chars = len(text)
         
         # Update status bar
-        self.main_window.statusBar.showMessage(f"Words: {words} | Characters: {chars}")
+        self.main_window.statusBar.showMessage(_("Words: {words} | Characters: {chars}").format(words=words, chars=chars))
 
     def toggle_focus_mode(self):
         """Toggle focus mode"""
@@ -3058,7 +3137,7 @@ class EditorTab(QWidget):
         """)
         
         # Add exit button
-        self.exit_focus_btn = QPushButton("Exit Focus Mode", self)
+        self.exit_focus_btn = QPushButton(_("Exit Focus Mode"), self)
         self.exit_focus_btn.clicked.connect(self.disable_focus_mode)
         self.exit_focus_btn.setStyleSheet("""
             QPushButton {
@@ -3165,7 +3244,10 @@ class EditorTab(QWidget):
                 # Otherwise just update the View menu if it exists
                 elif hasattr(self.main_window, 'view_menu'):
                     for action in self.main_window.view_menu.actions():
-                        if action.text() == "Focus Mode":
+                        if (
+                            action.property("text_key") == "Focus Mode"
+                            or action.text() == _("Focus Mode")
+                        ):
                             action.setChecked(False)
                             break
 
@@ -3188,7 +3270,10 @@ class EditorTab(QWidget):
         # Update the search action state in the main toolbar if it exists
         if hasattr(self, 'main_window'):
             for action in self.main_window.toolbar.actions():
-                if action.text() == "Find/Replace":
+                if (
+                    action.property("text_key") == "Find/Replace"
+                    or action.text() == _("Find/Replace")
+                ):
                     action.setChecked(visible)
                     break
 
@@ -3268,7 +3353,11 @@ class EditorTab(QWidget):
         cursor.endEditBlock()
         
         # Show message with count
-        QMessageBox.information(self, "Replace All", f"Replaced {count} occurrence{'s' if count != 1 else ''}")
+        QMessageBox.information(
+            self,
+            _("Replace All"),
+            _("Replaced {count} occurrence(s)").format(count=count)
+        )
         
         # Move cursor back to start
         cursor.movePosition(QTextCursor.MoveOperation.Start)
@@ -3285,15 +3374,15 @@ class EditorTab(QWidget):
         menu = QMenu(self)
         
         # Cut/Copy/Paste actions
-        cut_action = menu.addAction("Cut")
+        cut_action = menu.addAction(_("Cut"))
         cut_action.triggered.connect(self.editor.cut)
         cut_action.setShortcut("Ctrl+X")
         
-        copy_action = menu.addAction("Copy")
+        copy_action = menu.addAction(_("Copy"))
         copy_action.triggered.connect(self.editor.copy)
         copy_action.setShortcut("Ctrl+C")
         
-        paste_action = menu.addAction("Paste")
+        paste_action = menu.addAction(_("Paste"))
         paste_action.triggered.connect(self.editor.paste)
         paste_action.setShortcut("Ctrl+V")
         
@@ -3301,7 +3390,7 @@ class EditorTab(QWidget):
         menu.addSeparator()
         
         # Add Select All action
-        select_all_action = menu.addAction("Select All")
+        select_all_action = menu.addAction(_("Select All"))
         select_all_action.triggered.connect(self.editor.selectAll)
         select_all_action.setShortcut("Ctrl+A")
         

@@ -6,31 +6,27 @@ if sys.version_info < (3, 10):
 import os
 import json
 import hashlib
-from PyQt6.QtWidgets import (QApplication, QMainWindow, QTabWidget, QWidget, 
-<<<<<<< HEAD
+from PyQt6.QtWidgets import (
+                            QApplication, QMainWindow, QTabWidget, QWidget,
                             QVBoxLayout, QHBoxLayout, QSplitter, QMenu, QToolBar,
-                            QMessageBox, QFontDialog, QLabel, QDialog, QSizePolicy,
+                            QMessageBox, QLabel, QDialog, QSizePolicy,
                             QDialogButtonBox, QTabBar, QFileDialog, QToolButton,
-                            QTreeView, QInputDialog, QPushButton)
+                            QTreeView, QInputDialog, QPushButton, QFormLayout,
+                            QFontComboBox, QComboBox)
 from PyQt6.QtCore import Qt, QUrl, QTimer, QEvent, QDir
 from PyQt6.QtWebEngineWidgets import QWebEngineView
 from PyQt6.QtGui import QAction, QShortcut, QFileSystemModel, QPen
-=======
-                            QVBoxLayout, QHBoxLayout, QSplitter, QMenu, QToolBar, QMessageBox, QFontDialog, QLabel, QDialog, QSizePolicy, QDialogButtonBox, QTabBar, QFileDialog, QToolButton, QTreeView, QInputDialog, QPushButton)
-from PyQt6.QtCore import Qt, QUrl, QTimer, QEvent, QDir
-from PyQt6.QtWebEngineWidgets import QWebEngineView
-from PyQt6.QtGui import QAction, QShortcut, QFileSystemModel
->>>>>>> parent of 429d996 (Revert "Implementing the workspaces.")
 from editor_tab import EditorTab
 from snippet_manager import SnippetManager
 from rss_tab import RSSTab
 import feedparser
-from PyQt6.QtGui import QIcon, QDesktopServices, QKeySequence, QColor
+from PyQt6.QtGui import QIcon, QDesktopServices, QKeySequence, QColor, QPalette
 from theme_manager import ThemeManager
 from settings_manager import SettingsManager
 from PyQt6.QtGui import QPixmap
 from PyQt6.QtCore import QByteArray
 from settings_dialog import SettingsDialog
+from translation_manager import _, is_rtl_language, set_language
 from PyQt6.QtGui import QFont
 from PyQt6.QtSvg import QSvgRenderer
 from PyQt6.QtGui import QPainter
@@ -54,7 +50,6 @@ class WorkspaceFileSystemModel(QFileSystemModel):
         return super().data(index, role)
 
 
-<<<<<<< HEAD
 class WorkspaceTreeView(QTreeView):
     """Tree view with subtle branch guides for workspace hierarchy."""
 
@@ -74,14 +69,143 @@ class WorkspaceTreeView(QTreeView):
         painter.restore()
 
 
-=======
->>>>>>> parent of 429d996 (Revert "Implementing the workspaces.")
+class FontSelectionDialog(QDialog):
+    """App-owned font picker so all visible strings use Jottr translations."""
+
+    def __init__(self, current_font, parent=None):
+        super().__init__(parent)
+        self.setObjectName("fontSelectionDialog")
+        self.setWindowTitle(_("Choose Editor Font"))
+        self.setMinimumWidth(420)
+
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(18, 18, 18, 14)
+        layout.setSpacing(12)
+        form = QFormLayout()
+        form.setSpacing(10)
+
+        self.font_label = QLabel(_("Font:"))
+        self.font_combo = QFontComboBox()
+        self.font_combo.setCurrentFont(current_font)
+        form.addRow(self.font_label, self.font_combo)
+
+        self.size_label = QLabel(_("Size:"))
+        self.size_combo = QComboBox()
+        self.size_combo.setEditable(True)
+        self.size_combo.addItems([str(size) for size in self.common_font_sizes()])
+        self.set_current_size(current_font.pointSize() if current_font.pointSize() > 0 else 12)
+        form.addRow(self.size_label, self.size_combo)
+
+        self.style_label = QLabel(_("Style:"))
+        self.style_combo = QComboBox()
+        self.style_combo.addItem(_("Regular"), "regular")
+        self.style_combo.addItem(_("Bold"), "bold")
+        self.style_combo.addItem(_("Italic"), "italic")
+        self.style_combo.addItem(_("Bold Italic"), "bold_italic")
+        self.style_combo.setCurrentIndex(self.initial_style_index(current_font))
+        form.addRow(self.style_label, self.style_combo)
+
+        layout.addLayout(form)
+
+        self.preview_label = QLabel(_("Preview:"))
+        layout.addWidget(self.preview_label)
+        self.preview_text = QLabel(_("The quick brown fox jumps over the lazy dog."))
+        self.preview_text.setObjectName("fontPreview")
+        self.preview_text.setMinimumHeight(54)
+        self.preview_text.setWordWrap(True)
+        layout.addWidget(self.preview_text)
+
+        buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel)
+        buttons.button(QDialogButtonBox.StandardButton.Ok).setText(_("OK"))
+        buttons.button(QDialogButtonBox.StandardButton.Cancel).setText(_("Cancel"))
+        buttons.accepted.connect(self.accept)
+        buttons.rejected.connect(self.reject)
+        layout.addWidget(buttons)
+
+        self.font_combo.currentFontChanged.connect(self.update_preview)
+        self.size_combo.currentTextChanged.connect(self.update_preview)
+        self.style_combo.currentIndexChanged.connect(self.update_preview)
+        self.apply_style(current_font)
+        self.update_preview()
+
+    def common_font_sizes(self):
+        return [6, 7, 8, 9, 10, 11, 12, 13, 14, 16, 18, 20, 22, 24, 28, 32, 36, 48, 64, 72, 96]
+
+    def set_current_size(self, size):
+        size = min(96, max(6, int(size)))
+        text = str(size)
+        index = self.size_combo.findText(text)
+        if index >= 0:
+            self.size_combo.setCurrentIndex(index)
+        else:
+            self.size_combo.setCurrentText(text)
+
+    def active_theme(self):
+        parent = self.parent()
+        settings_manager = getattr(parent, "settings_manager", None)
+        if settings_manager:
+            return ThemeManager.get_theme(
+                settings_manager.get_theme(),
+                settings_manager.get_custom_themes()
+            )
+        return ThemeManager.get_theme(ThemeManager.DEFAULT_THEME_NAME)
+
+    def apply_style(self, font):
+        theme = self.active_theme()
+        self.setStyleSheet(ThemeManager.build_font_dialog_stylesheet(theme, font))
+        app = theme["app"]
+        palette = self.palette()
+        palette.setColor(QPalette.ColorRole.Window, QColor(app["background"]))
+        palette.setColor(QPalette.ColorRole.WindowText, QColor(app["text"]))
+        palette.setColor(QPalette.ColorRole.Base, QColor(app["surface"]))
+        palette.setColor(QPalette.ColorRole.Text, QColor(app["text"]))
+        palette.setColor(QPalette.ColorRole.Button, QColor(app["surface"]))
+        palette.setColor(QPalette.ColorRole.ButtonText, QColor(app["text"]))
+        palette.setColor(QPalette.ColorRole.Highlight, QColor(app["surface_active"]))
+        palette.setColor(QPalette.ColorRole.HighlightedText, QColor(app["text"]))
+        self.setPalette(palette)
+        for combo in (self.font_combo, self.style_combo):
+            combo.setPalette(palette)
+            if combo.view():
+                combo.view().setPalette(palette)
+        self.size_combo.setPalette(palette)
+        if self.size_combo.view():
+            self.size_combo.view().setPalette(palette)
+
+    def initial_style_index(self, font):
+        if font.bold() and font.italic():
+            return 3
+        if font.bold():
+            return 1
+        if font.italic():
+            return 2
+        return 0
+
+    def selectedFont(self):
+        font = QFont(self.font_combo.currentFont())
+        try:
+            point_size = int(self.size_combo.currentText())
+        except ValueError:
+            point_size = 12
+        font.setPointSize(min(96, max(6, point_size)))
+        style = self.style_combo.currentData()
+        font.setBold(style in ("bold", "bold_italic"))
+        font.setItalic(style in ("italic", "bold_italic"))
+        return font
+
+    def update_preview(self, *_args):
+        self.preview_text.setFont(self.selectedFont())
+
+
 class TextEditorApp(QMainWindow):
     def __init__(self, file_path=None): 
         super().__init__()
         
         # Create settings manager first
         self.settings_manager = SettingsManager()
+        language = self.settings_manager.get_setting("language", "en_US")
+        set_language(language)
+        self.apply_layout_direction(language)
         
         # Create snippet manager with settings manager
         self.snippet_manager = SnippetManager(self.settings_manager)
@@ -132,7 +256,7 @@ class TextEditorApp(QMainWindow):
         self.snippet_manager = SnippetManager(self.settings_manager)
         
         # Create toolbar first before styling
-        self.toolbar = QToolBar("Main Toolbar")  # Add name here
+        self.toolbar = QToolBar(_("Main Toolbar"))  # Add name here
         self.toolbar.setObjectName("mainToolBar")  # Add this line
         self.toolbar.setMovable(False)
         
@@ -143,7 +267,7 @@ class TextEditorApp(QMainWindow):
         self.statusBar = self.statusBar()
         
         # Set initial status message
-        self.statusBar.showMessage("Words: 0 | Characters: 0")
+        self.statusBar.showMessage(_("Words: 0 | Characters: 0"))
         self.statusBar.setObjectName("statusBar")
         
         # Create main widget and layout
@@ -190,13 +314,21 @@ class TextEditorApp(QMainWindow):
         self.apply_app_style()
         self.setup_shortcuts()  # Add this line after setup_toolbar()
 
-    def apply_app_style(self):
+    def apply_app_style(self, font=None):
         """Apply the quiet writing-focused application chrome."""
         theme = ThemeManager.get_theme(
             self.settings_manager.get_theme(),
             self.settings_manager.get_custom_themes()
         )
-        self.setStyleSheet(ThemeManager.build_app_stylesheet(theme))
+        app_font = QFont(font) if font is not None else self.settings_manager.get_font()
+        application = QApplication.instance()
+        if application:
+            application.setFont(app_font)
+        self.setFont(app_font)
+        stylesheet = ThemeManager.build_app_stylesheet(theme, app_font)
+        if application:
+            application.setStyleSheet(stylesheet)
+        self.setStyleSheet(stylesheet)
         self.update_action_icons()
 
     def get_icon_color(self):
@@ -268,12 +400,12 @@ class TextEditorApp(QMainWindow):
         header_layout.setContentsMargins(10, 8, 8, 8)
         header_layout.setSpacing(8)
 
-        self.workspace_title = QPushButton("Workspace")
+        self.workspace_title = QPushButton(_("Workspace"))
         self.workspace_title.setObjectName("workspaceTitle")
         self.workspace_title.setFlat(True)
-        self.workspace_title.setToolTip("Switch workspace")
+        self.workspace_title.setToolTip(_("Switch workspace"))
         self.workspace_title.clicked.connect(self.show_workspace_navigator)
-        self.workspace_path_label = QLabel("No folder open")
+        self.workspace_path_label = QLabel(_("No folder open"))
         self.workspace_path_label.setObjectName("workspacePath")
 
         title_stack = QWidget()
@@ -288,7 +420,7 @@ class TextEditorApp(QMainWindow):
         new_file_button = QPushButton("+")
         new_file_button.setObjectName("workspaceToolButton")
         new_file_button.setFixedSize(24, 24)
-        new_file_button.setToolTip("New file in workspace")
+        new_file_button.setToolTip(_("New file in workspace"))
         new_file_button.clicked.connect(self.create_workspace_file)
         header_layout.addWidget(new_file_button)
 
@@ -301,23 +433,16 @@ class TextEditorApp(QMainWindow):
             QDir.Filter.NoDotAndDotDot
         )
 
-<<<<<<< HEAD
         self.workspace_tree = WorkspaceTreeView()
-=======
-        self.workspace_tree = QTreeView()
->>>>>>> parent of 429d996 (Revert "Implementing the workspaces.")
         self.workspace_tree.setObjectName("workspaceTree")
         self.workspace_tree.setModel(self.workspace_model)
         self.workspace_tree.setHeaderHidden(True)
         self.workspace_tree.setAnimated(True)
-<<<<<<< HEAD
         self.workspace_tree.setAlternatingRowColors(True)
         self.workspace_tree.setAllColumnsShowFocus(True)
         self.workspace_tree.setExpandsOnDoubleClick(True)
         self.workspace_tree.setIndentation(18)
         self.workspace_tree.setRootIsDecorated(True)
-=======
->>>>>>> parent of 429d996 (Revert "Implementing the workspaces.")
         self.workspace_tree.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         self.workspace_tree.doubleClicked.connect(self.open_workspace_index)
         self.workspace_tree.customContextMenuRequested.connect(self.show_workspace_context_menu)
@@ -343,7 +468,7 @@ class TextEditorApp(QMainWindow):
         root_index = self.workspace_model.setRootPath(path)
         self.workspace_tree.setRootIndex(root_index)
         self.workspace_title.setText(os.path.basename(path) or path)
-        self.workspace_title.setToolTip(f"Switch workspace\n{path}")
+        self.workspace_title.setToolTip(_("Switch workspace\n{path}").format(path=path))
         self.workspace_path_label.setText(os.path.dirname(path) or path)
         self.workspace_path_label.setToolTip(path)
         self.workspace_widget.show()
@@ -352,13 +477,13 @@ class TextEditorApp(QMainWindow):
             self.settings_manager.save_setting("workspace_path", path)
             self.add_recent_workspace(path)
             self.save_workspace_markdown_files()
-        self.statusBar.showMessage(f"Workspace: {path}")
+        self.statusBar.showMessage(_("Workspace: {path}").format(path=path))
         return True
 
     def open_workspace_dialog(self):
         """Choose a directory to use as the current workspace."""
         start_dir = self.workspace_path or os.path.expanduser("~")
-        directory = QFileDialog.getExistingDirectory(self, "Open Workspace", start_dir)
+        directory = QFileDialog.getExistingDirectory(self, _("Open Workspace"), start_dir)
         if directory:
             self.switch_workspace(directory)
 
@@ -382,8 +507,8 @@ class TextEditorApp(QMainWindow):
 
         if recent_workspaces:
             menu.addSeparator()
-        menu.addAction("Open Workspace...", self.open_workspace_dialog)
-        menu.addAction("Clear Missing Workspaces", self.clear_missing_workspaces)
+        menu.addAction(_("Open Workspace..."), self.open_workspace_dialog)
+        menu.addAction(_("Clear Missing Workspaces"), self.clear_missing_workspaces)
         menu.exec(self.workspace_title.mapToGlobal(self.workspace_title.rect().bottomLeft()))
 
     def get_recent_workspaces(self):
@@ -481,7 +606,7 @@ class TextEditorApp(QMainWindow):
         """Switch to a workspace and restore its session."""
         path = os.path.abspath(path)
         if not os.path.isdir(path):
-            QMessageBox.warning(self, "Workspace", "Workspace directory does not exist.")
+            QMessageBox.warning(self, _("Workspace"), _("Workspace directory does not exist."))
             return False
         if path == self.workspace_path:
             return True
@@ -505,8 +630,10 @@ class TextEditorApp(QMainWindow):
                 if tab.editor.document().isModified():
                     reply = QMessageBox.question(
                         self,
-                        "Unsaved Changes",
-                        f"{os.path.basename(tab.current_file)} has unsaved changes. Save before switching workspaces?",
+                        _("Unsaved Changes"),
+                        _("{filename} has unsaved changes. Save before switching workspaces?").format(
+                            filename=os.path.basename(tab.current_file)
+                        ),
                         QMessageBox.StandardButton.Save |
                         QMessageBox.StandardButton.Discard |
                         QMessageBox.StandardButton.Cancel
@@ -603,12 +730,12 @@ class TextEditorApp(QMainWindow):
         if not self.workspace_path:
             return
         menu = QMenu(self)
-        menu.addAction("New File", self.create_workspace_file)
-        menu.addAction("New Folder", self.create_workspace_folder)
+        menu.addAction(_("New File"), self.create_workspace_file)
+        menu.addAction(_("New Folder"), self.create_workspace_folder)
         menu.addSeparator()
         index = self.workspace_tree.indexAt(position)
         if index.isValid() and os.path.isfile(self.workspace_model.filePath(index)):
-            menu.addAction("Open", lambda: self.open_workspace_index(index))
+            menu.addAction(_("Open"), lambda: self.open_workspace_index(index))
         menu.exec(self.workspace_tree.mapToGlobal(position))
 
     def create_workspace_file(self):
@@ -618,22 +745,22 @@ class TextEditorApp(QMainWindow):
             if not self.workspace_path:
                 return
         directory = self.selected_workspace_directory()
-        name, ok = QInputDialog.getText(self, "New File", "File name:")
+        name, ok = QInputDialog.getText(self, _("New File"), _("File name:"))
         if not ok or not name.strip():
             return
         target = os.path.abspath(os.path.join(directory, name.strip()))
         if not self.is_path_in_workspace(target):
-            QMessageBox.warning(self, "Workspace", "File must be inside the workspace.")
+            QMessageBox.warning(self, _("Workspace"), _("File must be inside the workspace."))
             return
         if os.path.exists(target):
-            QMessageBox.warning(self, "Workspace", "A file or folder with that name already exists.")
+            QMessageBox.warning(self, _("Workspace"), _("A file or folder with that name already exists."))
             return
         os.makedirs(os.path.dirname(target), exist_ok=True)
         try:
             with open(target, "w", encoding="utf-8"):
                 pass
         except OSError as exc:
-            QMessageBox.critical(self, "Workspace", f"Could not create file: {exc}")
+            QMessageBox.critical(self, _("Workspace"), _("Could not create file: {error}").format(error=exc))
             return
         self.save_workspace_markdown_files()
         self.open_file(target)
@@ -643,23 +770,23 @@ class TextEditorApp(QMainWindow):
         if not self.workspace_path:
             return
         directory = self.selected_workspace_directory()
-        name, ok = QInputDialog.getText(self, "New Folder", "Folder name:")
+        name, ok = QInputDialog.getText(self, _("New Folder"), _("Folder name:"))
         if not ok or not name.strip():
             return
         target = os.path.abspath(os.path.join(directory, name.strip()))
         if not self.is_path_in_workspace(target):
-            QMessageBox.warning(self, "Workspace", "Folder must be inside the workspace.")
+            QMessageBox.warning(self, _("Workspace"), _("Folder must be inside the workspace."))
             return
         try:
             os.makedirs(target, exist_ok=False)
         except OSError as exc:
-            QMessageBox.critical(self, "Workspace", f"Could not create folder: {exc}")
+            QMessageBox.critical(self, _("Workspace"), _("Could not create folder: {error}").format(error=exc))
             return
         self.save_workspace_markdown_files()
         
     def setup_toolbar(self):
         """Setup the main toolbar"""
-        self.toolbar = QToolBar("Main Toolbar")
+        self.toolbar = QToolBar(_("Main Toolbar"))
         self.toolbar.setObjectName("mainToolBar")
         self.toolbar.setMovable(False)
         self.toolbar.setFloatable(False)
@@ -674,70 +801,80 @@ class TextEditorApp(QMainWindow):
         self.toolbar.setIconSize(QSize(22, 22))
         self.toolbar.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonIconOnly)
         self.icon_actions = []
+        self.translatable_actions = []
 
         # Helper function to create themed action
         def create_action(icon_name, text, handler=None):
             icon_data = self.icons.get(icon_name)
+            translated_text = _(text)
             if icon_data:
                 # Convert base64 data URL to QIcon
                 if icon_data.startswith('data:image/svg+xml;base64,'):
-                    action = QAction(self.build_themed_icon(icon_name), text, self)
+                    action = QAction(self.build_themed_icon(icon_name), translated_text, self)
                     self.icon_actions.append((action, icon_name))
                 else:
-                    action = QAction(text, self)
+                    action = QAction(translated_text, self)
             else:
-                action = QAction(text, self)
-            action.setToolTip(text)
-            action.setStatusTip(text)
+                action = QAction(translated_text, self)
+            action.setProperty("text_key", text)
+            action.setProperty("tooltip_key", text)
+            self.translatable_actions.append(action)
+            action.setToolTip(translated_text)
+            action.setStatusTip(translated_text)
             if handler:
                 action.triggered.connect(handler)
             return action
+
+        def set_action_tooltip(action, text):
+            action.setProperty("tooltip_key", text)
+            action.setToolTip(_(text))
+            action.setStatusTip(_(text))
 
         # Create the dropdown menu
         self.menu_dropdown = QMenu(self)
         
         # Add actions to dropdown menu
         settings_action = create_action("settings", "Settings", self.show_settings)
-        settings_action.setToolTip("Open Settings")
+        set_action_tooltip(settings_action, "Open Settings")
         self.menu_dropdown.addAction(settings_action)
         self.menu_dropdown.addSeparator()
         workspace_action = create_action("document-open", "Open Workspace", self.open_workspace_dialog)
-        workspace_action.setToolTip("Open Workspace")
+        set_action_tooltip(workspace_action, "Open Workspace")
         self.menu_dropdown.addAction(workspace_action)
         new_workspace_file_action = create_action("new", "New Workspace File", self.create_workspace_file)
-        new_workspace_file_action.setToolTip("New File in Workspace")
+        set_action_tooltip(new_workspace_file_action, "New File in Workspace")
         self.menu_dropdown.addAction(new_workspace_file_action)
         self.menu_dropdown.addSeparator()
         help_action = create_action("help", "Help", self.show_help)
-        help_action.setToolTip("Open Help")
+        set_action_tooltip(help_action, "Open Help")
         self.menu_dropdown.addAction(help_action)
         about_action = create_action("about", "About", self.show_about)
-        about_action.setToolTip("About Jottr")
+        set_action_tooltip(about_action, "About Jottr")
         self.menu_dropdown.addAction(about_action)
 
         # Add all toolbar items
         new_action = create_action("new", "New", self.new_editor_tab)
         new_action.setShortcut(QKeySequence.StandardKey.New)
-        new_action.setToolTip(f"New (Ctrl+N)")
+        set_action_tooltip(new_action, "New (Ctrl+N)")
         self.toolbar.addAction(new_action)
         
         open_action = create_action("open", "Open", self.open_file_dialog)
         open_action.setShortcut(QKeySequence.StandardKey.Open)
-        open_action.setToolTip(f"Open (Ctrl+O)")
+        set_action_tooltip(open_action, "Open (Ctrl+O)")
         self.toolbar.addAction(open_action)
 
         workspace_toolbar_action = create_action("document-open", "Workspace", self.open_workspace_dialog)
-        workspace_toolbar_action.setToolTip("Open Workspace")
+        set_action_tooltip(workspace_toolbar_action, "Open Workspace")
         self.toolbar.addAction(workspace_toolbar_action)
         
         save_action = create_action("save", "Save", self.save_file)
         save_action.setShortcut(QKeySequence.StandardKey.Save)
-        save_action.setToolTip(f"Save (Ctrl+S)")
+        set_action_tooltip(save_action, "Save (Ctrl+S)")
         self.toolbar.addAction(save_action)
         
         save_as_action = create_action("save-as", "Save As", self.save_file_as)
         save_as_action.setShortcut(QKeySequence.StandardKey.SaveAs)
-        save_as_action.setToolTip(f"Save As (Ctrl+Shift+S)")
+        set_action_tooltip(save_as_action, "Save As (Ctrl+Shift+S)")
         self.menu_dropdown.insertAction(self.menu_dropdown.actions()[0], save_as_action)
         self.menu_dropdown.insertSeparator(self.menu_dropdown.actions()[1])
         
@@ -746,24 +883,24 @@ class TextEditorApp(QMainWindow):
         # Undo/Redo
         undo_action = create_action("undo", "Undo", self.undo)
         undo_action.setShortcut(QKeySequence.StandardKey.Undo)
-        undo_action.setToolTip(f"Undo (Ctrl+Z)")
+        set_action_tooltip(undo_action, "Undo (Ctrl+Z)")
         self.toolbar.addAction(undo_action)
 
         redo_action = create_action("redo", "Redo", self.redo)
         redo_action.setShortcut(QKeySequence.StandardKey.Redo)
-        redo_action.setToolTip(f"Redo (Ctrl+Shift+Z)")
+        set_action_tooltip(redo_action, "Redo (Ctrl+Shift+Z)")
         self.toolbar.addAction(redo_action)
         
         self.toolbar.addSeparator()
         
         # Find/Replace and Focus Mode
         find_action = create_action("find", "Find/Replace", self.toggle_find)
-        find_action.setToolTip(f"Find/Replace (Ctrl+F)")
+        set_action_tooltip(find_action, "Find/Replace (Ctrl+F)")
         self.toolbar.addAction(find_action)
         
         focus_action = create_action("focus-mode", "Focus Mode", self.toggle_focus_mode)
         focus_action.setShortcut(QKeySequence("Ctrl+Shift+D"))
-        focus_action.setToolTip(f"Focus Mode (Ctrl+Shift+D)")
+        set_action_tooltip(focus_action, "Focus Mode (Ctrl+Shift+D)")
         focus_action.setCheckable(True)
         self.toolbar.addAction(focus_action)
         self.focus_mode_action = focus_action
@@ -772,41 +909,41 @@ class TextEditorApp(QMainWindow):
 
         # Font and Theme
         font_action = create_action("font", "Font", self.show_font_dialog)
-        font_action.setToolTip("Choose Editor Font")
+        set_action_tooltip(font_action, "Choose Editor Font")
         self.toolbar.addAction(font_action)
         theme_action = create_action("theme", "Theme", self.show_theme_menu)
-        theme_action.setToolTip("Choose Editor Theme")
+        set_action_tooltip(theme_action, "Choose Editor Theme")
         self.toolbar.addAction(theme_action)
         
         # View toggles
         snippets_action = create_action("snippets", "Snippets", lambda: self.toggle_snippets())
         snippets_action.setShortcut(QKeySequence("Ctrl+Shift+N"))
-        snippets_action.setToolTip(f"Toggle Snippets (Ctrl+Shift+N)")
+        set_action_tooltip(snippets_action, "Toggle Snippets (Ctrl+Shift+N)")
         self.toolbar.addAction(snippets_action)
 
         browser_action = create_action("browser", "Browser", lambda: self.toggle_browser())
         browser_action.setShortcut(QKeySequence("Ctrl+Shift+B"))
-        browser_action.setToolTip(f"Toggle Browser (Ctrl+Shift+B)")
+        set_action_tooltip(browser_action, "Toggle Browser (Ctrl+Shift+B)")
         self.toolbar.addAction(browser_action)
 
         markdown_action = create_action("insert-text", "Markdown", self.toggle_markdown_preview)
         markdown_action.setShortcut(QKeySequence("Ctrl+Shift+M"))
-        markdown_action.setToolTip("Toggle Markdown Preview (Ctrl+Shift+M)")
+        set_action_tooltip(markdown_action, "Toggle Markdown Preview (Ctrl+Shift+M)")
         self.toolbar.addAction(markdown_action)
         
         # Zoom controls
         zoom_in_action = create_action("zoom-in", "Zoom In", self.zoom_in)
         zoom_in_action.setShortcut(QKeySequence("Ctrl+="))
-        zoom_in_action.setToolTip(f"Zoom In (Ctrl+=)")
+        set_action_tooltip(zoom_in_action, "Zoom In (Ctrl+=)")
 
         zoom_out_action = create_action("zoom-out", "Zoom Out", self.zoom_out)
         zoom_out_action.setShortcut(QKeySequence("Ctrl+-"))
-        zoom_out_action.setToolTip(f"Zoom Out (Ctrl+-)")
+        set_action_tooltip(zoom_out_action, "Zoom Out (Ctrl+-)")
         self.menu_dropdown.insertAction(self.menu_dropdown.actions()[0], zoom_in_action)
         self.menu_dropdown.insertAction(self.menu_dropdown.actions()[1], zoom_out_action)
 
         zoom_reset_action = create_action("zoom-reset", "Reset Zoom", self.zoom_reset)
-        zoom_reset_action.setToolTip("Reset Zoom")
+        set_action_tooltip(zoom_reset_action, "Reset Zoom")
         self.menu_dropdown.insertAction(self.menu_dropdown.actions()[2], zoom_reset_action)
         self.menu_dropdown.insertSeparator(self.menu_dropdown.actions()[3])
         
@@ -817,7 +954,7 @@ class TextEditorApp(QMainWindow):
         
         # Menu button at far right
         menu_action = create_action("menu", "Menu", self.show_menu_dropdown)
-        menu_action.setToolTip("More Actions")
+        set_action_tooltip(menu_action, "More Actions")
         self.toolbar.addAction(menu_action)
 
         # Now set the overflow button text after all items are added
@@ -829,6 +966,37 @@ class TextEditorApp(QMainWindow):
         
         # Use a single-shot timer to ensure the overflow button exists
         QTimer.singleShot(0, update_overflow_button)
+
+    def retranslate_actions(self):
+        """Refresh toolbar and dropdown labels after the active language changes."""
+        if not hasattr(self, "translatable_actions"):
+            return
+        for action in self.translatable_actions:
+            text_key = action.property("text_key")
+            tooltip_key = action.property("tooltip_key")
+            if text_key:
+                action.setText(_(text_key))
+            if tooltip_key:
+                translated_tooltip = _(tooltip_key)
+                action.setToolTip(translated_tooltip)
+                action.setStatusTip(translated_tooltip)
+
+    def apply_layout_direction(self, language):
+        direction = (
+            Qt.LayoutDirection.RightToLeft
+            if is_rtl_language(language)
+            else Qt.LayoutDirection.LeftToRight
+        )
+        app = QApplication.instance()
+        if app:
+            app.setLayoutDirection(direction)
+        self.setLayoutDirection(direction)
+
+    def apply_language_direction_to_tabs(self):
+        for i in range(self.tab_widget.count()):
+            tab = self.tab_widget.widget(i)
+            if hasattr(tab, "apply_language_direction"):
+                tab.apply_language_direction()
 
     def get_current_editor(self):
         current_tab = self.tab_widget.currentWidget()
@@ -863,7 +1031,7 @@ class TextEditorApp(QMainWindow):
         
     def new_tab(self):
         editor_tab = EditorTab(self.snippet_manager)
-        self.tab_widget.addTab(editor_tab, f"Document {self.tab_widget.count() + 1}")
+        self.tab_widget.addTab(editor_tab, _("Document {number}").format(number=self.tab_widget.count() + 1))
         self.tab_widget.setCurrentWidget(editor_tab)
         
     def close_tab(self, index):
@@ -873,8 +1041,8 @@ class TextEditorApp(QMainWindow):
         if tab.editor.document().isModified():
             reply = QMessageBox.question(
                 self,
-                "Unsaved Changes",
-                "This document has unsaved changes. Do you want to save them?",
+                _("Unsaved Changes"),
+                _("This document has unsaved changes. Do you want to save them?"),
                 QMessageBox.StandardButton.Save | QMessageBox.StandardButton.Discard | QMessageBox.StandardButton.Cancel
             )
             
@@ -896,50 +1064,50 @@ class TextEditorApp(QMainWindow):
         menubar = self.menuBar()
         
         # File menu
-        file_menu = menubar.addMenu('File')
+        file_menu = menubar.addMenu(_("File"))
         
-        new_action = file_menu.addAction('New Editor Tab', self.new_editor_tab)
+        new_action = file_menu.addAction(_("New Editor Tab"), self.new_editor_tab)
         new_action.setShortcut(QKeySequence.StandardKey.New)
         
-        file_menu.addAction('New RSS Tab', self.new_rss_tab)
+        file_menu.addAction(_("New RSS Tab"), self.new_rss_tab)
         file_menu.addSeparator()
-        file_menu.addAction('Open Workspace...', self.open_workspace_dialog)
-        file_menu.addAction('New Workspace File...', self.create_workspace_file)
+        file_menu.addAction(_("Open Workspace..."), self.open_workspace_dialog)
+        file_menu.addAction(_("New Workspace File..."), self.create_workspace_file)
         file_menu.addSeparator()
         
-        save_action = file_menu.addAction('Save', self.save_file)
+        save_action = file_menu.addAction(_("Save"), self.save_file)
         save_action.setShortcut(QKeySequence.StandardKey.Save)
         
-        save_as_action = file_menu.addAction('Save As...', self.save_file_as)
+        save_as_action = file_menu.addAction(_("Save As..."), self.save_file_as)
         save_as_action.setShortcut(QKeySequence.StandardKey.SaveAs)  # Typically Ctrl+Shift+S
         
-        open_action = file_menu.addAction('Open', self.open_file_dialog)
+        open_action = file_menu.addAction(_("Open"), self.open_file_dialog)
         open_action.setShortcut(QKeySequence.StandardKey.Open)
         
         file_menu.addSeparator()
-        file_menu.addAction('Exit', self.close)
+        file_menu.addAction(_("Exit"), self.close)
 
         # View menu
-        view_menu = menubar.addMenu('View')
+        view_menu = menubar.addMenu(_("View"))
         
-        snippets_action = view_menu.addAction('Toggle Snippets', self.toggle_snippets)
+        snippets_action = view_menu.addAction(_("Toggle Snippets"), self.toggle_snippets)
         snippets_action.setShortcut(QKeySequence("Ctrl+Shift+N"))
         
-        browser_action = view_menu.addAction('Toggle Browser', self.toggle_browser)
+        browser_action = view_menu.addAction(_("Toggle Browser"), self.toggle_browser)
         browser_action.setShortcut(QKeySequence("Ctrl+Shift+B"))
 
-        markdown_action = view_menu.addAction('Toggle Markdown Preview', self.toggle_markdown_preview)
+        markdown_action = view_menu.addAction(_("Toggle Markdown Preview"), self.toggle_markdown_preview)
         markdown_action.setShortcut(QKeySequence("Ctrl+Shift+M"))
         
         view_menu.addSeparator()
         
-        zoom_in_action = view_menu.addAction('Zoom In', self.zoom_in)
+        zoom_in_action = view_menu.addAction(_("Zoom In"), self.zoom_in)
         zoom_in_action.setShortcut(QKeySequence("Ctrl+="))
         
-        zoom_out_action = view_menu.addAction('Zoom Out', self.zoom_out)
+        zoom_out_action = view_menu.addAction(_("Zoom Out"), self.zoom_out)
         zoom_out_action.setShortcut(QKeySequence("Ctrl+-"))
         
-        view_menu.addAction('Reset Zoom', self.zoom_reset)
+        view_menu.addAction(_("Reset Zoom"), self.zoom_reset)
 
     def save_file(self):
         current_tab = self.tab_widget.currentWidget()
@@ -957,7 +1125,7 @@ class TextEditorApp(QMainWindow):
         editor_tab.set_main_window(self)  # Set reference to main window
         
         # Add tab with default title
-        self.tab_widget.addTab(editor_tab, f"Document {self.tab_widget.count() + 1}")
+        self.tab_widget.addTab(editor_tab, _("Document {number}").format(number=self.tab_widget.count() + 1))
         self.tab_widget.setCurrentWidget(editor_tab)
         editor_tab.editor.setFocus()
         self.save_workspace_open_files()
@@ -965,16 +1133,25 @@ class TextEditorApp(QMainWindow):
         
     def new_rss_tab(self):
         rss_tab = RSSTab()
-        self.tab_widget.addTab(rss_tab, "RSS Reader")
+        self.tab_widget.addTab(rss_tab, _("RSS Reader"))
         self.tab_widget.setCurrentWidget(rss_tab)
 
     def show_font_dialog(self):
         if editor_tab := self.tab_widget.currentWidget():
             if isinstance(editor_tab, EditorTab):
-                font, ok = QFontDialog.getFont(editor_tab.current_font, self)
-                if ok:
-                    editor_tab.update_font(font)
+                dialog = FontSelectionDialog(editor_tab.current_font, self)
+                if dialog.exec() == QDialog.DialogCode.Accepted:
+                    font = dialog.selectedFont()
                     self.settings_manager.save_font(font)
+                    self.apply_font_to_tabs(font)
+
+    def apply_font_to_tabs(self, font):
+        """Apply the selected font to the app chrome, editor tabs, and previews."""
+        self.apply_app_style(font)
+        for index in range(self.tab_widget.count()):
+            tab = self.tab_widget.widget(index)
+            if isinstance(tab, EditorTab):
+                tab.update_font(font)
 
     def show_theme_menu(self):
         """Show theme selection menu"""
@@ -1095,7 +1272,7 @@ class TextEditorApp(QMainWindow):
             with open('help/help.md', 'r', encoding='utf-8') as f:
                 help_content = f.read()
         except:
-            help_content = "Help documentation not found."
+            help_content = _("Help documentation not found.")
         
         # Set content and make read-only
         help_tab.editor.setPlainText(help_content)
@@ -1104,12 +1281,12 @@ class TextEditorApp(QMainWindow):
         
         # Set tab title
         current_index = self.tab_widget.indexOf(help_tab)
-        self.tab_widget.setTabText(current_index, "Help")
+        self.tab_widget.setTabText(current_index, _("Help"))
 
     def show_about(self):
         """Show about dialog"""
         about_dialog = QDialog(self)
-        about_dialog.setWindowTitle(f"About {APP_NAME}")
+        about_dialog.setWindowTitle(_("About {APP_NAME}").format(APP_NAME=APP_NAME))
         about_dialog.setMinimumWidth(400)
         
         layout = QVBoxLayout(about_dialog)
@@ -1122,12 +1299,12 @@ class TextEditorApp(QMainWindow):
         layout.addWidget(title_label)
         
         # Version
-        version_label = QLabel(f"Version {APP_VERSION}")
+        version_label = QLabel(_("Version {APP_VERSION}").format(APP_VERSION=APP_VERSION))
         version_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         layout.addWidget(version_label)
         
         # Description
-        desc_label = QLabel("A simple text editor for writers, journalists and researchers")
+        desc_label = QLabel(_("A simple text editor for writers, journalists and researchers"))
         desc_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         layout.addWidget(desc_label)
         
@@ -1135,17 +1312,17 @@ class TextEditorApp(QMainWindow):
         layout.addSpacing(10)
         
         # Developer
-        dev_label = QLabel("Developed by mFat")
+        dev_label = QLabel(_("Developed by mFat"))
         dev_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         layout.addWidget(dev_label)
         
         # License
-        license_label = QLabel("Licensed under GNU GPL v3.0")
+        license_label = QLabel(_("Licensed under GNU GPL v3.0"))
         license_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         layout.addWidget(license_label)
         
         # Homepage link
-        link_label = QLabel(f'<a href="{APP_HOMEPAGE}">Project Homepage</a>')
+        link_label = QLabel(_('<a href="{APP_HOMEPAGE}">Project Homepage</a>').format(APP_HOMEPAGE=APP_HOMEPAGE))
         link_label.setOpenExternalLinks(True)
         link_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         layout.addWidget(link_label)
@@ -1213,6 +1390,11 @@ class TextEditorApp(QMainWindow):
             self.settings_manager.save_setting('user_dictionary', settings['user_dictionary'])
             self.settings_manager.save_custom_themes(settings['custom_themes'])
             self.settings_manager.save_theme(settings['theme'])
+            self.settings_manager.save_setting('language', settings['language'])
+            set_language(settings['language'])
+            self.apply_layout_direction(settings['language'])
+            self.apply_language_direction_to_tabs()
+            self.retranslate_actions()
             self.settings_manager.save_setting('icon_contrast', settings['icon_contrast'])
             self.settings_manager.save_setting('markdown_scroll_sync', settings['markdown_scroll_sync'])
             self.settings_manager.save_setting('editor_line_numbers', settings['editor_line_numbers'])
@@ -1265,7 +1447,7 @@ class TextEditorApp(QMainWindow):
         # Find the menu button
         menu_button = None
         for action in self.toolbar.actions():
-            if action.text() == "Menu":
+            if action.property("text_key") == "Menu" or action.text() == _("Menu"):
                 menu_button = self.toolbar.widgetForAction(action)
                 break
         
@@ -1293,9 +1475,9 @@ class TextEditorApp(QMainWindow):
             # Show file dialog if no path provided
             file_path, _ = QFileDialog.getOpenFileName(
                 self,
-                "Open File",
+                _("Open File"),
                 "",
-                "Markdown Files (*.md *.markdown);;Text Files (*.txt);;All Files (*.*)"
+                _("Markdown Files (*.md *.markdown);;Text Files (*.txt);;All Files (*.*)")
             )
             if not file_path:  # User cancelled
                 return
@@ -1313,7 +1495,7 @@ class TextEditorApp(QMainWindow):
             with open(file_path, 'r', encoding='utf-8') as f:
                 content = f.read()
         except Exception as e:
-            QMessageBox.critical(self, "Error", f"Could not open file: {str(e)}")
+            QMessageBox.critical(self, _("Error"), _("Could not open file: {error}").format(error=str(e)))
             return False
 
         editor_tab = self.reusable_empty_editor_tab()
@@ -1370,8 +1552,8 @@ class TextEditorApp(QMainWindow):
         if unsaved_tabs:
             reply = QMessageBox.question(
                 self,
-                "Unsaved Changes",
-                "You have unsaved changes. Do you want to save them before closing?",
+                _("Unsaved Changes"),
+                _("You have unsaved changes. Do you want to save them before closing?"),
                 QMessageBox.StandardButton.Save | QMessageBox.StandardButton.Discard | QMessageBox.StandardButton.Cancel
             )
             
