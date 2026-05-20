@@ -441,6 +441,26 @@ class EditorAndMainTests(unittest.TestCase):
             self.assertEqual(toolbar_tooltips["Menu"], "More Actions")
             self.assertTrue(all(toolbar_tooltips.values()))
 
+    def test_main_window_left_aligns_document_tabs(self):
+        class FakeEditorTab(QWidget):
+            def __init__(self, snippet_manager, settings_manager):
+                super().__init__()
+                self.editor = QTextEdit(self)
+                self.current_file = None
+
+            def set_main_window(self, main_window):
+                self.main_window = main_window
+
+        with patch.object(main_module, "EditorTab", FakeEditorTab):
+            window = TextEditorApp()
+            self.addCleanup(window.close)
+            self.addCleanup(window.deleteLater)
+
+            self.assertFalse(window.tab_widget.tabBar().expanding())
+            stylesheet = QApplication.instance().styleSheet()
+            self.assertIn("QTabWidget#documentTabs::tab-bar", stylesheet)
+            self.assertIn("alignment: left", stylesheet)
+
     def test_main_window_applies_font_to_all_editor_tabs(self):
         class FakeEditorTab(QWidget):
             def __init__(self, snippet_manager, settings_manager):

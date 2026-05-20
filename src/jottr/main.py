@@ -290,6 +290,7 @@ class TextEditorApp(QMainWindow):
         self.tab_widget.setMovable(True)
         self.tab_widget.setUsesScrollButtons(True)
         self.tab_widget.setTabsClosable(True)
+        self.tab_widget.tabBar().setExpanding(False)
         self.tab_widget.tabCloseRequested.connect(self.close_tab)
         
         # Install event filter on the tab bar
