@@ -323,6 +323,28 @@ class EditorAndMainTests(unittest.TestCase):
         self.assertTrue(editor.save_file())
         self.assertEqual(target.read_text(encoding="utf-8"), "saved content")
 
+    def test_editor_save_dialog_uses_translation_without_shadowing(self):
+        editor = self.make_editor()
+        target = Path(self.temp_dir.name) / "save-dialog.md"
+        editor.editor.setPlainText("dialog save")
+
+        with patch.object(editor_tab_module.QFileDialog, "getSaveFileName", return_value=(str(target), "")):
+            self.assertTrue(editor.save_file(force_dialog=True))
+
+        self.assertEqual(editor.current_file, str(target))
+        self.assertEqual(target.read_text(encoding="utf-8"), "dialog save")
+
+    def test_editor_open_dialog_uses_translation_without_shadowing(self):
+        editor = self.make_editor()
+        target = Path(self.temp_dir.name) / "open-dialog.txt"
+        target.write_text("# Dialog Open", encoding="utf-8")
+
+        with patch.object(editor_tab_module.QFileDialog, "getOpenFileName", return_value=(str(target), "")):
+            editor.open_file()
+
+        self.assertEqual(editor.current_file, str(target))
+        self.assertEqual(editor.editor.toPlainText(), "# Dialog Open")
+
     def test_editor_autosaves_existing_file_when_enabled(self):
         self.settings.save_setting("autosave_enabled", True)
         self.settings.save_setting("autosave_interval_seconds", 1)

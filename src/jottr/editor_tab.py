@@ -934,7 +934,7 @@ class EditorTab(QWidget):
     def save_file(self, force_dialog=False):
         """Save file, optionally forcing Save As dialog"""
         if not self.current_file or force_dialog:
-            file_name, _ = QFileDialog.getSaveFileName(
+            file_name, _selected_filter = QFileDialog.getSaveFileName(
                 self,
                 _("Save File"),
                 os.path.expanduser("~"),
@@ -966,7 +966,7 @@ class EditorTab(QWidget):
             return False
 
     def open_file(self):
-        file_name, _ = QFileDialog.getOpenFileName(
+        file_name, _selected_filter = QFileDialog.getOpenFileName(
             self,
             _("Open File"),
             "",
