@@ -1473,7 +1473,7 @@ class TextEditorApp(QMainWindow):
         """Open a file immediately, reusing an empty untitled tab when possible."""
         if file_path is None:
             # Show file dialog if no path provided
-            file_path, _ = QFileDialog.getOpenFileName(
+            file_path, _selected_filter = QFileDialog.getOpenFileName(
                 self,
                 _("Open File"),
                 "",
