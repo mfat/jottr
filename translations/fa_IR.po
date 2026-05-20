@@ -52,6 +52,49 @@ msgstr "فایل‌های Markdown (*.md *.markdown);;فایل‌های متنی
 msgid "Could not save file: {error}"
 msgstr ""
 
+#: src/jottr/editor_tab.py
+msgid "Export as PDF"
+msgstr "برون‌بری به PDF"
+
+#: src/jottr/editor_tab.py
+msgid "PDF Files (*.pdf);;All Files (*.*)"
+msgstr "فایل‌های PDF (*.pdf);;همهٔ فایل‌ها (*.*)"
+
+#: src/jottr/editor_tab.py
+msgid "PDF Files (*.pdf)"
+msgstr "فایل‌های PDF (*.pdf)"
+
+#: src/jottr/editor_tab.py
+msgid "All Files (*.*)"
+msgstr "همهٔ فایل‌ها (*.*)"
+
+#: src/jottr/editor_tab.py
+msgid "Export Complete"
+msgstr "برون‌بری کامل شد"
+
+#: src/jottr/editor_tab.py
+#, python-brace-format
+msgid "PDF exported to {path}"
+msgstr "PDF در {path} ذخیره شد"
+
+#: src/jottr/editor_tab.py
+#, python-brace-format
+msgid "Could not export PDF: {error}"
+msgstr "امکان برون‌بری PDF وجود ندارد: {error}"
+
+#: src/jottr/editor_tab.py
+msgid "Could not prepare PDF export."
+msgstr "امکان آماده‌سازی برون‌بری PDF وجود ندارد."
+
+#: src/jottr/editor_tab.py
+msgid "Confirm Save As"
+msgstr "تأیید ذخیره به‌عنوان"
+
+#: src/jottr/editor_tab.py
+#, python-brace-format
+msgid "A file named \"{name}\" already exists. Do you want to replace it?"
+msgstr "فایلی با نام «{name}» از قبل وجود دارد. آیا می‌خواهید آن را جایگزین کنید؟"
+
 #: src/jottr/editor_tab.py:934 src/jottr/feed_manager_dialog.py:72
 #: src/jottr/feed_manager_dialog.py:84 src/jottr/feed_manager_dialog.py:94
 #: src/jottr/feed_manager_dialog.py:109 src/jottr/feed_manager_dialog.py:123
@@ -365,6 +408,14 @@ msgstr "باز کردن"
 msgid "File name:"
 msgstr "نام فایل:"
 
+#: src/jottr/editor_tab.py
+msgid "Look in:"
+msgstr "نگاه در:"
+
+#: src/jottr/editor_tab.py
+msgid "File type:"
+msgstr "نوع فایل:"
+
 #: src/jottr/main.py:616
 msgid "File must be inside the workspace."
 msgstr "فایل باید داخل فضای کاری باشد."
@@ -451,6 +502,14 @@ msgstr "ذخیره به‌عنوان"
 #: src/jottr/main.py:740
 msgid "Save As (Ctrl+Shift+S)"
 msgstr "ذخیره به‌عنوان (Ctrl+Shift+S)"
+
+#: src/jottr/main.py
+msgid "Export PDF"
+msgstr "برون‌بری PDF"
+
+#: src/jottr/main.py
+msgid "Export current file as PDF"
+msgstr "برون‌بری فایل فعلی به PDF"
 
 #: src/jottr/main.py:747
 msgid "Undo"
@@ -625,6 +684,10 @@ msgstr "فایل جدید فضای کاری..."
 #: src/jottr/main.py:944
 msgid "Save As..."
 msgstr "ذخیره به‌عنوان..."
+
+#: src/jottr/main.py
+msgid "Export as PDF..."
+msgstr "برون‌بری به PDF..."
 
 #: src/jottr/main.py:951
 msgid "Exit"

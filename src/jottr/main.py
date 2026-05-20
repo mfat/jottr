@@ -821,7 +821,10 @@ class TextEditorApp(QMainWindow):
         save_as_action.setShortcut(QKeySequence.StandardKey.SaveAs)
         set_action_tooltip(save_as_action, "Save As (Ctrl+Shift+S)")
         self.menu_dropdown.insertAction(self.menu_dropdown.actions()[0], save_as_action)
-        self.menu_dropdown.insertSeparator(self.menu_dropdown.actions()[1])
+        export_pdf_action = create_action("save-as", "Export PDF", self.export_pdf)
+        set_action_tooltip(export_pdf_action, "Export current file as PDF")
+        self.menu_dropdown.insertAction(self.menu_dropdown.actions()[1], export_pdf_action)
+        self.menu_dropdown.insertSeparator(self.menu_dropdown.actions()[2])
         
         self.toolbar.addSeparator()
         
@@ -1022,6 +1025,8 @@ class TextEditorApp(QMainWindow):
         
         save_as_action = file_menu.addAction(_("Save As..."), self.save_file_as)
         save_as_action.setShortcut(QKeySequence.StandardKey.SaveAs)  # Typically Ctrl+Shift+S
+
+        file_menu.addAction(_("Export as PDF..."), self.export_pdf)
         
         open_action = file_menu.addAction(_("Open"), self.open_file_dialog)
         open_action.setShortcut(QKeySequence.StandardKey.Open)
@@ -1371,6 +1376,12 @@ class TextEditorApp(QMainWindow):
         current_tab = self.tab_widget.currentWidget()
         if current_tab and isinstance(current_tab, EditorTab):
             current_tab.save_file(force_dialog=True)
+
+    def export_pdf(self):
+        """Export the current editor tab as a PDF."""
+        current_tab = self.tab_widget.currentWidget()
+        if current_tab and hasattr(current_tab, "export_pdf"):
+            current_tab.export_pdf()
 
     def show_menu_dropdown(self):
         """Show the menu dropdown under the menu button"""
