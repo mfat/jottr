@@ -468,6 +468,9 @@ class ThemeManager:
                 margin: 0px;
                 padding: 0px;
             }}
+            QTabWidget#documentTabs::tab-bar {{
+                alignment: left;
+            }}
             QSplitter#mainSplitter::handle {{
                 background: {app['border']};
                 width: 1px;
