@@ -12,10 +12,11 @@ from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QSplitter,
                             QGraphicsOpacityEffect)
 from PyQt6.QtCore import (
     Qt, QUrl, QTimer, QStringListModel, QEvent, QSize, QRect,
-    QPropertyAnimation, QEasingCurve, QParallelAnimationGroup
+    QPropertyAnimation, QEasingCurve, QParallelAnimationGroup, QMarginsF
 )
 from PyQt6.QtGui import (QAction, QShortcut, QTextCharFormat, QSyntaxHighlighter, QIcon, QFont, QKeySequence,
-                        QPainter, QPen, QColor, QFontMetrics, QTextDocument, QTextCursor, QTextOption)
+                        QPainter, QPen, QColor, QFontMetrics, QTextDocument, QTextCursor, QTextOption,
+                        QPageLayout, QPageSize)
 from PyQt6.QtWebEngineWidgets import QWebEngineView
 from PyQt6.QtWebEngineCore import QWebEnginePage, QWebEngineSettings
 from urllib.parse import quote
@@ -974,6 +975,177 @@ class EditorTab(QWidget):
         except Exception as e:
             QMessageBox.critical(self, _("Error"), _("Could not save file: {error}").format(error=str(e)))
             return False
+
+    def suggested_pdf_export_path(self):
+        """Return a sensible default path for exporting the current document."""
+        if self.current_file:
+            return os.path.splitext(self.current_file)[0] + ".pdf"
+        return os.path.join(os.path.expanduser("~"), "document.pdf")
+
+    def prompt_pdf_export_path(self):
+        """Show a translated save dialog for PDF export."""
+        dialog = QFileDialog(self, _("Export as PDF"), self.suggested_pdf_export_path())
+        dialog.setAcceptMode(QFileDialog.AcceptMode.AcceptSave)
+        dialog.setFileMode(QFileDialog.FileMode.AnyFile)
+        dialog.setOption(QFileDialog.Option.DontUseNativeDialog, True)
+        dialog.setOption(QFileDialog.Option.DontConfirmOverwrite, True)
+        dialog.setDefaultSuffix("pdf")
+        pdf_filter = _("PDF Files (*.pdf)")
+        all_files_filter = _("All Files (*.*)")
+        dialog.setNameFilters([pdf_filter, all_files_filter])
+        dialog.selectNameFilter(pdf_filter)
+        dialog.setLabelText(QFileDialog.DialogLabel.LookIn, _("Look in:"))
+        dialog.setLabelText(QFileDialog.DialogLabel.FileName, _("File name:"))
+        dialog.setLabelText(QFileDialog.DialogLabel.FileType, _("File type:"))
+        dialog.setLabelText(QFileDialog.DialogLabel.Accept, _("Save"))
+        dialog.setLabelText(QFileDialog.DialogLabel.Reject, _("Cancel"))
+        dialog.setLayoutDirection(
+            Qt.LayoutDirection.RightToLeft
+            if is_rtl_language(self.settings_manager.get_setting("language", "en_US"))
+            else Qt.LayoutDirection.LeftToRight
+        )
+
+        if dialog.exec() != QDialog.DialogCode.Accepted:
+            return ""
+        selected_files = dialog.selectedFiles()
+        if not selected_files:
+            return ""
+        selected_path = selected_files[0]
+        if os.path.exists(selected_path) and not self.confirm_pdf_export_replace(selected_path):
+            return ""
+        return selected_path
+
+    def confirm_pdf_export_replace(self, file_path):
+        """Confirm overwriting an existing PDF with translated buttons."""
+        message_box = QMessageBox(self)
+        message_box.setIcon(QMessageBox.Icon.Warning)
+        message_box.setWindowTitle(_("Confirm Save As"))
+        message_box.setText(
+            _("A file named \"{name}\" already exists. Do you want to replace it?")
+            .format(name=os.path.basename(file_path))
+        )
+        replace_button = message_box.addButton(_("Replace"), QMessageBox.ButtonRole.AcceptRole)
+        message_box.addButton(_("Cancel"), QMessageBox.ButtonRole.RejectRole)
+        message_box.setDefaultButton(replace_button)
+        message_box.exec()
+        return message_box.clickedButton() == replace_button
+
+    def export_pdf(self, output_path=None):
+        """Export the current document to PDF using the markdown preview styles."""
+        if not output_path:
+            output_path = self.prompt_pdf_export_path()
+            if not output_path:
+                return False
+
+        if not output_path.lower().endswith(".pdf"):
+            output_path += ".pdf"
+
+        base_dir = os.path.dirname(self.current_file) if self.current_file else os.getcwd()
+        base_url = QUrl.fromLocalFile(os.path.join(base_dir, ""))
+        html_content = self.render_markdown_html(
+            self.editor.toPlainText(),
+            base_url.toString()
+        )
+        temp_file = None
+        try:
+            temp_file = tempfile.NamedTemporaryFile(
+                mode="w",
+                encoding="utf-8",
+                suffix=".html",
+                prefix="jottr-pdf-export-",
+                delete=False
+            )
+            temp_file.write(html_content)
+            temp_file_path = temp_file.name
+        except OSError as e:
+            QMessageBox.critical(
+                self,
+                _("Error"),
+                _("Could not export PDF: {error}").format(error=str(e))
+            )
+            return False
+        finally:
+            if temp_file:
+                temp_file.close()
+
+        page = QWebEnginePage(self)
+        self._pdf_export_page = page
+        self._pdf_export_html_path = temp_file_path
+
+        def cleanup_export():
+            html_path = getattr(self, "_pdf_export_html_path", None)
+            self._pdf_export_page = None
+            self._pdf_export_html_path = None
+            if html_path:
+                try:
+                    os.remove(html_path)
+                except OSError:
+                    pass
+
+        def finish_export(file_path, success):
+            cleanup_export()
+            if success:
+                QMessageBox.information(
+                    self,
+                    _("Export Complete"),
+                    _("PDF exported to {path}").format(path=file_path)
+                )
+            else:
+                QMessageBox.critical(
+                    self,
+                    _("Error"),
+                    _("Could not export PDF: {error}").format(error=file_path)
+                )
+
+        def print_when_ready(_result=True):
+            page_layout = QPageLayout(
+                QPageSize(QPageSize.PageSizeId.A4),
+                QPageLayout.Orientation.Portrait,
+                QMarginsF(10.0, 10.0, 10.0, 10.0),
+                QPageLayout.Unit.Millimeter
+            )
+            page.printToPdf(output_path, page_layout)
+
+        def prepare_loaded_page(success):
+            if not success:
+                cleanup_export()
+                QMessageBox.critical(self, _("Error"), _("Could not prepare PDF export."))
+                return
+
+            page.runJavaScript(
+                """
+                (async function () {
+                    try {
+                        if (typeof renderMermaidDiagrams === 'function') {
+                            await renderMermaidDiagrams();
+                        }
+                        if (window.MathJax && window.MathJax.typesetPromise) {
+                            var mathNodes = Array.prototype.slice.call(
+                                document.querySelectorAll('.math-inline, .math-block')
+                            );
+                            if (mathNodes.length) {
+                                await window.MathJax.typesetPromise(mathNodes);
+                            }
+                        }
+                        await new Promise(function (resolve) {
+                            requestAnimationFrame(function () {
+                                requestAnimationFrame(resolve);
+                            });
+                        });
+                        return true;
+                    } catch (error) {
+                        console.error('PDF export render failed', error);
+                        return false;
+                    }
+                })();
+                """,
+                print_when_ready
+            )
+
+        page.pdfPrintingFinished.connect(finish_export)
+        page.loadFinished.connect(prepare_loaded_page)
+        page.load(QUrl.fromLocalFile(temp_file_path))
+        return True
 
     def open_file(self):
         file_name, _selected_filter = QFileDialog.getOpenFileName(
@@ -2542,7 +2714,10 @@ class EditorTab(QWidget):
         """Return the script tag for the configured Mermaid runtime."""
         if self.get_mermaid_runtime_mode() == "latest":
             url = html.escape(self.MERMAID_LATEST_CDN_URL, quote=True)
-            return f'<script src="{url}"></script>'
+            return (
+                f'<script src="{url}"></script>'
+                f"<script>\nif (!window.mermaid) {{\n{self.get_mermaid_script_content()}\n}}\n</script>"
+            )
         return f"<script>\n{self.get_mermaid_script_content()}\n</script>"
 
     def get_mermaid_script_content(self):
@@ -2893,6 +3068,14 @@ class EditorTab(QWidget):
                 setTimeout(window.__jottrRestoreInitialPreviewScroll, 450);
             </script>
             <style>
+                @page {{
+                    margin: 1mm;
+                }}
+                @media print {{
+                    body {{
+                        margin: 0;
+                    }}
+                }}
                 html.jottr-restoring-preview-scroll body {{
                     visibility: hidden;
                 }}
@@ -2943,8 +3126,8 @@ class EditorTab(QWidget):
                     padding-inline-start: 12px;
                 }}
                 ul, ol {{
-                    margin: 0.4em 0 0.8em 0;
-                    padding-inline-start: 1.4em;
+                    margin: 0.4em 0 0.8em 0.35em;
+                    padding-inline-start: 2.2em;
                 }}
                 li {{ margin: 0.2em 0; }}
                 .task-list-item-checkbox {{

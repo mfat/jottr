@@ -16,7 +16,7 @@ sys.path.insert(0, str(SRC_DIR))
 
 from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QFont, QTextCursor, QTextDocument
-from PyQt6.QtWidgets import QApplication, QTextEdit, QWidget
+from PyQt6.QtWidgets import QApplication, QDialog, QTextEdit, QWidget
 
 from editor_tab import EditorTab, SpellCheckHighlighter
 import editor_tab as editor_tab_module
@@ -37,8 +37,15 @@ def app():
 
 
 class _Signal:
+    def __init__(self):
+        self.callback = None
+
     def connect(self, callback):
         self.callback = callback
+
+    def emit(self, *args):
+        if self.callback:
+            self.callback(*args)
 
 
 class _FakeWebEngineSettings:
@@ -159,6 +166,51 @@ class EditorAndMainTests(unittest.TestCase):
         self.assertIn('font-family: "Liberation Serif"', html)
         self.assertIn("font-size: 16pt", html)
 
+    def test_editor_exports_pdf_with_preview_styles(self):
+        editor = self.make_editor()
+        editor.current_file = str(Path(self.temp_dir.name) / "note.md")
+        editor.editor.setPlainText("# Title\n\nBody text")
+        exported_pages = []
+
+        class FakePdfPage:
+            def __init__(self, parent=None):
+                self.parent = parent
+                self.loadFinished = _Signal()
+                self.pdfPrintingFinished = _Signal()
+                self.html = ""
+                self.base_url = None
+                self.printed_path = None
+                self.page_layout = None
+                exported_pages.append(self)
+
+            def load(self, url):
+                self.url = url
+                self.html = Path(url.toLocalFile()).read_text(encoding="utf-8")
+                self.loadFinished.emit(True)
+
+            def runJavaScript(self, _script, callback=None):
+                if callback:
+                    callback(True)
+
+            def printToPdf(self, path, page_layout=None):
+                self.printed_path = path
+                self.page_layout = page_layout
+                self.pdfPrintingFinished.emit(path, True)
+
+        output_path = str(Path(self.temp_dir.name) / "exported")
+        with patch.object(editor_tab_module, "QWebEnginePage", FakePdfPage):
+            with patch.object(editor_tab_module.QMessageBox, "information") as info:
+                self.assertTrue(editor.export_pdf(output_path))
+
+        self.assertEqual(len(exported_pages), 1)
+        self.assertTrue(exported_pages[0].printed_path.endswith(".pdf"))
+        self.assertIn("font-family", exported_pages[0].html)
+        self.assertIn("<h1", exported_pages[0].html)
+        self.assertIn("@page", exported_pages[0].html)
+        self.assertIn("padding-inline-start: 2.2em", exported_pages[0].html)
+        self.assertEqual(exported_pages[0].page_layout.margins().top(), 14.0)
+        info.assert_called_once()
+
     def test_markdown_preview_can_use_latest_mermaid_runtime(self):
         self.settings.save_setting("mermaid_runtime", "latest")
         editor = self.make_editor()
@@ -166,6 +218,7 @@ class EditorAndMainTests(unittest.TestCase):
         html = editor.render_markdown_html("```mermaid\ngraph TD\nA-->B\n```")
 
         self.assertIn(EditorTab.MERMAID_LATEST_CDN_URL, html)
+        self.assertIn("if (!window.mermaid)", html)
         self.assertIn('<div class="mermaid">graph TD', html)
         self.assertIn("mermaid.run", html)
         self.assertIn("startup:", html)
@@ -450,6 +503,141 @@ class EditorAndMainTests(unittest.TestCase):
         self.assertEqual(editor.current_file, str(target))
         self.assertEqual(target.read_text(encoding="utf-8"), "dialog save")
 
+    def test_pdf_export_dialog_uses_app_translations(self):
+        self.settings.save_setting("language", "fa_IR")
+        translation_manager.set_language("fa_IR")
+        self.addCleanup(lambda: translation_manager.set_language("en_US"))
+        editor = self.make_editor()
+        target = str(Path(self.temp_dir.name) / "translated-export.pdf")
+        dialogs = []
+
+        class FakeFileDialog:
+            class AcceptMode:
+                AcceptSave = object()
+
+            class FileMode:
+                AnyFile = object()
+
+            class Option:
+                DontUseNativeDialog = object()
+                DontConfirmOverwrite = object()
+
+            class DialogLabel:
+                LookIn = "look_in"
+                FileName = "file_name"
+                FileType = "file_type"
+                Accept = "accept"
+                Reject = "reject"
+
+            def __init__(self, parent, title, directory):
+                self.parent = parent
+                self.title = title
+                self.directory = directory
+                self.labels = {}
+                self.name_filters = []
+                self.selected_name_filter = ""
+                self.layout_direction = None
+                self.options = []
+                dialogs.append(self)
+
+            def setAcceptMode(self, value):
+                self.accept_mode = value
+
+            def setFileMode(self, value):
+                self.file_mode = value
+
+            def setOption(self, option, enabled):
+                self.options.append((option, enabled))
+
+            def setDefaultSuffix(self, suffix):
+                self.default_suffix = suffix
+
+            def setNameFilters(self, filters):
+                self.name_filters = filters
+
+            def selectNameFilter(self, name_filter):
+                self.selected_name_filter = name_filter
+
+            def setLabelText(self, label, text):
+                self.labels[label] = text
+
+            def setLayoutDirection(self, direction):
+                self.layout_direction = direction
+
+            def exec(self):
+                return QDialog.DialogCode.Accepted
+
+            def selectedFiles(self):
+                return [target]
+
+        with patch.object(editor_tab_module, "QFileDialog", FakeFileDialog):
+            self.assertEqual(editor.prompt_pdf_export_path(), target)
+
+        dialog = dialogs[0]
+        self.assertEqual(dialog.title, "برون‌بری به PDF")
+        self.assertEqual(dialog.name_filters, ["فایل‌های PDF (*.pdf)", "همهٔ فایل‌ها (*.*)"])
+        self.assertIn((FakeFileDialog.Option.DontConfirmOverwrite, True), dialog.options)
+        self.assertEqual(dialog.labels[FakeFileDialog.DialogLabel.LookIn], "نگاه در:")
+        self.assertEqual(dialog.labels[FakeFileDialog.DialogLabel.FileName], "نام فایل:")
+        self.assertEqual(dialog.labels[FakeFileDialog.DialogLabel.FileType], "نوع فایل:")
+        self.assertEqual(dialog.labels[FakeFileDialog.DialogLabel.Accept], "ذخیره")
+        self.assertEqual(dialog.labels[FakeFileDialog.DialogLabel.Reject], "لغو")
+        self.assertEqual(dialog.layout_direction, Qt.LayoutDirection.RightToLeft)
+
+    def test_pdf_export_replace_confirmation_uses_app_translations(self):
+        self.settings.save_setting("language", "fa_IR")
+        translation_manager.set_language("fa_IR")
+        self.addCleanup(lambda: translation_manager.set_language("en_US"))
+        editor = self.make_editor()
+        target = Path(self.temp_dir.name) / "existing.pdf"
+        target.write_text("old", encoding="utf-8")
+        dialogs = []
+
+        class FakeMessageBox:
+            class Icon:
+                Warning = object()
+
+            class ButtonRole:
+                AcceptRole = object()
+                RejectRole = object()
+
+            def __init__(self, parent):
+                self.parent = parent
+                self.buttons = []
+                dialogs.append(self)
+
+            def setIcon(self, icon):
+                self.icon = icon
+
+            def setWindowTitle(self, title):
+                self.title = title
+
+            def setText(self, text):
+                self.text = text
+
+            def addButton(self, text, role):
+                button = {"text": text, "role": role}
+                self.buttons.append(button)
+                return button
+
+            def setDefaultButton(self, button):
+                self.default_button = button
+
+            def exec(self):
+                return 0
+
+            def clickedButton(self):
+                return self.default_button
+
+        with patch.object(editor_tab_module, "QMessageBox", FakeMessageBox):
+            self.assertTrue(editor.confirm_pdf_export_replace(str(target)))
+
+        dialog = dialogs[0]
+        self.assertEqual(dialog.title, "تأیید ذخیره به‌عنوان")
+        self.assertIn("existing.pdf", dialog.text)
+        self.assertEqual(dialog.buttons[0]["text"], "جایگزینی")
+        self.assertEqual(dialog.buttons[1]["text"], "لغو")
+
     def test_editor_open_dialog_uses_translation_without_shadowing(self):
         editor = self.make_editor()
         target = Path(self.temp_dir.name) / "open-dialog.txt"
@@ -540,6 +728,7 @@ class EditorAndMainTests(unittest.TestCase):
                 self.current_font = settings_manager.get_font()
                 self.current_file = None
                 self.markdown_preview_visible = False
+                self.pdf_exported = False
 
             def set_main_window(self, main_window):
                 self.main_window = main_window
@@ -555,6 +744,9 @@ class EditorAndMainTests(unittest.TestCase):
 
             def save_file(self, force_dialog=False):
                 return True
+
+            def export_pdf(self):
+                self.pdf_exported = True
 
         with patch.object(main_module, "EditorTab", FakeEditorTab):
             window = TextEditorApp()
@@ -574,6 +766,8 @@ class EditorAndMainTests(unittest.TestCase):
             self.assertTrue(first_tab.markdown_preview_visible)
             window.apply_editor_line_numbers(False)
             self.assertFalse(first_tab.editor.line_numbers_visible)
+            window.export_pdf()
+            self.assertTrue(first_tab.pdf_exported)
             toolbar_tooltips = {
                 action.text(): action.toolTip()
                 for action in window.toolbar.actions()
@@ -584,6 +778,12 @@ class EditorAndMainTests(unittest.TestCase):
             self.assertNotIn("Theme", toolbar_tooltips)
             self.assertEqual(toolbar_tooltips["Menu"], "More Actions")
             self.assertTrue(all(toolbar_tooltips.values()))
+            dropdown_tooltips = {
+                action.text(): action.toolTip()
+                for action in window.menu_dropdown.actions()
+                if not action.isSeparator() and action.text()
+            }
+            self.assertEqual(dropdown_tooltips["Export PDF"], "Export current file as PDF")
             self.assertNotEqual(window.icons["snippets"], window.icons["menu"])
 
     def test_main_window_left_aligns_document_tabs(self):
