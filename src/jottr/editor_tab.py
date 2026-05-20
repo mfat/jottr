@@ -8,8 +8,12 @@ if os.path.exists(vendor_dir):
 
 from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QSplitter,
                             QTextEdit, QListWidget, QInputDialog, QMenu, QFileDialog, QDialog,
-                            QToolBar, QCompleter, QListWidgetItem, QLineEdit, QPushButton, QMessageBox, QLabel, QToolTip)
-from PyQt6.QtCore import Qt, QUrl, QTimer, QStringListModel, QEvent, QSize, QRect, QPropertyAnimation, QEasingCurve
+                            QToolBar, QCompleter, QListWidgetItem, QLineEdit, QPushButton, QMessageBox, QLabel, QToolTip,
+                            QGraphicsOpacityEffect)
+from PyQt6.QtCore import (
+    Qt, QUrl, QTimer, QStringListModel, QEvent, QSize, QRect,
+    QPropertyAnimation, QEasingCurve, QParallelAnimationGroup
+)
 from PyQt6.QtGui import (QAction, QShortcut, QTextCharFormat, QSyntaxHighlighter, QIcon, QFont, QKeySequence,
                         QPainter, QPen, QColor, QFontMetrics, QTextDocument, QTextCursor, QTextOption)
 from PyQt6.QtWebEngineWidgets import QWebEngineView
@@ -558,12 +562,14 @@ class MarkdownPreviewPage(QWebEnginePage):
         print(f"Markdown preview JS: {message} ({source_id}:{line_number})")
 
 class EditorTab(QWidget):
+    MERMAID_LATEST_CDN_URL = "https://cdn.jsdelivr.net/npm/mermaid@latest/dist/mermaid.min.js"
+
     def __init__(self, snippet_manager, settings_manager):
         super().__init__()
         self.snippet_manager = snippet_manager
         self.settings_manager = settings_manager
         self.current_file = None
-        self.current_font = self.settings_manager.get_font()
+        self.current_font = self.settings_manager.get_font("editor")
         self.current_theme = self.settings_manager.get_theme()
         self.web_view = None  # Initialize to None
         self.main_window = None  # Initialize main_window to None
@@ -573,6 +579,10 @@ class EditorTab(QWidget):
         self.syncing_markdown_scroll = False
         self.preview_scroll_timer = None
         self.markdown_render_timer = None
+        self.markdown_preview_loading = False
+        self.preview_sync_after_load = False
+        self.markdown_typing_active_until = 0
+        self.ui_animations = {}
         self.editor_scroll_animation = None
         self.pending_preview_source_line = None
         self.ignore_preview_scroll_until = 0
@@ -615,7 +625,7 @@ class EditorTab(QWidget):
 
         self.markdown_render_timer = QTimer(self)
         self.markdown_render_timer.setSingleShot(True)
-        self.markdown_render_timer.setInterval(180)
+        self.markdown_render_timer.setInterval(650)
         self.markdown_render_timer.timeout.connect(self.update_markdown_preview)
         
         # Apply theme
@@ -1009,7 +1019,7 @@ class EditorTab(QWidget):
         if not had_selection:
             # Only select word under cursor if there was no existing selection
             cursor = self.editor.cursorForPosition(pos)
-            cursor.select(cursor.WordUnderCursor)
+            cursor.select(QTextCursor.SelectionType.WordUnderCursor)
             self.editor.setTextCursor(cursor)
         
         # Create menu with a slight delay to prevent accidental triggers
@@ -1400,13 +1410,13 @@ class EditorTab(QWidget):
         )
 
     def apply_language_direction(self):
-        """Apply writing direction to editor and markdown preview."""
+        """Apply UI direction while letting document text choose direction per block."""
         direction = self.get_language_direction()
         self.setLayoutDirection(direction)
         if hasattr(self, "editor"):
             self.editor.setLayoutDirection(direction)
             text_option = QTextOption(self.editor.document().defaultTextOption())
-            text_option.setTextDirection(direction)
+            text_option.setTextDirection(Qt.LayoutDirection.LayoutDirectionAuto)
             self.editor.document().setDefaultTextOption(text_option)
             self.editor.update_line_number_area_width()
             self.editor.update_line_number_area()
@@ -1447,7 +1457,7 @@ class EditorTab(QWidget):
     def set_markdown_preview_visible(self, visible, save_state=True):
         """Show or hide the rendered markdown preview."""
         self.markdown_preview_visible = visible
-        self.markdown_preview.setVisible(visible)
+        self.animate_widget_visibility(self.markdown_preview, visible)
         self.markdown_preview.setMinimumWidth(240 if visible else 0)
         if visible:
             if self.preview_scroll_timer:
@@ -1465,10 +1475,87 @@ class EditorTab(QWidget):
         """Toggle the rendered markdown preview pane."""
         self.set_markdown_preview_visible(not self.markdown_preview_visible)
 
+    def animations_enabled(self):
+        if os.environ.get("QT_QPA_PLATFORM") == "offscreen":
+            return False
+        return bool(self.settings_manager.get_setting("enable_animations", True))
+
+    def animate_widget_visibility(self, widget, visible, duration=260):
+        widget.setProperty("target_visible", visible)
+        if not self.animations_enabled():
+            widget.setGraphicsEffect(None)
+            original_width = widget.property("animation_original_max_width")
+            if original_width is not None:
+                widget.setMaximumWidth(int(original_width))
+            widget.setVisible(visible)
+            return None
+
+        current_animation = self.ui_animations.pop(widget, None)
+        if current_animation:
+            current_animation.stop()
+
+        original_width = widget.property("animation_original_max_width")
+        if original_width is None or int(original_width) == 0:
+            original_width = widget.maximumWidth()
+            widget.setProperty("animation_original_max_width", original_width)
+
+        target_width = max(widget.width(), widget.sizeHint().width(), 260)
+        if not visible and widget.width() > 0:
+            target_width = widget.width()
+
+        effect = widget.graphicsEffect()
+        if not isinstance(effect, QGraphicsOpacityEffect):
+            effect = QGraphicsOpacityEffect(widget)
+            widget.setGraphicsEffect(effect)
+
+        group = QParallelAnimationGroup(self)
+        opacity_animation = QPropertyAnimation(effect, b"opacity", group)
+        opacity_animation.setDuration(duration)
+        opacity_animation.setEasingCurve(QEasingCurve.Type.OutCubic)
+        opacity_animation.setStartValue(0.0 if visible else 1.0)
+        opacity_animation.setEndValue(1.0 if visible else 0.0)
+
+        width_animation = QPropertyAnimation(widget, b"maximumWidth", group)
+        width_animation.setDuration(duration)
+        width_animation.setEasingCurve(QEasingCurve.Type.OutCubic)
+        width_animation.setStartValue(0 if visible else target_width)
+        width_animation.setEndValue(target_width if visible else 0)
+
+        group.addAnimation(opacity_animation)
+        group.addAnimation(width_animation)
+        self.ui_animations[widget] = group
+
+        if visible:
+            widget.setMaximumWidth(0)
+            effect.setOpacity(0.0)
+            widget.setVisible(True)
+        else:
+            widget.setMaximumWidth(target_width)
+            effect.setOpacity(1.0)
+
+        def finish_animation():
+            if not visible:
+                widget.setVisible(False)
+            widget.setMaximumWidth(int(original_width))
+            widget.setGraphicsEffect(None)
+            self.ui_animations.pop(widget, None)
+
+        group.finished.connect(finish_animation)
+        group.start()
+        return group
+
+    def intended_widget_visibility(self, widget):
+        target = widget.property("target_visible")
+        if target is None:
+            return widget.isVisible()
+        return bool(target)
+
     def schedule_markdown_preview_update(self):
         """Render the preview after typing has settled briefly."""
         if not hasattr(self, 'markdown_preview') or not self.markdown_preview_visible:
             return
+        self.markdown_typing_active_until = time.time() + 0.75
+        self.pending_preview_source_line = self.editor.textCursor().blockNumber() + 1
         if self.markdown_render_timer:
             self.markdown_render_timer.start()
 
@@ -1482,12 +1569,33 @@ class EditorTab(QWidget):
         else:
             content_base_url = QUrl.fromLocalFile(os.getcwd() + os.sep).toString()
 
-        self.write_markdown_preview_file(
-            self.render_markdown_html(self.editor.toPlainText(), content_base_url)
+        def render_preview(scroll_ratio):
+            try:
+                scroll_ratio = max(0.0, min(1.0, float(scroll_ratio)))
+            except (TypeError, ValueError):
+                scroll_ratio = self.get_editor_scroll_ratio()
+
+            self.write_markdown_preview_file(
+                self.render_markdown_html(
+                    self.editor.toPlainText(),
+                    content_base_url,
+                    initial_scroll_ratio=scroll_ratio
+                )
+            )
+            self.markdown_preview_loading = True
+            self.markdown_preview.load(QUrl.fromLocalFile(self.markdown_preview_file))
+
+        self.markdown_preview.page().runJavaScript(
+            """
+            (function() {
+                const doc = document.scrollingElement || document.documentElement;
+                const maxScroll = Math.max(0, doc.scrollHeight - window.innerHeight);
+                if (!maxScroll) return 0;
+                return Math.max(0, Math.min(1, window.scrollY / maxScroll));
+            })();
+            """,
+            render_preview
         )
-        self.markdown_preview.load(QUrl.fromLocalFile(self.markdown_preview_file))
-        QTimer.singleShot(100, self.sync_markdown_preview_scroll)
-        QTimer.singleShot(300, self.render_markdown_preview_scripts)
 
     def write_markdown_preview_file(self, preview_html):
         """Write the rendered preview to a normal local HTML file for WebEngine."""
@@ -1505,6 +1613,10 @@ class EditorTab(QWidget):
                 let rendered = false;
                 if (window.mermaid) {
                     try {
+                    if (window.jottrMermaidRendering) {
+                        return false;
+                    }
+                    window.jottrMermaidRendering = true;
                     mermaid.initialize({
                         startOnLoad: false,
                         securityLevel: 'loose',
@@ -1541,40 +1653,71 @@ class EditorTab(QWidget):
                     }
 
                     var diagrams = Array.prototype.slice.call(document.querySelectorAll('.mermaid'));
-                    for (var index = 0; index < diagrams.length; index += 1) {
-                        var diagram = diagrams[index];
-                        if (diagram.dataset.rendered === 'true') {
-                            continue;
-                        }
+                    diagrams = diagrams.filter(function (diagram) {
+                        return diagram.dataset.rendered !== 'true' && diagram.dataset.processed !== 'true';
+                    });
 
-                        var source = diagram.textContent;
-                        var renderId = 'jottr-mermaid-' + Date.now() + '-' + index;
+                    if (diagrams.length && typeof mermaid.run === 'function') {
                         try {
-                            var result = await renderDiagram(renderId, source, diagram);
-                            diagram.innerHTML = result.svg;
-                            diagram.dataset.rendered = 'true';
-                            diagram.classList.remove('mermaid-error');
-                            if (result.bindFunctions) {
-                                result.bindFunctions(diagram);
-                            }
+                            await mermaid.run({
+                                nodes: diagrams,
+                                suppressErrors: false
+                            });
+                            diagrams.forEach(function (diagram) {
+                                diagram.dataset.rendered = 'true';
+                                diagram.classList.remove('mermaid-error');
+                            });
                             rendered = true;
                         } catch (error) {
-                            diagram.classList.add('mermaid-error');
-                            diagram.textContent = __MERMAID_RENDER_ERROR__ + ' ' + error.message + '\\n\\n' + source;
+                            diagrams.forEach(function (diagram) {
+                                diagram.classList.add('mermaid-error');
+                                diagram.textContent = __MERMAID_RENDER_ERROR__ + ' ' + error.message + '\\n\\n' + diagram.textContent;
+                            });
                             rendered = true;
+                        }
+                    } else {
+                        for (var index = 0; index < diagrams.length; index += 1) {
+                            var diagram = diagrams[index];
+
+                            var source = diagram.textContent;
+                            var renderId = 'jottr-mermaid-' + Date.now() + '-' + index;
+                            try {
+                                var result = await renderDiagram(renderId, source, diagram);
+                                diagram.innerHTML = result.svg;
+                                diagram.dataset.rendered = 'true';
+                                diagram.classList.remove('mermaid-error');
+                                if (result.bindFunctions) {
+                                    result.bindFunctions(diagram);
+                                }
+                                rendered = true;
+                            } catch (error) {
+                                diagram.classList.add('mermaid-error');
+                                diagram.textContent = __MERMAID_RENDER_ERROR__ + ' ' + error.message + '\\n\\n' + source;
+                                rendered = true;
+                            }
                         }
                     }
                 } catch (error) {
                     console.error('Mermaid render failed', error);
+                } finally {
+                    window.jottrMermaidRendering = false;
                 }
                 }
 
                 if (window.MathJax && window.MathJax.typesetPromise) {
                     try {
-                        await window.MathJax.typesetPromise();
-                        rendered = true;
+                        if (!window.jottrMathJaxRendering) {
+                            window.jottrMathJaxRendering = true;
+                            var mathNodes = Array.prototype.slice.call(document.querySelectorAll('.math-inline, .math-block'));
+                            if (mathNodes.length) {
+                                await window.MathJax.typesetPromise(mathNodes);
+                                rendered = true;
+                            }
+                        }
                     } catch (error) {
                         console.error('MathJax render failed', error);
+                    } finally {
+                        window.jottrMathJaxRendering = false;
                     }
                 }
 
@@ -1583,8 +1726,15 @@ class EditorTab(QWidget):
         """.replace("__MERMAID_RENDER_ERROR__", mermaid_render_error)
         self.markdown_preview.page().runJavaScript(
             script,
-            lambda _result: QTimer.singleShot(50, self.sync_markdown_preview_scroll)
+            lambda _result: self.finish_markdown_preview_load()
         )
+
+    def finish_markdown_preview_load(self):
+        """Finish preview rendering and run one deferred scroll sync if needed."""
+        self.markdown_preview_loading = False
+        if self.preview_sync_after_load:
+            self.preview_sync_after_load = False
+            QTimer.singleShot(50, self.sync_markdown_preview_scroll)
 
     def get_editor_scroll_ratio(self):
         """Return editor vertical scroll progress as a 0..1 ratio."""
@@ -1613,6 +1763,14 @@ class EditorTab(QWidget):
                 not self.markdown_preview_visible or
                 self.syncing_markdown_scroll or
                 self.preview_scroll_pending):
+            return
+
+        if time.time() < self.markdown_typing_active_until:
+            return
+
+        if ((self.markdown_render_timer and self.markdown_render_timer.isActive()) or
+                self.markdown_preview_loading):
+            self.preview_sync_after_load = True
             return
 
         self.preview_scroll_pending = True
@@ -1765,10 +1923,10 @@ class EditorTab(QWidget):
 
         self.markdown_preview.page().runJavaScript(script, apply_editor_scroll)
 
-    def render_markdown_html(self, text, content_base_url=""):
+    def render_markdown_html(self, text, content_base_url="", initial_scroll_ratio=None):
         """Render a practical markdown subset with stable heading and code styling."""
         if MARKDOWN_LIB_AVAILABLE:
-            return self.render_markdown_html_with_library(text, content_base_url)
+            return self.render_markdown_html_with_library(text, content_base_url, initial_scroll_ratio)
 
         body = []
         paragraph = []
@@ -2283,6 +2441,9 @@ class EditorTab(QWidget):
                     }},
                     svg: {{
                         fontCache: 'global'
+                    }},
+                    startup: {{
+                        typeset: false
                     }}
                 }};
             </script>
@@ -2323,7 +2484,7 @@ class EditorTab(QWidget):
         cells.append(''.join(current).strip())
         return cells
 
-    def render_markdown_html_with_library(self, text, content_base_url=""):
+    def render_markdown_html_with_library(self, text, content_base_url="", initial_scroll_ratio=None):
         """Render markdown using Python-Markdown with local preview enhancements."""
         prepared_text = self.preprocess_markdown_extensions(text)
         extensions = [
@@ -2345,7 +2506,7 @@ class EditorTab(QWidget):
         body_html = self.add_source_line_anchors(body_html, text)
         body_html = self.add_code_line_anchors(body_html)
 
-        return self.wrap_markdown_preview_html(body_html, content_base_url)
+        return self.wrap_markdown_preview_html(body_html, content_base_url, initial_scroll_ratio)
 
     def render_mermaid_blocks(self, body_html):
         """Convert mermaid fenced code blocks into Mermaid render targets."""
@@ -2364,7 +2525,7 @@ class EditorTab(QWidget):
         )
 
     def render_mermaid_block(self, diagram_source):
-        """Render a Mermaid block with the bundled official Mermaid runtime."""
+        """Render a Mermaid block with the configured Mermaid runtime."""
         escaped_source = html.escape(diagram_source)
 
         return (
@@ -2372,6 +2533,17 @@ class EditorTab(QWidget):
             f'<div class="mermaid">{escaped_source}</div>'
             '</div>'
         )
+
+    def get_mermaid_runtime_mode(self):
+        mode = self.settings_manager.get_setting("mermaid_runtime", "bundled")
+        return mode if mode in ("bundled", "latest") else "bundled"
+
+    def get_mermaid_script_tag(self):
+        """Return the script tag for the configured Mermaid runtime."""
+        if self.get_mermaid_runtime_mode() == "latest":
+            url = html.escape(self.MERMAID_LATEST_CDN_URL, quote=True)
+            return f'<script src="{url}"></script>'
+        return f"<script>\n{self.get_mermaid_script_content()}\n</script>"
 
     def get_mermaid_script_content(self):
         """Return the bundled Mermaid renderer source for the preview page."""
@@ -2637,6 +2809,8 @@ class EditorTab(QWidget):
             line = next(source_lines, None)
             if line is None:
                 return match.group(0)
+            if "dir=" not in attrs:
+                attrs = f'{attrs} dir="auto"'
             return f'<{tag}{attrs} data-source-line="{line}">'
 
         return re.sub(
@@ -2676,35 +2850,64 @@ class EditorTab(QWidget):
             flags=re.DOTALL
         )
 
-    def wrap_markdown_preview_html(self, body_html, content_base_url=""):
+    def wrap_markdown_preview_html(self, body_html, content_base_url="", initial_scroll_ratio=None):
         """Wrap rendered body HTML in Jottr preview CSS and scripts."""
-        mermaid_script_content = self.get_mermaid_script_content()
+        mermaid_script_tag = self.get_mermaid_script_tag()
         base_tag = f'<base href="{html.escape(content_base_url, quote=True)}">' if content_base_url else ''
-        preview_font = QFont(getattr(self, "current_font", self.editor.font()))
+        preview_font = QFont(getattr(self, "current_font", self.settings_manager.get_font("editor")))
         preview_family = html.escape(preview_font.family().replace("\\", "\\\\").replace('"', '\\"'), quote=True)
         preview_size = max(8, preview_font.pointSize() if preview_font.pointSize() > 0 else 14)
-        rtl = self.get_language_direction() == Qt.LayoutDirection.RightToLeft
-        dir_attr = "rtl" if rtl else "ltr"
-        text_align = "right" if rtl else "left"
+        dir_attr = "auto"
+        try:
+            restore_scroll_ratio = max(0.0, min(1.0, float(initial_scroll_ratio or 0)))
+        except (TypeError, ValueError):
+            restore_scroll_ratio = 0.0
+        restore_scroll_ratio_json = json.dumps(restore_scroll_ratio)
         mermaid_runtime_error = json.dumps(_("Mermaid runtime could not be loaded."))
         mermaid_render_error = json.dumps(_("Mermaid render error:"))
-        blockquote_border_side = "right" if rtl else "left"
-        blockquote_padding_side = "right" if rtl else "left"
-        list_margin = "0.4em 1.4em 0.8em 0" if rtl else "0.4em 0 0.8em 1.4em"
-        checkbox_margin = "0 0 0 0.45em" if rtl else "0 0.45em 0 0"
         return f"""
         <html dir="{dir_attr}">
         <head>
             {base_tag}
+            <script>
+                window.__jottrInitialPreviewScrollRatio = {restore_scroll_ratio_json};
+                if (window.__jottrInitialPreviewScrollRatio > 0) {{
+                    document.documentElement.classList.add('jottr-restoring-preview-scroll');
+                }}
+                window.__jottrRestoreInitialPreviewScroll = function () {{
+                    var ratio = Number(window.__jottrInitialPreviewScrollRatio) || 0;
+                    function restore() {{
+                        var doc = document.scrollingElement || document.documentElement;
+                        var maxScroll = Math.max(0, doc.scrollHeight - window.innerHeight);
+                        if (maxScroll > 0 && ratio > 0) {{
+                            window.scrollTo(0, maxScroll * Math.max(0, Math.min(1, ratio)));
+                        }}
+                        document.documentElement.classList.remove('jottr-restoring-preview-scroll');
+                    }}
+                    requestAnimationFrame(function () {{
+                        requestAnimationFrame(restore);
+                    }});
+                }};
+                document.addEventListener('DOMContentLoaded', window.__jottrRestoreInitialPreviewScroll);
+                window.addEventListener('load', window.__jottrRestoreInitialPreviewScroll);
+                setTimeout(window.__jottrRestoreInitialPreviewScroll, 450);
+            </script>
             <style>
+                html.jottr-restoring-preview-scroll body {{
+                    visibility: hidden;
+                }}
                 body {{
                     color: #202124;
-                    direction: {dir_attr};
                     font-family: "{preview_family}", "Segoe UI", sans-serif;
                     font-size: {preview_size}pt;
                     line-height: 1.55;
                     margin: 18px;
-                    text-align: {text_align};
+                    text-align: start;
+                    unicode-bidi: plaintext;
+                }}
+                h1, h2, h3, h4, h5, h6, p, li, blockquote, th, td, div {{
+                    text-align: start;
+                    unicode-bidi: plaintext;
                 }}
                 h1, h2, h3, h4, h5, h6 {{
                     color: #111827;
@@ -2734,15 +2937,18 @@ class EditorTab(QWidget):
                 }}
                 pre code {{ background: transparent; padding: 0; }}
                 blockquote {{
-                    border-{blockquote_border_side}: 4px solid #d0d7de;
+                    border-inline-start: 4px solid #d0d7de;
                     color: #57606a;
                     margin: 0.8em 0;
-                    padding-{blockquote_padding_side}: 12px;
+                    padding-inline-start: 12px;
                 }}
-                ul, ol {{ margin: {list_margin}; }}
+                ul, ol {{
+                    margin: 0.4em 0 0.8em 0;
+                    padding-inline-start: 1.4em;
+                }}
                 li {{ margin: 0.2em 0; }}
                 .task-list-item-checkbox {{
-                    margin: {checkbox_margin};
+                    margin-inline-end: 0.45em;
                     vertical-align: -0.1em;
                 }}
                 a {{ color: #0969da; }}
@@ -2809,7 +3015,7 @@ class EditorTab(QWidget):
                 .mermaid-error {{
                     color: #b42318;
                     font-family: "DejaVu Sans Mono", "Consolas", monospace;
-                    text-align: {text_align};
+                    text-align: start;
                     white-space: pre-wrap;
                 }}
             </style>
@@ -2822,13 +3028,14 @@ class EditorTab(QWidget):
                     }},
                     svg: {{
                         fontCache: 'global'
+                    }},
+                    startup: {{
+                        typeset: false
                     }}
                 }};
             </script>
             <script async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js"></script>
-            <script>
-                {mermaid_script_content}
-            </script>
+            {mermaid_script_tag}
             <script>
                 async function renderMermaidDiagrams() {{
                     if (!window.mermaid) {{
@@ -2840,6 +3047,10 @@ class EditorTab(QWidget):
                     }}
 
                     try {{
+                        if (window.jottrMermaidRendering) {{
+                            return;
+                        }}
+                        window.jottrMermaidRendering = true;
                         mermaid.initialize({{
                             startOnLoad: false,
                             securityLevel: 'loose',
@@ -2876,29 +3087,50 @@ class EditorTab(QWidget):
                         }}
 
                         var diagrams = Array.prototype.slice.call(document.querySelectorAll('.mermaid'));
-                        for (var index = 0; index < diagrams.length; index += 1) {{
-                            var diagram = diagrams[index];
-                            if (diagram.dataset.rendered === 'true') {{
-                                continue;
-                            }}
+                        diagrams = diagrams.filter(function (diagram) {{
+                            return diagram.dataset.rendered !== 'true' && diagram.dataset.processed !== 'true';
+                        }});
 
-                            var source = diagram.textContent;
-                            var renderId = 'jottr-mermaid-' + Date.now() + '-' + index;
+                        if (diagrams.length && typeof mermaid.run === 'function') {{
                             try {{
-                                var result = await renderDiagram(renderId, source, diagram);
-                                diagram.innerHTML = result.svg;
-                                diagram.dataset.rendered = 'true';
-                                diagram.classList.remove('mermaid-error');
-                                if (result.bindFunctions) {{
-                                    result.bindFunctions(diagram);
-                                }}
+                                await mermaid.run({{
+                                    nodes: diagrams,
+                                    suppressErrors: false
+                                }});
+                                diagrams.forEach(function (diagram) {{
+                                    diagram.dataset.rendered = 'true';
+                                    diagram.classList.remove('mermaid-error');
+                                }});
                             }} catch (error) {{
-                                diagram.classList.add('mermaid-error');
-                                diagram.textContent = {mermaid_render_error} + ' ' + error.message + '\\n\\n' + source;
+                                diagrams.forEach(function (diagram) {{
+                                    diagram.classList.add('mermaid-error');
+                                    diagram.textContent = {mermaid_render_error} + ' ' + error.message + '\\n\\n' + diagram.textContent;
+                                }});
+                            }}
+                        }} else {{
+                            for (var index = 0; index < diagrams.length; index += 1) {{
+                                var diagram = diagrams[index];
+
+                                var source = diagram.textContent;
+                                var renderId = 'jottr-mermaid-' + Date.now() + '-' + index;
+                                try {{
+                                    var result = await renderDiagram(renderId, source, diagram);
+                                    diagram.innerHTML = result.svg;
+                                    diagram.dataset.rendered = 'true';
+                                    diagram.classList.remove('mermaid-error');
+                                    if (result.bindFunctions) {{
+                                        result.bindFunctions(diagram);
+                                    }}
+                                }} catch (error) {{
+                                    diagram.classList.add('mermaid-error');
+                                    diagram.textContent = {mermaid_render_error} + ' ' + error.message + '\\n\\n' + source;
+                                }}
                             }}
                         }}
                     }} catch (error) {{
                         console.error('Mermaid render failed', error);
+                    }} finally {{
+                        window.jottrMermaidRendering = false;
                     }}
                 }}
 
@@ -2947,7 +3179,7 @@ class EditorTab(QWidget):
     def toggle_pane(self, pane_type):
         """Toggle visibility of side panes"""
         if pane_type == "snippets":
-            self.snippet_widget.setVisible(not self.snippet_widget.isVisible())
+            self.animate_widget_visibility(self.snippet_widget, not self.snippet_widget.isVisible())
             # If showing snippets, make sure it has reasonable size
             if self.snippet_widget.isVisible():
                 current_sizes = self.splitter.sizes()
@@ -2962,7 +3194,7 @@ class EditorTab(QWidget):
             
             if is_visible:
                 # If currently visible, hide it and destroy web view
-                self.browser_widget.setVisible(False)
+                self.animate_widget_visibility(self.browser_widget, False)
                 if self.web_view:
                     self.web_view.stop()
                     self.web_view.setParent(None)
@@ -2983,7 +3215,7 @@ class EditorTab(QWidget):
                     new_editor_size = editor_size - new_browser_size
                     self.splitter.setSizes([new_editor_size, current_sizes[1], new_browser_size])
         
-                self.browser_widget.setVisible(True)
+                self.animate_widget_visibility(self.browser_widget, True)
                 
                 # Create web view and load URL
                 self.create_web_view()
@@ -3437,8 +3669,8 @@ class EditorTab(QWidget):
     def save_pane_states(self):
         """Save pane visibility and sizes"""
         states = {
-            'snippets_visible': self.snippet_widget.isVisible(),
-            'browser_visible': self.browser_widget.isVisible(),
+            'snippets_visible': self.intended_widget_visibility(self.snippet_widget),
+            'browser_visible': self.intended_widget_visibility(self.browser_widget),
             'markdown_preview_visible': self.markdown_preview_visible if hasattr(self, 'markdown_preview') else False,
             'markdown_sizes': self.markdown_splitter.sizes() if hasattr(self, 'markdown_splitter') else [600, 600],
             'sizes': self.splitter.sizes()
@@ -3657,6 +3889,7 @@ class EditorTab(QWidget):
                 self.schedule_editor_scroll_sync()
 
         if obj == self.editor and event.type() == QEvent.Type.KeyPress:
+            self.markdown_typing_active_until = time.time() + 0.75
             # Handle Escape key
             if event.key() == Qt.Key.Key_Escape and hasattr(self, 'focus_mode') and self.focus_mode:
                 self.disable_focus_mode()

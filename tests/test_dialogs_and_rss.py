@@ -13,7 +13,7 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 SRC_DIR = PROJECT_ROOT / "src" / "jottr"
 sys.path.insert(0, str(SRC_DIR))
 
-from PyQt6.QtWidgets import QApplication, QMessageBox
+from PyQt6.QtWidgets import QApplication, QMessageBox, QScrollArea
 
 from feed_manager_dialog import FeedManagerDialog
 from rss_reader import RSSReader
@@ -60,13 +60,19 @@ class DialogAndRssTests(unittest.TestCase):
             }
         })
         manager.save_theme("Forest")
+        manager.save_ui_theme("Dark")
 
         dialog = SettingsDialog(manager)
         dialog.homepage_edit.setText("https://home.example")
+        dialog.ui_theme_combo.setCurrentText("Dark")
         dialog.editor_theme_combo.setCurrentText("Forest")
         dialog.icon_contrast_combo.setCurrentText("light")
         dialog.markdown_scroll_sync_check.setChecked(False)
+        dialog.mermaid_runtime_combo.setCurrentIndex(
+            dialog.mermaid_runtime_combo.findData("latest")
+        )
         dialog.editor_line_numbers_check.setChecked(False)
+        dialog.enable_animations_check.setChecked(False)
         dialog.autosave_enabled_check.setChecked(True)
         dialog.autosave_interval_combo.setCurrentText("15")
 
@@ -77,10 +83,17 @@ class DialogAndRssTests(unittest.TestCase):
         self.assertGreaterEqual(dialog.language_combo.count(), 1)
         self.assertEqual(data["search_sites"], {"News": "site:news.example"})
         self.assertEqual(data["user_dictionary"], ["jottr"])
+        self.assertEqual(data["ui_theme"], "Dark")
         self.assertEqual(data["theme"], "Forest")
         self.assertEqual(data["custom_themes"]["Forest"]["editor"]["background"], "#102018")
         self.assertEqual(data["icon_contrast"], "light")
+        self.assertFalse(data["enable_animations"])
+        self.assertEqual(data["ui_font"].family(), manager.get_font("ui").family())
+        self.assertNotIn("editor_font", data)
+        self.assertNotIn("preview_font", data)
+        self.assertTrue(dialog.findChildren(QScrollArea))
         self.assertFalse(data["markdown_scroll_sync"])
+        self.assertEqual(data["mermaid_runtime"], "latest")
         self.assertFalse(data["editor_line_numbers"])
         self.assertTrue(data["autosave_enabled"])
         self.assertEqual(data["autosave_interval_seconds"], 15)
@@ -144,6 +157,7 @@ class DialogAndRssTests(unittest.TestCase):
         dialog.save_custom_theme()
 
         self.assertIn("Ink", dialog.get_data()["custom_themes"])
+        self.assertEqual(dialog.ui_theme_combo.currentText(), "Light")
         self.assertEqual(dialog.editor_theme_combo.currentText(), "Ink")
 
         dialog.custom_theme_list.setCurrentRow(0)
