@@ -323,6 +323,28 @@ class EditorAndMainTests(unittest.TestCase):
         self.assertTrue(editor.save_file())
         self.assertEqual(target.read_text(encoding="utf-8"), "saved content")
 
+    def test_editor_save_dialog_uses_translation_without_shadowing(self):
+        editor = self.make_editor()
+        target = Path(self.temp_dir.name) / "save-dialog.md"
+        editor.editor.setPlainText("dialog save")
+
+        with patch.object(editor_tab_module.QFileDialog, "getSaveFileName", return_value=(str(target), "")):
+            self.assertTrue(editor.save_file(force_dialog=True))
+
+        self.assertEqual(editor.current_file, str(target))
+        self.assertEqual(target.read_text(encoding="utf-8"), "dialog save")
+
+    def test_editor_open_dialog_uses_translation_without_shadowing(self):
+        editor = self.make_editor()
+        target = Path(self.temp_dir.name) / "open-dialog.txt"
+        target.write_text("# Dialog Open", encoding="utf-8")
+
+        with patch.object(editor_tab_module.QFileDialog, "getOpenFileName", return_value=(str(target), "")):
+            editor.open_file()
+
+        self.assertEqual(editor.current_file, str(target))
+        self.assertEqual(editor.editor.toPlainText(), "# Dialog Open")
+
     def test_editor_autosaves_existing_file_when_enabled(self):
         self.settings.save_setting("autosave_enabled", True)
         self.settings.save_setting("autosave_interval_seconds", 1)
@@ -627,6 +649,35 @@ class EditorAndMainTests(unittest.TestCase):
             self.assertEqual(current.current_file, str(target))
             self.assertEqual(current.editor.toPlainText(), "# Story")
             self.assertTrue(current.markdown_preview_visible)
+
+    def test_main_window_open_file_dialog_uses_translation_without_shadowing(self):
+        class FakeEditorTab(QWidget):
+            def __init__(self, snippet_manager, settings_manager):
+                super().__init__()
+                self.editor = QTextEdit(self)
+                self.current_file = None
+                self.markdown_preview_visible = False
+
+            def set_main_window(self, main_window):
+                self.main_window = main_window
+
+            def is_markdown_file(self, file_path=None):
+                return str(file_path or self.current_file or "").lower().endswith(".md")
+
+            def set_markdown_preview_visible(self, visible):
+                self.markdown_preview_visible = visible
+
+        target = Path(self.temp_dir.name) / "dialog.md"
+        target.write_text("# Dialog", encoding="utf-8")
+
+        with patch.object(main_module, "EditorTab", FakeEditorTab), \
+             patch.object(main_module.QFileDialog, "getOpenFileName", return_value=(str(target), "")):
+            window = TextEditorApp()
+            self.addCleanup(window.close)
+            self.addCleanup(window.deleteLater)
+
+            self.assertTrue(window.open_file())
+            self.assertEqual(window.tab_widget.currentWidget().current_file, str(target))
 
     def test_main_window_reuses_blank_tab_and_focuses_existing_file(self):
         class FakeEditorTab(QWidget):
