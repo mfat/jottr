@@ -1,6 +1,7 @@
 import os
 import sys
 import tempfile
+import time
 import unittest
 from pathlib import Path
 from unittest.mock import patch
@@ -14,7 +15,7 @@ SRC_DIR = PROJECT_ROOT / "src" / "jottr"
 sys.path.insert(0, str(SRC_DIR))
 
 from PyQt6.QtCore import Qt
-from PyQt6.QtGui import QFont, QTextDocument
+from PyQt6.QtGui import QFont, QTextCursor, QTextDocument
 from PyQt6.QtWidgets import QApplication, QTextEdit, QWidget
 
 from editor_tab import EditorTab, SpellCheckHighlighter
@@ -61,6 +62,9 @@ class _FakeWebEngineView(QWidget):
     def setHtml(self, html, base_url=None):
         self.html = html
         self.base_url = base_url
+
+    def load(self, url):
+        self.url = url
 
     def page(self):
         return self
@@ -148,13 +152,43 @@ class EditorAndMainTests(unittest.TestCase):
 
     def test_markdown_preview_uses_editor_font(self):
         editor = self.make_editor()
-        font = QFont("Liberation Serif", 16)
-        editor.update_font(font)
+        editor.update_font(QFont("Liberation Serif", 16))
 
         html = editor.render_markdown_html("# Title")
 
         self.assertIn('font-family: "Liberation Serif"', html)
         self.assertIn("font-size: 16pt", html)
+
+    def test_markdown_preview_can_use_latest_mermaid_runtime(self):
+        self.settings.save_setting("mermaid_runtime", "latest")
+        editor = self.make_editor()
+
+        html = editor.render_markdown_html("```mermaid\ngraph TD\nA-->B\n```")
+
+        self.assertIn(EditorTab.MERMAID_LATEST_CDN_URL, html)
+        self.assertIn('<div class="mermaid">graph TD', html)
+        self.assertIn("mermaid.run", html)
+        self.assertIn("startup:", html)
+        self.assertIn("typeset: false", html)
+
+    def test_markdown_preview_uses_bundled_mermaid_by_default(self):
+        editor = self.make_editor()
+
+        html = editor.render_markdown_html("```mermaid\ngraph TD\nA-->B\n```")
+
+        self.assertNotIn(EditorTab.MERMAID_LATEST_CDN_URL, html)
+        self.assertIn('<div class="mermaid">graph TD', html)
+
+    def test_editor_context_menu_selects_word_with_qt6_enum(self):
+        editor = self.make_editor()
+        editor.editor.setPlainText("hello world")
+        editor.editor.moveCursor(QTextCursor.MoveOperation.Start)
+
+        with patch.object(editor_tab_module.QTimer, "singleShot") as single_shot:
+            editor.show_context_menu(editor.editor.cursorRect().center())
+
+        self.assertEqual(editor.editor.textCursor().selectedText(), "hello")
+        single_shot.assert_called_once()
 
     def test_editor_font_updates_visible_editor_style_and_document(self):
         editor = self.make_editor()
@@ -170,19 +204,24 @@ class EditorAndMainTests(unittest.TestCase):
         self.assertIn('font-family: "Liberation Serif"', editor.editor.styleSheet())
         self.assertIn("font-size: 16pt", editor.editor.styleSheet())
 
-    def test_editor_and_markdown_preview_use_rtl_for_rtl_language(self):
+    def test_editor_and_markdown_preview_use_auto_text_direction_for_rtl_content(self):
         self.settings.save_setting("language", "fa_IR")
         editor = self.make_editor()
 
-        html = editor.render_markdown_html("# عنوان")
+        editor.editor.setPlainText("یک متن فارسی")
+        html = editor.render_markdown_html("# عنوان\n\nیک متن فارسی")
 
         self.assertEqual(editor.layoutDirection(), Qt.LayoutDirection.RightToLeft)
         self.assertEqual(editor.editor.layoutDirection(), Qt.LayoutDirection.RightToLeft)
         self.assertEqual(editor.markdown_preview.layoutDirection(), Qt.LayoutDirection.RightToLeft)
-        self.assertIn('<html dir="rtl">', html)
-        self.assertIn('<body dir="rtl">', html)
-        self.assertIn("direction: rtl;", html)
-        self.assertIn("text-align: right;", html)
+        self.assertEqual(
+            editor.editor.document().defaultTextOption().textDirection(),
+            Qt.LayoutDirection.LayoutDirectionAuto
+        )
+        self.assertIn('<html dir="auto">', html)
+        self.assertIn('<body dir="auto">', html)
+        self.assertIn('dir="auto" data-source-line="1"', html)
+        self.assertIn("text-align: start;", html)
 
     def test_rtl_editor_places_line_numbers_on_right(self):
         self.settings.save_setting("language", "fa_IR")
@@ -238,18 +277,50 @@ class EditorAndMainTests(unittest.TestCase):
             "#282a36"
         )
 
-    def test_editor_and_markdown_preview_use_ltr_for_ltr_language(self):
+    def test_editor_and_markdown_preview_use_auto_text_direction_for_ltr_content(self):
         self.settings.save_setting("language", "en_US")
         editor = self.make_editor()
 
-        html = editor.render_markdown_html("# Title")
+        editor.editor.setPlainText("Plain English text")
+        html = editor.render_markdown_html("# Title\n\nPlain English text")
 
         self.assertEqual(editor.layoutDirection(), Qt.LayoutDirection.LeftToRight)
         self.assertEqual(editor.editor.layoutDirection(), Qt.LayoutDirection.LeftToRight)
         self.assertEqual(editor.markdown_preview.layoutDirection(), Qt.LayoutDirection.LeftToRight)
-        self.assertIn('<html dir="ltr">', html)
-        self.assertIn('<body dir="ltr">', html)
-        self.assertIn("direction: ltr;", html)
+        self.assertEqual(
+            editor.editor.document().defaultTextOption().textDirection(),
+            Qt.LayoutDirection.LayoutDirectionAuto
+        )
+        self.assertIn('<html dir="auto">', html)
+        self.assertIn('<body dir="auto">', html)
+        self.assertIn('dir="auto" data-source-line="1"', html)
+
+    def test_editor_and_preview_direction_does_not_follow_ui_language(self):
+        self.settings.save_setting("language", "en_US")
+        editor = self.make_editor()
+        rtl_html = editor.render_markdown_html("# عنوان\n\nیک متن فارسی")
+
+        self.assertEqual(editor.layoutDirection(), Qt.LayoutDirection.LeftToRight)
+        self.assertEqual(
+            editor.editor.document().defaultTextOption().textDirection(),
+            Qt.LayoutDirection.LayoutDirectionAuto
+        )
+        self.assertIn('<html dir="auto">', rtl_html)
+        self.assertNotIn("direction: ltr;", rtl_html)
+        self.assertNotIn("text-align: left;", rtl_html)
+
+        self.settings.save_setting("language", "fa_IR")
+        editor.apply_language_direction()
+        ltr_html = editor.render_markdown_html("# Title\n\nPlain English text")
+
+        self.assertEqual(editor.layoutDirection(), Qt.LayoutDirection.RightToLeft)
+        self.assertEqual(
+            editor.editor.document().defaultTextOption().textDirection(),
+            Qt.LayoutDirection.LayoutDirectionAuto
+        )
+        self.assertIn('<html dir="auto">', ltr_html)
+        self.assertNotIn("direction: rtl;", ltr_html)
+        self.assertNotIn("text-align: right;", ltr_html)
 
     def test_editor_file_and_line_number_state(self):
         editor = self.make_editor()
@@ -273,6 +344,51 @@ class EditorAndMainTests(unittest.TestCase):
             0.45,
             places=2
         )
+
+    def test_markdown_scroll_sync_waits_for_pending_preview_render(self):
+        editor = self.make_editor()
+        editor.markdown_preview_visible = True
+        editor.markdown_typing_active_until = 0
+        editor.markdown_render_timer.start()
+
+        with patch.object(editor_tab_module.QTimer, "singleShot") as single_shot:
+            editor.schedule_markdown_scroll_sync()
+
+        self.assertTrue(editor.preview_sync_after_load)
+        single_shot.assert_not_called()
+
+    def test_markdown_scroll_sync_waits_while_typing_is_active(self):
+        editor = self.make_editor()
+        editor.markdown_preview_visible = True
+        editor.markdown_typing_active_until = time.time() + 1.0
+
+        with patch.object(editor_tab_module.QTimer, "singleShot") as single_shot:
+            editor.schedule_markdown_scroll_sync()
+
+        self.assertFalse(editor.preview_sync_after_load)
+        single_shot.assert_not_called()
+
+    def test_markdown_preview_restores_scroll_before_reveal(self):
+        editor = self.make_editor()
+
+        html = editor.render_markdown_html("# Title", initial_scroll_ratio=0.4)
+
+        self.assertIn("jottr-restoring-preview-scroll", html)
+        self.assertIn("window.__jottrInitialPreviewScrollRatio = 0.4", html)
+        self.assertIn("visibility: hidden", html)
+
+    def test_markdown_preview_load_finishes_before_deferred_scroll_sync(self):
+        editor = self.make_editor()
+        editor.markdown_preview_visible = True
+        editor.markdown_preview_loading = True
+        editor.preview_sync_after_load = True
+
+        with patch.object(editor_tab_module.QTimer, "singleShot") as single_shot:
+            editor.render_markdown_preview_scripts()
+
+        self.assertFalse(editor.markdown_preview_loading)
+        self.assertFalse(editor.preview_sync_after_load)
+        single_shot.assert_called_once()
 
     def test_markdown_highlighter_uses_theme_syntax_colors(self):
         self.settings.save_theme("Dracula")
@@ -387,6 +503,33 @@ class EditorAndMainTests(unittest.TestCase):
         self.assertTrue(states["snippets_visible"])
         self.assertIn("sizes", states)
 
+    def test_editor_disables_animated_visibility_when_requested(self):
+        self.settings.save_setting("enable_animations", False)
+        editor = self.make_editor()
+        editor.show()
+        app().processEvents()
+
+        animation = editor.animate_widget_visibility(editor.snippet_widget, True)
+
+        self.assertIsNone(animation)
+        self.assertTrue(editor.snippet_widget.isVisible())
+        self.assertIsNone(editor.snippet_widget.graphicsEffect())
+
+    def test_editor_animated_visibility_slides_and_fades_panes(self):
+        editor = self.make_editor()
+        editor.animations_enabled = lambda: True
+        editor.show()
+        app().processEvents()
+
+        animation = editor.animate_widget_visibility(editor.snippet_widget, True)
+
+        self.assertIsNotNone(animation)
+        self.assertEqual(animation.animationCount(), 2)
+        self.assertTrue(editor.snippet_widget.isVisible())
+        self.assertEqual(editor.snippet_widget.maximumWidth(), 0)
+        self.assertIsNotNone(editor.snippet_widget.graphicsEffect())
+        animation.stop()
+
     def test_main_window_smoke_actions(self):
         class FakeEditorTab(QWidget):
             def __init__(self, snippet_manager, settings_manager):
@@ -436,10 +579,12 @@ class EditorAndMainTests(unittest.TestCase):
                 for action in window.toolbar.actions()
                 if not action.isSeparator() and action.text()
             }
-            self.assertEqual(toolbar_tooltips["Font"], "Choose Editor Font")
-            self.assertEqual(toolbar_tooltips["Theme"], "Choose Editor Theme")
+            self.assertEqual(toolbar_tooltips["Editor Font"], "Choose Editor Font")
+            self.assertNotIn("Preview Font", toolbar_tooltips)
+            self.assertNotIn("Theme", toolbar_tooltips)
             self.assertEqual(toolbar_tooltips["Menu"], "More Actions")
             self.assertTrue(all(toolbar_tooltips.values()))
+            self.assertNotEqual(window.icons["snippets"], window.icons["menu"])
 
     def test_main_window_left_aligns_document_tabs(self):
         class FakeEditorTab(QWidget):
@@ -461,12 +606,12 @@ class EditorAndMainTests(unittest.TestCase):
             self.assertIn("QTabWidget#documentTabs::tab-bar", stylesheet)
             self.assertIn("alignment: left", stylesheet)
 
-    def test_main_window_applies_font_to_all_editor_tabs(self):
+    def test_main_window_applies_separate_ui_and_editor_fonts(self):
         class FakeEditorTab(QWidget):
             def __init__(self, snippet_manager, settings_manager):
                 super().__init__()
                 self.editor = QTextEdit(self)
-                self.current_font = settings_manager.get_font()
+                self.current_font = settings_manager.get_font("editor")
                 self.current_file = None
 
             def set_main_window(self, main_window):
@@ -484,17 +629,19 @@ class EditorAndMainTests(unittest.TestCase):
 
             first_tab = window.tab_widget.widget(0)
             second_tab = window.new_editor_tab()
-            font = QFont("Liberation Serif", 16)
+            ui_font = QFont("Liberation Sans", 13)
+            editor_font = QFont("Liberation Mono", 16)
 
-            window.apply_font_to_tabs(font)
+            window.apply_app_style(ui_font)
+            window.apply_editor_font_to_tabs(editor_font)
 
-            self.assertEqual(QApplication.instance().font().family(), "Liberation Serif")
-            self.assertEqual(QApplication.instance().font().pointSize(), 16)
-            self.assertIn('font-family: "Liberation Serif"', QApplication.instance().styleSheet())
+            self.assertEqual(QApplication.instance().font().family(), "Liberation Sans")
+            self.assertEqual(QApplication.instance().font().pointSize(), 13)
+            self.assertIn('font-family: "Liberation Sans"', QApplication.instance().styleSheet())
             self.assertIn("QToolTip", QApplication.instance().styleSheet())
-            self.assertEqual(first_tab.current_font.family(), "Liberation Serif")
+            self.assertEqual(first_tab.current_font.family(), "Liberation Mono")
             self.assertEqual(first_tab.current_font.pointSize(), 16)
-            self.assertEqual(second_tab.current_font.family(), "Liberation Serif")
+            self.assertEqual(second_tab.current_font.family(), "Liberation Mono")
             self.assertEqual(second_tab.current_font.pointSize(), 16)
 
     def test_font_dialog_uses_translated_text(self):

@@ -8,18 +8,25 @@ class SettingsManager:
     def __init__(self):
         # Initialize default settings
         self.settings = {
+            "ui_font_family": "DejaVu Sans",
+            "ui_font_size": 10,
+            "ui_font_weight": 50,
+            "ui_font_italic": False,
             "font_family": "DejaVu Sans Mono",
             "font_size": 12,
             "font_weight": 50,
             "font_italic": False,
+            "ui_theme": "default",
             "theme": "default",
             "custom_themes": {},
             "language": "en_US",
             "icon_contrast": "auto",
+            "enable_animations": True,
             "spell_check": True,
             "autosave_enabled": False,
             "autosave_interval_seconds": 30,
             "markdown_scroll_sync": True,
+            "mermaid_runtime": "bundled",
             "editor_line_numbers": True,
             "search_sites": {
                 "AP News": "site:apnews.com",
@@ -117,21 +124,31 @@ class SettingsManager:
         with open(self.settings_file, 'w') as f:
             json.dump(self.settings, f)
 
-    def get_font(self):
+    def font_setting_prefix(self, role):
+        prefixes = {
+            "ui": "ui_font",
+            "editor": "font",
+        }
+        return prefixes.get(role, "font")
+
+    def get_font(self, role="editor"):
+        prefix = self.font_setting_prefix(role)
+        legacy_prefix = "font"
         font = QFont(
-            self.settings["font_family"],
-            self.settings["font_size"],
-            self.settings["font_weight"]
+            self.settings.get(f"{prefix}_family", self.settings[f"{legacy_prefix}_family"]),
+            self.settings.get(f"{prefix}_size", self.settings[f"{legacy_prefix}_size"]),
+            self.settings.get(f"{prefix}_weight", self.settings[f"{legacy_prefix}_weight"])
         )
-        font.setItalic(self.settings["font_italic"])
+        font.setItalic(self.settings.get(f"{prefix}_italic", self.settings[f"{legacy_prefix}_italic"]))
         return font
 
-    def save_font(self, font):
+    def save_font(self, font, role="editor"):
+        prefix = self.font_setting_prefix(role)
         self.settings.update({
-            "font_family": font.family(),
-            "font_size": font.pointSize(),
-            "font_weight": font.weight(),
-            "font_italic": font.italic()
+            f"{prefix}_family": font.family(),
+            f"{prefix}_size": font.pointSize(),
+            f"{prefix}_weight": font.weight(),
+            f"{prefix}_italic": font.italic()
         })
         self.save_settings()
 
@@ -143,6 +160,16 @@ class SettingsManager:
 
     def save_theme(self, theme):
         self.settings["theme"] = theme
+        self.save_settings()
+
+    def get_ui_theme(self):
+        theme = self.settings.get("ui_theme", self.settings.get("theme", "Light"))
+        if theme == "default":
+            return "Light"
+        return theme
+
+    def save_ui_theme(self, theme):
+        self.settings["ui_theme"] = theme
         self.save_settings()
 
     def get_custom_themes(self):

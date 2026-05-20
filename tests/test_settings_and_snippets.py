@@ -50,6 +50,8 @@ class SettingsAndSnippetTests(unittest.TestCase):
         self.assertEqual(manager.get_setting("language"), "en_US")
         self.assertFalse(manager.get_setting("autosave_enabled"))
         self.assertEqual(manager.get_setting("autosave_interval_seconds"), 30)
+        self.assertTrue(manager.get_setting("enable_animations"))
+        self.assertEqual(manager.get_setting("mermaid_runtime"), "bundled")
         self.assertEqual(manager.get_setting("workspace_path"), "")
         self.assertEqual(manager.get_setting("recent_workspaces"), [])
         self.assertEqual(manager.get_setting("workspace_sessions"), {})
@@ -109,6 +111,20 @@ class SettingsAndSnippetTests(unittest.TestCase):
         self.assertEqual(reloaded.get_font().pointSize(), 15)
         self.assertTrue(reloaded.get_font().italic())
 
+    def test_settings_manager_persists_separate_ui_and_editor_fonts(self):
+        manager = SettingsManager()
+
+        ui_font = QFont("Sans", 11)
+        editor_font = QFont("Mono", 14)
+        manager.save_font(ui_font, "ui")
+        manager.save_font(editor_font, "editor")
+
+        reloaded = SettingsManager()
+        self.assertEqual(reloaded.get_font("ui").family(), "Sans")
+        self.assertEqual(reloaded.get_font("ui").pointSize(), 11)
+        self.assertEqual(reloaded.get_font("editor").family(), "Mono")
+        self.assertEqual(reloaded.get_font("editor").pointSize(), 14)
+
     def test_settings_manager_persists_custom_themes(self):
         manager = SettingsManager()
         manager.save_custom_themes({
@@ -124,10 +140,12 @@ class SettingsAndSnippetTests(unittest.TestCase):
             }
         })
         manager.save_theme("Forest")
+        manager.save_ui_theme("Dark")
 
         reloaded = SettingsManager()
 
         self.assertEqual(reloaded.get_theme(), "Forest")
+        self.assertEqual(reloaded.get_ui_theme(), "Dark")
         forest = reloaded.get_custom_themes()["Forest"]
         self.assertEqual(forest["editor"]["background"], "#102018")
         self.assertEqual(forest["editor"]["foreground"], "#e8f5e9")

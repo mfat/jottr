@@ -804,6 +804,13 @@ class ThemeManager:
                 color: {app['text']};
                 border-bottom: 2px solid {app['accent']};
             }}
+            QScrollArea {{
+                background: {app['background']};
+                border: none;
+            }}
+            QScrollArea > QWidget > QWidget {{
+                background: {app['background']};
+            }}
             QGroupBox {{
                 background: {app['surface']};
                 border: 1px solid {app['border']};
@@ -896,6 +903,9 @@ class ThemeManager:
             QPushButton:pressed {{
                 background: {app['surface_active']};
                 border-color: {app['border_active']};
+            }}
+            QPushButton#fontSettingButton {{
+                text-align: left;
             }}
             QCheckBox {{
                 spacing: 8px;

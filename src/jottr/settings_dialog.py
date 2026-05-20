@@ -1,10 +1,12 @@
 from PyQt6.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QLabel, 
                             QLineEdit, QPushButton, QListWidget, QTabWidget,
                             QWidget, QCheckBox, QMessageBox, QInputDialog, QComboBox,
-                            QGroupBox, QPlainTextEdit)
+                            QGroupBox, QPlainTextEdit, QScrollArea, QFormLayout)
 from PyQt6.QtCore import Qt
+from PyQt6.QtGui import QFont
 import json
 import os
+from font_dialog import FontSelectionDialog
 from theme_manager import ThemeManager
 from translation_manager import (
     _,
@@ -20,14 +22,16 @@ class SettingsDialog(QDialog):
         self.settings_manager = settings_manager
         language = self.settings_manager.get_setting("language", "en_US")
         set_language(language)
-        self.setFont(self.settings_manager.get_font())
+        self.ui_font = QFont(self.settings_manager.get_font("ui"))
+        self.setFont(self.ui_font)
         self.setLayoutDirection(
             Qt.LayoutDirection.RightToLeft
             if is_rtl_language(language)
             else Qt.LayoutDirection.LeftToRight
         )
         self.setWindowTitle(_("Settings"))
-        self.setMinimumWidth(500)
+        self.setMinimumSize(680, 480)
+        self.resize(760, 560)
         
         self.setup_ui()
 
@@ -35,8 +39,8 @@ class SettingsDialog(QDialog):
         """Setup the UI components"""
         # Create layout
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(18, 18, 18, 14)
-        layout.setSpacing(12)
+        layout.setContentsMargins(14, 14, 14, 12)
+        layout.setSpacing(10)
         
         # Create tab widget
         tabs = QTabWidget()
@@ -45,35 +49,51 @@ class SettingsDialog(QDialog):
         # Appearance tab
         appearance_tab = QWidget()
         appearance_layout = QVBoxLayout(appearance_tab)
-        appearance_layout.setSpacing(12)
+        appearance_layout.setContentsMargins(12, 12, 12, 12)
+        appearance_layout.setSpacing(10)
 
-        language_layout = QHBoxLayout()
+        general_box = QGroupBox(_("General"))
+        general_layout = QFormLayout(general_box)
+        general_layout.setContentsMargins(12, 10, 12, 12)
+        general_layout.setSpacing(8)
         language_label = QLabel(_("Language:"))
         self.language_combo = QComboBox()
         self.load_language_options()
-        language_layout.addWidget(language_label)
-        language_layout.addWidget(self.language_combo)
-        appearance_layout.addLayout(language_layout)
+        general_layout.addRow(language_label, self.language_combo)
         
-        editor_theme_layout = QHBoxLayout()
-        editor_theme_label = QLabel(_("Theme:"))
-        self.editor_theme_combo = QComboBox()
-        self.refresh_editor_theme_combo()
-        self.editor_theme_combo.setCurrentText(self.settings_manager.get_theme())
-        editor_theme_layout.addWidget(editor_theme_label)
-        editor_theme_layout.addWidget(self.editor_theme_combo)
-        appearance_layout.addLayout(editor_theme_layout)
+        ui_theme_label = QLabel(_("Main UI Theme:"))
+        self.ui_theme_combo = QComboBox()
+        self.refresh_theme_combo(self.ui_theme_combo)
+        self.ui_theme_combo.setCurrentText(self.settings_manager.get_ui_theme())
+        general_layout.addRow(ui_theme_label, self.ui_theme_combo)
 
-        icon_layout = QHBoxLayout()
+        editor_theme_label = QLabel(_("Editor Theme:"))
+        self.editor_theme_combo = QComboBox()
+        self.refresh_theme_combo(self.editor_theme_combo)
+        self.editor_theme_combo.setCurrentText(self.settings_manager.get_theme())
+        general_layout.addRow(editor_theme_label, self.editor_theme_combo)
+
         icon_label = QLabel(_("Icon Contrast:"))
         self.icon_contrast_combo = QComboBox()
         self.icon_contrast_combo.addItems(["auto", "light", "dark", "accent"])
         self.icon_contrast_combo.setCurrentText(
             self.settings_manager.get_setting("icon_contrast", "auto")
         )
-        icon_layout.addWidget(icon_label)
-        icon_layout.addWidget(self.icon_contrast_combo)
-        appearance_layout.addLayout(icon_layout)
+        general_layout.addRow(icon_label, self.icon_contrast_combo)
+
+        self.enable_animations_check = QCheckBox(_("Enable smooth animations"))
+        self.enable_animations_check.setChecked(
+            self.settings_manager.get_setting("enable_animations", True)
+        )
+        general_layout.addRow(QLabel(_("Motion:")), self.enable_animations_check)
+
+        font_label = QLabel(_("Main UI Font:"))
+        self.ui_font_button = self.create_font_button(
+            self.ui_font,
+            self.choose_ui_font
+        )
+        general_layout.addRow(font_label, self.ui_font_button)
+        appearance_layout.addWidget(general_box)
 
         theme_box = QGroupBox(_("Custom App Themes"))
         theme_box_layout = QVBoxLayout(theme_box)
@@ -85,6 +105,7 @@ class SettingsDialog(QDialog):
 
         self.custom_theme_list = QListWidget()
         self.custom_theme_list.currentItemChanged.connect(self.load_selected_custom_theme)
+        self.custom_theme_list.setMaximumHeight(95)
         theme_box_layout.addWidget(self.custom_theme_list)
 
         json_label = QLabel(_("Theme JSON:"))
@@ -92,7 +113,7 @@ class SettingsDialog(QDialog):
         theme_box_layout.addWidget(json_label)
         self.theme_json_edit = QPlainTextEdit()
         self.theme_json_edit.setPlaceholderText(json.dumps(ThemeManager.get_theme_standard(), indent=2))
-        self.theme_json_edit.setMinimumHeight(170)
+        self.theme_json_edit.setMinimumHeight(130)
         theme_box_layout.addWidget(self.theme_json_edit)
 
         theme_buttons = QHBoxLayout()
@@ -109,23 +130,42 @@ class SettingsDialog(QDialog):
         theme_buttons.addWidget(use_theme)
         theme_buttons.addWidget(format_json)
         theme_box_layout.addLayout(theme_buttons)
-        appearance_layout.addWidget(theme_box)
+        appearance_layout.addWidget(theme_box, 1)
         self.load_custom_theme_list()
 
+        editor_box = QGroupBox(_("Editor"))
+        editor_layout = QVBoxLayout(editor_box)
+        editor_layout.setContentsMargins(12, 10, 12, 12)
+        editor_layout.setSpacing(8)
         self.markdown_scroll_sync_check = QCheckBox(_("Sync markdown editor and preview scrolling"))
         self.markdown_scroll_sync_check.setChecked(
             self.settings_manager.get_setting('markdown_scroll_sync', True)
         )
-        appearance_layout.addWidget(self.markdown_scroll_sync_check)
+        editor_layout.addWidget(self.markdown_scroll_sync_check)
+
+        mermaid_layout = QHBoxLayout()
+        mermaid_label = QLabel(_("Mermaid Runtime:"))
+        self.mermaid_runtime_combo = QComboBox()
+        self.mermaid_runtime_combo.addItem(_("Bundled (offline, stable)"), "bundled")
+        self.mermaid_runtime_combo.addItem(_("Latest from CDN"), "latest")
+        current_mermaid_runtime = self.settings_manager.get_setting("mermaid_runtime", "bundled")
+        mermaid_index = self.mermaid_runtime_combo.findData(current_mermaid_runtime)
+        self.mermaid_runtime_combo.setCurrentIndex(max(0, mermaid_index))
+        mermaid_layout.addWidget(mermaid_label)
+        mermaid_layout.addWidget(self.mermaid_runtime_combo)
+        editor_layout.addLayout(mermaid_layout)
 
         self.editor_line_numbers_check = QCheckBox(_("Show editor line numbers"))
         self.editor_line_numbers_check.setChecked(
             self.settings_manager.get_setting('editor_line_numbers', True)
         )
-        appearance_layout.addWidget(self.editor_line_numbers_check)
+        editor_layout.addWidget(self.editor_line_numbers_check)
+        appearance_layout.addWidget(editor_box)
 
         autosave_box = QGroupBox(_("Autosave"))
         autosave_layout = QVBoxLayout(autosave_box)
+        autosave_layout.setContentsMargins(12, 10, 12, 12)
+        autosave_layout.setSpacing(8)
         self.autosave_enabled_check = QCheckBox(_("Automatically save changed files"))
         self.autosave_enabled_check.setChecked(
             self.settings_manager.get_setting('autosave_enabled', False)
@@ -149,7 +189,7 @@ class SettingsDialog(QDialog):
         appearance_layout.addStretch()
         
         # Add appearance tab
-        tabs.addTab(appearance_tab, _("Appearance"))
+        tabs.addTab(self.create_scrollable_tab(appearance_tab), _("Appearance"))
         
         # Browser tab
         browser_tab = QWidget()
@@ -227,10 +267,48 @@ class SettingsDialog(QDialog):
 
     def apply_dialog_style(self):
         theme = ThemeManager.get_theme(
-            self.settings_manager.get_theme(),
+            self.ui_theme_combo.currentText() if hasattr(self, "ui_theme_combo") else self.settings_manager.get_ui_theme(),
             self.settings_manager.get_custom_themes()
         )
-        self.setStyleSheet(ThemeManager.build_dialog_stylesheet(theme, self.settings_manager.get_font()))
+        self.setStyleSheet(ThemeManager.build_dialog_stylesheet(theme, self.ui_font))
+
+    def create_scrollable_tab(self, content):
+        scroll_area = QScrollArea()
+        scroll_area.setWidgetResizable(True)
+        scroll_area.setFrameShape(QScrollArea.Shape.NoFrame)
+        scroll_area.setWidget(content)
+        return scroll_area
+
+    def create_font_button(self, font, callback):
+        button = QPushButton()
+        button.setObjectName("fontSettingButton")
+        button.clicked.connect(callback)
+        self.update_font_button(button, font)
+        return button
+
+    def update_font_button(self, button, font):
+        button.setText(self.font_summary(font))
+
+    def font_summary(self, font):
+        parts = [font.family(), f"{font.pointSize()}pt"]
+        if font.bold() and font.italic():
+            parts.append(_("Bold Italic"))
+        elif font.bold():
+            parts.append(_("Bold"))
+        elif font.italic():
+            parts.append(_("Italic"))
+        else:
+            parts.append(_("Regular"))
+        return " ".join(parts)
+
+    def choose_ui_font(self):
+        dialog = FontSelectionDialog(self.ui_font, self, title=_("Choose Main UI Font"))
+        if dialog.exec() == QDialog.DialogCode.Accepted:
+            selected_font = dialog.selectedFont()
+            self.ui_font = selected_font
+            self.setFont(self.ui_font)
+            self.apply_dialog_style()
+            self.update_font_button(self.ui_font_button, selected_font)
 
     def common_autosave_intervals(self):
         return [1, 5, 10, 15, 30, 45, 60, 120, 300, 600, 900, 1800, 3600]
@@ -267,12 +345,18 @@ class SettingsDialog(QDialog):
         if current_index >= 0:
             self.language_combo.setCurrentIndex(current_index)
 
-    def refresh_editor_theme_combo(self):
-        current = self.editor_theme_combo.currentText() if hasattr(self, "editor_theme_combo") else ""
-        self.editor_theme_combo.clear()
-        self.editor_theme_combo.addItems(ThemeManager.get_themes(self.get_custom_themes()).keys())
+    def refresh_theme_combo(self, combo):
+        current = combo.currentText()
+        combo.clear()
+        combo.addItems(ThemeManager.get_themes(self.get_custom_themes()).keys())
         if current:
-            self.editor_theme_combo.setCurrentText(current)
+            combo.setCurrentText(current)
+
+    def refresh_theme_combos(self):
+        if hasattr(self, "ui_theme_combo"):
+            self.refresh_theme_combo(self.ui_theme_combo)
+        if hasattr(self, "editor_theme_combo"):
+            self.refresh_theme_combo(self.editor_theme_combo)
         self.load_custom_theme_list()
 
     def load_custom_theme_list(self):
@@ -308,24 +392,28 @@ class SettingsDialog(QDialog):
         themes = self.get_custom_themes()
         themes[name] = theme
         self.set_custom_themes(themes)
-        self.refresh_editor_theme_combo()
+        self.refresh_theme_combos()
         self.editor_theme_combo.setCurrentText(name)
 
     def delete_custom_theme(self):
         name = self.get_selected_custom_theme_name()
         themes = self.get_custom_themes()
         if name in themes:
+            ui_was_selected = self.ui_theme_combo.currentText() == name
             was_selected = self.editor_theme_combo.currentText() == name
             del themes[name]
             self.set_custom_themes(themes)
-            self.refresh_editor_theme_combo()
+            self.refresh_theme_combos()
             self.theme_json_edit.clear()
+            if ui_was_selected:
+                self.ui_theme_combo.setCurrentText("Light")
             if was_selected:
                 self.editor_theme_combo.setCurrentText("Light")
 
     def use_selected_custom_theme(self):
         current = self.custom_theme_list.currentItem()
         if current:
+            self.ui_theme_combo.setCurrentText(current.text())
             self.editor_theme_combo.setCurrentText(current.text())
 
     def get_selected_custom_theme_name(self):
@@ -419,11 +507,15 @@ class SettingsDialog(QDialog):
             'homepage': self.homepage_edit.text(),
             'search_sites': self.get_search_sites(),
             'user_dictionary': self.get_user_dictionary(),
+            'ui_theme': self.ui_theme_combo.currentText(),
             'theme': self.editor_theme_combo.currentText(),
             'custom_themes': self.get_custom_themes(),
             'language': self.language_combo.currentData() or self.language_combo.currentText(),
             'icon_contrast': self.icon_contrast_combo.currentText(),
+            'enable_animations': self.enable_animations_check.isChecked(),
+            'ui_font': QFont(self.ui_font),
             'markdown_scroll_sync': self.markdown_scroll_sync_check.isChecked(),
+            'mermaid_runtime': self.mermaid_runtime_combo.currentData() or "bundled",
             'editor_line_numbers': self.editor_line_numbers_check.isChecked(),
             'autosave_enabled': self.autosave_enabled_check.isChecked(),
             'autosave_interval_seconds': self.autosave_interval_seconds()

@@ -151,6 +151,15 @@ msgstr ""
 msgid "Mermaid runtime could not be loaded."
 msgstr ""
 
+msgid "Mermaid Runtime:"
+msgstr "زمان اجرای Mermaid:"
+
+msgid "Bundled (offline, stable)"
+msgstr "همراه برنامه (آفلاین، پایدار)"
+
+msgid "Latest from CDN"
+msgstr "آخرین نسخه از CDN"
+
 #: src/jottr/editor_tab.py:3026
 msgid "Search or enter address"
 msgstr "جستجو یا وارد کردن نشانی"
@@ -471,43 +480,63 @@ msgstr "حالت تمرکز (Ctrl+Shift+D)"
 msgid "Font"
 msgstr "قلم"
 
-#: src/jottr/main.py:775
+#: src/jottr/settings_dialog.py
+msgid "General"
+msgstr "عمومی"
+
+#: src/jottr/settings_dialog.py
+msgid "Main UI Font"
+msgstr "قلم رابط کاربری"
+
+#: src/jottr/settings_dialog.py
+msgid "Main UI Font:"
+msgstr "قلم رابط کاربری:"
+
+#: src/jottr/settings_dialog.py
+msgid "Editor Font"
+msgstr "قلم ویرایشگر"
+
+#: src/jottr/settings_dialog.py
+msgid "Choose Main UI Font"
+msgstr "انتخاب قلم رابط کاربری"
+
+#: src/jottr/font_dialog.py src/jottr/settings_dialog.py
 msgid "Choose Editor Font"
 msgstr "انتخاب قلم ویرایشگر"
 
-#: src/jottr/main.py
+#: src/jottr/font_dialog.py
 msgid "Font:"
 msgstr "قلم:"
 
-#: src/jottr/main.py
+#: src/jottr/font_dialog.py
 msgid "Size:"
 msgstr "اندازه:"
 
-#: src/jottr/main.py
+#: src/jottr/font_dialog.py
 msgid "Style:"
 msgstr "سبک:"
 
-#: src/jottr/main.py
+#: src/jottr/font_dialog.py src/jottr/settings_dialog.py
 msgid "Regular"
 msgstr "معمولی"
 
-#: src/jottr/main.py
+#: src/jottr/font_dialog.py src/jottr/settings_dialog.py
 msgid "Bold"
 msgstr "پررنگ"
 
-#: src/jottr/main.py
+#: src/jottr/font_dialog.py src/jottr/settings_dialog.py
 msgid "Italic"
 msgstr "کج"
 
-#: src/jottr/main.py
+#: src/jottr/font_dialog.py src/jottr/settings_dialog.py
 msgid "Bold Italic"
 msgstr "پررنگ کج"
 
-#: src/jottr/main.py
+#: src/jottr/font_dialog.py
 msgid "Preview:"
 msgstr "پیش‌نمایش:"
 
-#: src/jottr/main.py
+#: src/jottr/font_dialog.py
 msgid "The quick brown fox jumps over the lazy dog."
 msgstr "نمونهٔ پیش‌نمایش قلم"
 
@@ -704,13 +733,25 @@ msgstr ""
 msgid "Language:"
 msgstr "زبان:"
 
-#: src/jottr/settings_dialog.py:58
-msgid "Theme:"
-msgstr "پوسته:"
+#: src/jottr/settings_dialog.py
+msgid "Main UI Theme:"
+msgstr "پوستهٔ رابط کاربری:"
+
+#: src/jottr/settings_dialog.py
+msgid "Editor Theme:"
+msgstr "پوستهٔ ویرایشگر:"
 
 #: src/jottr/settings_dialog.py:67
 msgid "Icon Contrast:"
 msgstr "کنتراست آیکن:"
+
+#: src/jottr/settings_dialog.py
+msgid "Motion:"
+msgstr "حرکت:"
+
+#: src/jottr/settings_dialog.py
+msgid "Enable smooth animations"
+msgstr "فعال‌سازی پویانمایی‌های نرم"
 
 #: src/jottr/settings_dialog.py:77
 msgid "Custom App Themes"

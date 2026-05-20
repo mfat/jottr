@@ -11,16 +11,18 @@ from PyQt6.QtWidgets import (
                             QVBoxLayout, QHBoxLayout, QSplitter, QMenu, QToolBar,
                             QMessageBox, QLabel, QDialog, QSizePolicy,
                             QDialogButtonBox, QTabBar, QFileDialog, QToolButton,
-                            QTreeView, QInputDialog, QPushButton, QFormLayout,
-                            QFontComboBox, QComboBox)
-from PyQt6.QtCore import Qt, QUrl, QTimer, QEvent, QDir
+                            QTreeView, QInputDialog, QPushButton, QGraphicsOpacityEffect)
+from PyQt6.QtCore import (
+    Qt, QUrl, QTimer, QEvent, QDir, QPropertyAnimation,
+    QEasingCurve, QParallelAnimationGroup
+)
 from PyQt6.QtWebEngineWidgets import QWebEngineView
 from PyQt6.QtGui import QAction, QShortcut, QFileSystemModel, QPen
 from editor_tab import EditorTab
 from snippet_manager import SnippetManager
 from rss_tab import RSSTab
 import feedparser
-from PyQt6.QtGui import QIcon, QDesktopServices, QKeySequence, QColor, QPalette
+from PyQt6.QtGui import QIcon, QDesktopServices, QKeySequence, QColor
 from theme_manager import ThemeManager
 from settings_manager import SettingsManager
 from PyQt6.QtGui import QPixmap
@@ -31,6 +33,7 @@ from PyQt6.QtGui import QFont
 from PyQt6.QtSvg import QSvgRenderer
 from PyQt6.QtGui import QPainter
 from PyQt6.QtCore import QSize
+from font_dialog import FontSelectionDialog
 # Add vendor directory to path
 vendor_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'vendor')
 if os.path.exists(vendor_dir):
@@ -67,134 +70,6 @@ class WorkspaceTreeView(QTreeView):
         painter.drawLine(center_x, rect.top(), center_x, rect.bottom())
         painter.drawLine(center_x, center_y, rect.right(), center_y)
         painter.restore()
-
-
-class FontSelectionDialog(QDialog):
-    """App-owned font picker so all visible strings use Jottr translations."""
-
-    def __init__(self, current_font, parent=None):
-        super().__init__(parent)
-        self.setObjectName("fontSelectionDialog")
-        self.setWindowTitle(_("Choose Editor Font"))
-        self.setMinimumWidth(420)
-
-        layout = QVBoxLayout(self)
-        layout.setContentsMargins(18, 18, 18, 14)
-        layout.setSpacing(12)
-        form = QFormLayout()
-        form.setSpacing(10)
-
-        self.font_label = QLabel(_("Font:"))
-        self.font_combo = QFontComboBox()
-        self.font_combo.setCurrentFont(current_font)
-        form.addRow(self.font_label, self.font_combo)
-
-        self.size_label = QLabel(_("Size:"))
-        self.size_combo = QComboBox()
-        self.size_combo.setEditable(True)
-        self.size_combo.addItems([str(size) for size in self.common_font_sizes()])
-        self.set_current_size(current_font.pointSize() if current_font.pointSize() > 0 else 12)
-        form.addRow(self.size_label, self.size_combo)
-
-        self.style_label = QLabel(_("Style:"))
-        self.style_combo = QComboBox()
-        self.style_combo.addItem(_("Regular"), "regular")
-        self.style_combo.addItem(_("Bold"), "bold")
-        self.style_combo.addItem(_("Italic"), "italic")
-        self.style_combo.addItem(_("Bold Italic"), "bold_italic")
-        self.style_combo.setCurrentIndex(self.initial_style_index(current_font))
-        form.addRow(self.style_label, self.style_combo)
-
-        layout.addLayout(form)
-
-        self.preview_label = QLabel(_("Preview:"))
-        layout.addWidget(self.preview_label)
-        self.preview_text = QLabel(_("The quick brown fox jumps over the lazy dog."))
-        self.preview_text.setObjectName("fontPreview")
-        self.preview_text.setMinimumHeight(54)
-        self.preview_text.setWordWrap(True)
-        layout.addWidget(self.preview_text)
-
-        buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel)
-        buttons.button(QDialogButtonBox.StandardButton.Ok).setText(_("OK"))
-        buttons.button(QDialogButtonBox.StandardButton.Cancel).setText(_("Cancel"))
-        buttons.accepted.connect(self.accept)
-        buttons.rejected.connect(self.reject)
-        layout.addWidget(buttons)
-
-        self.font_combo.currentFontChanged.connect(self.update_preview)
-        self.size_combo.currentTextChanged.connect(self.update_preview)
-        self.style_combo.currentIndexChanged.connect(self.update_preview)
-        self.apply_style(current_font)
-        self.update_preview()
-
-    def common_font_sizes(self):
-        return [6, 7, 8, 9, 10, 11, 12, 13, 14, 16, 18, 20, 22, 24, 28, 32, 36, 48, 64, 72, 96]
-
-    def set_current_size(self, size):
-        size = min(96, max(6, int(size)))
-        text = str(size)
-        index = self.size_combo.findText(text)
-        if index >= 0:
-            self.size_combo.setCurrentIndex(index)
-        else:
-            self.size_combo.setCurrentText(text)
-
-    def active_theme(self):
-        parent = self.parent()
-        settings_manager = getattr(parent, "settings_manager", None)
-        if settings_manager:
-            return ThemeManager.get_theme(
-                settings_manager.get_theme(),
-                settings_manager.get_custom_themes()
-            )
-        return ThemeManager.get_theme(ThemeManager.DEFAULT_THEME_NAME)
-
-    def apply_style(self, font):
-        theme = self.active_theme()
-        self.setStyleSheet(ThemeManager.build_font_dialog_stylesheet(theme, font))
-        app = theme["app"]
-        palette = self.palette()
-        palette.setColor(QPalette.ColorRole.Window, QColor(app["background"]))
-        palette.setColor(QPalette.ColorRole.WindowText, QColor(app["text"]))
-        palette.setColor(QPalette.ColorRole.Base, QColor(app["surface"]))
-        palette.setColor(QPalette.ColorRole.Text, QColor(app["text"]))
-        palette.setColor(QPalette.ColorRole.Button, QColor(app["surface"]))
-        palette.setColor(QPalette.ColorRole.ButtonText, QColor(app["text"]))
-        palette.setColor(QPalette.ColorRole.Highlight, QColor(app["surface_active"]))
-        palette.setColor(QPalette.ColorRole.HighlightedText, QColor(app["text"]))
-        self.setPalette(palette)
-        for combo in (self.font_combo, self.style_combo):
-            combo.setPalette(palette)
-            if combo.view():
-                combo.view().setPalette(palette)
-        self.size_combo.setPalette(palette)
-        if self.size_combo.view():
-            self.size_combo.view().setPalette(palette)
-
-    def initial_style_index(self, font):
-        if font.bold() and font.italic():
-            return 3
-        if font.bold():
-            return 1
-        if font.italic():
-            return 2
-        return 0
-
-    def selectedFont(self):
-        font = QFont(self.font_combo.currentFont())
-        try:
-            point_size = int(self.size_combo.currentText())
-        except ValueError:
-            point_size = 12
-        font.setPointSize(min(96, max(6, point_size)))
-        style = self.style_combo.currentData()
-        font.setBold(style in ("bold", "bold_italic"))
-        font.setItalic(style in ("italic", "bold_italic"))
-        return font
-
-    def update_preview(self, *_args):
-        self.preview_text.setFont(self.selectedFont())
 
 
 class TextEditorApp(QMainWindow):
@@ -238,7 +113,7 @@ class TextEditorApp(QMainWindow):
             "save": "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgd2lkdGg9IjI0IiBoZWlnaHQ9IjI0Ij4KICA8ZGVmcyBpZD0iZGVmczMwNTEiPgogICAgPHN0eWxlIHR5cGU9InRleHQvY3NzIiBpZD0iY3VycmVudC1jb2xvci1zY2hlbWUiPgogICAgICAuQ29sb3JTY2hlbWUtVGV4dCB7CiAgICAgICAgY29sb3I6IzIzMjYyOTsKICAgICAgfQogICAgICA8L3N0eWxlPgogIDwvZGVmcz4KICA8ZyB0cmFuc2Zvcm09InRyYW5zbGF0ZSgxLDEpIj4KICAgIDxwYXRoIHN0eWxlPSJmaWxsOmN1cnJlbnRDb2xvcjtmaWxsLW9wYWNpdHk6MTtzdHJva2U6bm9uZSIgZD0iTSAzIDIuOTk4MDQ2OSBMIDMgMyBMIDMgNCBMIDMgMTkgTCA0IDE5IEwgMTkgMTkgTCAxOSAxOCBMIDE5IDcgTCAxOSA2LjMwMDc4MTIgTCAxOC45OTIxODggNi4zMDA3ODEyIEwgMTkgNi4yOTEwMTU2IEwgMTUuNzA3MDMxIDIuOTk4MDQ2OSBMIDE1LjY5OTIxOSAzLjAwNzgxMjUgTCAxNS42OTkyMTkgMi45OTgwNDY5IEwgMTUgMi45OTgwNDY5IEwgMyAyLjk5ODA0NjkgeiBNIDQgNCBMIDcgNCBMIDcgOCBMIDcgOSBMIDE1IDkgTCAxNSA4IEwgMTUgNCBMIDE1LjI5Mjk2OSA0IEwgMTggNi43MDcwMzEyIEwgMTggNyBMIDE4IDE4IEwgMTYgMTggTCAxNiAxMSBMIDE1IDExIEwgNyAxMSBMIDYgMTEgTCA2IDE4IEwgNCAxOCBMIDQgNCB6IE0gOCA0IEwgMTEuOTAwMzkxIDQgTCAxMS45MDAzOTEgOCBMIDggOCBMIDggNCB6IE0gNyAxMiBMIDE1IDEyIEwgMTUgMTggTCA3IDE4IEwgNyAxMiB6ICIgY2xhc3M9IkNvbG9yU2NoZW1lLVRleHQiLz4KICA8L2c+Cjwvc3ZnPgo=",
             "settings": "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgd2lkdGg9IjI0IiBoZWlnaHQ9IjI0Ij4KICA8ZGVmcyBpZD0iZGVmczMwNTEiPgogICAgPHN0eWxlIHR5cGU9InRleHQvY3NzIiBpZD0iY3VycmVudC1jb2xvci1zY2hlbWUiPgogICAgICAuQ29sb3JTY2hlbWUtVGV4dCB7CiAgICAgICAgY29sb3I6IzIzMjYyOTsKICAgICAgfQogICAgICA8L3N0eWxlPgogIDwvZGVmcz4KICA8ZyB0cmFuc2Zvcm09InRyYW5zbGF0ZSgxLDEpIj4KICAgIDxwYXRoIHN0eWxlPSJmaWxsOmN1cnJlbnRDb2xvcjtmaWxsLW9wYWNpdHk6MTtzdHJva2U6bm9uZSIgZD0iTSAxNC41NTA3ODEgMyBDIDEzLjMzNjkyMSAzIDEyLjMzMTc2MiAzLjg1NTkzIDEyLjEwMTU2MiA1IEwgMy4wNTA3ODEyIDUgTCAzLjA1MDc4MTIgNiBMIDEyLjEwMTU2MiA2IEMgMTIuMzMxNzYyIDcuMTQ0MDcgMTMuMzM2OTIxIDggMTQuNTUwNzgxIDggQyAxNS43NjQ2NDEgOCAxNi43Njk4IDcuMTQ0MDcgMTcgNiBMIDE5LjA1MDc4MSA2IEwgMTkuMDUwNzgxIDUgTCAxNyA1IEMgMTYuNzY5OCAzLjg1NTkzIDE1Ljc2NDY0MSAzIDE0LjU1MDc4MSAzIHogTSAxNC41NTA3ODEgNCBDIDE1LjM4MTc4MSA0IDE2LjA1MDc4MSA0LjY2OSAxNi4wNTA3ODEgNS41IEMgMTYuMDUwNzgxIDYuMzMxIDE1LjM4MTc4MSA3IDE0LjU1MDc4MSA3IEMgMTMuNzE5NzgxIDcgMTMuMDUwNzgxIDYuMzMxIDEzLjA1MDc4MSA1LjUgQyAxMy4wNTA3ODEgNC42NjkgMTMuNzE5NzgxIDQgMTQuNTUwNzgxIDQgeiBNIDExLjU1MDc4MSA5IEMgMTAuMzM2OTIxIDkgOS4zMzE3NjI1IDkuODU1OTMgOS4xMDE1NjI1IDExIEwgMy4wNTA3ODEyIDExIEwgMy4wNTA3ODEyIDEyIEwgOS4xMDE1NjI1IDEyIEMgOS4zMzE3NjI1IDEzLjE0NDA3IDEwLjMzNjkyMSAxNCAxMS41NTA3ODEgMTQgQyAxMi43NjQ2NDEgMTQgMTMuNzY5OCAxMy4xNDQwNyAxNCAxMiBMIDE5LjA1MDc4MSAxMiBMIDE5LjA1MDc4MSAxMSBMIDE0IDExIEMgMTMuNzY5OCA5Ljg1NTkzIDEyLjc2NDY0MSA5IDExLjU1MDc4MSA5IHogTSA1LjU1MDc4MTIgMTQgQyA0LjE2NTc4MTMgMTQgMy4wNTA3ODEyIDE1LjExNSAzLjA1MDc4MTIgMTYuNSBDIDMuMDUwNzgxMiAxNy44ODUgNC4xNjU3ODEzIDE5IDUuNTUwNzgxMiAxOSBDIDYuNzY0NjQxMyAxOSA3Ljc2OTggMTguMTQ0MDcgOCAxNyBMIDE5LjA1MDc4MSAxNyBMIDE5LjA1MDc4MSAxNiBMIDggMTYgQyA3Ljc2OTggMTQuODU1OTMgNi43NjQ2NDEzIDE0IDUuNTUwNzgxMiAxNCB6IE0gNS41NTA3ODEyIDE1IEMgNi4zODE3ODEyIDE1IDcuMDUwNzgxMiAxNS42NjkgNy4wNTA3ODEyIDE2LjUgQyA3LjA1MDc4MTIgMTcuMzMxIDYuMzgxNzgxMiAxOCA1LjU1MDc4MTIgMTggQyA0LjcxOTc4MTMgMTggNC4wNTA3ODEyIDE3LjMzMSA0LjA1MDc4MTIgMTYuNSBDIDQuMDUwNzgxMiAxNS42NjkgNC43MTk3ODEzIDE1IDUuNTUwNzgxMiAxNSB6ICIgY2xhc3M9IkNvbG9yU2NoZW1lLVRleHQiLz4KICA8L2c+Cjwvc3ZnPgo=",
             "smaller": "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgd2lkdGg9IjI0IiBoZWlnaHQ9IjI0Ij4KICA8ZGVmcyBpZD0iZGVmczMwNTEiPgogICAgPHN0eWxlIHR5cGU9InRleHQvY3NzIiBpZD0iY3VycmVudC1jb2xvci1zY2hlbWUiPgogICAgICAuQ29sb3JTY2hlbWUtVGV4dCB7CiAgICAgICAgY29sb3I6IzIzMjYyOTsKICAgICAgfQogICAgICA8L3N0eWxlPgogIDwvZGVmcz4KICA8ZyB0cmFuc2Zvcm09InRyYW5zbGF0ZSgxLDEpIj4KICAgIDxwYXRoIHN0eWxlPSJmaWxsOmN1cnJlbnRDb2xvcjtmaWxsLW9wYWNpdHk6MTtzdHJva2U6bm9uZSIgZD0iTSA4LjIxNjc5NjkgMyBMIDMgMTcgTCA0LjY4NzUgMTcgTCA2LjM1NTQ2ODggMTIuNTcwMzEyIEwgMTEuOTE3OTY5IDEyLjU3MDMxMiBMIDEyLjA2NjQwNiAxMyBMIDEzLjczMjQyMiAxMyBMIDEwLjIxMDkzOCAzIEwgOC4yMTY3OTY5IDMgeiBNIDkuMjMyNDIxOSA0LjYxMTMyODEgTCAxMS4zNjEzMjggMTEuMjg1MTU2IEwgNi44NzMwNDY5IDExLjI4NTE1NiBMIDkuMjMyNDIxOSA0LjYxMTMyODEgeiBNIDE1IDEyLjc5Mjk2OSBMIDE1IDE3LjA4NTkzOCBMIDEyLjcwNzAzMSAxNC43OTI5NjkgTCAxMiAxNS41IEwgMTUuMjkyOTY5IDE4Ljc5Mjk2OSBMIDE1LjUgMTkgTCAxNS43MDcwMzEgMTguNzkyOTY5IEwgMTkgMTUuNSBMIDE4LjI5Mjk2OSAxNC43OTI5NjkgTCAxNiAxNy4wODU5MzggTCAxNiAxMi43OTI5NjkgTCAxNSAxMi43OTI5NjkgeiAiIGNsYXNzPSJDb2xvclNjaGVtZS1UZXh0Ii8+CiAgPC9nPgo8L3N2Zz4K",
-            "snippets": "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgd2lkdGg9IjI0IiBoZWlnaHQ9IjI0Ij4KICA8ZGVmcyBpZD0iZGVmczMwNTEiPgogICAgPHN0eWxlIHR5cGU9InRleHQvY3NzIiBpZD0iY3VycmVudC1jb2xvci1zY2hlbWUiPgogICAgICAuQ29sb3JTY2hlbWUtVGV4dCB7CiAgICAgICAgY29sb3I6IzIzMjYyOTsKICAgICAgfQogICAgICA8L3N0eWxlPgogIDwvZGVmcz4KICA8ZyB0cmFuc2Zvcm09InRyYW5zbGF0ZSgxLDEpIj4KICAgIDxwYXRoIHN0eWxlPSJmaWxsOmN1cnJlbnRDb2xvcjtmaWxsLW9wYWNpdHk6MTtzdHJva2U6bm9uZSIgZD0ibTMgM3YxaDE2di0xem0wIDN2MWgxNnYtMXptMCAzdjFoMTZ2LTF6bTAgM3YxaDE2di0xem0wIDN2MWgxNnYtMXptMCAzdjFoMTZ2LTF6IiBjbGFzcz0iQ29sb3JTY2hlbWUtVGV4dCIvPgogIDwvZz4KPC9zdmc+Cg==",
+            "snippets": "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgd2lkdGg9IjI0IiBoZWlnaHQ9IjI0Ij48ZGVmcz48c3R5bGUgdHlwZT0idGV4dC9jc3MiIGlkPSJjdXJyZW50LWNvbG9yLXNjaGVtZSI+LkNvbG9yU2NoZW1lLVRleHR7Y29sb3I6IzIzMjYyOTt9PC9zdHlsZT48L2RlZnM+PGcgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoMSwxKSI+PHBhdGggY2xhc3M9IkNvbG9yU2NoZW1lLVRleHQiIHN0eWxlPSJmaWxsOmN1cnJlbnRDb2xvcjtmaWxsLW9wYWNpdHk6MTtzdHJva2U6bm9uZSIgZD0iTTUgM2g5bDQgNHYxMkg1VjN6bTEgMXYxNGgxMVY4aC00VjRINnptOCAuN1Y3aDIuM0wxNCA0Ljd6TTggOGg2djFIOFY4em0wIDNoN3YxSDh2LTF6bTAgM2g1djFIOHYtMXpNMyA2aDF2MTRoMTF2MUgzVjZ6Ii8+PC9nPjwvc3ZnPg==",
             "theme": "data:image/svg+xml;base64,PCFET0NUWVBFIHN2Zz4KPHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZlcnNpb249IjEuMSIgdmlld0JveD0iMCAwIDI0IDI0IiB3aWR0aD0iMjQiIGhlaWdodD0iMjQiPgogIDxkZWZzPgogICAgPHN0eWxlIGlkPSJjdXJyZW50LWNvbG9yLXNjaGVtZSIgdHlwZT0idGV4dC9jc3MiPgogICAgICAgICAgICAuQ29sb3JTY2hlbWUtVGV4dCB7CiAgICAgICAgICAgICAgICBjb2xvcjojMjMyNjI5OwogICAgICAgICAgICB9CiAgICAgICAgPC9zdHlsZT4KICA8L2RlZnM+CiAgPGcgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoMSwxKSI+CiAgICA8cGF0aCBjbGFzcz0iQ29sb3JTY2hlbWUtVGV4dCIgc3R5bGU9ImZpbGw6Y3VycmVudENvbG9yOyBmaWxsLW9wYWNpdHk6MTsgc3Ryb2tlOm5vbmUiIGQ9Ik0gNyAzIEMgNi4wMjcwOSA2LjQwNTAzIDMuNjQ1NTUgOS4zMzIyOCAyLjU5NTcgMTEuNjc1OCBDIDIuMjI4MyAxMi4zNzI2IDIgMTMuMTU0NiAyIDE0IEMgMiAxNi43NyA0LjIzIDE5IDcgMTkgQyA5Ljc3IDE5IDEyIDE2Ljc3IDEyIDE0IEMgMTIgMTMuMTU0NiAxMS43NzE3IDEyLjM3MjYgMTEuNDA0MyAxMS42NzU4IEMgMTAuMzU0NCA5LjMzMjI4IDcuOTcyOSA2LjQwNTAzIDcgMyBaIE0gOS4yODMyIDEwLjcxNjggQyAxMC4zMjA5IDExLjQzOCAxMSAxMi42MzUxIDExIDE0IEMgMTEgMTYuMjE2IDkuMjE2IDE4IDcgMTggQyA1LjYzNTA0IDE4IDQuNDM4IDE3LjMyMSAzLjcxNjggMTYuMjgzMiBDIDQuMzYzODUgMTYuNzMyOSA1LjE0ODkyIDE3IDYgMTcgQyA4LjIxNiAxNyAxMCAxNS4yMTYgMTAgMTMgQyAxMCAxMi4xNDg5IDkuNzMyOTEgMTEuMzYzOCA5LjI4MzIgMTAuNzE2OCBaIi8+CiAgICA8cGF0aCBjbGFzcz0iQ29sb3JTY2hlbWUtVGV4dCIgc3R5bGU9ImZpbGw6Y3VycmVudENvbG9yOyBmaWxsLW9wYWNpdHk6MTsgc3Ryb2tlOm5vbmUiIGQ9Ik0gMTQgMiBDIDEzLjE4NTcgNC44NSAxMS4zOTQgNy4zNjAwOCAxMC4yMTI5IDkuNDc4NTIgQyAxMC40MTk5IDkuODI2MTggMTAuNjE4IDEwLjE3MzIgMTAuODAwOCAxMC41MDIgQyAxMS42MDg1IDguODg2MzcgMTIuOTMyNSA2Ljc3NzkgMTQgNC4zOTI1OCBDIDE1LjE5NDEgNy4wNjA2MyAxNi43NDY3IDkuNDE5OSAxNy40OTIyIDExLjA4NCBMIDE3LjUwMzkgMTEuMTEzMyBMIDE3LjUxOTUgMTEuMTQyNiBDIDE3LjgyMjcgMTEuNzE3NSAxOCAxMi4zMzQ2IDE4IDEzIEMgMTggMTUuMjMzMyAxNi4yMzMzIDE3IDE0IDE3IEMgMTMuMDQ4NSAxNyAxMi4xOTMzIDE2LjY2NTggMTEuNTExNyAxNi4xMjUgQyAxMS4zNjg3IDE2LjQyOTMgMTEuMTk2OSAxNi43MTM4IDEwLjk5OCAxNi45ODA1IEMgMTEuODM1MSAxNy42MTE5IDEyLjg2NjEgMTggMTQgMTggQyAxNi43NyAxOCAxOSAxNS43NyAxOSAxMyBDIDE5IDEyLjE1NDYgMTguNzcxNyAxMS4zNzI2IDE4LjQwNDMgMTAuNjc1OCBDIDE3LjM1NDQgOC4zMzIyOCAxNC45NzI5IDUuNDA1MDMgMTQgMiBaIi8+CiAgPC9nPgo8L3N2Zz4K",
             "undo": "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgd2lkdGg9IjI0IiBoZWlnaHQ9IjI0Ij4KICA8ZGVmcyBpZD0iZGVmczMwNTEiPgogICAgPHN0eWxlIHR5cGU9InRleHQvY3NzIiBpZD0iY3VycmVudC1jb2xvci1zY2hlbWUiPgogICAgICAuQ29sb3JTY2hlbWUtVGV4dCB7CiAgICAgICAgY29sb3I6IzIzMjYyOTsKICAgICAgfQogICAgICA8L3N0eWxlPgogIDwvZGVmcz4KICA8ZyB0cmFuc2Zvcm09InRyYW5zbGF0ZSgxLDEpIj4KICAgIDxwYXRoIHN0eWxlPSJmaWxsOmN1cnJlbnRDb2xvcjtmaWxsLW9wYWNpdHk6MTtzdHJva2U6bm9uZSIgZD0ibTguMzAwNzgxIDNsLTMuMjkyOTY5IDMuMjkyOTY5LS4yMDcwMzEuMjA3MDMxLjIwNzAzMS4yMDcwMzEgMy4yOTI5NjkgMy4yOTI5NjkuNzA3MDMxLS43MDcwMzEtMi4yOTI5NjktMi4yOTI5NjhoMi4yODUxNTYgMS4wMDc4MS40OTIxODhjMy4wNDcgMCA1LjUgMi40NTMgNS41IDUuNSAwIDMuMDQ3LTIuNDUzIDUuNS01LjUgNS41aC0xLjV2MWgxLjVjMy42MDEgMCA2LjUtMi44OTkgNi41LTYuNSAwLTMuNjAxLTIuODk5LTYuNS02LjUtNi41aC0uNDkyMTg4LTEuMDA3ODEtMi4yODUxNTZsMi4yOTI5NjktMi4yOTI5NjktLjcwNzAzMS0uNzA3MDMxIiBjbGFzcz0iQ29sb3JTY2hlbWUtVGV4dCIvPgogIDwvZz4KPC9zdmc+Cg==",
             "view-fullscreen-symbolic": "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxNiAxNiI+CiA8cGF0aCBkPSJtIDIgMSA1IDAgMCAyIC0zIDAgYyAtMC41NDEgMCAtMSAwLjQxNiAtMSAxIGwgMCAzIC0yIDAgMCAtNSBjIDAgLTAuNTIzIDAuNDU5IC0xIDEgLTEgeiIgc3R5bGU9ImZpbGw6IzM1MzUzNTtmaWxsLW9wYWNpdHk6MTtzdHJva2U6bm9uZSIvPgogPHBhdGggZD0ibSAxIDE0IDAgLTUgMiAwIDAgMyBjIDAgMC41NDEgMC40MTYgMSAxIDEgbCAzIDAgMCAyIC01IDAgYyAtMC41MjMgMCAtMSAtMC40NTkgLTEgLTEgeiIgc3R5bGU9ImZpbGw6IzM1MzUzNTtmaWxsLW9wYWNpdHk6MTtzdHJva2U6bm9uZSIvPgogPHBhdGggZD0ibSAxNCAxIC01IDAgMCAyIDMgMCBjIDAuNTQxIDAgMSAwLjQxNiAxIDEgbCAwIDMgMiAwIDAgLTUgYyAwIC0wLjUyMyAtMC40NTkgLTEgLTEgLTEgeiIgc3R5bGU9ImZpbGw6IzM1MzUzNTtmaWxsLW9wYWNpdHk6MTtzdHJva2U6bm9uZSIvPgogPHBhdGggZD0ibSAxNSAxNCAwIC01IC0yIDAgMCAzIGMgMCAwLjU0MSAtMC40MTYgMSAtMSAxIGwgLTMgMCAwIDIgNSAwIGMgMC41MjMgMCAxIC0wLjQ1OSAxIC0xIHoiIHN0eWxlPSJmaWxsOiMzNTM1MzU7ZmlsbC1vcGFjaXR5OjE7c3Ryb2tlOm5vbmUiLz4KPC9zdmc+Cg==",
@@ -318,10 +193,10 @@ class TextEditorApp(QMainWindow):
     def apply_app_style(self, font=None):
         """Apply the quiet writing-focused application chrome."""
         theme = ThemeManager.get_theme(
-            self.settings_manager.get_theme(),
+            self.settings_manager.get_ui_theme(),
             self.settings_manager.get_custom_themes()
         )
-        app_font = QFont(font) if font is not None else self.settings_manager.get_font()
+        app_font = QFont(font) if font is not None else self.settings_manager.get_font("ui")
         application = QApplication.instance()
         if application:
             application.setFont(app_font)
@@ -336,7 +211,7 @@ class TextEditorApp(QMainWindow):
         """Return the configured icon color for the active app theme."""
         mode = self.settings_manager.get_setting("icon_contrast", "auto")
         theme = ThemeManager.get_theme(
-            self.settings_manager.get_theme(),
+            self.settings_manager.get_ui_theme(),
             self.settings_manager.get_custom_themes()
         )
         app = theme["app"]
@@ -451,6 +326,75 @@ class TextEditorApp(QMainWindow):
             self.workspace_tree.hideColumn(column)
         workspace_layout.addWidget(self.workspace_tree)
         self.workspace_widget.hide()
+        self.ui_animations = {}
+
+    def animations_enabled(self):
+        if os.environ.get("QT_QPA_PLATFORM") == "offscreen":
+            return False
+        return bool(self.settings_manager.get_setting("enable_animations", True))
+
+    def animate_widget_visibility(self, widget, visible, duration=260):
+        if not self.animations_enabled():
+            widget.setGraphicsEffect(None)
+            original_width = widget.property("animation_original_max_width")
+            if original_width is not None:
+                widget.setMaximumWidth(int(original_width))
+            widget.setVisible(visible)
+            return None
+
+        current_animation = self.ui_animations.pop(widget, None)
+        if current_animation:
+            current_animation.stop()
+
+        original_width = widget.property("animation_original_max_width")
+        if original_width is None or int(original_width) == 0:
+            original_width = widget.maximumWidth()
+            widget.setProperty("animation_original_max_width", original_width)
+
+        target_width = max(widget.width(), widget.sizeHint().width(), 260)
+        if not visible and widget.width() > 0:
+            target_width = widget.width()
+
+        effect = widget.graphicsEffect()
+        if not isinstance(effect, QGraphicsOpacityEffect):
+            effect = QGraphicsOpacityEffect(widget)
+            widget.setGraphicsEffect(effect)
+
+        group = QParallelAnimationGroup(self)
+        opacity_animation = QPropertyAnimation(effect, b"opacity", group)
+        opacity_animation.setDuration(duration)
+        opacity_animation.setEasingCurve(QEasingCurve.Type.OutCubic)
+        opacity_animation.setStartValue(0.0 if visible else 1.0)
+        opacity_animation.setEndValue(1.0 if visible else 0.0)
+
+        width_animation = QPropertyAnimation(widget, b"maximumWidth", group)
+        width_animation.setDuration(duration)
+        width_animation.setEasingCurve(QEasingCurve.Type.OutCubic)
+        width_animation.setStartValue(0 if visible else target_width)
+        width_animation.setEndValue(target_width if visible else 0)
+
+        group.addAnimation(opacity_animation)
+        group.addAnimation(width_animation)
+        self.ui_animations[widget] = group
+
+        if visible:
+            widget.setMaximumWidth(0)
+            effect.setOpacity(0.0)
+            widget.setVisible(True)
+        else:
+            widget.setMaximumWidth(target_width)
+            effect.setOpacity(1.0)
+
+        def finish_animation():
+            if not visible:
+                widget.setVisible(False)
+            widget.setMaximumWidth(int(original_width))
+            widget.setGraphicsEffect(None)
+            self.ui_animations.pop(widget, None)
+
+        group.finished.connect(finish_animation)
+        group.start()
+        return group
 
     def restore_workspace(self):
         """Restore the last workspace and open workspace files."""
@@ -472,7 +416,7 @@ class TextEditorApp(QMainWindow):
         self.workspace_title.setToolTip(_("Switch workspace\n{path}").format(path=path))
         self.workspace_path_label.setText(os.path.dirname(path) or path)
         self.workspace_path_label.setToolTip(path)
-        self.workspace_widget.show()
+        self.animate_widget_visibility(self.workspace_widget, True)
         self.workspace_tree.expand(root_index)
         if save:
             self.settings_manager.save_setting("workspace_path", path)
@@ -908,13 +852,10 @@ class TextEditorApp(QMainWindow):
         
         self.toolbar.addSeparator()
 
-        # Font and Theme
-        font_action = create_action("font", "Font", self.show_font_dialog)
-        set_action_tooltip(font_action, "Choose Editor Font")
-        self.toolbar.addAction(font_action)
-        theme_action = create_action("theme", "Theme", self.show_theme_menu)
-        set_action_tooltip(theme_action, "Choose Editor Theme")
-        self.toolbar.addAction(theme_action)
+        # Fonts
+        editor_font_action = create_action("font", "Editor Font", self.show_editor_font_dialog)
+        set_action_tooltip(editor_font_action, "Choose Editor Font")
+        self.toolbar.addAction(editor_font_action)
         
         # View toggles
         snippets_action = create_action("snippets", "Snippets", lambda: self.toggle_snippets())
@@ -1137,43 +1078,26 @@ class TextEditorApp(QMainWindow):
         self.tab_widget.addTab(rss_tab, _("RSS Reader"))
         self.tab_widget.setCurrentWidget(rss_tab)
 
-    def show_font_dialog(self):
-        if editor_tab := self.tab_widget.currentWidget():
-            if isinstance(editor_tab, EditorTab):
-                dialog = FontSelectionDialog(editor_tab.current_font, self)
-                if dialog.exec() == QDialog.DialogCode.Accepted:
-                    font = dialog.selectedFont()
-                    self.settings_manager.save_font(font)
-                    self.apply_font_to_tabs(font)
-
-    def apply_font_to_tabs(self, font):
-        """Apply the selected font to the app chrome, editor tabs, and previews."""
-        self.apply_app_style(font)
+    def apply_editor_font_to_tabs(self, font):
+        """Apply the selected editor font to all open editor tabs."""
         for index in range(self.tab_widget.count()):
             tab = self.tab_widget.widget(index)
             if isinstance(tab, EditorTab):
                 tab.update_font(font)
 
-    def show_theme_menu(self):
-        """Show theme selection menu"""
-        menu = QMenu(self)
-        
-        # Add editor themes
-        for theme_name in ThemeManager.get_themes(self.settings_manager.get_custom_themes()):
-            action = menu.addAction(theme_name)
-            action.triggered.connect(lambda checked, tn=theme_name: self.apply_theme(tn))
-        
-        # Show menu under theme button
-        button = self.toolbar.widgetForAction(self.sender())
-        menu.exec(button.mapToGlobal(button.rect().bottomLeft()))
-
-    def apply_theme(self, theme_name):
-        self.settings_manager.save_theme(theme_name)
-        self.apply_editor_theme_to_tabs(theme_name)
+    def show_editor_font_dialog(self):
+        dialog = FontSelectionDialog(
+            self.settings_manager.get_font("editor"),
+            self,
+            title=_("Choose Editor Font")
+        )
+        if dialog.exec() == QDialog.DialogCode.Accepted:
+            font = dialog.selectedFont()
+            self.settings_manager.save_font(font, "editor")
+            self.apply_editor_font_to_tabs(font)
 
     def apply_editor_theme_to_tabs(self, theme_name):
-        """Apply an app/editor theme to all open editor tabs."""
-        self.apply_app_style()
+        """Apply an editor color theme to all open editor tabs."""
         for index in range(self.tab_widget.count()):
             tab = self.tab_widget.widget(index)
             if isinstance(tab, EditorTab):
@@ -1371,7 +1295,7 @@ class TextEditorApp(QMainWindow):
         """Reset editor font to default size"""
         current_tab = self.tab_widget.currentWidget()
         if current_tab:
-            default_font = self.settings_manager.get_font()
+            default_font = self.settings_manager.get_font("editor")
             # Preserve current font properties except size
             new_font = QFont(current_tab.current_font)
             new_font.setPointSize(default_font.pointSize())
@@ -1390,6 +1314,7 @@ class TextEditorApp(QMainWindow):
             self.settings_manager.save_setting('search_sites', settings['search_sites'])
             self.settings_manager.save_setting('user_dictionary', settings['user_dictionary'])
             self.settings_manager.save_custom_themes(settings['custom_themes'])
+            self.settings_manager.save_ui_theme(settings['ui_theme'])
             self.settings_manager.save_theme(settings['theme'])
             self.settings_manager.save_setting('language', settings['language'])
             set_language(settings['language'])
@@ -1397,10 +1322,14 @@ class TextEditorApp(QMainWindow):
             self.apply_language_direction_to_tabs()
             self.retranslate_actions()
             self.settings_manager.save_setting('icon_contrast', settings['icon_contrast'])
+            self.settings_manager.save_setting('enable_animations', settings['enable_animations'])
+            self.settings_manager.save_font(settings['ui_font'], "ui")
             self.settings_manager.save_setting('markdown_scroll_sync', settings['markdown_scroll_sync'])
+            self.settings_manager.save_setting('mermaid_runtime', settings['mermaid_runtime'])
             self.settings_manager.save_setting('editor_line_numbers', settings['editor_line_numbers'])
             self.settings_manager.save_setting('autosave_enabled', settings['autosave_enabled'])
             self.settings_manager.save_setting('autosave_interval_seconds', settings['autosave_interval_seconds'])
+            self.apply_app_style()
             self.apply_editor_theme_to_tabs(settings['theme'])
             self.apply_editor_line_numbers(settings['editor_line_numbers'])
             self.apply_autosave_settings()

@@ -151,6 +151,15 @@ msgstr "Mermaid render error:"
 msgid "Mermaid runtime could not be loaded."
 msgstr "Mermaid runtime could not be loaded."
 
+msgid "Mermaid Runtime:"
+msgstr "Mermaid Runtime:"
+
+msgid "Bundled (offline, stable)"
+msgstr "Bundled (offline, stable)"
+
+msgid "Latest from CDN"
+msgstr "Latest from CDN"
+
 #: src/jottr/editor_tab.py:3026
 msgid "Search or enter address"
 msgstr "Search or enter address"
@@ -471,43 +480,63 @@ msgstr "Focus Mode (Ctrl+Shift+D)"
 msgid "Font"
 msgstr "Font"
 
-#: src/jottr/main.py:775
+#: src/jottr/settings_dialog.py
+msgid "General"
+msgstr "General"
+
+#: src/jottr/settings_dialog.py
+msgid "Main UI Font"
+msgstr "Main UI Font"
+
+#: src/jottr/settings_dialog.py
+msgid "Main UI Font:"
+msgstr "Main UI Font:"
+
+#: src/jottr/settings_dialog.py
+msgid "Editor Font"
+msgstr "Editor Font"
+
+#: src/jottr/settings_dialog.py
+msgid "Choose Main UI Font"
+msgstr "Choose Main UI Font"
+
+#: src/jottr/font_dialog.py src/jottr/settings_dialog.py
 msgid "Choose Editor Font"
 msgstr "Choose Editor Font"
 
-#: src/jottr/main.py
+#: src/jottr/font_dialog.py
 msgid "Font:"
 msgstr "Font:"
 
-#: src/jottr/main.py
+#: src/jottr/font_dialog.py
 msgid "Size:"
 msgstr "Size:"
 
-#: src/jottr/main.py
+#: src/jottr/font_dialog.py
 msgid "Style:"
 msgstr "Style:"
 
-#: src/jottr/main.py
+#: src/jottr/font_dialog.py src/jottr/settings_dialog.py
 msgid "Regular"
 msgstr "Regular"
 
-#: src/jottr/main.py
+#: src/jottr/font_dialog.py src/jottr/settings_dialog.py
 msgid "Bold"
 msgstr "Bold"
 
-#: src/jottr/main.py
+#: src/jottr/font_dialog.py src/jottr/settings_dialog.py
 msgid "Italic"
 msgstr "Italic"
 
-#: src/jottr/main.py
+#: src/jottr/font_dialog.py src/jottr/settings_dialog.py
 msgid "Bold Italic"
 msgstr "Bold Italic"
 
-#: src/jottr/main.py
+#: src/jottr/font_dialog.py
 msgid "Preview:"
 msgstr "Preview:"
 
-#: src/jottr/main.py
+#: src/jottr/font_dialog.py
 msgid "The quick brown fox jumps over the lazy dog."
 msgstr "The quick brown fox jumps over the lazy dog."
 
@@ -704,13 +733,25 @@ msgstr "Read more..."
 msgid "Language:"
 msgstr "Language:"
 
-#: src/jottr/settings_dialog.py:58
-msgid "Theme:"
-msgstr "Theme:"
+#: src/jottr/settings_dialog.py
+msgid "Main UI Theme:"
+msgstr "Main UI Theme:"
+
+#: src/jottr/settings_dialog.py
+msgid "Editor Theme:"
+msgstr "Editor Theme:"
 
 #: src/jottr/settings_dialog.py:67
 msgid "Icon Contrast:"
 msgstr "Icon Contrast:"
+
+#: src/jottr/settings_dialog.py
+msgid "Motion:"
+msgstr "Motion:"
+
+#: src/jottr/settings_dialog.py
+msgid "Enable smooth animations"
+msgstr "Enable smooth animations"
 
 #: src/jottr/settings_dialog.py:77
 msgid "Custom App Themes"
