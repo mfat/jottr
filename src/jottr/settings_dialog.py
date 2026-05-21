@@ -160,6 +160,22 @@ class SettingsDialog(QDialog):
             self.settings_manager.get_setting('editor_line_numbers', True)
         )
         editor_layout.addWidget(self.editor_line_numbers_check)
+
+        self.double_click_empty_tab_bar_new_tab_check = QCheckBox(
+            _("Double-click empty tab bar to open a new tab")
+        )
+        self.double_click_empty_tab_bar_new_tab_check.setChecked(
+            self.settings_manager.get_setting("double_click_empty_tab_bar_new_tab", True)
+        )
+        editor_layout.addWidget(self.double_click_empty_tab_bar_new_tab_check)
+
+        self.double_click_tab_closes_tab_check = QCheckBox(
+            _("Double-click existing tab to close it")
+        )
+        self.double_click_tab_closes_tab_check.setChecked(
+            self.settings_manager.get_setting("double_click_tab_closes_tab", True)
+        )
+        editor_layout.addWidget(self.double_click_tab_closes_tab_check)
         appearance_layout.addWidget(editor_box)
 
         autosave_box = QGroupBox(_("Autosave"))
@@ -517,6 +533,8 @@ class SettingsDialog(QDialog):
             'markdown_scroll_sync': self.markdown_scroll_sync_check.isChecked(),
             'mermaid_runtime': self.mermaid_runtime_combo.currentData() or "bundled",
             'editor_line_numbers': self.editor_line_numbers_check.isChecked(),
+            'double_click_empty_tab_bar_new_tab': self.double_click_empty_tab_bar_new_tab_check.isChecked(),
+            'double_click_tab_closes_tab': self.double_click_tab_closes_tab_check.isChecked(),
             'autosave_enabled': self.autosave_enabled_check.isChecked(),
             'autosave_interval_seconds': self.autosave_interval_seconds()
         }

@@ -168,8 +168,9 @@ class TextEditorApp(QMainWindow):
         self.tab_widget.tabBar().setExpanding(False)
         self.tab_widget.tabCloseRequested.connect(self.close_tab)
         
-        # Install event filter on the tab bar
+        # Install event filters on both the tab bar and its containing tab strip.
         self.tab_widget.tabBar().installEventFilter(self)
+        self.tab_widget.installEventFilter(self)
         
         self.main_splitter.addWidget(self.workspace_widget)
         self.main_splitter.addWidget(self.tab_widget)
@@ -1332,6 +1333,14 @@ class TextEditorApp(QMainWindow):
             self.settings_manager.save_setting('markdown_scroll_sync', settings['markdown_scroll_sync'])
             self.settings_manager.save_setting('mermaid_runtime', settings['mermaid_runtime'])
             self.settings_manager.save_setting('editor_line_numbers', settings['editor_line_numbers'])
+            self.settings_manager.save_setting(
+                'double_click_empty_tab_bar_new_tab',
+                settings['double_click_empty_tab_bar_new_tab']
+            )
+            self.settings_manager.save_setting(
+                'double_click_tab_closes_tab',
+                settings['double_click_tab_closes_tab']
+            )
             self.settings_manager.save_setting('autosave_enabled', settings['autosave_enabled'])
             self.settings_manager.save_setting('autosave_interval_seconds', settings['autosave_interval_seconds'])
             self.apply_app_style()
@@ -1398,13 +1407,35 @@ class TextEditorApp(QMainWindow):
             self.menu_dropdown.popup(pos)
 
     def eventFilter(self, obj, event):
-        """Handle double-click on empty area of tab bar."""
-        if obj == self.tab_widget.tabBar() and event.type() == QEvent.Type.MouseButtonDblClick:
-            # Check if the click was on an empty area (no tab)
-            if self.tab_widget.tabBar().tabAt(event.pos()) == -1:
-                self.new_editor_tab()
-                return True  # Event handled
+        """Handle double-click on the tab bar."""
+        if event.type() == QEvent.Type.MouseButtonDblClick:
+            if obj == self.tab_widget.tabBar():
+                tab_index = self.tab_widget.tabBar().tabAt(event.pos())
+                if tab_index >= 0 and self.settings_manager.get_setting("double_click_tab_closes_tab", True):
+                    self.close_tab(tab_index)
+                    return True
+                if tab_index == -1 and self.settings_manager.get_setting("double_click_empty_tab_bar_new_tab", True):
+                    self.new_editor_tab()
+                    return True
+                return False
+            if (
+                obj == self.tab_widget
+                and self.is_tab_strip_position(event.pos())
+            ):
+                if self.settings_manager.get_setting("double_click_empty_tab_bar_new_tab", True):
+                    self.new_editor_tab()
+                    return True
+                return False
         return super().eventFilter(obj, event)  # Let other events pass through
+
+    def is_tab_strip_position(self, pos):
+        """Return whether a QTabWidget-local position is in the top tab strip."""
+        if hasattr(pos, "toPoint"):
+            pos = pos.toPoint()
+        tab_bar = self.tab_widget.tabBar()
+        tab_bar_top = tab_bar.mapTo(self.tab_widget, tab_bar.rect().topLeft()).y()
+        tab_bar_bottom = tab_bar_top + max(tab_bar.height(), 1)
+        return tab_bar_top <= pos.y() <= tab_bar_bottom
 
     def open_file_dialog(self):
         """Open file from dialog"""

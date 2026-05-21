@@ -72,6 +72,8 @@ class DialogAndRssTests(unittest.TestCase):
             dialog.mermaid_runtime_combo.findData("latest")
         )
         dialog.editor_line_numbers_check.setChecked(False)
+        dialog.double_click_empty_tab_bar_new_tab_check.setChecked(False)
+        dialog.double_click_tab_closes_tab_check.setChecked(False)
         dialog.enable_animations_check.setChecked(False)
         dialog.autosave_enabled_check.setChecked(True)
         dialog.autosave_interval_combo.setCurrentText("15")
@@ -95,6 +97,8 @@ class DialogAndRssTests(unittest.TestCase):
         self.assertFalse(data["markdown_scroll_sync"])
         self.assertEqual(data["mermaid_runtime"], "latest")
         self.assertFalse(data["editor_line_numbers"])
+        self.assertFalse(data["double_click_empty_tab_bar_new_tab"])
+        self.assertFalse(data["double_click_tab_closes_tab"])
         self.assertTrue(data["autosave_enabled"])
         self.assertEqual(data["autosave_interval_seconds"], 15)
 

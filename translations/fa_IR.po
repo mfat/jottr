@@ -852,6 +852,14 @@ msgstr "همگام‌سازی پیمایش ویرایشگر Markdown و پیش�
 msgid "Show editor line numbers"
 msgstr "نمایش شمارهٔ خطوط ویرایشگر"
 
+#: src/jottr/settings_dialog.py
+msgid "Double-click empty tab bar to open a new tab"
+msgstr "دوبار کلیک روی فضای خالی نوار زبانه برای باز کردن زبانهٔ جدید"
+
+#: src/jottr/settings_dialog.py
+msgid "Double-click existing tab to close it"
+msgstr "دوبار کلیک روی زبانهٔ موجود برای بستن آن"
+
 #: src/jottr/settings_dialog.py:126
 msgid "Autosave"
 msgstr "ذخیرهٔ خودکار"
