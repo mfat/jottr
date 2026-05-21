@@ -41,7 +41,7 @@ if os.path.exists(vendor_dir):
 
 # Application constants
 APP_NAME = "Jottr"
-APP_VERSION = "1.4.3"
+APP_VERSION = "1.4.3"  # x-release-please-version
 APP_HOMEPAGE = "https://github.com/mfat/jottr"
 
 class WorkspaceFileSystemModel(QFileSystemModel):
@@ -1521,7 +1521,7 @@ def main():
     app.setApplicationName("Jottr")
     app.setApplicationDisplayName("Jottr")
     app.setDesktopFileName("jottr")
-    app.setApplicationVersion("1.2.0")
+    app.setApplicationVersion(APP_VERSION)
     app.setOrganizationDomain("github.com/mfat/jottr")
     
     # Get file paths from command-line arguments
