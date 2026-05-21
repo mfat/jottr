@@ -59,3 +59,7 @@ To run Jottr on Mac you need to install  echant through [homebrew](https://brew.
 ### How to run tests:
 
 `python3 -m unittest discover -s tests -v`
+
+### Releases:
+
+Automated release management is documented in [docs/releases.md](docs/releases.md).

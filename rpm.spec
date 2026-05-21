@@ -1,5 +1,7 @@
 Name:           jottr
+# x-release-please-start-version
 Version:        1.4.3
+# x-release-please-end
 Release:        1%{?dist}
 Summary:        A simple text editor for writers, journalists and researchers
 
