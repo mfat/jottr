@@ -137,6 +137,7 @@ class TextEditorApp(QMainWindow):
         
         # Setup toolbar contents
         self.setup_toolbar()
+        self.create_menu_bar()
         
         # Create status bar (simplified)
         self.statusBar = self.statusBar()
@@ -897,11 +898,6 @@ class TextEditorApp(QMainWindow):
         spacer.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
         self.toolbar.addWidget(spacer)
         
-        # Menu button at far right
-        menu_action = create_action("menu", "Menu", self.show_menu_dropdown)
-        set_action_tooltip(menu_action, "More Actions")
-        self.toolbar.addAction(menu_action)
-
         # Now set the overflow button text after all items are added
         def update_overflow_button():
             overflow_button = self.toolbar.findChild(QToolButton, "qt_toolbar_ext_button")
@@ -925,6 +921,11 @@ class TextEditorApp(QMainWindow):
                 translated_tooltip = _(tooltip_key)
                 action.setToolTip(translated_tooltip)
                 action.setStatusTip(translated_tooltip)
+                action.setWhatsThis(translated_tooltip)
+        if hasattr(self, "translatable_menus"):
+            self.menuBar().setAccessibleName(_("Application menu"))
+            for menu, title in self.translatable_menus:
+                menu.setAccessibleName(_("{title} menu").format(title=_(title)))
 
     def apply_layout_direction(self, language):
         direction = (
@@ -978,12 +979,20 @@ class TextEditorApp(QMainWindow):
         editor_tab = EditorTab(self.snippet_manager)
         self.tab_widget.addTab(editor_tab, _("Document {number}").format(number=self.tab_widget.count() + 1))
         self.tab_widget.setCurrentWidget(editor_tab)
+
+    def is_editor_tab_modified(self, tab):
+        """Return True only for editor tabs with unsaved document changes."""
+        return (
+            isinstance(tab, EditorTab) and
+            hasattr(tab, "editor") and
+            tab.editor.document().isModified()
+        )
         
     def close_tab(self, index):
         """Handle tab close"""
         tab = self.tab_widget.widget(index)
         
-        if tab.editor.document().isModified():
+        if self.is_editor_tab_modified(tab):
             reply = QMessageBox.question(
                 self,
                 _("Unsaved Changes"),
@@ -1007,54 +1016,125 @@ class TextEditorApp(QMainWindow):
             
     def create_menu_bar(self):
         menubar = self.menuBar()
-        
-        # File menu
-        file_menu = menubar.addMenu(_("File"))
-        
-        new_action = file_menu.addAction(_("New Editor Tab"), self.new_editor_tab)
-        new_action.setShortcut(QKeySequence.StandardKey.New)
-        
-        file_menu.addAction(_("New RSS Tab"), self.new_rss_tab)
-        file_menu.addSeparator()
-        file_menu.addAction(_("Open Workspace..."), self.open_workspace_dialog)
-        file_menu.addAction(_("New Workspace File..."), self.create_workspace_file)
-        file_menu.addSeparator()
-        
-        save_action = file_menu.addAction(_("Save"), self.save_file)
-        save_action.setShortcut(QKeySequence.StandardKey.Save)
-        
-        save_as_action = file_menu.addAction(_("Save As..."), self.save_file_as)
-        save_as_action.setShortcut(QKeySequence.StandardKey.SaveAs)  # Typically Ctrl+Shift+S
+        menubar.clear()
+        menubar.setObjectName("appMenuBar")
+        menubar.setAccessibleName(_("Application menu"))
+        menubar.setNativeMenuBar(False)
+        menubar.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
+        self.translatable_menus = []
 
-        file_menu.addAction(_("Export as PDF..."), self.export_pdf)
-        
-        open_action = file_menu.addAction(_("Open"), self.open_file_dialog)
-        open_action.setShortcut(QKeySequence.StandardKey.Open)
-        
+        def add_menu(title):
+            menu = menubar.addMenu(_(title))
+            menu.setAccessibleName(_("{title} menu").format(title=_(title)))
+            menu.menuAction().setProperty("text_key", title)
+            self.translatable_actions.append(menu.menuAction())
+            self.translatable_menus.append((menu, title))
+            return menu
+
+        def add_action(menu, text, handler, icon_name=None, shortcut=None, tooltip=None, checkable=False):
+            action = QAction(self.build_themed_icon(icon_name) if icon_name else QIcon(), _(text), self)
+            action.setProperty("text_key", text)
+            action.setProperty("tooltip_key", tooltip or text)
+            action.setProperty("accessibility_label", tooltip or text)
+            action.setToolTip(_(tooltip or text))
+            action.setStatusTip(_(tooltip or text))
+            action.setWhatsThis(_(tooltip or text))
+            action.setCheckable(checkable)
+            if shortcut is not None:
+                action.setShortcut(shortcut)
+            if handler:
+                action.triggered.connect(handler)
+            menu.addAction(action)
+            self.translatable_actions.append(action)
+            if icon_name:
+                self.icon_actions.append((action, icon_name))
+            return action
+
+        # File menu
+        file_menu = add_menu("File")
+
+        add_action(
+            file_menu,
+            "New Editor Tab",
+            self.new_editor_tab,
+            "new",
+            QKeySequence.StandardKey.New,
+            "Create a new editor tab"
+        )
+        add_action(file_menu, "New RSS Tab", self.new_rss_tab, "globe", tooltip="Create a new RSS tab")
         file_menu.addSeparator()
-        file_menu.addAction(_("Exit"), self.close)
+        add_action(file_menu, "Open...", self.open_file_dialog, "open", QKeySequence.StandardKey.Open, "Open a file")
+        add_action(file_menu, "Save", self.save_file, "save", QKeySequence.StandardKey.Save, "Save current file")
+        add_action(
+            file_menu,
+            "Save As...",
+            self.save_file_as,
+            "save-as",
+            QKeySequence.StandardKey.SaveAs,
+            "Save current file with a new name"
+        )
+        add_action(file_menu, "Export as PDF...", self.export_pdf, "save-as", tooltip="Export current file as PDF")
+        file_menu.addSeparator()
+        add_action(file_menu, "Settings", self.show_settings, "settings", tooltip="Open Settings")
+        file_menu.addSeparator()
+        add_action(file_menu, "Close Tab", self.close_current_tab, shortcut=QKeySequence.StandardKey.Close, tooltip="Close current tab")
+        add_action(file_menu, "Exit", self.close, shortcut=QKeySequence.StandardKey.Quit, tooltip="Exit Jottr")
+
+        # Edit menu
+        edit_menu = add_menu("Edit")
+        add_action(edit_menu, "Undo", self.undo, "undo", QKeySequence.StandardKey.Undo, "Undo")
+        add_action(edit_menu, "Redo", self.redo, "redo", QKeySequence.StandardKey.Redo, "Redo")
+        edit_menu.addSeparator()
+        add_action(edit_menu, "Cut", self.cut, shortcut=QKeySequence.StandardKey.Cut, tooltip="Cut")
+        add_action(edit_menu, "Copy", self.copy, shortcut=QKeySequence.StandardKey.Copy, tooltip="Copy")
+        add_action(edit_menu, "Paste", self.paste, shortcut=QKeySequence.StandardKey.Paste, tooltip="Paste")
+        edit_menu.addSeparator()
+        add_action(edit_menu, "Find/Replace", self.toggle_find, "find", QKeySequence.StandardKey.Find, "Find/Replace")
+        add_action(edit_menu, "Editor Font", self.show_editor_font_dialog, "font", tooltip="Choose Editor Font")
 
         # View menu
-        view_menu = menubar.addMenu(_("View"))
-        
-        snippets_action = view_menu.addAction(_("Toggle Snippets"), self.toggle_snippets)
-        snippets_action.setShortcut(QKeySequence("Ctrl+Shift+N"))
-        
-        browser_action = view_menu.addAction(_("Toggle Browser"), self.toggle_browser)
-        browser_action.setShortcut(QKeySequence("Ctrl+Shift+B"))
+        view_menu = add_menu("View")
 
-        markdown_action = view_menu.addAction(_("Toggle Markdown Preview"), self.toggle_markdown_preview)
-        markdown_action.setShortcut(QKeySequence("Ctrl+Shift+M"))
-        
+        add_action(view_menu, "Toggle Snippets", self.toggle_snippets, "snippets", QKeySequence("Ctrl+Shift+N"), "Toggle Snippets")
+        add_action(view_menu, "Toggle Browser", self.toggle_browser, "browser", QKeySequence("Ctrl+Shift+B"), "Toggle Browser")
+        add_action(
+            view_menu,
+            "Toggle Markdown Preview",
+            self.toggle_markdown_preview,
+            "insert-text",
+            QKeySequence("Ctrl+Shift+M"),
+            "Toggle Markdown Preview"
+        )
+        add_action(
+            view_menu,
+            "Focus Mode",
+            self.toggle_focus_mode,
+            "focus-mode",
+            QKeySequence("Ctrl+Shift+D"),
+            "Focus Mode",
+            True
+        )
         view_menu.addSeparator()
-        
-        zoom_in_action = view_menu.addAction(_("Zoom In"), self.zoom_in)
-        zoom_in_action.setShortcut(QKeySequence("Ctrl+="))
-        
-        zoom_out_action = view_menu.addAction(_("Zoom Out"), self.zoom_out)
-        zoom_out_action.setShortcut(QKeySequence("Ctrl+-"))
-        
-        view_menu.addAction(_("Reset Zoom"), self.zoom_reset)
+
+        add_action(view_menu, "Zoom In", self.zoom_in, "zoom-in", QKeySequence("Ctrl+="), "Zoom In")
+        add_action(view_menu, "Zoom Out", self.zoom_out, "zoom-out", QKeySequence("Ctrl+-"), "Zoom Out")
+        add_action(view_menu, "Reset Zoom", self.zoom_reset, "zoom-reset", tooltip="Reset Zoom")
+
+        # Workspace menu
+        workspace_menu = add_menu("Workspace")
+        add_action(workspace_menu, "Open Workspace...", self.open_workspace_dialog, "document-open", tooltip="Open Workspace")
+        add_action(workspace_menu, "New Workspace File...", self.create_workspace_file, "new", tooltip="New File in Workspace")
+
+        # Help menu
+        help_menu = add_menu("Help")
+        add_action(help_menu, "Help", self.show_help, "help", QKeySequence.StandardKey.HelpContents, "Open Help")
+        add_action(help_menu, "About", self.show_about, "about", tooltip="About Jottr")
+
+    def close_current_tab(self):
+        """Close the active document tab from the menubar or shortcut."""
+        current_index = self.tab_widget.currentIndex()
+        if current_index >= 0:
+            self.close_tab(current_index)
 
     def save_file(self):
         current_tab = self.tab_widget.currentWidget()
@@ -1487,7 +1567,7 @@ class TextEditorApp(QMainWindow):
         unsaved_tabs = []
         for i in range(self.tab_widget.count()):
             tab = self.tab_widget.widget(i)
-            if tab.editor.document().isModified():
+            if self.is_editor_tab_modified(tab):
                 unsaved_tabs.append(i)
         
         if unsaved_tabs:
