@@ -41,7 +41,7 @@ if os.path.exists(vendor_dir):
 
 # Application constants
 APP_NAME = "Jottr"
-APP_VERSION = "1.4.4"  # x-release-please-version
+APP_VERSION = "2.0.0"  # x-release-please-version
 APP_HOMEPAGE = "https://github.com/mfat/jottr"
 
 class WorkspaceFileSystemModel(QFileSystemModel):
