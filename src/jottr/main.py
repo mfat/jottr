@@ -775,6 +775,7 @@ class TextEditorApp(QMainWindow):
             action.setProperty("tooltip_key", text)
             action.setToolTip(_(text))
             action.setStatusTip(_(text))
+            action.setWhatsThis(_(text))
 
         # Create the dropdown menu
         self.menu_dropdown = QMenu(self)
@@ -876,20 +877,26 @@ class TextEditorApp(QMainWindow):
         markdown_action.setShortcut(QKeySequence("Ctrl+Shift+M"))
         set_action_tooltip(markdown_action, "Toggle Markdown Preview (Ctrl+Shift+M)")
         self.toolbar.addAction(markdown_action)
+
+        self.toolbar.addSeparator()
         
         # Zoom controls
         zoom_in_action = create_action("zoom-in", "Zoom In", self.zoom_in)
         zoom_in_action.setShortcut(QKeySequence("Ctrl+="))
         set_action_tooltip(zoom_in_action, "Zoom In (Ctrl+=)")
+        self.toolbar.addAction(zoom_in_action)
 
         zoom_out_action = create_action("zoom-out", "Zoom Out", self.zoom_out)
         zoom_out_action.setShortcut(QKeySequence("Ctrl+-"))
         set_action_tooltip(zoom_out_action, "Zoom Out (Ctrl+-)")
+        self.toolbar.addAction(zoom_out_action)
         self.menu_dropdown.insertAction(self.menu_dropdown.actions()[0], zoom_in_action)
         self.menu_dropdown.insertAction(self.menu_dropdown.actions()[1], zoom_out_action)
 
         zoom_reset_action = create_action("zoom-reset", "Reset Zoom", self.zoom_reset)
-        set_action_tooltip(zoom_reset_action, "Reset Zoom")
+        zoom_reset_action.setShortcut(QKeySequence("Ctrl+0"))
+        set_action_tooltip(zoom_reset_action, "Reset Zoom (Ctrl+0)")
+        self.toolbar.addAction(zoom_reset_action)
         self.menu_dropdown.insertAction(self.menu_dropdown.actions()[2], zoom_reset_action)
         self.menu_dropdown.insertSeparator(self.menu_dropdown.actions()[3])
         
@@ -1118,7 +1125,7 @@ class TextEditorApp(QMainWindow):
 
         add_action(view_menu, "Zoom In", self.zoom_in, "zoom-in", QKeySequence("Ctrl+="), "Zoom In")
         add_action(view_menu, "Zoom Out", self.zoom_out, "zoom-out", QKeySequence("Ctrl+-"), "Zoom Out")
-        add_action(view_menu, "Reset Zoom", self.zoom_reset, "zoom-reset", tooltip="Reset Zoom")
+        add_action(view_menu, "Reset Zoom", self.zoom_reset, "zoom-reset", QKeySequence("Ctrl+0"), "Reset Zoom")
 
         # Workspace menu
         workspace_menu = add_menu("Workspace")

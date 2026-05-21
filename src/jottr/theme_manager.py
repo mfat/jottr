@@ -452,11 +452,20 @@ class ThemeManager:
                 background: {app['surface_hover']};
                 border-color: {app['border_active']};
             }}
+            QToolBar#mainToolBar QToolButton:focus {{
+                background: {app['surface_hover']};
+                border-color: {app['accent']};
+            }}
             QToolBar#mainToolBar QToolButton:pressed,
             QToolBar#mainToolBar QToolButton:checked {{
                 background: {app['surface_active']};
                 border-color: {app['border_active']};
                 color: {app['text']};
+            }}
+            QToolBar#mainToolBar QToolButton:disabled {{
+                color: {app['muted']};
+                background: transparent;
+                border-color: transparent;
             }}
             QToolBar#mainToolBar::separator {{
                 background: {app['border']};
