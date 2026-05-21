@@ -852,6 +852,14 @@ msgstr "Sync markdown editor and preview scrolling"
 msgid "Show editor line numbers"
 msgstr "Show editor line numbers"
 
+#: src/jottr/settings_dialog.py
+msgid "Double-click empty tab bar to open a new tab"
+msgstr "Double-click empty tab bar to open a new tab"
+
+#: src/jottr/settings_dialog.py
+msgid "Double-click existing tab to close it"
+msgstr "Double-click existing tab to close it"
+
 #: src/jottr/settings_dialog.py:126
 msgid "Autosave"
 msgstr "Autosave"

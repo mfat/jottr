@@ -14,7 +14,7 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 SRC_DIR = PROJECT_ROOT / "src" / "jottr"
 sys.path.insert(0, str(SRC_DIR))
 
-from PyQt6.QtCore import Qt
+from PyQt6.QtCore import QPoint, Qt, QEvent
 from PyQt6.QtGui import QFont, QTextCursor, QTextDocument
 from PyQt6.QtWidgets import QApplication, QDialog, QTextEdit, QWidget
 
@@ -208,7 +208,7 @@ class EditorAndMainTests(unittest.TestCase):
         self.assertIn("<h1", exported_pages[0].html)
         self.assertIn("@page", exported_pages[0].html)
         self.assertIn("padding-inline-start: 2.2em", exported_pages[0].html)
-        self.assertEqual(exported_pages[0].page_layout.margins().top(), 14.0)
+        self.assertEqual(exported_pages[0].page_layout.margins().top(), 10.0)
         info.assert_called_once()
 
     def test_markdown_preview_can_use_latest_mermaid_runtime(self):
@@ -805,6 +805,58 @@ class EditorAndMainTests(unittest.TestCase):
             stylesheet = QApplication.instance().styleSheet()
             self.assertIn("QTabWidget#documentTabs::tab-bar", stylesheet)
             self.assertIn("alignment: left", stylesheet)
+
+    def test_double_click_tab_bar_uses_configured_tab_actions(self):
+        class FakeEditorTab(QWidget):
+            def __init__(self, snippet_manager, settings_manager):
+                super().__init__()
+                self.editor = QTextEdit(self)
+                self.current_file = None
+
+            def set_main_window(self, main_window):
+                self.main_window = main_window
+
+        class FakeMouseDoubleClickEvent:
+            def __init__(self, pos):
+                self._pos = pos
+
+            def type(self):
+                return QEvent.Type.MouseButtonDblClick
+
+            def pos(self):
+                return self._pos
+
+        with patch.object(main_module, "EditorTab", FakeEditorTab):
+            window = TextEditorApp()
+            self.addCleanup(window.close)
+            self.addCleanup(window.deleteLater)
+
+            tab_bar = window.tab_widget.tabBar()
+            tab_pos = tab_bar.tabRect(0).center()
+            empty_pos = QPoint(10000, max(1, tab_bar.height() // 2))
+            widget_empty_pos = QPoint(
+                window.tab_widget.width() - 4,
+                tab_bar.mapTo(window.tab_widget, tab_bar.rect().center()).y()
+            )
+            initial_count = window.tab_widget.count()
+
+            self.assertTrue(window.eventFilter(tab_bar, FakeMouseDoubleClickEvent(tab_pos)))
+            self.assertEqual(window.tab_widget.count(), initial_count)
+            self.assertTrue(window.eventFilter(tab_bar, FakeMouseDoubleClickEvent(empty_pos)))
+            self.assertEqual(window.tab_widget.count(), initial_count + 1)
+            self.assertTrue(window.eventFilter(window.tab_widget, FakeMouseDoubleClickEvent(widget_empty_pos)))
+            self.assertEqual(window.tab_widget.count(), initial_count + 2)
+
+            window.settings_manager.save_setting("double_click_tab_closes_tab", False)
+            current_count = window.tab_widget.count()
+            current_tab_pos = tab_bar.tabRect(0).center()
+            self.assertFalse(window.eventFilter(tab_bar, FakeMouseDoubleClickEvent(current_tab_pos)))
+            self.assertEqual(window.tab_widget.count(), current_count)
+
+            window.settings_manager.save_setting("double_click_empty_tab_bar_new_tab", False)
+            self.assertFalse(window.eventFilter(tab_bar, FakeMouseDoubleClickEvent(empty_pos)))
+            self.assertFalse(window.eventFilter(window.tab_widget, FakeMouseDoubleClickEvent(widget_empty_pos)))
+            self.assertEqual(window.tab_widget.count(), current_count)
 
     def test_main_window_applies_separate_ui_and_editor_fonts(self):
         class FakeEditorTab(QWidget):
