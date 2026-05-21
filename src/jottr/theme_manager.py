@@ -452,16 +452,55 @@ class ThemeManager:
                 background: {app['surface_hover']};
                 border-color: {app['border_active']};
             }}
+            QToolBar#mainToolBar QToolButton:focus {{
+                background: {app['surface_hover']};
+                border-color: {app['accent']};
+            }}
             QToolBar#mainToolBar QToolButton:pressed,
             QToolBar#mainToolBar QToolButton:checked {{
                 background: {app['surface_active']};
                 border-color: {app['border_active']};
                 color: {app['text']};
             }}
+            QToolBar#mainToolBar QToolButton:disabled {{
+                color: {app['muted']};
+                background: transparent;
+                border-color: transparent;
+            }}
             QToolBar#mainToolBar::separator {{
                 background: {app['border']};
                 width: 1px;
                 margin: 6px 8px;
+            }}
+            QMenuBar#appMenuBar {{
+                background: {app['surface']};
+                border: none;
+                border-bottom: 1px solid {app['border']};
+                color: {app['text']};
+                padding: 3px 8px;
+                spacing: 2px;
+                {font_style}
+            }}
+            QMenuBar#appMenuBar::item {{
+                background: transparent;
+                border: 1px solid transparent;
+                border-radius: 5px;
+                color: {app['text']};
+                margin: 1px 2px;
+                padding: 5px 10px;
+            }}
+            QMenuBar#appMenuBar::item:selected {{
+                background: {app['surface_hover']};
+                border-color: {app['border_active']};
+                color: {app['text']};
+            }}
+            QMenuBar#appMenuBar::item:pressed {{
+                background: {app['surface_active']};
+                border-color: {app['accent']};
+                color: {app['accent_text']};
+            }}
+            QMenuBar#appMenuBar:focus {{
+                border-bottom: 2px solid {app['accent']};
             }}
             QTabWidget#documentTabs::pane {{
                 border: none;
@@ -595,23 +634,38 @@ class ThemeManager:
             QMenu {{
                 background: {app['surface']};
                 border: 1px solid {app['border']};
-                border-radius: 5px;
-                padding: 6px;
+                border-radius: 6px;
+                padding: 7px;
                 color: {app['text']};
                 {font_style}
             }}
             QMenu::item {{
                 color: {app['text']};
-                padding: 7px 26px;
-                border-radius: 4px;
+                padding: 8px 30px 8px 28px;
+                border: 1px solid transparent;
+                border-radius: 5px;
                 {font_style}
             }}
             QMenu::item:selected {{
                 background: {app['surface_hover']};
+                border-color: {app['border_active']};
                 color: {app['text']};
+            }}
+            QMenu::item:checked {{
+                background: {app['surface_active']};
+                color: {app['accent_text']};
+                border-color: {app['accent']};
             }}
             QMenu::item:disabled {{
                 color: {app['muted']};
+            }}
+            QMenu::separator {{
+                background: {app['border']};
+                height: 1px;
+                margin: 6px 8px;
+            }}
+            QMenu::icon {{
+                padding-left: 6px;
             }}
             QComboBox {{
                 background: {app['surface']};

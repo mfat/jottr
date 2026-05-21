@@ -774,10 +774,28 @@ class EditorAndMainTests(unittest.TestCase):
                 if not action.isSeparator() and action.text()
             }
             self.assertEqual(toolbar_tooltips["Editor Font"], "Choose Editor Font")
+            self.assertEqual(toolbar_tooltips["Zoom In"], "Zoom In (Ctrl+=)")
+            self.assertEqual(toolbar_tooltips["Zoom Out"], "Zoom Out (Ctrl+-)")
+            self.assertEqual(toolbar_tooltips["Reset Zoom"], "Reset Zoom (Ctrl+0)")
             self.assertNotIn("Preview Font", toolbar_tooltips)
             self.assertNotIn("Theme", toolbar_tooltips)
-            self.assertEqual(toolbar_tooltips["Menu"], "More Actions")
+            self.assertNotIn("Menu", toolbar_tooltips)
             self.assertTrue(all(toolbar_tooltips.values()))
+            toolbar_actions = {
+                action.text(): action
+                for action in window.toolbar.actions()
+                if not action.isSeparator() and action.text()
+            }
+            self.assertFalse(toolbar_actions["Zoom In"].icon().isNull())
+            self.assertFalse(toolbar_actions["Zoom Out"].icon().isNull())
+            self.assertFalse(toolbar_actions["Reset Zoom"].icon().isNull())
+            self.assertEqual(toolbar_actions["Reset Zoom"].shortcut().toString(), "Ctrl+0")
+            toolbar_actions["Zoom In"].trigger()
+            self.assertEqual(first_tab.current_font.pointSize(), original_size + 1)
+            toolbar_actions["Reset Zoom"].trigger()
+            self.assertEqual(first_tab.current_font.pointSize(), original_size)
+            self.assertIn("QToolBar#mainToolBar QToolButton:focus", QApplication.instance().styleSheet())
+            self.assertIn("QToolBar#mainToolBar QToolButton:disabled", QApplication.instance().styleSheet())
             dropdown_tooltips = {
                 action.text(): action.toolTip()
                 for action in window.menu_dropdown.actions()
@@ -785,6 +803,81 @@ class EditorAndMainTests(unittest.TestCase):
             }
             self.assertEqual(dropdown_tooltips["Export PDF"], "Export current file as PDF")
             self.assertNotEqual(window.icons["snippets"], window.icons["menu"])
+
+    def test_main_window_builds_accessible_themed_menubar(self):
+        class FakeEditorTab(QWidget):
+            def __init__(self, snippet_manager, settings_manager):
+                super().__init__()
+                self.editor = QTextEdit(self)
+                self.current_file = None
+
+            def set_main_window(self, main_window):
+                self.main_window = main_window
+
+        with patch.object(main_module, "EditorTab", FakeEditorTab):
+            window = TextEditorApp()
+            self.addCleanup(window.close)
+            self.addCleanup(window.deleteLater)
+            self.addCleanup(lambda: QApplication.instance().setStyleSheet(""))
+
+            menubar = window.menuBar()
+            self.assertEqual(menubar.objectName(), "appMenuBar")
+            self.assertFalse(menubar.isNativeMenuBar())
+            self.assertEqual(menubar.focusPolicy(), Qt.FocusPolicy.StrongFocus)
+            self.assertEqual(menubar.accessibleName(), "Application menu")
+
+            menu_titles = [action.text() for action in menubar.actions()]
+            self.assertEqual(menu_titles, ["File", "Edit", "View", "Workspace", "Help"])
+
+            file_actions = [
+                action for action in menubar.actions()[0].menu().actions()
+                if not action.isSeparator()
+            ]
+            self.assertEqual(file_actions[0].text(), "New Editor Tab")
+            self.assertEqual(file_actions[0].toolTip(), "Create a new editor tab")
+            self.assertFalse(file_actions[0].icon().isNull())
+            self.assertIn("Settings", [action.text() for action in file_actions])
+
+            edit_actions = [
+                action.text() for action in menubar.actions()[1].menu().actions()
+                if not action.isSeparator()
+            ]
+            self.assertEqual(edit_actions[:3], ["Undo", "Redo", "Cut"])
+            self.assertIn("Find/Replace", edit_actions)
+            self.assertNotIn("Settings", edit_actions)
+            self.assertIn("QMenuBar#appMenuBar", QApplication.instance().styleSheet())
+
+    def test_main_window_closes_rss_tabs_without_editor_assumption(self):
+        class FakeEditorTab(QWidget):
+            def __init__(self, snippet_manager, settings_manager):
+                super().__init__()
+                self.editor = QTextEdit(self)
+                self.current_file = None
+
+            def set_main_window(self, main_window):
+                self.main_window = main_window
+
+            def save_file(self, force_dialog=False):
+                return True
+
+        class FakeRSSTab(QWidget):
+            pass
+
+        with (
+            patch.object(main_module, "EditorTab", FakeEditorTab),
+            patch.object(main_module, "RSSTab", FakeRSSTab),
+        ):
+            window = TextEditorApp()
+            self.addCleanup(window.close)
+            self.addCleanup(window.deleteLater)
+
+            window.new_rss_tab()
+            self.assertIsInstance(window.tab_widget.currentWidget(), FakeRSSTab)
+
+            window.close_current_tab()
+
+            self.assertNotIsInstance(window.tab_widget.currentWidget(), FakeRSSTab)
+            self.assertTrue(window.handle_unsaved_changes())
 
     def test_main_window_left_aligns_document_tabs(self):
         class FakeEditorTab(QWidget):
@@ -969,12 +1062,6 @@ class EditorAndMainTests(unittest.TestCase):
             'msgstr ""\n'
             '"Language: zz_ZZ\\n"\n'
             '\n'
-            'msgid "Menu"\n'
-            'msgstr "Translated Menu"\n'
-            '\n'
-            'msgid "More Actions"\n'
-            'msgstr "Translated More Actions"\n'
-            '\n'
             'msgid "Settings"\n'
             'msgstr "Translated Settings"\n'
             '\n'
@@ -1005,7 +1092,7 @@ class EditorAndMainTests(unittest.TestCase):
                 if not action.isSeparator() and action.text()
             }
 
-            self.assertEqual(toolbar_tooltips["Translated Menu"], "Translated More Actions")
+            self.assertNotIn("Translated Menu", toolbar_tooltips)
             self.assertEqual(menu_actions["Translated Settings"], "Translated Open Settings")
 
         translation_manager.set_language("en_US")
