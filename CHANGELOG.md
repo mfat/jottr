@@ -1,5 +1,19 @@
 # Changelog
 
+## [2.1.0](https://github.com/mfat/jottr/compare/v2.0.0...v2.1.0) (2026-05-22)
+
+
+### Features
+
+* redesign menubar for accessibility ([f936155](https://github.com/mfat/jottr/commit/f9361556fd4144b1a0e3f6badcb1106e8046f43b))
+* restore zoom controls to toolbar ([3fd93fe](https://github.com/mfat/jottr/commit/3fd93fead8266cacbdca360e45d4730c9c820378))
+
+
+### CI
+
+* attach release package artifacts, add AppImage and unsigned macOS release builds ([b8848b2](https://github.com/mfat/jottr/commit/b8848b2e68f339dbc8a35cfd9865139f037fb028))
+* attach release package artifacts, add AppImage and unsigned macOS release builds ([c4322ee](https://github.com/mfat/jottr/commit/c4322ee9653578b04649cddfa518ec1d96dab9c8))
+
 ## [2.0.0](https://github.com/mfat/jottr/compare/v1.4.4...v2.0.0) (2026-05-21)
 
 
