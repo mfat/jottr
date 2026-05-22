@@ -247,10 +247,34 @@ jobs:
             --noconfirm \
             --windowed \
             --name jottr \
+            --paths "." \
             --hidden-import ctypes \
             --hidden-import ctypes.util \
+            --hidden-import editor_tab \
+            --hidden-import feed_manager_dialog \
+            --hidden-import font_dialog \
+            --hidden-import rss_reader \
+            --hidden-import rss_tab \
+            --hidden-import settings_dialog \
+            --hidden-import settings_manager \
+            --hidden-import snippet_editor_dialog \
+            --hidden-import snippet_manager \
+            --hidden-import theme_manager \
+            --hidden-import translation_manager \
             --hidden-import pyenchant \
             --hidden-import pyspellchecker \
+            --hidden-import spellchecker \
+            --add-data "editor_tab.py:." \
+            --add-data "feed_manager_dialog.py:." \
+            --add-data "font_dialog.py:." \
+            --add-data "rss_reader.py:." \
+            --add-data "rss_tab.py:." \
+            --add-data "settings_dialog.py:." \
+            --add-data "settings_manager.py:." \
+            --add-data "snippet_editor_dialog.py:." \
+            --add-data "snippet_manager.py:." \
+            --add-data "theme_manager.py:." \
+            --add-data "translation_manager.py:." \
             --add-data "icons:icons" \
             --add-data "help:help" \
             --add-data "vendor:vendor" \
@@ -343,11 +367,27 @@ jobs:
             --windowed \
             --name Jottr \
             --icon jottr_icon.icns \
+            --paths "." \
             --hidden-import ctypes \
             --hidden-import ctypes.util \
+            --hidden-import editor_tab \
+            --hidden-import feed_manager_dialog \
+            --hidden-import font_dialog \
+            --hidden-import rss_reader \
+            --hidden-import rss_tab \
+            --hidden-import settings_dialog \
+            --hidden-import settings_manager \
+            --hidden-import snippet_editor_dialog \
+            --hidden-import snippet_manager \
+            --hidden-import theme_manager \
+            --hidden-import translation_manager \
             --hidden-import pyenchant \
             --hidden-import pyspellchecker \
+            --hidden-import spellchecker \
             --add-data "editor_tab.py:." \
+            --add-data "feed_manager_dialog.py:." \
+            --add-data "font_dialog.py:." \
+            --add-data "translation_manager.py:." \
             --add-data "snippet_manager.py:." \
             --add-data "rss_tab.py:." \
             --add-data "theme_manager.py:." \

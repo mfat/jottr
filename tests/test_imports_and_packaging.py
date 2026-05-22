@@ -48,11 +48,56 @@ class ImportAndPackagingTests(unittest.TestCase):
             "__pycache__/",
             "*.pyc",
             "*.egg-info/",
+            "/AppDir/",
+            "/appimagetool",
+            "/release-assets-local/",
+            "/squashfs-root/",
             "packaging/debian/jottr/",
             "/deb_dist",
+            "src/jottr/jottr.spec",
         ):
             with self.subTest(pattern=pattern):
                 self.assertIn(pattern, gitignore)
+
+    def test_release_pyinstaller_bundles_flat_import_modules(self):
+        workflow = (PROJECT_ROOT / ".github" / "workflows" / "release-please.yml").read_text(
+            encoding="utf-8"
+        )
+        appimage_script = (PROJECT_ROOT / "scripts" / "build-appimage-local.sh").read_text(
+            encoding="utf-8"
+        )
+
+        flat_modules = (
+            "editor_tab",
+            "feed_manager_dialog",
+            "font_dialog",
+            "rss_reader",
+            "rss_tab",
+            "settings_dialog",
+            "settings_manager",
+            "snippet_editor_dialog",
+            "snippet_manager",
+            "theme_manager",
+            "translation_manager",
+            "spellchecker",
+        )
+
+        for module in flat_modules:
+            with self.subTest(module=module):
+                self.assertIn(f"--hidden-import {module}", workflow)
+                self.assertIn(f"--hidden-import {module}", appimage_script)
+
+        self.assertIn('--paths "."', workflow)
+        self.assertIn('--paths "."', appimage_script)
+        self.assertIn("APPIMAGE_EXTRACT_AND_RUN=1", appimage_script)
+
+        for module in flat_modules:
+            if module == "spellchecker":
+                continue
+
+            with self.subTest(data=module):
+                self.assertIn(f'--add-data "{module}.py:."', workflow)
+                self.assertIn(f'--add-data "{module}.py:."', appimage_script)
 
 
 if __name__ == "__main__":

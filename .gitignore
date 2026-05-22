@@ -7,6 +7,10 @@ __pycache__/
 
 # Package build artifacts
 *.tar.gz
+/AppDir/
+/appimagetool
+/release-assets-local/
+/squashfs-root/
 packaging/debian/jottr/
 packaging/debian/jottr_*/
 packaging/debian/debhelper-build-stamp
@@ -22,6 +26,7 @@ packaging/rpm/SRPMS/
 .codex
 
 src/jottr/Jottr.spec
+src/jottr/jottr.spec
 src/.DS_Store
 .DS_Store
 /.flatpak-builder
