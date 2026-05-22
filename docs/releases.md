@@ -45,5 +45,45 @@ No extra secret is required for the default setup. If branch protection rules pr
 3. Review the generated changelog and version changes.
 4. Merge the release PR when ready.
 5. Let the next `main` workflow run create the Git tag and GitHub release.
+6. Let the release packaging jobs build packages from the release tag and attach them to the GitHub release.
 
-Prereleases, beta releases, website publication, and attaching build artifacts are not enabled yet. Add them later if the project starts publishing beta builds or release assets from CI.
+## Release packages
+
+Official release packages are built by `.github/workflows/release-please.yml` only when Release Please creates a release. The package jobs check out the exact release tag from the Release Please output, so release assets are built from the same commit that was tagged.
+
+The first supported release assets are Linux and unsigned macOS packages:
+
+- `jottr-vX.Y.Z-linux-all.deb`
+- `jottr-vX.Y.Z-linux-noarch.rpm`
+- `jottr-vX.Y.Z-linux-noarch.src.rpm`
+- `jottr-vX.Y.Z-linux-x86_64.AppImage`
+- `jottr-vX.Y.Z-macos-x86_64-unsigned.dmg`
+- `SHA256SUMS`
+
+The macOS DMG is unsigned and is built on the GitHub-hosted Intel macOS runner. Users may need to bypass Gatekeeper manually. Windows installers are not generated yet. Add a separate trusted release job before advertising `.exe` or `.msi` downloads.
+
+Release packages are attached to the GitHub release page for the tag. CI workflow artifacts are retained for 14 days for debugging; release assets remain available from the release page unless a maintainer deletes them.
+
+## Verifying checksums
+
+Download `SHA256SUMS` and the package you want to install from the same GitHub release, then run:
+
+```bash
+sha256sum -c SHA256SUMS
+```
+
+The command should report `OK` for files that match the published checksum.
+
+## Debugging package builds
+
+If a release package is missing or a packaging job fails:
+
+- Open the failed `Release Please` workflow run in GitHub Actions.
+- Check the `build-deb`, `build-rpm`, `build-appimage`, `build-macos`, and `publish-release-assets` jobs.
+- Download the short-lived workflow artifacts if the build completed but release upload failed.
+- Confirm the job checked out the expected release tag.
+- Re-run the failed job after fixing packaging dependencies or scripts.
+
+The release upload step uses `overwrite_files: false`, so an accidental re-run will not silently replace existing release assets with the same filenames.
+
+Prereleases, beta releases, nightly builds, website publication, package signing, notarized macOS installers, Apple Silicon macOS builds, and Windows installers are not enabled yet. Add them later if the project starts publishing those artifacts from CI.

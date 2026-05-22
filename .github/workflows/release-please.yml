@@ -13,8 +13,365 @@ permissions:
 jobs:
   release-please:
     runs-on: ubuntu-latest
+    outputs:
+      release_created: ${{ steps.release.outputs.release_created }}
+      tag_name: ${{ steps.release.outputs.tag_name }}
     steps:
       - uses: googleapis/release-please-action@v4
+        id: release
         with:
           config-file: release-please-config.json
           manifest-file: .release-please-manifest.json
+
+  build-deb:
+    needs: release-please
+    if: ${{ needs.release-please.outputs.release_created == 'true' }}
+    runs-on: ubuntu-latest
+    container: ubuntu:20.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.release-please.outputs.tag_name }}
+
+      - name: Install build dependencies
+        run: |
+          apt-get update
+          DEBIAN_FRONTEND=noninteractive apt-get install -y \
+            devscripts \
+            debhelper \
+            dh-python \
+            python3-all \
+            python3-setuptools \
+            python3-pyqt5 \
+            python3-pyqt5.qtwebengine \
+            python3-feedparser \
+            python3-enchant \
+            python3-pyqt5.qtsvg \
+            python3-pip \
+            unzip \
+            git \
+            build-essential
+
+      - name: Download pyspellchecker
+        run: |
+          mkdir -p src/jottr/vendor/
+          pip3 download pyspellchecker --no-deps -d src/jottr/vendor/
+          cd src/jottr/vendor/
+          unzip pyspellchecker*.whl
+          rm -rf pyspellchecker*.whl *.dist-info/
+
+      - name: Create debian directory link
+        run: |
+          rm -rf debian
+          ln -s packaging/debian debian
+
+      - name: Update changelog date
+        run: |
+          sed -i "s/\$(LC_ALL=C date -R)/$(LC_ALL=C date -R)/" debian/changelog
+
+      - name: Build package
+        run: |
+          dpkg-buildpackage -us -uc -b -d
+          mkdir -p artifacts
+          mv ../*.deb artifacts/
+
+      - name: Name Debian release package
+        run: |
+          mkdir -p release-assets
+          set -- artifacts/*.deb
+          if [ "$#" -ne 1 ] || [ ! -f "$1" ]; then
+            echo "Expected exactly one Debian package, found $#"
+            exit 1
+          fi
+          cp "$1" "release-assets/jottr-${{ needs.release-please.outputs.tag_name }}-linux-all.deb"
+
+      - name: Upload Debian workflow artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: debian-release-package
+          path: release-assets/*.deb
+          retention-days: 14
+
+  build-rpm:
+    needs: release-please
+    if: ${{ needs.release-please.outputs.release_created == 'true' }}
+    runs-on: ubuntu-latest
+    container:
+      image: fedora:latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.release-please.outputs.tag_name }}
+
+      - name: Install build dependencies
+        run: |
+          dnf install -y \
+            rpm-build \
+            rpm-devel \
+            rpmlint \
+            python3-devel \
+            python3-setuptools \
+            python3-qt5 \
+            python3-qt5-webengine \
+            python3-feedparser \
+            python3-pyspellchecker \
+            python3-enchant \
+            rpmdevtools \
+            gcc \
+            make
+
+      - name: Set up RPM build environment
+        run: |
+          mkdir -p ~/rpmbuild/{BUILD,RPMS,SOURCES,SPECS,SRPMS}
+          cp rpm.spec ~/rpmbuild/SPECS/
+
+      - name: Get version from spec
+        id: get_version
+        run: |
+          VERSION=$(grep "Version:" rpm.spec | awk '{print $2}')
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+
+      - name: Create source tarball
+        run: |
+          mkdir -p /tmp/jottr-${{ steps.get_version.outputs.version }}
+          cp -r src LICENSE README.md icons /tmp/jottr-${{ steps.get_version.outputs.version }}/
+          cd /tmp
+          tar czf ~/rpmbuild/SOURCES/jottr-${{ steps.get_version.outputs.version }}.tar.gz jottr-${{ steps.get_version.outputs.version }}/
+
+      - name: Build RPM package
+        run: |
+          cd ~/rpmbuild/SPECS
+          rpmbuild -ba rpm.spec
+
+      - name: Run rpmlint
+        run: |
+          rpmlint ~/rpmbuild/RPMS/noarch/jottr-*.rpm
+
+      - name: Test RPM installation
+        run: |
+          dnf install -y ~/rpmbuild/RPMS/noarch/jottr-*.rpm
+
+      - name: Collect RPM artifacts
+        run: |
+          mkdir -p artifacts
+          cp ~/rpmbuild/RPMS/noarch/jottr-*.rpm artifacts/
+          cp ~/rpmbuild/SRPMS/jottr-*.rpm artifacts/
+
+      - name: Name RPM release packages
+        run: |
+          mkdir -p release-assets
+          set -- artifacts/*.noarch.rpm
+          if [ "$#" -ne 1 ] || [ ! -f "$1" ]; then
+            echo "Expected exactly one binary RPM package, found $#"
+            exit 1
+          fi
+          binary_rpm="$1"
+          set -- artifacts/*.src.rpm
+          if [ "$#" -ne 1 ] || [ ! -f "$1" ]; then
+            echo "Expected exactly one source RPM package, found $#"
+            exit 1
+          fi
+          cp "$binary_rpm" "release-assets/jottr-${{ needs.release-please.outputs.tag_name }}-linux-noarch.rpm"
+          cp "$1" "release-assets/jottr-${{ needs.release-please.outputs.tag_name }}-linux-noarch.src.rpm"
+
+      - name: Upload RPM workflow artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: rpm-release-packages
+          path: release-assets/*.rpm
+          retention-days: 14
+
+  build-appimage:
+    needs: release-please
+    if: ${{ needs.release-please.outputs.release_created == 'true' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.release-please.outputs.tag_name }}
+
+      - name: Install AppImage build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            desktop-file-utils \
+            file \
+            libfuse2 \
+            patchelf \
+            python3-venv \
+            wget
+
+      - name: Build Linux PyInstaller bundle
+        run: |
+          python3 -m venv build-venv
+          build-venv/bin/python -m pip install --upgrade pip
+          build-venv/bin/python -m pip install -r requirements.txt
+          cd src/jottr
+          ../../build-venv/bin/pyinstaller \
+            --noconfirm \
+            --windowed \
+            --name jottr \
+            --hidden-import ctypes \
+            --hidden-import ctypes.util \
+            --hidden-import pyenchant \
+            --hidden-import pyspellchecker \
+            --add-data "icons:icons" \
+            --add-data "help:help" \
+            --add-data "vendor:vendor" \
+            main.py
+
+      - name: Build AppDir
+        run: |
+          version="${{ needs.release-please.outputs.tag_name }}"
+          mkdir -p AppDir/usr/bin AppDir/usr/share/jottr AppDir/usr/share/applications AppDir/usr/share/icons/hicolor/256x256/apps
+          cp -r src/jottr/dist/jottr/* AppDir/usr/share/jottr/
+          cp icons/jottr.png AppDir/usr/share/icons/hicolor/256x256/apps/jottr.png
+          cp icons/jottr.png AppDir/jottr.png
+          cp io.github.mfat.jottr.desktop AppDir/usr/share/applications/jottr.desktop
+          cp io.github.mfat.jottr.desktop AppDir/jottr.desktop
+          sed -i 's/^Icon=.*/Icon=jottr/' AppDir/usr/share/applications/jottr.desktop
+          sed -i 's/^Icon=.*/Icon=jottr/' AppDir/jottr.desktop
+          printf '%s\n' \
+            '#!/bin/sh' \
+            'APPDIR="${APPDIR:-$(dirname "$(readlink -f "$0")")}"' \
+            'export QTWEBENGINE_DISABLE_SANDBOX=1' \
+            'exec "$APPDIR/usr/share/jottr/jottr" "$@"' \
+            > AppDir/AppRun
+          chmod +x AppDir/AppRun
+          printf '%s\n' \
+            '#!/bin/sh' \
+            'SELF="$(readlink -f "$0")"' \
+            'APPDIR="${APPDIR:-$(dirname "$(dirname "$(dirname "$SELF")")")}"' \
+            'exec "$APPDIR/AppRun" "$@"' \
+            > AppDir/usr/bin/jottr
+          chmod +x AppDir/usr/bin/jottr
+          desktop-file-validate AppDir/usr/share/applications/jottr.desktop
+          echo "APPIMAGE_VERSION=$version" >> $GITHUB_ENV
+
+      - name: Build AppImage
+        run: |
+          mkdir -p release-assets
+          wget -O appimagetool "https://github.com/AppImage/AppImageKit/releases/download/continuous/appimagetool-x86_64.AppImage"
+          chmod +x appimagetool
+          ARCH=x86_64 ./appimagetool AppDir "release-assets/jottr-${APPIMAGE_VERSION}-linux-x86_64.AppImage"
+
+      - name: Upload AppImage workflow artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: appimage-release-package
+          path: release-assets/*.AppImage
+          retention-days: 14
+
+  build-macos:
+    needs: release-please
+    if: ${{ needs.release-please.outputs.release_created == 'true' }}
+    runs-on: macos-13
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.release-please.outputs.tag_name }}
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install macOS build dependencies
+        run: |
+          brew update
+          brew install enchant hunspell
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt
+
+      - name: Build unsigned macOS app
+        run: |
+          cd src/jottr
+          pyinstaller \
+            --noconfirm \
+            --windowed \
+            --name Jottr \
+            --icon jottr_icon.icns \
+            --hidden-import ctypes \
+            --hidden-import ctypes.util \
+            --hidden-import pyenchant \
+            --hidden-import pyspellchecker \
+            --add-data "editor_tab.py:." \
+            --add-data "snippet_manager.py:." \
+            --add-data "rss_tab.py:." \
+            --add-data "theme_manager.py:." \
+            --add-data "settings_manager.py:." \
+            --add-data "settings_dialog.py:." \
+            --add-data "snippet_editor_dialog.py:." \
+            --add-data "rss_reader.py:." \
+            --add-data "icons:icons" \
+            --add-data "help:help" \
+            --add-data "vendor:vendor" \
+            main.py
+
+      - name: Create unsigned DMG
+        run: |
+          mkdir -p release-assets dmg-root
+          cp -R src/jottr/dist/Jottr.app dmg-root/
+          ln -s /Applications dmg-root/Applications
+          hdiutil create \
+            -volname "Jottr" \
+            -srcfolder dmg-root \
+            -ov \
+            -format UDZO \
+            "release-assets/jottr-${{ needs.release-please.outputs.tag_name }}-macos-x86_64-unsigned.dmg"
+
+      - name: Upload macOS workflow artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: macos-release-package
+          path: release-assets/*.dmg
+          retention-days: 14
+
+  publish-release-assets:
+    needs:
+      - release-please
+      - build-deb
+      - build-rpm
+      - build-appimage
+      - build-macos
+    if: ${{ needs.release-please.outputs.release_created == 'true' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download Debian release package
+        uses: actions/download-artifact@v4
+        with:
+          name: debian-release-package
+          path: release-assets
+
+      - name: Download RPM release packages
+        uses: actions/download-artifact@v4
+        with:
+          name: rpm-release-packages
+          path: release-assets
+
+      - name: Download AppImage release package
+        uses: actions/download-artifact@v4
+        with:
+          name: appimage-release-package
+          path: release-assets
+
+      - name: Download macOS release package
+        uses: actions/download-artifact@v4
+        with:
+          name: macos-release-package
+          path: release-assets
+
+      - name: Generate SHA256 checksums
+        run: |
+          cd release-assets
+          sha256sum * > SHA256SUMS
+          cat SHA256SUMS
+
+      - name: Upload packages and checksums to release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ needs.release-please.outputs.tag_name }}
+          files: release-assets/*
+          fail_on_unmatched_files: true
+          overwrite_files: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
