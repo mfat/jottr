@@ -13,8 +13,8 @@ BuildArch:      noarch
 BuildRequires:  python3-devel
 
 Requires:       python3
-Requires:       python3-qt6
-Requires:       python3-qt6-webengine
+Requires:       python3-pyqt6
+Requires:       python3-pyqt6-webengine
 Requires:       python3-feedparser
 Requires:       python3-enchant
 Requires:       python3-pyqt6-sip

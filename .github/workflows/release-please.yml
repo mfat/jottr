@@ -92,6 +92,23 @@ jobs:
           path: release-assets/*.deb
           retention-days: 14
 
+      - name: Generate Debian checksum
+        run: |
+          cd release-assets
+          for package in *.deb; do
+            sha256sum "$package" > "$package.sha256"
+          done
+
+      - name: Upload Debian package to release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ needs.release-please.outputs.tag_name }}
+          files: release-assets/*
+          fail_on_unmatched_files: true
+          overwrite_files: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
   build-rpm:
     needs: release-please
     if: ${{ needs.release-please.outputs.release_created == 'true' }}
@@ -111,11 +128,13 @@ jobs:
             rpmlint \
             python3-devel \
             python3-setuptools \
-            python3-qt5 \
-            python3-qt5-webengine \
+            python3-pyqt6 \
+            python3-pyqt6-webengine \
             python3-feedparser \
             python3-pyspellchecker \
             python3-enchant \
+            python3-pyxdg \
+            qt6-qtsvg \
             rpmdevtools \
             gcc \
             make
@@ -180,6 +199,23 @@ jobs:
           name: rpm-release-packages
           path: release-assets/*.rpm
           retention-days: 14
+
+      - name: Generate RPM checksums
+        run: |
+          cd release-assets
+          for package in *.rpm; do
+            sha256sum "$package" > "$package.sha256"
+          done
+
+      - name: Upload RPM packages to release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ needs.release-please.outputs.tag_name }}
+          files: release-assets/*
+          fail_on_unmatched_files: true
+          overwrite_files: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   build-appimage:
     needs: release-please
@@ -262,6 +298,23 @@ jobs:
           path: release-assets/*.AppImage
           retention-days: 14
 
+      - name: Generate AppImage checksum
+        run: |
+          cd release-assets
+          for package in *.AppImage; do
+            sha256sum "$package" > "$package.sha256"
+          done
+
+      - name: Upload AppImage package to release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ needs.release-please.outputs.tag_name }}
+          files: release-assets/*
+          fail_on_unmatched_files: true
+          overwrite_files: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
   build-macos:
     needs: release-please
     if: ${{ needs.release-please.outputs.release_created == 'true' }}
@@ -326,47 +379,14 @@ jobs:
           path: release-assets/*.dmg
           retention-days: 14
 
-  publish-release-assets:
-    needs:
-      - release-please
-      - build-deb
-      - build-rpm
-      - build-appimage
-      - build-macos
-    if: ${{ needs.release-please.outputs.release_created == 'true' }}
-    runs-on: ubuntu-latest
-    steps:
-      - name: Download Debian release package
-        uses: actions/download-artifact@v4
-        with:
-          name: debian-release-package
-          path: release-assets
-
-      - name: Download RPM release packages
-        uses: actions/download-artifact@v4
-        with:
-          name: rpm-release-packages
-          path: release-assets
-
-      - name: Download AppImage release package
-        uses: actions/download-artifact@v4
-        with:
-          name: appimage-release-package
-          path: release-assets
-
-      - name: Download macOS release package
-        uses: actions/download-artifact@v4
-        with:
-          name: macos-release-package
-          path: release-assets
-
-      - name: Generate SHA256 checksums
+      - name: Generate macOS checksum
         run: |
           cd release-assets
-          sha256sum * > SHA256SUMS
-          cat SHA256SUMS
+          for package in *.dmg; do
+            shasum -a 256 "$package" > "$package.sha256"
+          done
 
-      - name: Upload packages and checksums to release
+      - name: Upload macOS package to release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ needs.release-please.outputs.tag_name }}
