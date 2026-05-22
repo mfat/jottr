@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.1.2](https://github.com/mfat/jottr/compare/v2.1.1...v2.1.2) (2026-05-22)
+
+
+### CI
+
+* fix AppImage packaging and add local build script ([5282ab6](https://github.com/mfat/jottr/commit/5282ab604079aa5bc9f686f35f104a346dfa4ce4))
+
 ## [2.1.1](https://github.com/mfat/jottr/compare/v2.1.0...v2.1.1) (2026-05-22)
 
 
