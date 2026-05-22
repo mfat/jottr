@@ -2,7 +2,7 @@ from setuptools import find_packages, setup
 
 setup(
     name="jottr",
-    version="2.1.0",
+    version="2.1.1",
     description="Modern text editor for writers and journalists",
     author="mFat",
     author_email="newmfat@gmail.com",
