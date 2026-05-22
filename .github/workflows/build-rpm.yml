@@ -22,11 +22,13 @@ jobs:
           rpmlint \
           python3-devel \
           python3-setuptools \
-          python3-qt5 \
-          python3-qt5-webengine \
+          python3-pyqt6 \
+          python3-pyqt6-webengine \
           python3-feedparser \
           python3-pyspellchecker \
           python3-enchant \
+          python3-pyxdg \
+          qt6-qtsvg \
           rpmdevtools \
           gcc \
           make

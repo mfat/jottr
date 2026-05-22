@@ -45,7 +45,7 @@ No extra secret is required for the default setup. If branch protection rules pr
 3. Review the generated changelog and version changes.
 4. Merge the release PR when ready.
 5. Let the next `main` workflow run create the Git tag and GitHub release.
-6. Let the release packaging jobs build packages from the release tag and attach them to the GitHub release.
+6. Let each release packaging job build from the release tag and attach its own package assets to the GitHub release.
 
 ## Release packages
 
@@ -58,18 +58,24 @@ The first supported release assets are Linux and unsigned macOS packages:
 - `jottr-vX.Y.Z-linux-noarch.src.rpm`
 - `jottr-vX.Y.Z-linux-x86_64.AppImage`
 - `jottr-vX.Y.Z-macos-x86_64-unsigned.dmg`
-- `SHA256SUMS`
+- one matching `.sha256` checksum file per package
 
 The macOS DMG is unsigned and is built on the GitHub-hosted Intel macOS runner. Users may need to bypass Gatekeeper manually. Windows installers are not generated yet. Add a separate trusted release job before advertising `.exe` or `.msi` downloads.
 
-Release packages are attached to the GitHub release page for the tag. CI workflow artifacts are retained for 14 days for debugging; release assets remain available from the release page unless a maintainer deletes them.
+Release packages are attached to the GitHub release page for the tag. Package jobs publish independently: if the Debian build succeeds, it uploads the Debian package even if RPM, AppImage, or macOS later fail. CI workflow artifacts are retained for 14 days for debugging; release assets remain available from the release page unless a maintainer deletes them.
 
 ## Verifying checksums
 
-Download `SHA256SUMS` and the package you want to install from the same GitHub release, then run:
+Download the package and its matching `.sha256` file from the same GitHub release, then run:
 
 ```bash
-sha256sum -c SHA256SUMS
+sha256sum -c jottr-vX.Y.Z-linux-x86_64.AppImage.sha256
+```
+
+On macOS, use:
+
+```bash
+shasum -a 256 -c jottr-vX.Y.Z-macos-x86_64-unsigned.dmg.sha256
 ```
 
 The command should report `OK` for files that match the published checksum.
@@ -79,11 +85,11 @@ The command should report `OK` for files that match the published checksum.
 If a release package is missing or a packaging job fails:
 
 - Open the failed `Release Please` workflow run in GitHub Actions.
-- Check the `build-deb`, `build-rpm`, `build-appimage`, `build-macos`, and `publish-release-assets` jobs.
+- Check the `build-deb`, `build-rpm`, `build-appimage`, and `build-macos` jobs.
 - Download the short-lived workflow artifacts if the build completed but release upload failed.
 - Confirm the job checked out the expected release tag.
 - Re-run the failed job after fixing packaging dependencies or scripts.
 
-The release upload step uses `overwrite_files: false`, so an accidental re-run will not silently replace existing release assets with the same filenames.
+Each release upload step uses `overwrite_files: false`, so an accidental re-run will not silently replace existing release assets with the same filenames.
 
 Prereleases, beta releases, nightly builds, website publication, package signing, notarized macOS installers, Apple Silicon macOS builds, and Windows installers are not enabled yet. Add them later if the project starts publishing those artifacts from CI.

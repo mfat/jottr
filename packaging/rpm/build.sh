@@ -29,8 +29,8 @@ BuildArch:      noarch
 
 BuildRequires:  python3-devel
 BuildRequires:  python3-setuptools
-Requires:       python3-qt6
-Requires:       python3-qt6-webengine
+Requires:       python3-pyqt6
+Requires:       python3-pyqt6-webengine
 Requires:       python3-enchant
 %description
 Jottr is a feature-rich text editor designed specifically
