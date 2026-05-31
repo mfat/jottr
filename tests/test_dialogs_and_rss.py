@@ -13,11 +13,13 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 SRC_DIR = PROJECT_ROOT / "src" / "jottr"
 sys.path.insert(0, str(SRC_DIR))
 
-from PyQt6.QtWidgets import QApplication, QMessageBox, QScrollArea
+from PyQt6.QtCore import Qt
+from PyQt6.QtWidgets import QApplication, QLabel, QMessageBox, QScrollArea, QWidget
 
 from feed_manager_dialog import FeedManagerDialog
 from rss_reader import RSSReader
 from settings_dialog import SearchSiteDialog, SettingsDialog
+from plugin_manager import PluginManager
 from settings_manager import SettingsManager
 from snippet_editor_dialog import SnippetEditorDialog
 import translation_manager
@@ -32,6 +34,39 @@ def app():
     return _APP
 
 
+def seed_official_plugin_registry(manager):
+    registry = {
+        "schemaVersion": 1,
+        "plugins": [
+            {
+                "id": "browser-panel",
+                "displayName": "Browser Panel",
+                "description": "Adds the integrated browser side panel and browser search commands.",
+                "latestVersion": "0.1.0",
+                "defaultEnabled": True,
+                "versions": [{"version": "0.1.0", "package": {"downloadUrl": "https://example.test/browser.zip", "sha256": "abc"}}],
+            },
+            {
+                "id": "rss-feed",
+                "displayName": "RSS Feed Reader",
+                "description": "Adds the RSS feed reader tab.",
+                "latestVersion": "0.3.1",
+                "defaultEnabled": True,
+                "versions": [
+                    {"version": "0.3.1", "package": {"downloadUrl": "https://example.test/rss-0.3.1.zip", "sha256": "abc"}},
+                    {"version": "0.1.0", "package": {"downloadUrl": "https://example.test/rss-0.1.0.zip", "sha256": "abc"}},
+                ],
+            },
+        ],
+    }
+    channel = manager.official_plugin_channel()
+    registry_path = manager.cached_registry_file(channel)
+    checksum_path = manager.cached_registry_checksum_file(channel)
+    registry_path.parent.mkdir(parents=True, exist_ok=True)
+    registry_path.write_text(json.dumps(registry), encoding="utf-8")
+    checksum_path.write_text(f"{manager.sha256_file(registry_path)}  plugins.json\n", encoding="utf-8")
+
+
 class DialogAndRssTests(unittest.TestCase):
     def setUp(self):
         app()
@@ -40,6 +75,7 @@ class DialogAndRssTests(unittest.TestCase):
         self.env = patch.dict(os.environ, {"XDG_CONFIG_HOME": self.temp_dir.name})
         self.env.start()
         self.addCleanup(self.env.stop)
+        seed_official_plugin_registry(PluginManager(SettingsManager()))
 
     def test_search_site_dialog_normalizes_site_queries(self):
         dialog = SearchSiteDialog(name="Example", site="https://www.example.com")
@@ -52,6 +88,8 @@ class DialogAndRssTests(unittest.TestCase):
         manager.save_setting("user_dictionary", ["jottr"])
         manager.save_setting("autosave_enabled", True)
         manager.save_setting("autosave_interval_seconds", 12)
+        manager.save_setting("plugin_registry_url", "https://example.test/plugins.json")
+        manager.save_setting("plugin_registry_checksum_url", "https://example.test/plugins.json.sha256")
         manager.save_custom_themes({
             "Forest": {
                 "bg": "#102018",
@@ -68,15 +106,13 @@ class DialogAndRssTests(unittest.TestCase):
         dialog.editor_theme_combo.setCurrentText("Forest")
         dialog.icon_contrast_combo.setCurrentText("light")
         dialog.markdown_scroll_sync_check.setChecked(False)
-        dialog.mermaid_runtime_combo.setCurrentIndex(
-            dialog.mermaid_runtime_combo.findData("latest")
-        )
         dialog.editor_line_numbers_check.setChecked(False)
         dialog.double_click_empty_tab_bar_new_tab_check.setChecked(False)
         dialog.double_click_tab_closes_tab_check.setChecked(False)
         dialog.enable_animations_check.setChecked(False)
         dialog.autosave_enabled_check.setChecked(True)
         dialog.autosave_interval_combo.setCurrentText("15")
+        dialog.plugins_directory_edit.setText(str(Path(self.temp_dir.name) / "plugins"))
 
         data = dialog.get_data()
 
@@ -95,12 +131,96 @@ class DialogAndRssTests(unittest.TestCase):
         self.assertNotIn("preview_font", data)
         self.assertTrue(dialog.findChildren(QScrollArea))
         self.assertFalse(data["markdown_scroll_sync"])
-        self.assertEqual(data["mermaid_runtime"], "latest")
         self.assertFalse(data["editor_line_numbers"])
         self.assertFalse(data["double_click_empty_tab_bar_new_tab"])
         self.assertFalse(data["double_click_tab_closes_tab"])
         self.assertTrue(data["autosave_enabled"])
         self.assertEqual(data["autosave_interval_seconds"], 15)
+        self.assertEqual(data["plugins_directory"], str(Path(self.temp_dir.name) / "plugins"))
+        self.assertEqual(data["plugin_registry_url"], "")
+        self.assertEqual(data["plugin_registry_checksum_url"], "")
+        self.assertIn("https://raw.githubusercontent.com/Jottrhq/plugins/main/plugins.json", dialog.plugin_registry_url_edit.placeholderText())
+        self.assertIn("https://raw.githubusercontent.com/Jottrhq/plugins/main/plugins.json.sha256", dialog.plugin_registry_checksum_url_edit.placeholderText())
+        self.assertEqual(data["plugin_channel_filter"], "all")
+        self.assertTrue(any(channel["name"] == "Official" and channel["verified"] for channel in data["plugin_channels"]))
+        self.assertEqual(data["plugin_state"], {})
+        plugin_tab = dialog.findChild(QWidget, "pluginsSettingsTab")
+        self.assertIn("QFrame#pluginCard:hover", plugin_tab.styleSheet())
+        self.assertIn('QFrame#pluginCard[selected="true"]', plugin_tab.styleSheet())
+        self.assertGreater(dialog.plugin_list.count(), 0)
+        current_card = dialog.plugin_list.itemWidget(dialog.plugin_list.currentItem())
+        self.assertEqual(current_card.cursor().shape(), Qt.CursorShape.PointingHandCursor)
+        self.assertTrue(current_card.property("selected"))
+        channel_label = current_card.findChild(QLabel, "pluginCardChannel")
+        self.assertIsNotNone(channel_label)
+        self.assertIn("Official", channel_label.text())
+        self.assertIn("✓", channel_label.text())
+
+
+    def test_settings_can_add_and_filter_plugin_channel(self):
+        manager = SettingsManager()
+        dialog = SettingsDialog(manager)
+        self.addCleanup(dialog.deleteLater)
+
+        dialog.plugin_channel_name_edit.setText("Community")
+        dialog.plugin_registry_url_edit.setText("https://example.test/community/plugins.json")
+        dialog.plugin_registry_checksum_url_edit.setText("https://example.test/community/plugins.json.sha256")
+        dialog.add_plugin_channel()
+
+        self.assertGreaterEqual(dialog.plugin_channel_filter_combo.findData("Community"), 0)
+        self.assertEqual(dialog.plugin_channel_filter_combo.currentData(), "Community")
+        data = dialog.get_data()
+        self.assertEqual(data["plugin_channel_filter"], "Community")
+        self.assertTrue(any(channel["name"] == "Community" for channel in data["plugin_channels"]))
+        official_label = dialog.plugin_channel_filter_combo.itemText(dialog.plugin_channel_filter_combo.findData("Official"))
+        self.assertIn("✓", official_label)
+        self.assertTrue(dialog.remove_plugin_channel_button.isEnabled())
+
+        dialog.remove_plugin_channel()
+        self.assertEqual(dialog.plugin_channel_filter_combo.currentData(), "all")
+        self.assertEqual(dialog.plugin_channel_filter_combo.findData("Community"), -1)
+        self.assertFalse(any(channel["name"] == "Community" for channel in dialog.get_data()["plugin_channels"]))
+
+        official_index = dialog.plugin_channel_filter_combo.findData("Official")
+        dialog.plugin_channel_filter_combo.setCurrentIndex(official_index)
+        self.assertFalse(dialog.remove_plugin_channel_button.isEnabled())
+        dialog.remove_plugin_channel()
+        self.assertGreaterEqual(dialog.plugin_channel_filter_combo.findData("Official"), 0)
+
+    def test_settings_hides_browser_page_when_browser_plugin_is_disabled(self):
+        manager = SettingsManager()
+        manager.save_setting("plugin_state", {
+            "browser-panel": {"enabled": False, "trusted": True, "version": "0.1.0"}
+        })
+
+        dialog = SettingsDialog(manager)
+        self.addCleanup(dialog.deleteLater)
+
+        nav_items = [
+            dialog.settings_nav.item(index).text()
+            for index in range(dialog.settings_nav.count())
+        ]
+        self.assertNotIn("Browser", nav_items)
+
+    def test_disabling_browser_plugin_removes_browser_settings_page(self):
+        manager = SettingsManager()
+        dialog = SettingsDialog(manager)
+        self.addCleanup(dialog.deleteLater)
+
+        browser_rows = [
+            index for index in range(dialog.plugin_list.count())
+            if dialog.plugin_list.item(index).data(Qt.ItemDataRole.UserRole) == "browser-panel"
+        ]
+        self.assertTrue(browser_rows)
+        self.assertIn("Browser", [dialog.settings_nav.item(index).text() for index in range(dialog.settings_nav.count())])
+
+        dialog.plugin_list.setCurrentRow(browser_rows[0])
+        self.assertEqual(dialog.toggle_plugin_button.text(), "Disable")
+        dialog.toggle_selected_plugin()
+
+        nav_items = [dialog.settings_nav.item(index).text() for index in range(dialog.settings_nav.count())]
+        self.assertNotIn("Browser", nav_items)
+        self.assertEqual(dialog.toggle_plugin_button.text(), "Enable")
 
     def test_settings_dialog_autosave_seconds_uses_dropdown_values(self):
         manager = SettingsManager()
@@ -117,6 +237,9 @@ class DialogAndRssTests(unittest.TestCase):
 
         dialog.autosave_interval_combo.setCurrentText("bad")
         self.assertEqual(dialog.get_data()["autosave_interval_seconds"], 30)
+        self.assertIn("QWidget#settingsContentDivider", dialog.styleSheet())
+        self.assertIn("border-radius: 0px", dialog.styleSheet())
+        self.assertNotIn("border-right: 1px solid rgba(127, 127, 127, 0.25)", dialog.styleSheet())
 
     def test_settings_dialog_translates_autosave_seconds_label(self):
         translations_dir = Path(self.temp_dir.name) / "translations"

@@ -11,10 +11,11 @@ from PyQt6.QtWidgets import (
                             QVBoxLayout, QHBoxLayout, QSplitter, QMenu, QToolBar,
                             QMessageBox, QLabel, QDialog, QSizePolicy,
                             QDialogButtonBox, QTabBar, QFileDialog, QToolButton,
-                            QTreeView, QInputDialog, QPushButton, QGraphicsOpacityEffect)
+                            QTreeView, QInputDialog, QPushButton, QGraphicsOpacityEffect,
+                            QStyle, QStyleOptionTab, QStylePainter)
 from PyQt6.QtCore import (
     Qt, QUrl, QTimer, QEvent, QDir, QPropertyAnimation,
-    QEasingCurve, QParallelAnimationGroup
+    QEasingCurve, QParallelAnimationGroup, QRect
 )
 from PyQt6.QtWebEngineWidgets import QWebEngineView
 from PyQt6.QtGui import QAction, QShortcut, QFileSystemModel, QPen
@@ -34,6 +35,7 @@ from PyQt6.QtSvg import QSvgRenderer
 from PyQt6.QtGui import QPainter
 from PyQt6.QtCore import QSize
 from font_dialog import FontSelectionDialog
+from plugin_manager import PluginManager
 # Add vendor directory to path
 vendor_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'vendor')
 if os.path.exists(vendor_dir):
@@ -70,6 +72,83 @@ class WorkspaceTreeView(QTreeView):
         painter.drawLine(center_x, rect.top(), center_x, rect.bottom())
         painter.drawLine(center_x, center_y, rect.right(), center_y)
         painter.restore()
+
+
+class LeftAlignedDocumentTabBar(QTabBar):
+    """Document tab bar that keeps labels centered in the tab area."""
+
+    label_left_padding = 8
+    label_right_padding = 30
+    icon_text_gap = 5
+    icon_vertical_offset = -1
+    underline_height = 2
+
+    def paintEvent(self, event):
+        painter = QStylePainter(self)
+        option = QStyleOptionTab()
+        for index in range(self.count()):
+            self.initStyleOption(option, index)
+            painter.drawControl(QStyle.ControlElement.CE_TabBarTabShape, option)
+            self.draw_left_aligned_label(painter, option, index)
+
+    def tab_text_color(self, selected=False):
+        window = self.window()
+        settings_manager = getattr(window, "settings_manager", None)
+        if settings_manager is None:
+            return self.palette().windowText().color()
+        theme = ThemeManager.get_theme(
+            settings_manager.get_ui_theme(),
+            settings_manager.get_custom_themes()
+        )
+        return QColor(theme["app"]["text" if selected else "muted"])
+
+    def label_contents_rect(self, tab_rect):
+        return tab_rect.adjusted(
+            self.label_left_padding,
+            0,
+            -self.label_right_padding,
+            -self.underline_height
+        )
+
+    def draw_left_aligned_label(self, painter, option, index):
+        label_rect = self.label_contents_rect(option.rect)
+        icon = self.tabIcon(index)
+        icon_size = self.iconSize() if not icon.isNull() else QSize(0, 0)
+        icon_width = icon_size.width() if not icon.isNull() else 0
+        gap = self.icon_text_gap if icon_width else 0
+        available_text_width = max(0, label_rect.width() - icon_width - gap)
+        text = painter.fontMetrics().elidedText(
+            self.tabText(index),
+            Qt.TextElideMode.ElideRight,
+            available_text_width
+        )
+        text_width = painter.fontMetrics().horizontalAdvance(text)
+        content_width = min(label_rect.width(), icon_width + gap + text_width)
+        start_x = label_rect.left() + max(0, (label_rect.width() - content_width) // 2)
+
+        if icon_width:
+            icon_rect = QRect(
+                start_x,
+                label_rect.top() + (label_rect.height() - icon_size.height()) // 2 + self.icon_vertical_offset,
+                icon_size.width(),
+                icon_size.height()
+            )
+            icon.paint(painter, icon_rect, Qt.AlignmentFlag.AlignCenter)
+            start_x = icon_rect.right() + 1 + gap
+
+        text_rect = QRect(
+            start_x,
+            label_rect.top(),
+            max(0, label_rect.right() - start_x + 1),
+            label_rect.height()
+        )
+        selected = bool(option.state & QStyle.StateFlag.State_Selected)
+        painter.setPen(self.tab_text_color(selected))
+        painter.drawText(
+            text_rect,
+            Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter | Qt.TextFlag.TextSingleLine,
+            text
+        )
 
 
 class TextEditorApp(QMainWindow):
@@ -129,6 +208,9 @@ class TextEditorApp(QMainWindow):
         # Initialize managers first
         self.settings_manager = SettingsManager()
         self.snippet_manager = SnippetManager(self.settings_manager)
+        self.plugin_manager = PluginManager(self.settings_manager)
+        self.plugin_manager.refresh()
+        self.plugin_manager.activate_enabled_plugins()
         
         # Create toolbar first before styling
         self.toolbar = QToolBar(_("Main Toolbar"))  # Add name here
@@ -161,11 +243,13 @@ class TextEditorApp(QMainWindow):
         self.setup_workspace_explorer()
 
         self.tab_widget = QTabWidget()
+        self.tab_widget.setTabBar(LeftAlignedDocumentTabBar())
         self.tab_widget.setObjectName("documentTabs")
         self.tab_widget.setDocumentMode(False)
         self.tab_widget.setMovable(True)
         self.tab_widget.setUsesScrollButtons(True)
         self.tab_widget.setTabsClosable(True)
+        self.tab_widget.setIconSize(QSize(16, 16))
         self.tab_widget.tabBar().setExpanding(False)
         self.tab_widget.tabCloseRequested.connect(self.close_tab)
         
@@ -208,6 +292,7 @@ class TextEditorApp(QMainWindow):
             application.setStyleSheet(stylesheet)
         self.setStyleSheet(stylesheet)
         self.update_action_icons()
+        self.refresh_tab_icons()
 
     def get_icon_color(self):
         """Return the configured icon color for the active app theme."""
@@ -263,6 +348,26 @@ class TextEditorApp(QMainWindow):
             return
         for action, icon_name in self.icon_actions:
             action.setIcon(self.build_themed_icon(icon_name))
+
+    def tab_icon_name_for_widget(self, tab):
+        if getattr(tab, "is_settings_tab", False):
+            return "settings"
+        if isinstance(tab, EditorTab) or hasattr(tab, "current_file"):
+            return "snippets"
+        return ""
+
+    def update_tab_icon(self, index):
+        if index < 0 or not hasattr(self, "tab_widget"):
+            return
+        icon_name = self.tab_icon_name_for_widget(self.tab_widget.widget(index))
+        icon = self.build_themed_icon(icon_name) if icon_name else QIcon()
+        self.tab_widget.setTabIcon(index, icon)
+
+    def refresh_tab_icons(self):
+        if not hasattr(self, "tab_widget"):
+            return
+        for index in range(self.tab_widget.count()):
+            self.update_tab_icon(index)
 
     def setup_workspace_explorer(self):
         """Create the persisted workspace file explorer."""
@@ -869,15 +974,22 @@ class TextEditorApp(QMainWindow):
         set_action_tooltip(snippets_action, "Toggle Snippets (Ctrl+Shift+N)")
         self.toolbar.addAction(snippets_action)
 
-        browser_action = create_action("browser", "Browser", lambda: self.toggle_browser())
-        browser_action.setShortcut(QKeySequence("Ctrl+Shift+B"))
-        set_action_tooltip(browser_action, "Toggle Browser (Ctrl+Shift+B)")
-        self.toolbar.addAction(browser_action)
-
         markdown_action = create_action("insert-text", "Markdown", self.toggle_markdown_preview)
         markdown_action.setShortcut(QKeySequence("Ctrl+Shift+M"))
         set_action_tooltip(markdown_action, "Toggle Markdown Preview (Ctrl+Shift+M)")
         self.toolbar.addAction(markdown_action)
+
+        for toolbar_action in self.plugin_manager.registry.toolbar_actions:
+            title = toolbar_action.get("title") or toolbar_action.get("id") or _("Plugin")
+            action = create_action(
+                toolbar_action.get("icon", ""),
+                title,
+                lambda checked=False, item=toolbar_action: self.trigger_plugin_action(item)
+            )
+            if toolbar_action.get("shortcut"):
+                action.setShortcut(QKeySequence(toolbar_action["shortcut"]))
+            set_action_tooltip(action, toolbar_action.get("tooltip", title))
+            self.toolbar.addAction(action)
 
         self.toolbar.addSeparator()
         
@@ -985,7 +1097,11 @@ class TextEditorApp(QMainWindow):
         
     def new_tab(self):
         editor_tab = EditorTab(self.snippet_manager)
-        self.tab_widget.addTab(editor_tab, _("Document {number}").format(number=self.tab_widget.count() + 1))
+        self.tab_widget.addTab(
+            editor_tab,
+            self.build_themed_icon("snippets"),
+            _("Document {number}").format(number=self.tab_widget.count() + 1)
+        )
         self.tab_widget.setCurrentWidget(editor_tab)
 
     def is_editor_tab_modified(self, tab):
@@ -1069,7 +1185,6 @@ class TextEditorApp(QMainWindow):
             QKeySequence.StandardKey.New,
             "Create a new editor tab"
         )
-        add_action(file_menu, "New RSS Tab", self.new_rss_tab, "globe", tooltip="Create a new RSS tab")
         file_menu.addSeparator()
         add_action(file_menu, "Open...", self.open_file_dialog, "open", QKeySequence.StandardKey.Open, "Open a file")
         add_action(file_menu, "Save", self.save_file, "save", QKeySequence.StandardKey.Save, "Save current file")
@@ -1104,7 +1219,6 @@ class TextEditorApp(QMainWindow):
         view_menu = add_menu("View")
 
         add_action(view_menu, "Toggle Snippets", self.toggle_snippets, "snippets", QKeySequence("Ctrl+Shift+N"), "Toggle Snippets")
-        add_action(view_menu, "Toggle Browser", self.toggle_browser, "browser", QKeySequence("Ctrl+Shift+B"), "Toggle Browser")
         add_action(
             view_menu,
             "Toggle Markdown Preview",
@@ -1133,6 +1247,44 @@ class TextEditorApp(QMainWindow):
         add_action(workspace_menu, "Open Workspace...", self.open_workspace_dialog, "document-open", tooltip="Open Workspace")
         add_action(workspace_menu, "New Workspace File...", self.create_workspace_file, "new", tooltip="New File in Workspace")
 
+        # Plugins menu
+        if (
+            self.plugin_manager.registry.commands
+            or self.plugin_manager.registry.panels
+            or self.plugin_manager.registry.sidebar_items
+        ):
+            plugins_menu = add_menu("Plugins")
+            seen_plugin_targets = set()
+            for panel in self.plugin_manager.registry.panels + self.plugin_manager.registry.sidebar_items:
+                title = panel.get("title") or panel.get("id") or "Plugin Panel"
+                target_key = panel.get("panel") or panel.get("panelId") or panel.get("id") or title
+                if target_key in seen_plugin_targets:
+                    continue
+                seen_plugin_targets.add(target_key)
+                handler = (
+                    (lambda checked=False, item=panel: self.trigger_plugin_action(item))
+                    if panel.get("builtin")
+                    else (lambda checked=False, item=panel: self.open_plugin_panel(item))
+                )
+                add_action(
+                    plugins_menu,
+                    title,
+                    handler,
+                    tooltip=title
+                )
+            if self.plugin_manager.registry.commands and plugins_menu.actions():
+                plugins_menu.addSeparator()
+            for command in self.plugin_manager.registry.commands:
+                title = command.get("title") or command.get("id") or "Plugin Command"
+                shortcut = QKeySequence(command["shortcut"]) if command.get("shortcut") else None
+                add_action(
+                    plugins_menu,
+                    title,
+                    lambda checked=False, item=command: self.trigger_plugin_action(item),
+                    shortcut=shortcut,
+                    tooltip=title
+                )
+
         # Help menu
         help_menu = add_menu("Help")
         add_action(help_menu, "Help", self.show_help, "help", QKeySequence.StandardKey.HelpContents, "Open Help")
@@ -1160,7 +1312,11 @@ class TextEditorApp(QMainWindow):
         editor_tab.set_main_window(self)  # Set reference to main window
         
         # Add tab with default title
-        self.tab_widget.addTab(editor_tab, _("Document {number}").format(number=self.tab_widget.count() + 1))
+        self.tab_widget.addTab(
+            editor_tab,
+            self.build_themed_icon("snippets"),
+            _("Document {number}").format(number=self.tab_widget.count() + 1)
+        )
         self.tab_widget.setCurrentWidget(editor_tab)
         editor_tab.editor.setFocus()
         self.save_workspace_open_files()
@@ -1396,44 +1552,150 @@ class TextEditorApp(QMainWindow):
 
     
 
+    def apply_settings_from_view(self, settings_view):
+        settings = settings_view.get_data()
+        self.settings_manager.save_setting('homepage', settings['homepage'])
+        self.settings_manager.save_setting('search_sites', settings['search_sites'])
+        self.settings_manager.save_setting('user_dictionary', settings['user_dictionary'])
+        self.settings_manager.save_custom_themes(settings['custom_themes'])
+        self.settings_manager.save_ui_theme(settings['ui_theme'])
+        self.settings_manager.save_theme(settings['theme'])
+        self.settings_manager.save_setting('language', settings['language'])
+        set_language(settings['language'])
+        self.apply_layout_direction(settings['language'])
+        self.apply_language_direction_to_tabs()
+        self.retranslate_actions()
+        self.settings_manager.save_setting('icon_contrast', settings['icon_contrast'])
+        self.settings_manager.save_setting('enable_animations', settings['enable_animations'])
+        self.settings_manager.save_font(settings['ui_font'], "ui")
+        self.settings_manager.save_setting('markdown_scroll_sync', settings['markdown_scroll_sync'])
+        self.settings_manager.save_setting('editor_line_numbers', settings['editor_line_numbers'])
+        self.settings_manager.save_setting(
+            'double_click_empty_tab_bar_new_tab',
+            settings['double_click_empty_tab_bar_new_tab']
+        )
+        self.settings_manager.save_setting(
+            'double_click_tab_closes_tab',
+            settings['double_click_tab_closes_tab']
+        )
+        self.settings_manager.save_setting('autosave_enabled', settings['autosave_enabled'])
+        self.settings_manager.save_setting('autosave_interval_seconds', settings['autosave_interval_seconds'])
+        self.settings_manager.save_setting('plugins_directory', settings['plugins_directory'])
+        self.settings_manager.save_setting('plugin_registry_url', settings['plugin_registry_url'])
+        self.settings_manager.save_setting('plugin_registry_checksum_url', settings['plugin_registry_checksum_url'])
+        self.settings_manager.save_setting('plugin_channels', settings.get('plugin_channels', []))
+        self.settings_manager.save_setting('plugin_channel_filter', settings.get('plugin_channel_filter', 'all'))
+        self.settings_manager.save_setting('plugin_state', settings['plugin_state'])
+        self.plugin_manager = PluginManager(self.settings_manager)
+        self.plugin_manager.refresh()
+        self.plugin_manager.activate_enabled_plugins()
+        self.removeToolBar(self.toolbar)
+        self.toolbar.deleteLater()
+        self.setup_toolbar()
+        self.apply_app_style()
+        self.create_menu_bar()
+        self.apply_editor_theme_to_tabs(settings['theme'])
+        self.apply_editor_line_numbers(settings['editor_line_numbers'])
+        self.apply_autosave_settings()
+        self.statusBar.showMessage(_("Settings applied"), 3000)
+
+    def close_settings_tab(self, settings_view):
+        index = self.tab_widget.indexOf(settings_view)
+        if index >= 0:
+            self.tab_widget.removeTab(index)
+        if self.tab_widget.count() == 0:
+            self.new_editor_tab()
+
     def show_settings(self):
-        """Show settings dialog"""
-        dialog = SettingsDialog(self.settings_manager, self)
-        if dialog.exec() == QDialog.DialogCode.Accepted:
-            settings = dialog.get_data()
-            
-            # Save settings
-            self.settings_manager.save_setting('homepage', settings['homepage'])
-            self.settings_manager.save_setting('search_sites', settings['search_sites'])
-            self.settings_manager.save_setting('user_dictionary', settings['user_dictionary'])
-            self.settings_manager.save_custom_themes(settings['custom_themes'])
-            self.settings_manager.save_ui_theme(settings['ui_theme'])
-            self.settings_manager.save_theme(settings['theme'])
-            self.settings_manager.save_setting('language', settings['language'])
-            set_language(settings['language'])
-            self.apply_layout_direction(settings['language'])
-            self.apply_language_direction_to_tabs()
-            self.retranslate_actions()
-            self.settings_manager.save_setting('icon_contrast', settings['icon_contrast'])
-            self.settings_manager.save_setting('enable_animations', settings['enable_animations'])
-            self.settings_manager.save_font(settings['ui_font'], "ui")
-            self.settings_manager.save_setting('markdown_scroll_sync', settings['markdown_scroll_sync'])
-            self.settings_manager.save_setting('mermaid_runtime', settings['mermaid_runtime'])
-            self.settings_manager.save_setting('editor_line_numbers', settings['editor_line_numbers'])
-            self.settings_manager.save_setting(
-                'double_click_empty_tab_bar_new_tab',
-                settings['double_click_empty_tab_bar_new_tab']
-            )
-            self.settings_manager.save_setting(
-                'double_click_tab_closes_tab',
-                settings['double_click_tab_closes_tab']
-            )
-            self.settings_manager.save_setting('autosave_enabled', settings['autosave_enabled'])
-            self.settings_manager.save_setting('autosave_interval_seconds', settings['autosave_interval_seconds'])
-            self.apply_app_style()
-            self.apply_editor_theme_to_tabs(settings['theme'])
-            self.apply_editor_line_numbers(settings['editor_line_numbers'])
-            self.apply_autosave_settings()
+        """Open settings as a workspace tab."""
+        for index in range(self.tab_widget.count()):
+            tab = self.tab_widget.widget(index)
+            if getattr(tab, "is_settings_tab", False):
+                self.tab_widget.setCurrentIndex(index)
+                return tab
+        settings_tab = SettingsDialog(
+            self.settings_manager,
+            self,
+            embedded=True,
+            apply_callback=self.apply_settings_from_view,
+            close_callback=self.close_settings_tab,
+        )
+        settings_tab.is_settings_tab = True
+        self.tab_widget.addTab(settings_tab, self.build_themed_icon("settings"), _("Settings"))
+        self.tab_widget.setCurrentWidget(settings_tab)
+        return settings_tab
+
+    def trigger_plugin_action(self, action):
+        builtin = action.get("builtin")
+        if builtin and self.run_builtin_plugin_action(builtin):
+            return
+        command_id = action.get("command") or action.get("commandId") or action.get("id")
+        if command_id in self.plugin_manager.registry.command_callbacks:
+            self.plugin_manager.registry.command_callbacks[command_id]()
+            return
+        panel_id = action.get("panel") or action.get("panelId")
+        if panel_id:
+            panel = self.find_plugin_panel(panel_id)
+            if panel:
+                self.open_plugin_panel(panel)
+                return
+        message = action.get("message")
+        if message:
+            QMessageBox.information(self, _("Plugin"), message)
+
+    def run_builtin_plugin_action(self, action_id):
+        actions = {
+            "toggle_browser": self.toggle_browser,
+            "toggle_markdown_preview": self.toggle_markdown_preview,
+            "new_rss_tab": self.new_rss_tab,
+        }
+        handler = actions.get(action_id)
+        if not handler:
+            return False
+        handler()
+        return True
+
+    def find_plugin_panel(self, panel_id):
+        for panel in self.plugin_manager.registry.panels + self.plugin_manager.registry.sidebar_items:
+            if panel.get("id") == panel_id:
+                return panel
+        return None
+
+    def open_plugin_panel(self, panel):
+        panel_id = panel.get("id")
+        title = panel.get("title") or panel_id or _("Plugin")
+        if panel_id not in self.plugin_manager.registry.panel_factories and panel.get("type") == "python":
+            plugin_name = panel.get("plugin")
+            if plugin_name:
+                try:
+                    self.plugin_manager.install_plugin_from_registry(plugin_name)
+                    self.plugin_manager.activate_enabled_plugins()
+                except Exception as exc:
+                    QMessageBox.warning(
+                        self,
+                        _("Plugin"),
+                        _("Could not install plugin: {error}").format(error=exc)
+                    )
+        if panel_id in self.plugin_manager.registry.panel_factories:
+            widget = self.plugin_manager.registry.panel_factories[panel_id]()
+        else:
+            widget = self.create_manifest_plugin_panel(panel)
+        self.tab_widget.addTab(widget, title)
+        self.tab_widget.setCurrentWidget(widget)
+
+    def create_manifest_plugin_panel(self, panel):
+        panel_type = panel.get("type", "text")
+        if panel_type in {"browser", "web"}:
+            view = QWebEngineView()
+            url = panel.get("url") or panel.get("homepage") or "about:blank"
+            view.load(QUrl(url))
+            return view
+        if panel_type == "rss":
+            return RSSTab()
+        label = QLabel(panel.get("content") or panel.get("description") or _("Plugin panel"))
+        label.setWordWrap(True)
+        label.setAlignment(Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignLeft)
+        return label
 
     def toggle_browser(self):
         """Toggle browser pane in current tab"""
@@ -1561,10 +1823,11 @@ class TextEditorApp(QMainWindow):
         if editor_tab is None:
             editor_tab = EditorTab(self.snippet_manager, self.settings_manager)
             editor_tab.set_main_window(self)
-            self.tab_widget.addTab(editor_tab, os.path.basename(file_path))
+            self.tab_widget.addTab(editor_tab, self.build_themed_icon("snippets"), os.path.basename(file_path))
         else:
             current_index = self.tab_widget.indexOf(editor_tab)
             self.tab_widget.setTabText(current_index, os.path.basename(file_path))
+            self.update_tab_icon(current_index)
 
         editor_tab.editor.setPlainText(content)
         editor_tab.current_file = file_path

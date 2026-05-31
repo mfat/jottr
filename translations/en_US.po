@@ -186,17 +186,6 @@ msgstr "Edit Snippet"
 msgid "Delete Snippet"
 msgstr "Delete Snippet"
 
-#: src/jottr/editor_tab.py:1467 src/jottr/editor_tab.py:2655
-msgid "Mermaid render error:"
-msgstr "Mermaid render error:"
-
-#: src/jottr/editor_tab.py:2654
-msgid "Mermaid runtime could not be loaded."
-msgstr "Mermaid runtime could not be loaded."
-
-msgid "Mermaid Runtime:"
-msgstr "Mermaid Runtime:"
-
 msgid "Bundled (offline, stable)"
 msgstr "Bundled (offline, stable)"
 
@@ -959,3 +948,131 @@ msgstr "Title:"
 #: src/jottr/snippet_editor_dialog.py:23
 msgid "Content:"
 msgstr "Content:"
+
+#: src/jottr/settings_dialog.py
+msgid "Plugin Sources"
+msgstr "Plugin Sources"
+
+#: src/jottr/settings_dialog.py
+msgid "Local plugins folder:"
+msgstr "Local plugins folder:"
+
+#: src/jottr/settings_dialog.py
+msgid "Plugin index:"
+msgstr "Plugin index:"
+
+#: src/jottr/settings_dialog.py
+msgid "Checksum URL"
+msgstr "Checksum URL"
+
+#: src/jottr/settings_dialog.py
+msgid "Update Index"
+msgstr "Update Index"
+
+#: src/jottr/settings_dialog.py
+msgid "Select a plugin"
+msgstr "Select a plugin"
+
+#: src/jottr/settings_dialog.py
+msgid "Version"
+msgstr "Version"
+
+#: src/jottr/settings_dialog.py
+msgid "Installed"
+msgstr "Installed"
+
+#: src/jottr/settings_dialog.py
+msgid "Source"
+msgstr "Source"
+
+#: src/jottr/settings_dialog.py
+msgid "Permissions"
+msgstr "Permissions"
+
+#: src/jottr/settings_dialog.py
+msgid "None"
+msgstr "None"
+
+#: src/jottr/settings_dialog.py
+msgid "Enabled"
+msgstr "Enabled"
+
+#: src/jottr/settings_dialog.py
+msgid "Disabled"
+msgstr "Disabled"
+
+#: src/jottr/settings_dialog.py
+msgid "Registry"
+msgstr "Registry"
+
+#: src/jottr/settings_dialog.py
+msgid "Remote"
+msgstr "Remote"
+
+#: src/jottr/settings_dialog.py
+msgid "Local"
+msgstr "Local"
+
+#: src/jottr/settings_dialog.py
+msgid "Enable"
+msgstr "Enable"
+
+#: src/jottr/settings_dialog.py
+msgid "Disable"
+msgstr "Disable"
+
+#: src/jottr/settings_dialog.py
+msgid "Update"
+msgstr "Update"
+
+#: src/jottr/settings_dialog.py
+msgid "Remove"
+msgstr "Remove"
+
+#: src/jottr/settings_dialog.py
+msgid "Remote plugins require permission review before they can run code."
+msgstr "Remote plugins require permission review before they can run code."
+
+#: src/jottr/settings_dialog.py
+msgid "Choose Plugins Folder"
+msgstr "Choose Plugins Folder"
+
+#: src/jottr/settings_dialog.py
+msgid "Could not update plugin index: {error}"
+msgstr "Could not update plugin index: {error}"
+
+#: src/jottr/settings_dialog.py
+msgid "Enable Remote Plugin"
+msgstr "Enable Remote Plugin"
+
+#: src/jottr/settings_dialog.py
+msgid "Enable this remote plugin?\n\nPermissions: {permissions}\n\n{warning}"
+msgstr "Enable this remote plugin?\n\nPermissions: {permissions}\n\n{warning}"
+
+#: src/jottr/settings_dialog.py
+msgid "Could not install plugin version: {error}"
+msgstr "Could not install plugin version: {error}"
+
+#: src/jottr/settings_dialog.py
+msgid "Could not update plugin: {error}"
+msgstr "Could not update plugin: {error}"
+
+#: src/jottr/settings_dialog.py
+msgid "Remove Plugin"
+msgstr "Remove Plugin"
+
+#: src/jottr/settings_dialog.py
+msgid "Remove {plugin}?"
+msgstr "Remove {plugin}?"
+
+#: src/jottr/settings_dialog.py
+msgid "Could not remove plugin: {error}"
+msgstr "Could not remove plugin: {error}"
+
+#: src/jottr/settings_dialog.py src/jottr/main.py
+msgid "Apply"
+msgstr "Apply"
+
+#: src/jottr/settings_dialog.py src/jottr/main.py
+msgid "Settings applied"
+msgstr "Settings applied"

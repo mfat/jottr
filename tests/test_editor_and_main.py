@@ -14,8 +14,8 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 SRC_DIR = PROJECT_ROOT / "src" / "jottr"
 sys.path.insert(0, str(SRC_DIR))
 
-from PyQt6.QtCore import QPoint, Qt, QEvent
-from PyQt6.QtGui import QFont, QTextCursor, QTextDocument
+from PyQt6.QtCore import QPoint, QRect, Qt, QEvent
+from PyQt6.QtGui import QColor, QFont, QKeyEvent, QTextCursor, QTextDocument
 from PyQt6.QtWidgets import QApplication, QDialog, QTextEdit, QWidget
 
 from editor_tab import EditorTab, SpellCheckHighlighter
@@ -211,26 +211,41 @@ class EditorAndMainTests(unittest.TestCase):
         self.assertEqual(exported_pages[0].page_layout.margins().top(), 10.0)
         info.assert_called_once()
 
-    def test_markdown_preview_can_use_latest_mermaid_runtime(self):
-        self.settings.save_setting("mermaid_runtime", "latest")
+    def test_markdown_preview_uses_registered_markdown_extensions(self):
         editor = self.make_editor()
 
-        html = editor.render_markdown_html("```mermaid\ngraph TD\nA-->B\n```")
+        class Registry:
+            markdown_extensions = [
+                {
+                    "process_html": lambda body, context: body.replace("<p>plugin</p>", "<section>plugin</section>"),
+                    "head_html": lambda context: "<script>window.pluginHead = true;</script>",
+                    "style_html": lambda context: ".plugin-extension { color: red; }",
+                    "body_html": lambda context: "<script>window.pluginBody = true;</script>",
+                }
+            ]
 
-        self.assertIn(EditorTab.MERMAID_LATEST_CDN_URL, html)
-        self.assertIn("if (!window.mermaid)", html)
-        self.assertIn('<div class="mermaid">graph TD', html)
-        self.assertIn("mermaid.run", html)
-        self.assertIn("startup:", html)
-        self.assertIn("typeset: false", html)
+        class PluginManager:
+            registry = Registry()
 
-    def test_markdown_preview_uses_bundled_mermaid_by_default(self):
+        class MainWindow:
+            plugin_manager = PluginManager()
+
+        editor.set_main_window(MainWindow())
+
+        html = editor.render_markdown_html("plugin")
+
+        self.assertIn("<section>plugin</section>", html)
+        self.assertIn("window.pluginHead", html)
+        self.assertIn(".plugin-extension", html)
+        self.assertIn("window.pluginBody", html)
+
+    def test_markdown_preview_does_not_handle_plugin_syntax_without_extension(self):
         editor = self.make_editor()
 
-        html = editor.render_markdown_html("```mermaid\ngraph TD\nA-->B\n```")
+        html = editor.render_markdown_html("```plugin-diagram\nA-->B\n```")
 
-        self.assertNotIn(EditorTab.MERMAID_LATEST_CDN_URL, html)
-        self.assertIn('<div class="mermaid">graph TD', html)
+        self.assertIn("language-plugin-diagram", html)
+        self.assertNotIn("window.pluginDiagram", html)
 
     def test_editor_context_menu_selects_word_with_qt6_enum(self):
         editor = self.make_editor()
@@ -755,6 +770,17 @@ class EditorAndMainTests(unittest.TestCase):
 
             self.assertEqual(window.windowTitle(), APP_NAME)
             self.assertGreaterEqual(window.tab_widget.count(), 1)
+            self.assertIsInstance(window.tab_widget.tabBar(), main_module.LeftAlignedDocumentTabBar)
+            window.settings_manager.save_ui_theme("Dracula")
+            dark_app = main_module.ThemeManager.get_theme("Dracula", window.settings_manager.get_custom_themes())["app"]
+            tab_bar = window.tab_widget.tabBar()
+            self.assertEqual(tab_bar.tab_text_color(True).name(), QColor(dark_app["text"]).name())
+            self.assertEqual(tab_bar.tab_text_color(False).name(), QColor(dark_app["muted"]).name())
+            label_rect = tab_bar.label_contents_rect(QRect(0, 0, 160, 38))
+            self.assertEqual(label_rect.top(), 0)
+            self.assertEqual(label_rect.bottom(), 35)
+            self.assertEqual(tab_bar.icon_vertical_offset, -1)
+            self.assertFalse(window.tab_widget.tabIcon(0).isNull())
             first_tab = window.tab_widget.currentWidget()
             original_size = first_tab.current_font.pointSize()
 
@@ -796,6 +822,11 @@ class EditorAndMainTests(unittest.TestCase):
             self.assertEqual(first_tab.current_font.pointSize(), original_size)
             self.assertIn("QToolBar#mainToolBar QToolButton:focus", QApplication.instance().styleSheet())
             self.assertIn("QToolBar#mainToolBar QToolButton:disabled", QApplication.instance().styleSheet())
+            self.assertIn("QTabWidget#documentTabs QTabBar::close-button", QApplication.instance().styleSheet())
+            self.assertIn("subcontrol-position: center right", QApplication.instance().styleSheet())
+            self.assertIn("margin-bottom: 2px", QApplication.instance().styleSheet())
+            self.assertIn("text-align: center", QApplication.instance().styleSheet())
+            self.assertIn("height: 38px", QApplication.instance().styleSheet())
             dropdown_tooltips = {
                 action.text(): action.toolTip()
                 for action in window.menu_dropdown.actions()
@@ -803,6 +834,42 @@ class EditorAndMainTests(unittest.TestCase):
             }
             self.assertEqual(dropdown_tooltips["Export PDF"], "Export current file as PDF")
             self.assertNotEqual(window.icons["snippets"], window.icons["menu"])
+
+    def test_settings_opens_as_reusable_workspace_tab(self):
+        class FakeEditorTab(QWidget):
+            def __init__(self, snippet_manager, settings_manager):
+                super().__init__()
+                self.editor = QTextEdit(self)
+                self.current_file = None
+
+            def set_main_window(self, main_window):
+                self.main_window = main_window
+
+        with patch.object(main_module, "EditorTab", FakeEditorTab):
+            window = TextEditorApp()
+            self.addCleanup(window.close)
+            self.addCleanup(window.deleteLater)
+
+            initial_count = window.tab_widget.count()
+            settings_tab = window.show_settings()
+            self.assertEqual(window.tab_widget.count(), initial_count + 1)
+            self.assertIs(window.tab_widget.currentWidget(), settings_tab)
+            self.assertFalse(window.tab_widget.tabIcon(window.tab_widget.currentIndex()).isNull())
+            self.assertTrue(getattr(settings_tab, "is_settings_tab", False))
+            self.assertGreaterEqual(settings_tab.settings_nav.count(), 3)
+            self.assertEqual(settings_tab.settings_nav.item(0).text(), "Appearance")
+
+            settings_tab.keyPressEvent(QKeyEvent(
+                QEvent.Type.KeyPress,
+                Qt.Key.Key_Escape,
+                Qt.KeyboardModifier.NoModifier
+            ))
+            self.assertEqual(window.tab_widget.count(), initial_count + 1)
+            self.assertIs(window.tab_widget.currentWidget(), settings_tab)
+            self.assertFalse(settings_tab.isHidden())
+
+            self.assertIs(window.show_settings(), settings_tab)
+            self.assertEqual(window.tab_widget.count(), initial_count + 1)
 
     def test_main_window_builds_accessible_themed_menubar(self):
         class FakeEditorTab(QWidget):
@@ -846,6 +913,48 @@ class EditorAndMainTests(unittest.TestCase):
             self.assertIn("Find/Replace", edit_actions)
             self.assertNotIn("Settings", edit_actions)
             self.assertIn("QMenuBar#appMenuBar", QApplication.instance().styleSheet())
+
+    def test_plugin_menu_deduplicates_sidebar_items_that_open_existing_panels(self):
+        class FakeEditorTab(QWidget):
+            def __init__(self, snippet_manager, settings_manager):
+                super().__init__()
+                self.editor = QTextEdit(self)
+                self.current_file = None
+
+            def set_main_window(self, main_window):
+                self.main_window = main_window
+
+        class FakeRegistry:
+            def __init__(self):
+                self.commands = []
+                self.panels = [
+                    {"id": "browser-panel.panel", "title": "Browser", "type": "python"},
+                ]
+                self.sidebar_items = [
+                    {"id": "browser-panel.sidebar", "title": "Browser", "panel": "browser-panel.panel"},
+                ]
+                self.toolbar_actions = []
+                self.panel_factories = {}
+                self.command_callbacks = {}
+
+        class FakePluginManager:
+            def __init__(self, settings_manager):
+                self.registry = FakeRegistry()
+
+            def refresh(self):
+                return []
+
+            def activate_enabled_plugins(self):
+                return self.registry
+
+        with patch.object(main_module, "EditorTab", FakeEditorTab), patch.object(main_module, "PluginManager", FakePluginManager):
+            window = TextEditorApp()
+            self.addCleanup(window.close)
+            self.addCleanup(window.deleteLater)
+
+            plugins_menu = next(action.menu() for action in window.menuBar().actions() if action.text() == "Plugins")
+            plugin_actions = [action.text() for action in plugins_menu.actions() if not action.isSeparator()]
+            self.assertEqual(plugin_actions, ["Browser"])
 
     def test_main_window_closes_rss_tabs_without_editor_assumption(self):
         class FakeEditorTab(QWidget):
