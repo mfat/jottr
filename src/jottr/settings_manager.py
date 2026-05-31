@@ -4,6 +4,19 @@ from PyQt6.QtGui import QFont
 import time
 import sys
 
+DEFAULT_ENABLED_PLUGIN_NAMES = {"browser-panel", "rss-feed"}
+DEFAULT_PLUGIN_REGISTRY_URL = "https://raw.githubusercontent.com/Jottrhq/plugins/main/plugins.json"
+DEFAULT_PLUGIN_REGISTRY_CHECKSUM_URL = "https://raw.githubusercontent.com/Jottrhq/plugins/main/plugins.json.sha256"
+DEFAULT_PLUGIN_CHANNELS = [
+    {
+        "name": "Official",
+        "url": DEFAULT_PLUGIN_REGISTRY_URL,
+        "checksumUrl": DEFAULT_PLUGIN_REGISTRY_CHECKSUM_URL,
+        "enabled": True,
+        "verified": True,
+    }
+]
+
 class SettingsManager:
     def __init__(self):
         # Initialize default settings
@@ -26,7 +39,6 @@ class SettingsManager:
             "autosave_enabled": False,
             "autosave_interval_seconds": 30,
             "markdown_scroll_sync": True,
-            "mermaid_runtime": "bundled",
             "editor_line_numbers": True,
             "double_click_empty_tab_bar_new_tab": True,
             "double_click_tab_closes_tab": True,
@@ -42,6 +54,13 @@ class SettingsManager:
             "workspace_sessions": {},
             "workspace_open_files": [],
             "workspace_markdown_files": [],
+            "plugins_directory": "",
+            "plugin_remote_sources": [],
+            "plugin_registry_url": DEFAULT_PLUGIN_REGISTRY_URL,
+            "plugin_registry_checksum_url": DEFAULT_PLUGIN_REGISTRY_CHECKSUM_URL,
+            "plugin_channels": DEFAULT_PLUGIN_CHANNELS,
+            "plugin_channel_filter": "all",
+            "plugin_state": {},
             "pane_states": {
                 "snippets_visible": False,
                 "browser_visible": False,
@@ -67,6 +86,7 @@ class SettingsManager:
         self.settings_file = os.path.join(self.config_dir, 'settings.json')
         self.snippets_dir = os.path.join(self.config_dir, 'snippets')
         self.dict_file = os.path.join(self.config_dir, 'user_dictionary.txt')
+        self.settings["plugins_directory"] = os.path.join(self.config_dir, "plugins")
         
         # Create snippets directory
         os.makedirs(self.snippets_dir, exist_ok=True)
@@ -349,3 +369,7 @@ class SettingsManager:
                 json.dump(self.settings, f)
         except Exception as e:
             print(f"Failed to save setting {key}: {str(e)}")
+
+    def is_plugin_enabled(self, plugin_name):
+        state = self.settings.get("plugin_state", {}).get(plugin_name, {})
+        return bool(state.get("enabled", plugin_name in DEFAULT_ENABLED_PLUGIN_NAMES))

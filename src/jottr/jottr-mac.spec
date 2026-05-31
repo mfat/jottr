@@ -26,6 +26,7 @@ aspell_cellar = '/usr/local/Cellar/aspell/0.60.8.1_1'
 datas = [
     ('editor_tab.py', '.'),
     ('snippet_manager.py', '.'),
+    ('plugin_manager.py', '.'),
     ('rss_tab.py', '.'),
     ('theme_manager.py', '.'),
     ('settings_manager.py', '.'),
