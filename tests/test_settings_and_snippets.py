@@ -51,7 +51,6 @@ class SettingsAndSnippetTests(unittest.TestCase):
         self.assertFalse(manager.get_setting("autosave_enabled"))
         self.assertEqual(manager.get_setting("autosave_interval_seconds"), 30)
         self.assertTrue(manager.get_setting("enable_animations"))
-        self.assertEqual(manager.get_setting("mermaid_runtime"), "bundled")
         self.assertTrue(manager.get_setting("double_click_empty_tab_bar_new_tab"))
         self.assertTrue(manager.get_setting("double_click_tab_closes_tab"))
         self.assertEqual(manager.get_setting("workspace_path"), "")

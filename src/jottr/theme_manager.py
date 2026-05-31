@@ -399,7 +399,7 @@ class ThemeManager:
                 color: {editor_theme['foreground']};
                 selection-background-color: {editor_theme['selection']};
                 border: 1px solid {editor_theme['border']};
-                border-radius: 3px;
+                border-radius: 0px;
                 padding: 18px 22px;
                 font-family: "{font_family}";
                 font-size: {point_size:g}pt;
@@ -441,7 +441,7 @@ class ThemeManager:
             QToolBar#mainToolBar QToolButton {{
                 background: transparent;
                 border: 1px solid transparent;
-                border-radius: 5px;
+                border-radius: 0px;
                 color: {app['text']};
                 margin: 0px 1px;
                 padding: 6px 7px;
@@ -484,7 +484,7 @@ class ThemeManager:
             QMenuBar#appMenuBar::item {{
                 background: transparent;
                 border: 1px solid transparent;
-                border-radius: 5px;
+                border-radius: 0px;
                 color: {app['text']};
                 margin: 1px 2px;
                 padding: 5px 10px;
@@ -528,11 +528,11 @@ class ThemeManager:
             QPushButton#workspaceTitle {{
                 background: transparent;
                 border: 1px solid transparent;
-                border-radius: 4px;
+                border-radius: 0px;
                 color: {app['text']};
                 font-weight: 700;
                 padding: 2px 5px;
-                text-align: left;
+                text-align: center;
             }}
             QPushButton#workspaceTitle:hover {{
                 background: {app['surface_hover']};
@@ -550,7 +550,7 @@ class ThemeManager:
             QPushButton#workspaceToolButton {{
                 background: {app['surface']};
                 border: 1px solid {app['border']};
-                border-radius: 5px;
+                border-radius: 0px;
                 color: {app['text']};
                 font-size: 17px;
                 font-weight: 700;
@@ -576,7 +576,7 @@ class ThemeManager:
             }}
             QTreeView#workspaceTree::item {{
                 min-height: 26px;
-                border-radius: 4px;
+                border-radius: 0px;
                 padding: 4px 7px;
                 margin: 1px 4px 1px 0px;
             }}
@@ -607,23 +607,39 @@ class ThemeManager:
             QTreeView#workspaceTree::branch:!has-children {{
                 border-left: 1px solid {app['border']};
             }}
-            QTabBar::tab {{
+            QTabWidget#documentTabs QTabBar::tab {{
                 background: transparent;
                 color: {app['muted']};
                 border: none;
+                border-right: 1px solid {app['border']};
                 border-bottom: 2px solid transparent;
-                padding: 8px 14px 7px 14px;
+                height: 38px;
                 min-width: 118px;
                 margin: 0px;
+                padding: 0px 30px 0px 14px;
+                text-align: center;
             }}
-            QTabBar::tab:selected {{
+            QTabWidget#documentTabs QTabBar::tab:selected {{
                 background: {app['surface']};
                 color: {app['text']};
+                border-right: 1px solid {app['border_active']};
                 border-bottom: 2px solid {app['accent']};
             }}
-            QTabBar::tab:hover:!selected {{
+            QTabWidget#documentTabs QTabBar::tab:hover:!selected {{
                 background: {app['surface_hover']};
                 color: {app['text']};
+            }}
+            QTabWidget#documentTabs QTabBar::close-button {{
+                subcontrol-position: center right;
+                width: 14px;
+                height: 14px;
+                margin-right: 8px;
+                margin-top: 0px;
+                margin-bottom: 2px;
+            }}
+            QTabWidget#documentTabs QTabBar::close-button:hover {{
+                background: {app['surface_hover']};
+                border-radius: 0px;
             }}
             QStatusBar#statusBar {{
                 background: {app['surface']};
@@ -634,7 +650,7 @@ class ThemeManager:
             QMenu {{
                 background: {app['surface']};
                 border: 1px solid {app['border']};
-                border-radius: 6px;
+                border-radius: 0px;
                 padding: 7px;
                 color: {app['text']};
                 {font_style}
@@ -643,7 +659,7 @@ class ThemeManager:
                 color: {app['text']};
                 padding: 8px 30px 8px 28px;
                 border: 1px solid transparent;
-                border-radius: 5px;
+                border-radius: 0px;
                 {font_style}
             }}
             QMenu::item:selected {{
@@ -671,7 +687,7 @@ class ThemeManager:
                 background: {app['surface']};
                 color: {app['text']};
                 border: 1px solid {app['border']};
-                border-radius: 5px;
+                border-radius: 0px;
                 padding: 5px 28px 5px 9px;
                 selection-background-color: {app['surface_active']};
                 selection-color: {app['text']};
@@ -745,7 +761,7 @@ class ThemeManager:
                 background: {editor['background']};
                 color: {editor['foreground']};
                 border: 1px solid {editor['border']};
-                border-radius: 4px;
+                border-radius: 0px;
                 padding: 18px 22px;
                 selection-background-color: {editor['selection']};
             }}
@@ -770,7 +786,7 @@ class ThemeManager:
             QPushButton#panelCloseButton {{
                 background: {app['surface_alt']};
                 border: 1px solid transparent;
-                border-radius: 5px;
+                border-radius: 0px;
                 color: {app['muted']};
             }}
             QPushButton#panelCloseButton:hover {{
@@ -786,7 +802,7 @@ class ThemeManager:
             }}
             QListWidget#snippetList::item {{
                 padding: 8px 10px;
-                border-radius: 4px;
+                border-radius: 0px;
             }}
             QListWidget#snippetList::item:selected {{
                 background: {app['surface_active']};
@@ -805,7 +821,7 @@ class ThemeManager:
                 background: {app['surface']};
                 color: {app['text']};
                 border: 1px solid {app['border']};
-                border-radius: 5px;
+                border-radius: 0px;
                 padding: 5px 9px;
                 selection-background-color: {editor['selection']};
             }}
@@ -817,7 +833,7 @@ class ThemeManager:
             QWidget#browserToolbar QPushButton {{
                 background: transparent;
                 border: 1px solid transparent;
-                border-radius: 5px;
+                border-radius: 0px;
                 padding: 5px 8px;
                 color: {app['text']};
             }}
@@ -842,7 +858,7 @@ class ThemeManager:
             QTabWidget::pane {{
                 background: {app['surface']};
                 border: 1px solid {app['border']};
-                border-radius: 5px;
+                border-radius: 0px;
                 top: 0px;
             }}
             QTabBar::tab {{
@@ -868,7 +884,7 @@ class ThemeManager:
             QGroupBox {{
                 background: {app['surface']};
                 border: 1px solid {app['border']};
-                border-radius: 5px;
+                border-radius: 0px;
                 margin-top: 12px;
                 padding: 14px 10px 10px 10px;
                 font-weight: 700;
@@ -888,7 +904,7 @@ class ThemeManager:
                 background: {app['surface']};
                 color: {app['text']};
                 border: 1px solid {app['border']};
-                border-radius: 5px;
+                border-radius: 0px;
                 padding: 6px 9px;
                 selection-background-color: {editor['selection']};
                 selection-color: {app['text']};
@@ -928,7 +944,7 @@ class ThemeManager:
                 {font_style}
             }}
             QListWidget::item {{
-                border-radius: 4px;
+                border-radius: 0px;
                 padding: 7px 8px;
             }}
             QListWidget::item:selected {{
@@ -939,13 +955,13 @@ class ThemeManager:
                 background: {editor['background']};
                 color: {editor['foreground']};
                 border: 1px solid {editor['border']};
-                border-radius: 5px;
+                border-radius: 0px;
                 padding: 10px;
             }}
             QPushButton {{
                 background: {app['surface']};
                 border: 1px solid {app['border']};
-                border-radius: 5px;
+                border-radius: 0px;
                 padding: 7px 12px;
                 color: {app['text']};
                 {font_style}
@@ -993,7 +1009,7 @@ class ThemeManager:
                 background: {app['surface_alt']};
                 color: {app['text']};
                 border: 1px solid {app['border']};
-                border-radius: 6px;
+                border-radius: 0px;
                 min-height: 30px;
                 padding: 5px 36px 5px 10px;
                 selection-background-color: {app['surface_active']};
@@ -1014,8 +1030,8 @@ class ThemeManager:
                 subcontrol-position: top right;
                 background: {app['surface']};
                 border-left: 1px solid {app['border']};
-                border-top-right-radius: 6px;
-                border-bottom-right-radius: 6px;
+                border-top-right-radius: 0px;
+                border-bottom-right-radius: 0px;
                 width: 30px;
             }}
             QFontComboBox::down-arrow,
@@ -1046,14 +1062,14 @@ class ThemeManager:
                 background: {editor['background']};
                 color: {editor['foreground']};
                 border: 1px solid {editor['border']};
-                border-radius: 6px;
+                border-radius: 0px;
                 padding: 12px;
             }}
             QPushButton {{
                 background: {app['surface']};
                 color: {app['text']};
                 border: 1px solid {app['border']};
-                border-radius: 6px;
+                border-radius: 0px;
                 min-width: 76px;
                 padding: 7px 14px;
                 {font_style}

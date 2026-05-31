@@ -186,17 +186,6 @@ msgstr "ویرایش قطعه"
 msgid "Delete Snippet"
 msgstr "حذف قطعه"
 
-#: src/jottr/editor_tab.py:1467 src/jottr/editor_tab.py:2655
-msgid "Mermaid render error:"
-msgstr ""
-
-#: src/jottr/editor_tab.py:2654
-msgid "Mermaid runtime could not be loaded."
-msgstr ""
-
-msgid "Mermaid Runtime:"
-msgstr "زمان اجرای Mermaid:"
-
 msgid "Bundled (offline, stable)"
 msgstr "همراه برنامه (آفلاین، پایدار)"
 
@@ -959,3 +948,131 @@ msgstr "عنوان:"
 #: src/jottr/snippet_editor_dialog.py:23
 msgid "Content:"
 msgstr "محتوا:"
+
+#: src/jottr/settings_dialog.py
+msgid "Plugin Sources"
+msgstr "منابع افزونه‌ها"
+
+#: src/jottr/settings_dialog.py
+msgid "Local plugins folder:"
+msgstr "پوشهٔ افزونه‌های محلی:"
+
+#: src/jottr/settings_dialog.py
+msgid "Plugin index:"
+msgstr "نمایهٔ افزونه‌ها:"
+
+#: src/jottr/settings_dialog.py
+msgid "Checksum URL"
+msgstr "نشانی checksum"
+
+#: src/jottr/settings_dialog.py
+msgid "Update Index"
+msgstr "به‌روزرسانی نمایه"
+
+#: src/jottr/settings_dialog.py
+msgid "Select a plugin"
+msgstr "یک افزونه را انتخاب کنید"
+
+#: src/jottr/settings_dialog.py
+msgid "Version"
+msgstr "نسخه"
+
+#: src/jottr/settings_dialog.py
+msgid "Installed"
+msgstr "نصب‌شده"
+
+#: src/jottr/settings_dialog.py
+msgid "Source"
+msgstr "منبع"
+
+#: src/jottr/settings_dialog.py
+msgid "Permissions"
+msgstr "مجوزها"
+
+#: src/jottr/settings_dialog.py
+msgid "None"
+msgstr "هیچ‌کدام"
+
+#: src/jottr/settings_dialog.py
+msgid "Enabled"
+msgstr "فعال"
+
+#: src/jottr/settings_dialog.py
+msgid "Disabled"
+msgstr "غیرفعال"
+
+#: src/jottr/settings_dialog.py
+msgid "Registry"
+msgstr "رجیستری"
+
+#: src/jottr/settings_dialog.py
+msgid "Remote"
+msgstr "راه‌دور"
+
+#: src/jottr/settings_dialog.py
+msgid "Local"
+msgstr "محلی"
+
+#: src/jottr/settings_dialog.py
+msgid "Enable"
+msgstr "فعال‌سازی"
+
+#: src/jottr/settings_dialog.py
+msgid "Disable"
+msgstr "غیرفعال‌سازی"
+
+#: src/jottr/settings_dialog.py
+msgid "Update"
+msgstr "به‌روزرسانی"
+
+#: src/jottr/settings_dialog.py
+msgid "Remove"
+msgstr "حذف"
+
+#: src/jottr/settings_dialog.py
+msgid "Remote plugins require permission review before they can run code."
+msgstr "افزونه‌های راه‌دور پیش از اجرای کد نیاز به بررسی مجوزها دارند."
+
+#: src/jottr/settings_dialog.py
+msgid "Choose Plugins Folder"
+msgstr "انتخاب پوشهٔ افزونه‌ها"
+
+#: src/jottr/settings_dialog.py
+msgid "Could not update plugin index: {error}"
+msgstr "امکان به‌روزرسانی نمایهٔ افزونه‌ها وجود ندارد: {error}"
+
+#: src/jottr/settings_dialog.py
+msgid "Enable Remote Plugin"
+msgstr "فعال‌سازی افزونهٔ راه‌دور"
+
+#: src/jottr/settings_dialog.py
+msgid "Enable this remote plugin?\n\nPermissions: {permissions}\n\n{warning}"
+msgstr "این افزونهٔ راه‌دور فعال شود؟\n\nمجوزها: {permissions}\n\n{warning}"
+
+#: src/jottr/settings_dialog.py
+msgid "Could not install plugin version: {error}"
+msgstr "امکان نصب نسخهٔ افزونه وجود ندارد: {error}"
+
+#: src/jottr/settings_dialog.py
+msgid "Could not update plugin: {error}"
+msgstr "امکان به‌روزرسانی افزونه وجود ندارد: {error}"
+
+#: src/jottr/settings_dialog.py
+msgid "Remove Plugin"
+msgstr "حذف افزونه"
+
+#: src/jottr/settings_dialog.py
+msgid "Remove {plugin}?"
+msgstr "{plugin} حذف شود؟"
+
+#: src/jottr/settings_dialog.py
+msgid "Could not remove plugin: {error}"
+msgstr "امکان حذف افزونه وجود ندارد: {error}"
+
+#: src/jottr/settings_dialog.py src/jottr/main.py
+msgid "Apply"
+msgstr "اعمال"
+
+#: src/jottr/settings_dialog.py src/jottr/main.py
+msgid "Settings applied"
+msgstr "تنظیمات اعمال شد"

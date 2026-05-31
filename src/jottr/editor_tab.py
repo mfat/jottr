@@ -45,12 +45,35 @@ try:
 except (ImportError, ModuleNotFoundError):
     SpellChecker = None
 
+
+class FallbackSpellChecker:
+    def __init__(self):
+        self.word_frequency = self
+
+    def __contains__(self, word):
+        return True
+
+    def check(self, word):
+        return True
+
+    def suggest(self, word):
+        return []
+
+    def candidates(self, word):
+        return set()
+
+    def add(self, word):
+        return None
+
 try:
     from enchant import Dict, DictNotFoundError
     USE_ENCHANT = True
 except (ImportError, ModuleNotFoundError) as e:
     print("Enchant not available, falling back to pyspellchecker:", str(e))
     USE_ENCHANT = False
+
+if SpellChecker is None:
+    SpellChecker = FallbackSpellChecker
 
 class SpellCheckHighlighter(QSyntaxHighlighter):
     def __init__(self, parent, settings_manager):
@@ -563,8 +586,6 @@ class MarkdownPreviewPage(QWebEnginePage):
         print(f"Markdown preview JS: {message} ({source_id}:{line_number})")
 
 class EditorTab(QWidget):
-    MERMAID_LATEST_CDN_URL = "https://cdn.jsdelivr.net/npm/mermaid@latest/dist/mermaid.min.js"
-
     def __init__(self, snippet_manager, settings_manager):
         super().__init__()
         self.snippet_manager = snippet_manager
@@ -592,8 +613,6 @@ class EditorTab(QWidget):
             tempfile.gettempdir(),
             f'jottr_markdown_preview_{id(self)}.html'
         )
-        self._mermaid_script_content = None
-        
         # Add USE_ENCHANT as instance attribute
         self.USE_ENCHANT = USE_ENCHANT  # Use the module-level variable
         
@@ -1116,9 +1135,6 @@ class EditorTab(QWidget):
                 """
                 (async function () {
                     try {
-                        if (typeof renderMermaidDiagrams === 'function') {
-                            await renderMermaidDiagrams();
-                        }
                         if (window.MathJax && window.MathJax.typesetPromise) {
                             var mathNodes = Array.prototype.slice.call(
                                 document.querySelectorAll('.math-inline, .math-block')
@@ -1213,66 +1229,67 @@ class EditorTab(QWidget):
         if selected_text:
             
             
-            # Add search submenu
-            search_menu = menu.addMenu(_("Search in..."))
-            
-            # Get site-specific searches from settings
-            search_sites = self.settings_manager.get_setting('search_sites', {
-                'AP News': 'site:apnews.com',
-                'Reuters': 'site:reuters.com',
-                'BBC News': 'site:bbc.com/news'
-            })
-            
-            # Add search actions for each site
-            for name, site_query in search_sites.items():
-                action = search_menu.addAction(name)
-                search_url = f"https://www.google.com/search?q={quote(selected_text)}+{site_query}"
-                action.triggered.connect(lambda checked, url=search_url: 
+            if self.browser_panel_enabled():
+                # Add search submenu
+                search_menu = menu.addMenu(_("Search in..."))
+                
+                # Get site-specific searches from settings
+                search_sites = self.settings_manager.get_setting('search_sites', {
+                    'AP News': 'site:apnews.com',
+                    'Reuters': 'site:reuters.com',
+                    'BBC News': 'site:bbc.com/news'
+                })
+                
+                # Add search actions for each site
+                for name, site_query in search_sites.items():
+                    action = search_menu.addAction(name)
+                    search_url = f"https://www.google.com/search?q={quote(selected_text)}+{site_query}"
+                    action.triggered.connect(lambda checked, url=search_url: 
+                        self.search_in_browser(url))
+                
+                # Add separator and regular Google search
+                search_menu.addSeparator()
+                google_action = search_menu.addAction(_("Google"))
+                google_url = f"https://www.google.com/search?q={quote(selected_text)}"
+                google_action.triggered.connect(lambda checked, url=google_url: 
                     self.search_in_browser(url))
-            
-            # Add separator and regular Google search
-            search_menu.addSeparator()
-            google_action = search_menu.addAction(_("Google"))
-            google_url = f"https://www.google.com/search?q={quote(selected_text)}"
-            google_action.triggered.connect(lambda checked, url=google_url: 
-                self.search_in_browser(url))
-            # Add Wikipedia search
-            wiki_action = search_menu.addAction(_("Wikipedia"))
-            wiki_url = f"https://en.wikipedia.org/w/index.php?search={quote(selected_text)}"
-            wiki_action.triggered.connect(lambda checked, url=wiki_url: 
-                self.search_in_browser(url))
-            
-            # Add Google Scholar search
-            scholar_action = search_menu.addAction(_("Google Scholar"))
-            scholar_url = f"https://scholar.google.com/scholar?q={quote(selected_text)}"
-            scholar_action.triggered.connect(lambda checked, url=scholar_url: 
-                self.search_in_browser(url))
-            
-            # Add Google Maps search
-            maps_action = search_menu.addAction(_("Google Maps"))
-            maps_url = f"https://www.google.com/maps/search/{quote(selected_text)}"
-            maps_action.triggered.connect(lambda checked, url=maps_url: 
-                self.search_in_browser(url))
-            
-            # Add Google News search
-            news_action = search_menu.addAction(_("Google News"))
-            news_url = f"https://news.google.com/search?q={quote(selected_text)}"
-            news_action.triggered.connect(lambda checked, url=news_url: 
-                self.search_in_browser(url))
-            
-            # add google translate search
-            translate_action = search_menu.addAction(_("Google Translate"))
-            translate_url = f"https://translate.google.com/?sl=auto&tl=en&text={quote(selected_text)}"
-            translate_action.triggered.connect(lambda checked, url=translate_url: 
-                self.search_in_browser(url))
-            
-            # Add Google define search
-            dictionary_action = search_menu.addAction(_("Google Define"))
-            dictionary_url = f"https://www.google.com/search?q=define+{quote(selected_text)}"
-            dictionary_action.triggered.connect(lambda checked, url=dictionary_url: 
-                self.search_in_browser(url))
-            
-            menu.addSeparator()
+                # Add Wikipedia search
+                wiki_action = search_menu.addAction(_("Wikipedia"))
+                wiki_url = f"https://en.wikipedia.org/w/index.php?search={quote(selected_text)}"
+                wiki_action.triggered.connect(lambda checked, url=wiki_url: 
+                    self.search_in_browser(url))
+                
+                # Add Google Scholar search
+                scholar_action = search_menu.addAction(_("Google Scholar"))
+                scholar_url = f"https://scholar.google.com/scholar?q={quote(selected_text)}"
+                scholar_action.triggered.connect(lambda checked, url=scholar_url: 
+                    self.search_in_browser(url))
+                
+                # Add Google Maps search
+                maps_action = search_menu.addAction(_("Google Maps"))
+                maps_url = f"https://www.google.com/maps/search/{quote(selected_text)}"
+                maps_action.triggered.connect(lambda checked, url=maps_url: 
+                    self.search_in_browser(url))
+                
+                # Add Google News search
+                news_action = search_menu.addAction(_("Google News"))
+                news_url = f"https://news.google.com/search?q={quote(selected_text)}"
+                news_action.triggered.connect(lambda checked, url=news_url: 
+                    self.search_in_browser(url))
+                
+                # add google translate search
+                translate_action = search_menu.addAction(_("Google Translate"))
+                translate_url = f"https://translate.google.com/?sl=auto&tl=en&text={quote(selected_text)}"
+                translate_action.triggered.connect(lambda checked, url=translate_url: 
+                    self.search_in_browser(url))
+                
+                # Add Google define search
+                dictionary_action = search_menu.addAction(_("Google Define"))
+                dictionary_url = f"https://www.google.com/search?q=define+{quote(selected_text)}"
+                dictionary_action.triggered.connect(lambda checked, url=dictionary_url: 
+                    self.search_in_browser(url))
+                
+                menu.addSeparator()
             
             # Only show spell check options for single words
             if not ' ' in selected_text:
@@ -1306,6 +1323,9 @@ class EditorTab(QWidget):
 
     def search_in_browser(self, url):
         """Search the given URL in the browser pane"""
+        if not self.browser_panel_enabled():
+            return
+
         # Store URL to load
         self._pending_url = url
         
@@ -1353,6 +1373,8 @@ class EditorTab(QWidget):
 
     def ensure_browser_visible(self):
         """Ensure browser pane is visible"""
+        if not self.browser_panel_enabled():
+            return
         if not self.browser_widget.isVisible():
             self.browser_widget.setVisible(True)
             self.settings_manager.save_pane_visibility(
@@ -1362,6 +1384,8 @@ class EditorTab(QWidget):
 
     def search_google(self, text):
         """Search Google in browser pane"""
+        if not self.browser_panel_enabled():
+            return
         url = f"https://www.google.com/search?q={quote(text)}"
         
         # Store URL and ensure browser is visible
@@ -1626,6 +1650,9 @@ class EditorTab(QWidget):
         path = file_path or self.current_file or ""
         return os.path.splitext(path.lower())[1] in ('.md', '.markdown', '.mdown', '.mkd')
 
+    def browser_panel_enabled(self):
+        return self.settings_manager.is_plugin_enabled("browser-panel")
+
     def set_markdown_preview_visible(self, visible, save_state=True):
         """Show or hide the rendered markdown preview."""
         self.markdown_preview_visible = visible
@@ -1779,103 +1806,9 @@ class EditorTab(QWidget):
         if not hasattr(self, 'markdown_preview') or not self.markdown_preview_visible:
             return
 
-        mermaid_render_error = json.dumps(_("Mermaid render error:"))
         script = """
             (async function () {
                 let rendered = false;
-                if (window.mermaid) {
-                    try {
-                    if (window.jottrMermaidRendering) {
-                        return false;
-                    }
-                    window.jottrMermaidRendering = true;
-                    mermaid.initialize({
-                        startOnLoad: false,
-                        securityLevel: 'loose',
-                        theme: 'default'
-                    });
-
-                    function renderDiagram(renderId, source, diagram) {
-                        return new Promise(function (resolve, reject) {
-                            try {
-                                if (mermaid.render.length >= 3) {
-                                    mermaid.render(renderId, source, function (svg, bindFunctions) {
-                                        resolve({
-                                            svg: svg,
-                                            bindFunctions: bindFunctions
-                                        });
-                                    }, diagram);
-                                    return;
-                                }
-
-                                Promise.resolve(mermaid.render(renderId, source)).then(function (result) {
-                                    if (typeof result === 'string') {
-                                        resolve({
-                                            svg: result,
-                                            bindFunctions: null
-                                        });
-                                    } else {
-                                        resolve(result);
-                                    }
-                                }).catch(reject);
-                            } catch (error) {
-                                reject(error);
-                            }
-                        });
-                    }
-
-                    var diagrams = Array.prototype.slice.call(document.querySelectorAll('.mermaid'));
-                    diagrams = diagrams.filter(function (diagram) {
-                        return diagram.dataset.rendered !== 'true' && diagram.dataset.processed !== 'true';
-                    });
-
-                    if (diagrams.length && typeof mermaid.run === 'function') {
-                        try {
-                            await mermaid.run({
-                                nodes: diagrams,
-                                suppressErrors: false
-                            });
-                            diagrams.forEach(function (diagram) {
-                                diagram.dataset.rendered = 'true';
-                                diagram.classList.remove('mermaid-error');
-                            });
-                            rendered = true;
-                        } catch (error) {
-                            diagrams.forEach(function (diagram) {
-                                diagram.classList.add('mermaid-error');
-                                diagram.textContent = __MERMAID_RENDER_ERROR__ + ' ' + error.message + '\\n\\n' + diagram.textContent;
-                            });
-                            rendered = true;
-                        }
-                    } else {
-                        for (var index = 0; index < diagrams.length; index += 1) {
-                            var diagram = diagrams[index];
-
-                            var source = diagram.textContent;
-                            var renderId = 'jottr-mermaid-' + Date.now() + '-' + index;
-                            try {
-                                var result = await renderDiagram(renderId, source, diagram);
-                                diagram.innerHTML = result.svg;
-                                diagram.dataset.rendered = 'true';
-                                diagram.classList.remove('mermaid-error');
-                                if (result.bindFunctions) {
-                                    result.bindFunctions(diagram);
-                                }
-                                rendered = true;
-                            } catch (error) {
-                                diagram.classList.add('mermaid-error');
-                                diagram.textContent = __MERMAID_RENDER_ERROR__ + ' ' + error.message + '\\n\\n' + source;
-                                rendered = true;
-                            }
-                        }
-                    }
-                } catch (error) {
-                    console.error('Mermaid render failed', error);
-                } finally {
-                    window.jottrMermaidRendering = false;
-                }
-                }
-
                 if (window.MathJax && window.MathJax.typesetPromise) {
                     try {
                         if (!window.jottrMathJaxRendering) {
@@ -1892,10 +1825,9 @@ class EditorTab(QWidget):
                         window.jottrMathJaxRendering = false;
                     }
                 }
-
                 return rendered;
             })();
-        """.replace("__MERMAID_RENDER_ERROR__", mermaid_render_error)
+        """
         self.markdown_preview.page().runJavaScript(
             script,
             lambda _result: self.finish_markdown_preview_load()
@@ -2543,7 +2475,7 @@ class EditorTab(QWidget):
                 pre {{
                     background: #f6f8fa;
                     border: 1px solid #d0d7de;
-                    border-radius: 6px;
+                    border-radius: 0px;
                     padding: 12px;
                     white-space: pre-wrap;
                     margin: 0.9em 0;
@@ -2551,7 +2483,7 @@ class EditorTab(QWidget):
                 code {{
                     font-family: "DejaVu Sans Mono", "Consolas", monospace;
                     background: #f6f8fa;
-                    border-radius: 4px;
+                    border-radius: 0px;
                     padding: 2px 4px;
                 }}
                 pre code {{ background: transparent; padding: 0; }}
@@ -2674,73 +2606,67 @@ class EditorTab(QWidget):
             extensions=extensions,
             output_format='html5'
         )
-        body_html = self.render_mermaid_blocks(body_html)
+        body_html = self.apply_markdown_extensions(body_html)
         body_html = self.add_source_line_anchors(body_html, text)
         body_html = self.add_code_line_anchors(body_html)
 
         return self.wrap_markdown_preview_html(body_html, content_base_url, initial_scroll_ratio)
 
-    def render_mermaid_blocks(self, body_html):
-        """Convert mermaid fenced code blocks into Mermaid render targets."""
-        def replace_mermaid(match):
-            attributes = match.group(1) or ""
-            diagram_source = html.unescape(match.group(2)).strip()
-            if "language-mermaid" not in attributes and "mermaid" not in attributes:
-                return match.group(0)
-            return self.render_mermaid_block(diagram_source)
+    def markdown_extensions(self):
+        manager = getattr(getattr(self, "main_window", None), "plugin_manager", None)
+        registry = getattr(manager, "registry", None)
+        return list(getattr(registry, "markdown_extensions", []))
 
-        return re.sub(
-            r'<pre><code([^>]*)>(.*?)</code></pre>',
-            replace_mermaid,
-            body_html,
-            flags=re.DOTALL
-        )
+    def markdown_extension_context(self):
+        return {
+            "editor": self,
+            "settings_manager": self.settings_manager,
+            "main_window": self.main_window,
+        }
 
-    def render_mermaid_block(self, diagram_source):
-        """Render a Mermaid block with the configured Mermaid runtime."""
-        escaped_source = html.escape(diagram_source)
-
-        return (
-            '<div class="mermaid-block">'
-            f'<div class="mermaid">{escaped_source}</div>'
-            '</div>'
-        )
-
-    def get_mermaid_runtime_mode(self):
-        mode = self.settings_manager.get_setting("mermaid_runtime", "bundled")
-        return mode if mode in ("bundled", "latest") else "bundled"
-
-    def get_mermaid_script_tag(self):
-        """Return the script tag for the configured Mermaid runtime."""
-        if self.get_mermaid_runtime_mode() == "latest":
-            url = html.escape(self.MERMAID_LATEST_CDN_URL, quote=True)
-            return (
-                f'<script src="{url}"></script>'
-                f"<script>\nif (!window.mermaid) {{\n{self.get_mermaid_script_content()}\n}}\n</script>"
-            )
-        return f"<script>\n{self.get_mermaid_script_content()}\n</script>"
-
-    def get_mermaid_script_content(self):
-        """Return the bundled Mermaid renderer source for the preview page."""
-        cached_script = getattr(self, '_mermaid_script_content', None)
-        if cached_script is not None:
-            return cached_script
-
-        mermaid_path = os.path.join(
-            os.path.dirname(os.path.abspath(__file__)),
-            'vendor',
-            'mermaid.min.js'
-        )
+    def call_markdown_extension(self, extension, key, *args):
+        callback = extension.get(key)
+        if not callable(callback):
+            return "" if key.endswith("_html") else None
         try:
-            with open(mermaid_path, 'r', encoding='utf-8') as mermaid_file:
-                script_content = mermaid_file.read()
-        except OSError:
-            script_content = ""
+            return callback(*args, self.markdown_extension_context())
+        except TypeError:
+            return callback(*args)
 
-        # Keep the inline script from accidentally closing its own script tag.
-        script_content = script_content.replace("</script", "<\\/script")
-        self._mermaid_script_content = script_content
-        return script_content
+    def apply_markdown_extensions(self, body_html):
+        for extension in self.markdown_extensions():
+            callback = extension.get("process_html")
+            if not callable(callback):
+                continue
+            try:
+                body_html = callback(body_html, self.markdown_extension_context())
+            except TypeError:
+                body_html = callback(body_html)
+        return body_html
+
+    def render_markdown_extension_head_html(self):
+        parts = []
+        for extension in self.markdown_extensions():
+            value = self.call_markdown_extension(extension, "head_html")
+            if value:
+                parts.append(str(value))
+        return "\n".join(parts)
+
+    def render_markdown_extension_style_html(self):
+        parts = []
+        for extension in self.markdown_extensions():
+            value = self.call_markdown_extension(extension, "style_html")
+            if value:
+                parts.append(str(value))
+        return "\n".join(parts)
+
+    def render_markdown_extension_body_html(self):
+        parts = []
+        for extension in self.markdown_extensions():
+            value = self.call_markdown_extension(extension, "body_html")
+            if value:
+                parts.append(str(value))
+        return "\n".join(parts)
 
     def preprocess_markdown_extensions(self, text):
         """Preprocess syntax that Python-Markdown does not handle by default."""
@@ -3027,7 +2953,9 @@ class EditorTab(QWidget):
 
     def wrap_markdown_preview_html(self, body_html, content_base_url="", initial_scroll_ratio=None):
         """Wrap rendered body HTML in Jottr preview CSS and scripts."""
-        mermaid_script_tag = self.get_mermaid_script_tag()
+        extension_head_html = self.render_markdown_extension_head_html()
+        extension_style_html = self.render_markdown_extension_style_html()
+        extension_body_html = self.render_markdown_extension_body_html()
         base_tag = f'<base href="{html.escape(content_base_url, quote=True)}">' if content_base_url else ''
         preview_font = QFont(getattr(self, "current_font", self.settings_manager.get_font("editor")))
         preview_family = html.escape(preview_font.family().replace("\\", "\\\\").replace('"', '\\"'), quote=True)
@@ -3038,8 +2966,6 @@ class EditorTab(QWidget):
         except (TypeError, ValueError):
             restore_scroll_ratio = 0.0
         restore_scroll_ratio_json = json.dumps(restore_scroll_ratio)
-        mermaid_runtime_error = json.dumps(_("Mermaid runtime could not be loaded."))
-        mermaid_render_error = json.dumps(_("Mermaid render error:"))
         return f"""
         <html dir="{dir_attr}">
         <head>
@@ -3107,7 +3033,7 @@ class EditorTab(QWidget):
                 pre {{
                     background: #f6f8fa;
                     border: 1px solid #d0d7de;
-                    border-radius: 6px;
+                    border-radius: 0px;
                     padding: 12px;
                     white-space: pre-wrap;
                     margin: 0.9em 0;
@@ -3115,7 +3041,7 @@ class EditorTab(QWidget):
                 code {{
                     font-family: "{preview_family}", "Consolas", monospace;
                     background: #f6f8fa;
-                    border-radius: 4px;
+                    border-radius: 0px;
                     padding: 2px 4px;
                 }}
                 pre code {{ background: transparent; padding: 0; }}
@@ -3176,31 +3102,7 @@ class EditorTab(QWidget):
                     font-weight: 700;
                     margin-top: 0;
                 }}
-                .mermaid {{
-                    background: #ffffff;
-                    border: 1px solid #d0d7de;
-                    border-radius: 6px;
-                    margin: 1em 0;
-                    padding: 12px;
-                    overflow-x: auto;
-                    text-align: center;
-                }}
-                .mermaid-svg {{
-                    display: block;
-                    height: auto;
-                    max-width: 100%;
-                    min-width: 220px;
-                }}
-                .mermaid svg {{
-                    display: inline-block;
-                    max-width: 100%;
-                }}
-                .mermaid-error {{
-                    color: #b42318;
-                    font-family: "DejaVu Sans Mono", "Consolas", monospace;
-                    text-align: start;
-                    white-space: pre-wrap;
-                }}
+                {extension_style_html}
             </style>
             <script>
                 window.MathJax = {{
@@ -3218,116 +3120,11 @@ class EditorTab(QWidget):
                 }};
             </script>
             <script async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js"></script>
-            {mermaid_script_tag}
-            <script>
-                async function renderMermaidDiagrams() {{
-                    if (!window.mermaid) {{
-                        document.querySelectorAll('.mermaid').forEach(function (diagram) {{
-                            diagram.classList.add('mermaid-error');
-                            diagram.textContent = {mermaid_runtime_error} + '\\n\\n' + diagram.textContent;
-                        }});
-                        return;
-                    }}
-
-                    try {{
-                        if (window.jottrMermaidRendering) {{
-                            return;
-                        }}
-                        window.jottrMermaidRendering = true;
-                        mermaid.initialize({{
-                            startOnLoad: false,
-                            securityLevel: 'loose',
-                            theme: 'default'
-                        }});
-
-                        function renderDiagram(renderId, source, diagram) {{
-                            return new Promise(function (resolve, reject) {{
-                                try {{
-                                    if (mermaid.render.length >= 3) {{
-                                        mermaid.render(renderId, source, function (svg, bindFunctions) {{
-                                            resolve({{
-                                                svg: svg,
-                                                bindFunctions: bindFunctions
-                                            }});
-                                        }}, diagram);
-                                        return;
-                                    }}
-
-                                    Promise.resolve(mermaid.render(renderId, source)).then(function (result) {{
-                                        if (typeof result === 'string') {{
-                                            resolve({{
-                                                svg: result,
-                                                bindFunctions: null
-                                            }});
-                                        }} else {{
-                                            resolve(result);
-                                        }}
-                                    }}).catch(reject);
-                                }} catch (error) {{
-                                    reject(error);
-                                }}
-                            }});
-                        }}
-
-                        var diagrams = Array.prototype.slice.call(document.querySelectorAll('.mermaid'));
-                        diagrams = diagrams.filter(function (diagram) {{
-                            return diagram.dataset.rendered !== 'true' && diagram.dataset.processed !== 'true';
-                        }});
-
-                        if (diagrams.length && typeof mermaid.run === 'function') {{
-                            try {{
-                                await mermaid.run({{
-                                    nodes: diagrams,
-                                    suppressErrors: false
-                                }});
-                                diagrams.forEach(function (diagram) {{
-                                    diagram.dataset.rendered = 'true';
-                                    diagram.classList.remove('mermaid-error');
-                                }});
-                            }} catch (error) {{
-                                diagrams.forEach(function (diagram) {{
-                                    diagram.classList.add('mermaid-error');
-                                    diagram.textContent = {mermaid_render_error} + ' ' + error.message + '\\n\\n' + diagram.textContent;
-                                }});
-                            }}
-                        }} else {{
-                            for (var index = 0; index < diagrams.length; index += 1) {{
-                                var diagram = diagrams[index];
-
-                                var source = diagram.textContent;
-                                var renderId = 'jottr-mermaid-' + Date.now() + '-' + index;
-                                try {{
-                                    var result = await renderDiagram(renderId, source, diagram);
-                                    diagram.innerHTML = result.svg;
-                                    diagram.dataset.rendered = 'true';
-                                    diagram.classList.remove('mermaid-error');
-                                    if (result.bindFunctions) {{
-                                        result.bindFunctions(diagram);
-                                    }}
-                                }} catch (error) {{
-                                    diagram.classList.add('mermaid-error');
-                                    diagram.textContent = {mermaid_render_error} + ' ' + error.message + '\\n\\n' + source;
-                                }}
-                            }}
-                        }}
-                    }} catch (error) {{
-                        console.error('Mermaid render failed', error);
-                    }} finally {{
-                        window.jottrMermaidRendering = false;
-                    }}
-                }}
-
-                if (document.readyState === 'loading') {{
-                    document.addEventListener('DOMContentLoaded', renderMermaidDiagrams);
-                }} else {{
-                    renderMermaidDiagrams();
-                }}
-
-                window.addEventListener('load', renderMermaidDiagrams);
-            </script>
+            {extension_head_html}
         </head>
         <body dir="{dir_attr}">
             {body_html}
+            {extension_body_html}
         </body>
         </html>
         """
@@ -3373,6 +3170,8 @@ class EditorTab(QWidget):
                     self.splitter.setSizes([new_editor_size, new_snippet_size, current_sizes[2]])
                     
         elif pane_type == "browser":
+            if not self.browser_panel_enabled():
+                return
             is_visible = self.browser_widget.isVisible()
             
             if is_visible:
@@ -3545,7 +3344,7 @@ class EditorTab(QWidget):
             QTextEdit#writingEditor {
                 background: #ffffff;
                 border: 1px solid #d7e0ea;
-                border-radius: 3px;
+                border-radius: 0px;
                 padding: 36px 48px;
                 font-size: 15pt;
             }
@@ -3558,7 +3357,7 @@ class EditorTab(QWidget):
             QPushButton {
                 background-color: #ffffff;
                 border: 1px solid #cbd5e1;
-                border-radius: 3px;
+                border-radius: 0px;
                 padding: 9px 16px;
                 min-width: 120px;
                 min-height: 32px;
@@ -3900,12 +3699,12 @@ class EditorTab(QWidget):
             QWidget {
                 background-color: palette(window);
                 border: 1px solid palette(mid);
-                border-radius: 3px;
+                border-radius: 0px;
             }
             QLabel {
                 padding: 2px 8px;
                 color: palette(text);
-                border-radius: 2px;
+                border-radius: 0px;
                 margin: 1px;
                 font-family: "Courier New", "DejaVu Sans Mono", monospace;
             }
@@ -3979,7 +3778,7 @@ class EditorTab(QWidget):
             if i == self.selected_suggestion_index:
                 container.setStyleSheet("""
                     background-color: palette(highlight);
-                    border-radius: 2px;
+                    border-radius: 0px;
                     QLabel { color: palette(highlighted-text); }
                 """)
             else:
