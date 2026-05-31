@@ -162,7 +162,6 @@ echo "==> Building PyInstaller bundle"
     --add-data "translation_manager.py:." \
     --add-data "icons:icons" \
     --add-data "help:help" \
-    --add-data "vendor:vendor" \
     main.py
 )
 

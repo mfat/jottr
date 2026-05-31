@@ -35,7 +35,6 @@ datas = [
     ('rss_reader.py', '.'),
     ('icons', 'icons'),
     ('help', 'help'),
-    ('vendor', 'vendor'),
     ('/Library/Frameworks/Python.framework/Versions/3.13/lib/python3.13/site-packages/enchant', 'enchant'),
     ('/Library/Frameworks/Python.framework/Versions/3.13/lib/python3.13/site-packages/spellchecker/resources', 'spellchecker/resources'),
 ]
