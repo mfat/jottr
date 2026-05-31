@@ -9,6 +9,5 @@ setup(
     url="https://github.com/mfat/jottr",
     package_dir={"": "src"},
     packages=find_packages(where="src"),
-    package_data={"jottr": ["vendor/*.js"]},
     include_package_data=True,
 ) 

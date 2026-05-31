@@ -277,7 +277,6 @@ jobs:
             --add-data "translation_manager.py:." \
             --add-data "icons:icons" \
             --add-data "help:help" \
-            --add-data "vendor:vendor" \
             main.py
 
       - name: Build AppDir
@@ -397,7 +396,6 @@ jobs:
             --add-data "rss_reader.py:." \
             --add-data "icons:icons" \
             --add-data "help:help" \
-            --add-data "vendor:vendor" \
             main.py
 
       - name: Create unsigned DMG
