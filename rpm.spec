@@ -1,6 +1,6 @@
 Name:           jottr
 # x-release-please-start-version
-Version:        2.1.2
+Version:        2.2.0
 # x-release-please-end
 Release:        1%{?dist}
 Summary:        A simple text editor for writers, journalists and researchers
