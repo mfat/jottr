@@ -23,7 +23,7 @@
 
   <!-- Release information -->
   <releases>
-    <release version="2.2.0" date="2025-03-01">
+    <release version="2.2.1" date="2025-03-01">
       <description>
         <p>Bug fixes and improvements</p>
         <p>Context menu reordered</p>

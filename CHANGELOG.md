@@ -1,5 +1,13 @@
 # Changelog
 
+## [2.2.1](https://github.com/mfat/jottr/compare/v2.2.0...v2.2.1) (2026-05-31)
+
+
+### Bug Fixes
+
+* **build:** remove stale vendor packaging references ([555b779](https://github.com/mfat/jottr/commit/555b7793809ca45b223855be4f707e1ab1580512))
+* **build:** remove stale vendor packaging references ([bb8493f](https://github.com/mfat/jottr/commit/bb8493fc747d6240573d0f4de376029636589170))
+
 ## [2.2.0](https://github.com/mfat/jottr/compare/v2.1.2...v2.2.0) (2026-05-31)
 
 
