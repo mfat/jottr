@@ -383,7 +383,7 @@ When moving an existing app feature into a registry plugin:
 3. Release plugin zips from that repository and publish the SHA-256 checksum.
 4. Add the version entry to `Jottrhq/plugins/plugins.json`.
 5. Gate optional host behavior with `SettingsManager.is_plugin_enabled("<plugin-name>")` when the host still owns the low-level implementation.
-6. Keep the app packaging pointed at `src/jottr/plugin_registry/`, not plugin implementation folders.
+6. Keep the app packaging pointed at plugin runtime code only; plugin indexes are fetched from configured remote channels, not bundled in the app.
 
 ## Minimal Manifest-Only Plugin
 
