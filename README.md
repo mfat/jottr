@@ -63,3 +63,7 @@ To run Jottr on Mac you need to install  echant through [homebrew](https://brew.
 ### Releases:
 
 Automated release management is documented in [docs/releases.md](docs/releases.md).
+
+### Plugins:
+
+The plugin authoring and app integration standard is documented in [docs/plugins.md](docs/plugins.md).
