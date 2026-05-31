@@ -1,5 +1,25 @@
 # Changelog
 
+## [2.2.0](https://github.com/mfat/jottr/compare/v2.1.2...v2.2.0) (2026-05-31)
+
+
+### Features
+
+* add plugin system with remote channels ([fc1fc1d](https://github.com/mfat/jottr/commit/fc1fc1d6edb149495d90753aba451a932b2442ab))
+* **plugin:** add registry-based plugin system ([47c4a86](https://github.com/mfat/jottr/commit/47c4a86a05d9dd1299a8eb170eaa4bd8538cadbd))
+* **settings:** add plugin manager and settings workspace tab ([f9afb5d](https://github.com/mfat/jottr/commit/f9afb5d6d1a2cbb4f9bdf3b4bd2d21929762c0a2))
+
+
+### Code Refactoring
+
+* **markdown:** move mermaid support to plugins ([68dc27c](https://github.com/mfat/jottr/commit/68dc27cb8e4f34d768c624d7b1f7186e1459ed04))
+
+
+### Documentation
+
+* **plugin:** add plugin authoring standard ([7c0f4f8](https://github.com/mfat/jottr/commit/7c0f4f8d1e6908f88251fdb9d9c96a480c244990))
+* **plugin:** Minor update on how plugins works ([344f01e](https://github.com/mfat/jottr/commit/344f01e13dcc78aeb9a7e7ecaee77a45dfc9ba3e))
+
 ## [2.1.2](https://github.com/mfat/jottr/compare/v2.1.1...v2.1.2) (2026-05-22)
 
 
