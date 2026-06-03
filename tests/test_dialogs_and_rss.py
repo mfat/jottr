@@ -14,7 +14,7 @@ SRC_DIR = PROJECT_ROOT / "src" / "jottr"
 sys.path.insert(0, str(SRC_DIR))
 
 from PyQt6.QtCore import Qt
-from PyQt6.QtWidgets import QApplication, QLabel, QMessageBox, QScrollArea, QWidget
+from PyQt6.QtWidgets import QApplication, QLabel, QMessageBox, QPushButton, QScrollArea, QWidget
 
 from feed_manager_dialog import FeedManagerDialog
 from rss_reader import RSSReader
@@ -201,6 +201,24 @@ class DialogAndRssTests(unittest.TestCase):
             for index in range(dialog.settings_nav.count())
         ]
         self.assertNotIn("Browser", nav_items)
+
+    def test_embedded_settings_auto_saves_changes_without_footer_buttons(self):
+        manager = SettingsManager()
+        apply_callback = Mock()
+        dialog = SettingsDialog(manager, embedded=True, apply_callback=apply_callback)
+        self.addCleanup(dialog.deleteLater)
+
+        button_texts = {button.text() for button in dialog.findChildren(QPushButton)}
+        self.assertNotIn("Apply", button_texts)
+        self.assertNotIn("Close", button_texts)
+
+        dialog.homepage_edit.setText("https://example.test/")
+        self.assertTrue(dialog.auto_save_timer.isActive())
+        dialog.auto_save_timer.stop()
+        dialog.commit_auto_save()
+
+        apply_callback.assert_called_once_with(dialog)
+        self.assertEqual(dialog.get_data()["homepage"], "https://example.test/")
 
     def test_disabling_browser_plugin_removes_browser_settings_page(self):
         manager = SettingsManager()

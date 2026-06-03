@@ -6,24 +6,27 @@ if sys.version_info < (3, 10):
 import os
 import json
 import hashlib
+import signal
 from PyQt6.QtWidgets import (
                             QApplication, QMainWindow, QTabWidget, QWidget,
                             QVBoxLayout, QHBoxLayout, QSplitter, QMenu, QToolBar,
                             QMessageBox, QLabel, QDialog, QSizePolicy,
                             QDialogButtonBox, QTabBar, QFileDialog, QToolButton,
                             QTreeView, QInputDialog, QPushButton, QGraphicsOpacityEffect,
-                            QStyle, QStyleOptionTab, QStylePainter)
+                            QStyle, QStyleOptionTab, QStylePainter, QLineEdit,
+                            QGraphicsDropShadowEffect)
 from PyQt6.QtCore import (
     Qt, QUrl, QTimer, QEvent, QDir, QPropertyAnimation,
-    QEasingCurve, QParallelAnimationGroup, QRect
+    QEasingCurve, QParallelAnimationGroup, QRect, QPoint, QVariantAnimation,
+    QAbstractAnimation
 )
 from PyQt6.QtWebEngineWidgets import QWebEngineView
-from PyQt6.QtGui import QAction, QShortcut, QFileSystemModel, QPen
+from PyQt6.QtGui import QAction, QShortcut, QFileSystemModel
 from editor_tab import EditorTab
 from snippet_manager import SnippetManager
 from rss_tab import RSSTab
 import feedparser
-from PyQt6.QtGui import QIcon, QDesktopServices, QKeySequence, QColor
+from PyQt6.QtGui import QIcon, QDesktopServices, QKeySequence, QColor, QCursor, QPen
 from theme_manager import ThemeManager
 from settings_manager import SettingsManager
 from PyQt6.QtGui import QPixmap
@@ -45,33 +48,408 @@ if os.path.exists(vendor_dir):
 APP_NAME = "Jottr"
 APP_VERSION = "2.2.0"  # x-release-please-version
 APP_HOMEPAGE = "https://github.com/mfat/jottr"
+WORKSPACE_SIDEBAR_WIDTH = 210
+WORKSPACE_SIDEBAR_MIN_WIDTH = 180
+WORKSPACE_SIDEBAR_MAX_WIDTH = 480
 
 class WorkspaceFileSystemModel(QFileSystemModel):
     """File model that exposes full paths as tooltips."""
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.workspace_file_icon = QIcon()
+        self.workspace_folder_icon = QIcon()
+
+    def set_workspace_icons(self, file_icon, folder_icon):
+        self.workspace_file_icon = file_icon
+        self.workspace_folder_icon = folder_icon
+        self.layoutChanged.emit()
+
     def data(self, index, role=Qt.ItemDataRole.DisplayRole):
         if role == Qt.ItemDataRole.ToolTipRole and index.isValid():
             return self.filePath(index)
+        if (
+            role == Qt.ItemDataRole.DecorationRole
+            and index.isValid()
+            and index.column() == 0
+        ):
+            icon = self.workspace_folder_icon if self.isDir(index) else self.workspace_file_icon
+            if not icon.isNull():
+                return icon
         return super().data(index, role)
 
 
 class WorkspaceTreeView(QTreeView):
-    """Tree view with subtle branch guides for workspace hierarchy."""
+    """Tree view with deterministic connector lines and styled disclosure arrows."""
 
-    def drawBranches(self, painter, rect, index):
-        super().drawBranches(painter, rect, index)
-        if not index.isValid() or rect.width() <= 0:
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.connector_color = QColor("#4C8DFF")
+
+    def set_connector_color(self, color):
+        self.connector_color = QColor(color)
+        self.viewport().update()
+
+    def paintEvent(self, event):
+        super().paintEvent(event)
+        self.draw_connector_lines()
+
+    def draw_connector_lines(self):
+        model = self.model()
+        if model is None:
             return
 
-        color = self.palette().mid().color()
-        color.setAlpha(130)
-        painter.save()
-        painter.setPen(QPen(color, 1))
-        center_x = rect.right() - max(8, self.indentation() // 2)
-        center_y = rect.center().y()
-        painter.drawLine(center_x, rect.top(), center_x, rect.bottom())
-        painter.drawLine(center_x, center_y, rect.right(), center_y)
-        painter.restore()
+        painter = QPainter(self.viewport())
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing, False)
+        pen = QPen(self.connector_color)
+        pen.setWidth(1)
+        painter.setPen(pen)
+
+        index = self.indexAt(self.viewport().rect().topLeft())
+        if not index.isValid():
+            index = self.indexAt(QPoint(0, 1))
+
+        while index.isValid():
+            rect = self.visualRect(index)
+            if rect.top() > self.viewport().height():
+                break
+            if rect.bottom() >= 0:
+                self.draw_index_connectors(painter, index, rect)
+            index = self.indexBelow(index)
+
+        painter.end()
+
+    def draw_index_connectors(self, painter, index, rect):
+        root = self.rootIndex()
+        indent = max(self.indentation(), 10)
+        item_left = rect.left()
+        current_x = max(6, item_left - (indent // 2))
+        row_mid_y = rect.center().y()
+        branch_bottom = row_mid_y if self.is_last_child(index) else rect.bottom()
+        connector_end_x = item_left + 7
+
+        painter.drawLine(current_x, rect.top(), current_x, branch_bottom)
+        painter.drawLine(current_x, row_mid_y, max(current_x, connector_end_x), row_mid_y)
+
+        parent = index.parent()
+        ancestor_x = current_x - indent
+        while parent.isValid() and parent != root and ancestor_x >= 0:
+            if not self.is_last_child(parent):
+                painter.drawLine(ancestor_x, rect.top(), ancestor_x, rect.bottom())
+            parent = parent.parent()
+            ancestor_x -= indent
+
+    def is_last_child(self, index):
+        parent = index.parent()
+        model = self.model()
+        return index.row() >= model.rowCount(parent) - 1
+
+
+class CustomTitleBar(QWidget):
+    """Frameless title bar with classic menus and window controls."""
+
+    def __init__(self, window):
+        super().__init__(window)
+        self.window = window
+        self.drag_position = None
+        self.search_expanded = False
+        self.search_collapsed_min = 140
+        self.search_collapsed_max = 380
+        self.setObjectName("customTitleBar")
+        self.setFixedHeight(34)
+
+        layout = QHBoxLayout(self)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(0)
+
+        self.app_icon = QLabel()
+        self.app_icon.setObjectName("titleBarAppIcon")
+        self.app_icon.setFixedSize(22, 22)
+        self.app_icon.hide()
+        layout.addWidget(self.app_icon)
+
+        self.app_title = QLabel(APP_NAME)
+        self.app_title.setObjectName("titleBarAppName")
+        self.app_title.hide()
+        layout.addWidget(self.app_title)
+
+        self.menu_container = QWidget()
+        self.menu_container.setObjectName("titleBarMenuSlot")
+        self.menu_container.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Expanding)
+        menu_layout = QHBoxLayout(self.menu_container)
+        menu_layout.setContentsMargins(0, 0, 10, 0)
+        menu_layout.setSpacing(0)
+        self.menu_layout = menu_layout
+        layout.addWidget(self.menu_container)
+
+        self.left_balance_area = QWidget()
+        self.left_balance_area.setObjectName("titleBarDragArea")
+        self.left_balance_area.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Expanding)
+        self.left_balance_area.setFixedWidth(10)
+        layout.addWidget(self.left_balance_area)
+
+        self.command_center = QLineEdit()
+        self.command_center.setObjectName("titleBarCommandCenter")
+        self.command_center.setPlaceholderText(_("Search, files, commands"))
+        self.command_center.setToolTip(_("Use keyboard shortcuts or the classic menus for commands"))
+        self.command_center.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.command_center.setClearButtonEnabled(False)
+        self.command_center.setFrame(False)
+        self.command_center.setFixedHeight(24)
+        self.command_center.setFixedWidth(self.search_collapsed_width())
+        self.command_center.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
+        search_shadow = QGraphicsDropShadowEffect(self.command_center)
+        search_shadow.setBlurRadius(16)
+        search_shadow.setOffset(0, 1)
+        search_shadow.setColor(QColor(0, 0, 0, 55))
+        self.command_center.setGraphicsEffect(search_shadow)
+        self.command_center.installEventFilter(self)
+        layout.addWidget(self.command_center)
+
+        self.right_balance_area = QWidget()
+        self.right_balance_area.setObjectName("titleBarDragArea")
+        self.right_balance_area.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
+        layout.addWidget(self.right_balance_area, 1)
+
+        self.search_width_animation = QVariantAnimation(self)
+        self.search_width_animation.setDuration(170)
+        self.search_width_animation.setEasingCurve(QEasingCurve.Type.OutCubic)
+        self.search_width_animation.valueChanged.connect(lambda value: self.command_center.setFixedWidth(int(value)))
+
+        self.minimize_button = self.create_window_button("−", _("Minimize"))
+        self.maximize_button = self.create_window_button("□", _("Maximize"))
+        self.close_button = self.create_window_button("×", _("Close"))
+        self.close_button.setProperty("role", "close")
+
+        self.window_controls = QWidget()
+        self.window_controls.setObjectName("titleBarWindowControls")
+        self.window_controls.setFixedWidth(120)
+        controls_layout = QHBoxLayout(self.window_controls)
+        controls_layout.setContentsMargins(0, 0, 0, 0)
+        controls_layout.setSpacing(0)
+        controls_layout.addWidget(self.minimize_button)
+        controls_layout.addWidget(self.maximize_button)
+        controls_layout.addWidget(self.close_button)
+        layout.addWidget(self.window_controls)
+
+        self.minimize_button.clicked.connect(self.window.showMinimized)
+        self.maximize_button.clicked.connect(self.toggle_maximized)
+        self.close_button.clicked.connect(self.window.close)
+        self.update_title_icon()
+        self.update_maximize_button()
+        self.sync_search_balance()
+        self.draggable_title_widgets = {
+            self.app_icon,
+            self.app_title,
+            self.left_balance_area,
+            self.right_balance_area,
+        }
+        for widget in self.draggable_title_widgets:
+            widget.installEventFilter(self)
+
+    def create_window_button(self, text, tooltip):
+        button = QToolButton()
+        button.setObjectName("titleBarWindowButton")
+        button.setText(text)
+        button.setToolTip(tooltip)
+        button.setFixedSize(40, 30)
+        button.setFocusPolicy(Qt.FocusPolicy.NoFocus)
+        button.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextOnly)
+        return button
+
+    def set_menu_bar(self, menubar):
+        while self.menu_layout.count():
+            item = self.menu_layout.takeAt(0)
+            widget = item.widget()
+            if widget:
+                widget.setParent(None)
+
+        total_width = self.menu_layout.contentsMargins().left() + self.menu_layout.contentsMargins().right()
+        self.title_menu_buttons = []
+        for action in menubar.actions():
+            button = QPushButton(action.text(), self.menu_container)
+            button.setObjectName("titleBarMenuButton")
+            button.setFocusPolicy(Qt.FocusPolicy.NoFocus)
+            button.setMinimumWidth(0)
+            button.setFlat(True)
+            if action.menu():
+                menu = action.menu()
+                button.clicked.connect(
+                    lambda checked=False, button=button, menu=menu: self.show_title_menu(button, menu)
+                )
+            else:
+                button.clicked.connect(action.trigger)
+            width = max(button.fontMetrics().horizontalAdvance(action.text()) + 24, 44)
+            button.setFixedSize(width, 30)
+            self.menu_layout.addWidget(button)
+            self.title_menu_buttons.append(button)
+            total_width += width
+
+        self.menu_container.setFixedWidth(total_width)
+        menubar.hide()
+        self.sync_search_balance()
+
+    def show_title_menu(self, button, menu):
+        button.setDown(True)
+        try:
+            menu.exec(button.mapToGlobal(button.rect().bottomLeft()))
+        finally:
+            button.setDown(False)
+            button.clearFocus()
+
+    def refresh_title_menu_buttons(self, menubar):
+        if not hasattr(self, "title_menu_buttons"):
+            self.set_menu_bar(menubar)
+            return
+        actions = menubar.actions()
+        if len(actions) != len(self.title_menu_buttons):
+            self.set_menu_bar(menubar)
+            return
+        total_width = self.menu_layout.contentsMargins().left() + self.menu_layout.contentsMargins().right()
+        for button, action in zip(self.title_menu_buttons, actions):
+            button.setText(action.text())
+            width = max(button.fontMetrics().horizontalAdvance(action.text()) + 24, 44)
+            button.setFixedSize(width, 30)
+            total_width += width
+        self.menu_container.setFixedWidth(total_width)
+        self.sync_search_balance()
+
+    def search_available_width(self):
+        title_width = max(self.width(), self.window.width() if self.window else 0)
+        controls_width = self.window_controls.width() if hasattr(self, "window_controls") else 120
+        used_width = self.menu_container.width() + controls_width + 16
+        return max(self.search_collapsed_min, title_width - used_width)
+
+    def search_collapsed_width(self):
+        return max(
+            self.search_collapsed_min,
+            min(self.search_collapsed_max, self.search_available_width() // 5)
+        )
+
+    def search_expanded_width(self):
+        return max(self.search_collapsed_width(), self.search_available_width())
+
+    def animate_search_width(self, expanded):
+        self.search_expanded = expanded
+        target = self.search_expanded_width() if expanded else self.search_collapsed_width()
+        self.search_width_animation.stop()
+        self.search_width_animation.setStartValue(self.command_center.width())
+        self.search_width_animation.setEndValue(target)
+        self.search_width_animation.start()
+
+    def collapse_search_if_empty_from_global_pos(self, global_pos):
+        if not self.search_expanded or self.command_center.text():
+            return
+        if hasattr(global_pos, "toPoint"):
+            global_pos = global_pos.toPoint()
+        command_pos = self.command_center.mapFromGlobal(global_pos)
+        if self.command_center.rect().contains(command_pos):
+            return
+        self.command_center.clearFocus()
+        self.animate_search_width(False)
+
+    def resizeEvent(self, event):
+        target = self.search_expanded_width() if self.search_expanded else self.search_collapsed_width()
+        if self.search_width_animation.state() != QAbstractAnimation.State.Running:
+            self.command_center.setFixedWidth(target)
+        super().resizeEvent(event)
+
+    def sync_search_balance(self):
+        if not hasattr(self, "left_balance_area") or not hasattr(self, "window_controls"):
+            return
+        self.left_balance_area.setMinimumWidth(8)
+        self.left_balance_area.setFixedWidth(10)
+        self.right_balance_area.setMinimumWidth(8)
+        target = self.search_expanded_width() if self.search_expanded else self.search_collapsed_width()
+        self.command_center.setFixedWidth(target)
+
+    def update_title_icon(self):
+        if hasattr(self.window, "build_themed_icon"):
+            self.app_icon.setPixmap(self.window.build_themed_icon("theme").pixmap(18, 18))
+
+    def toggle_maximized(self):
+        if self.window.isMaximized():
+            self.window.showNormal()
+        else:
+            self.window.showMaximized()
+        self.update_maximize_button()
+
+    def update_maximize_button(self):
+        if self.window.isMaximized():
+            self.maximize_button.setText("❐")
+            self.maximize_button.setToolTip(_("Restore"))
+        else:
+            self.maximize_button.setText("□")
+            self.maximize_button.setToolTip(_("Maximize"))
+
+    def begin_window_drag(self, event):
+        if event.button() != Qt.MouseButton.LeftButton:
+            return False
+        handle = self.window.windowHandle()
+        if handle and handle.startSystemMove():
+            event.accept()
+            return True
+        self.drag_position = event.globalPosition().toPoint() - self.window.frameGeometry().topLeft()
+        event.accept()
+        return True
+
+    def continue_window_drag(self, event):
+        if not (event.buttons() & Qt.MouseButton.LeftButton) or self.drag_position is None:
+            return False
+        if self.window.isMaximized():
+            self.window.showNormal()
+            self.update_maximize_button()
+            self.drag_position = QPoint(self.window.width() // 2, self.height() // 2)
+        self.window.move(event.globalPosition().toPoint() - self.drag_position)
+        event.accept()
+        return True
+
+    def eventFilter(self, watched, event):
+        if watched is getattr(self, "command_center", None):
+            if event.type() in (QEvent.Type.FocusIn, QEvent.Type.MouseButtonPress):
+                self.animate_search_width(True)
+            elif event.type() == QEvent.Type.FocusOut and not self.command_center.text():
+                self.animate_search_width(False)
+            return super().eventFilter(watched, event)
+
+        if watched in getattr(self, "draggable_title_widgets", set()):
+            if event.type() == QEvent.Type.MouseButtonDblClick and event.button() == Qt.MouseButton.LeftButton:
+                self.toggle_maximized()
+                event.accept()
+                return True
+            if event.type() == QEvent.Type.MouseButtonPress:
+                return self.begin_window_drag(event)
+            if event.type() == QEvent.Type.MouseMove:
+                return self.continue_window_drag(event)
+            if event.type() == QEvent.Type.MouseButtonRelease:
+                self.drag_position = None
+        return super().eventFilter(watched, event)
+
+    def mouseDoubleClickEvent(self, event):
+        if event.button() == Qt.MouseButton.LeftButton:
+            self.toggle_maximized()
+            event.accept()
+            return
+        super().mouseDoubleClickEvent(event)
+
+    def mousePressEvent(self, event):
+        if self.begin_window_drag(event):
+            return
+        super().mousePressEvent(event)
+
+    def mouseMoveEvent(self, event):
+        if self.continue_window_drag(event):
+            return
+        super().mouseMoveEvent(event)
+
+    def mouseReleaseEvent(self, event):
+        self.drag_position = None
+        super().mouseReleaseEvent(event)
+
+    def changeEvent(self, event):
+        if event.type() == QEvent.Type.WindowStateChange:
+            self.update_maximize_button()
+        super().changeEvent(event)
 
 
 class LeftAlignedDocumentTabBar(QTabBar):
@@ -154,6 +532,13 @@ class LeftAlignedDocumentTabBar(QTabBar):
 class TextEditorApp(QMainWindow):
     def __init__(self, file_path=None): 
         super().__init__()
+        self.setObjectName("appWindow")
+        self.setProperty("chromeMaximized", False)
+        self.resize_margin = 6
+        self.resize_edges = None
+        self.resize_start_geometry = None
+        self.resize_start_pos = None
+        self.resize_cursor_active = False
         
         # Create settings manager first
         self.settings_manager = SettingsManager()
@@ -183,6 +568,9 @@ class TextEditorApp(QMainWindow):
             "larger": "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgd2lkdGg9IjI0IiBoZWlnaHQ9IjI0Ij4KICA8ZGVmcyBpZD0iZGVmczMwNTEiPgogICAgPHN0eWxlIHR5cGU9InRleHQvY3NzIiBpZD0iY3VycmVudC1jb2xvci1zY2hlbWUiPgogICAgICAuQ29sb3JTY2hlbWUtVGV4dCB7CiAgICAgICAgY29sb3I6IzIzMjYyOTsKICAgICAgfQogICAgICA8L3N0eWxlPgogIDwvZGVmcz4KICA8ZyB0cmFuc2Zvcm09InRyYW5zbGF0ZSgxLDEpIj4KICAgIDxwYXRoIHN0eWxlPSJmaWxsOmN1cnJlbnRDb2xvcjtmaWxsLW9wYWNpdHk6MTtzdHJva2U6bm9uZSIgZD0iTSA4LjIxNjc5NjkgMyBMIDMgMTcgTCA0LjY4NzUgMTcgTCA2LjM1NTQ2ODggMTIuNTcwMzEyIEwgMTEuOTE3OTY5IDEyLjU3MDMxMiBMIDEyLjA2NjQwNiAxMyBMIDEzLjczMjQyMiAxMyBMIDEwLjIxMDkzOCAzIEwgOC4yMTY3OTY5IDMgeiBNIDkuMjMyNDIxOSA0LjYxMTMyODEgTCAxMS4zNjEzMjggMTEuMjg1MTU2IEwgNi44NzMwNDY5IDExLjI4NTE1NiBMIDkuMjMyNDIxOSA0LjYxMTMyODEgeiBNIDE1LjUgMTIuNzkyOTY5IEwgMTUuMjkyOTY5IDEzIEwgMTIgMTYuMjkyOTY5IEwgMTIuNzA3MDMxIDE3IEwgMTUgMTQuNzA3MDMxIEwgMTUgMTkgTCAxNiAxOSBMIDE2IDE0LjcwNzAzMSBMIDE4LjI5Mjk2OSAxNyBMIDE5IDE2LjI5Mjk2OSBMIDE1LjcwNzAzMSAxMyBMIDE1LjUgMTIuNzkyOTY5IHogIiBjbGFzcz0iQ29sb3JTY2hlbWUtVGV4dCIvPgogIDwvZz4KPC9zdmc+Cg==",
             "menu": "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgd2lkdGg9IjI0IiBoZWlnaHQ9IjI0Ij4KICA8ZGVmcyBpZD0iZGVmczMwNTEiPgogICAgPHN0eWxlIHR5cGU9InRleHQvY3NzIiBpZD0iY3VycmVudC1jb2xvci1zY2hlbWUiPgogICAgICAuQ29sb3JTY2hlbWUtVGV4dCB7CiAgICAgICAgY29sb3I6IzIzMjYyOTsKICAgICAgfQogICAgICA8L3N0eWxlPgogIDwvZGVmcz4KICA8ZyB0cmFuc2Zvcm09InRyYW5zbGF0ZSgxLDEpIj4KICAgIDxwYXRoIHN0eWxlPSJmaWxsOmN1cnJlbnRDb2xvcjtmaWxsLW9wYWNpdHk6MTtzdHJva2U6bm9uZSIgZD0ibTMgNXYyaDE2di0yaC0xNm0wIDV2MmgxNnYtMmgtMTZtMCA1djJoMTZ2LTJoLTE2IiBjbGFzcz0iQ29sb3JTY2hlbWUtVGV4dCIvPgogIDwvZz4KPC9zdmc+Cg==",
             "new": "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgd2lkdGg9IjI0IiBoZWlnaHQ9IjI0Ij4KICA8ZGVmcyBpZD0iZGVmczMwNTEiPgogICAgPHN0eWxlIHR5cGU9InRleHQvY3NzIiBpZD0iY3VycmVudC1jb2xvci1zY2hlbWUiPgogICAgICAuQ29sb3JTY2hlbWUtVGV4dCB7CiAgICAgICAgY29sb3I6IzIzMjYyOTsKICAgICAgfQogICAgICA8L3N0eWxlPgogIDwvZGVmcz4KICA8ZyB0cmFuc2Zvcm09InRyYW5zbGF0ZSgxLDEpIj4KICAgIDxwYXRoIHN0eWxlPSJmaWxsOmN1cnJlbnRDb2xvcjtmaWxsLW9wYWNpdHk6MTtzdHJva2U6bm9uZSIgZD0iTSA0IDMgTCA0IDE5IEwgNSAxOSBMIDEzIDE5IEwgMTMgMTggTCA1IDE4IEwgNSA0IEwgMTMgNCBMIDEzIDcgTCAxMyA4IEwgMTcgOCBMIDE3IDE0IEwgMTggMTQgTCAxOCA4LjQwNjI1IEwgMTggNyBMIDE4IDYuOTkyMTg3NSBMIDE0LjAwNzgxMiAzIEwgMTQgMy4wMDk3NjU2IEwgMTQgMyBMIDEzIDMgTCA1IDMgTCA0IDMgeiBNIDE1IDE0IEwgMTUgMTYgTCAxMyAxNiBMIDEzIDE3IEwgMTUgMTcgTCAxNSAxOSBMIDE2IDE5IEwgMTYgMTcgTCAxOCAxNyBMIDE4IDE2IEwgMTYgMTYgTCAxNiAxNCBMIDE1IDE0IHogIiBjbGFzcz0iQ29sb3JTY2hlbWUtVGV4dCIvPgogIDwvZz4KPC9zdmc+Cg==",
+            "file": "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgd2lkdGg9IjI0IiBoZWlnaHQ9IjI0Ij48ZGVmcz48c3R5bGUgdHlwZT0idGV4dC9jc3MiIGlkPSJjdXJyZW50LWNvbG9yLXNjaGVtZSI+LkNvbG9yU2NoZW1lLVRleHR7Y29sb3I6IzIzMjYyOTt9PC9zdHlsZT48L2RlZnM+PGcgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoMSwxKSI+PHBhdGggY2xhc3M9IkNvbG9yU2NoZW1lLVRleHQiIHN0eWxlPSJmaWxsOmN1cnJlbnRDb2xvcjtmaWxsLW9wYWNpdHk6MTtzdHJva2U6bm9uZSIgZD0iTTUgM2g5bDQgNHYxNEg1VjN6bTEgMXYxNmgxMVY4aC00VjRINnptOCAuN1Y3aDIuM0wxNCA0Ljd6TTggMTBoN3YxSDh2LTF6bTAgM2g3djFIOHYtMXptMCAzaDV2MUg4di0xeiIvPjwvZz48L3N2Zz4=",
+            "folder": "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgd2lkdGg9IjI0IiBoZWlnaHQ9IjI0Ij48ZGVmcz48c3R5bGUgdHlwZT0idGV4dC9jc3MiIGlkPSJjdXJyZW50LWNvbG9yLXNjaGVtZSI+LkNvbG9yU2NoZW1lLVRleHR7Y29sb3I6IzIzMjYyOTt9PC9zdHlsZT48L2RlZnM+PGcgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoMSwxKSI+PHBhdGggY2xhc3M9IkNvbG9yU2NoZW1lLVRleHQiIHN0eWxlPSJmaWxsOmN1cnJlbnRDb2xvcjtmaWxsLW9wYWNpdHk6MTtzdHJva2U6bm9uZSIgZD0iTTMgNWg2bDIgMmg4djJINHY4aDE0LjJsLjktNkg0LjRsLjE1LTFIMjBsLTEuMiA4SDNWNXoiLz48L2c+PC9zdmc+",
+            "folder-new": "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgd2lkdGg9IjI0IiBoZWlnaHQ9IjI0Ij48ZGVmcz48c3R5bGUgdHlwZT0idGV4dC9jc3MiIGlkPSJjdXJyZW50LWNvbG9yLXNjaGVtZSI+LkNvbG9yU2NoZW1lLVRleHR7Y29sb3I6IzIzMjYyOTt9PC9zdHlsZT48L2RlZnM+PGcgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoMSwxKSI+PHBhdGggY2xhc3M9IkNvbG9yU2NoZW1lLVRleHQiIHN0eWxlPSJmaWxsOmN1cnJlbnRDb2xvcjtmaWxsLW9wYWNpdHk6MTtzdHJva2U6bm9uZSIgZD0iTTMgNWg2bDIgMmg4djJINHY4aDd2MUgzVjV6bTEgNWgxNWwtMS40IDhIMTR2LTFoMi43NWwxLjA1LTZINS4yTDQuMTUgMTdIMTF2MUgzbDEtOHptMTAgM2gxLjV2MkgxOHYxLjVoLTIuNVYxOUgxNHYtMi41aC0yLjVWMTVIMTR2LTJ6Ii8+PC9nPjwvc3ZnPg==",
             "open": "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgd2lkdGg9IjI0IiBoZWlnaHQ9IjI0Ij4KICA8ZGVmcyBpZD0iZGVmczMwNTEiPgogICAgPHN0eWxlIHR5cGU9InRleHQvY3NzIiBpZD0iY3VycmVudC1jb2xvci1zY2hlbWUiPgogICAgICAuQ29sb3JTY2hlbWUtVGV4dCB7CiAgICAgICAgY29sb3I6IzIzMjYyOTsKICAgICAgfQogICAgICA8L3N0eWxlPgogIDwvZGVmcz4KICA8ZyB0cmFuc2Zvcm09InRyYW5zbGF0ZSgxLDEpIj4KICAgIDxwYXRoIHN0eWxlPSJmaWxsOmN1cnJlbnRDb2xvcjtmaWxsLW9wYWNpdHk6MTtzdHJva2U6bm9uZSIgZD0ibTMgM3YxIDE1aDEgMTV2LTEtMTNoLTYuOTkyMTg4bC0yLTItLjAwNzgxMi4wMDc4MTN2LS4wMDc4MTNoLTYtMW02LjAwNzgxIDVoOC45OTIxODh2MTBoLTE0di04aDN2LS4wMDc4MTNsLjAwNzgxMy4wMDc4MTMgMi0yIiBjbGFzcz0iQ29sb3JTY2hlbWUtVGV4dCIvPgogIDwvZz4KPC9zdmc+Cg==",
             "preferences-desktop-display-randr": "data:image/svg+xml;base64,PD94bWwgdmVyc2lvbj0iMS4wIiBlbmNvZGluZz0iVVRGLTgiPz4KPHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHhtbG5zOnhsaW5rPSJodHRwOi8vd3d3LnczLm9yZy8xOTk5L3hsaW5rIiB4bWxuczpjYz0iaHR0cDovL2NyZWF0aXZlY29tbW9ucy5vcmcvbnMjIiB4bWxuczpkYz0iaHR0cDovL3B1cmwub3JnL2RjL2VsZW1lbnRzLzEuMS8iIHhtbG5zOnJkZj0iaHR0cDovL3d3dy53My5vcmcvMTk5OS8wMi8yMi1yZGYtc3ludGF4LW5zIyIgeG1sbnM6aW5rc2NhcGU9Imh0dHA6Ly93d3cuaW5rc2NhcGUub3JnL25hbWVzcGFjZXMvaW5rc2NhcGUiIHhtbG5zOnNvZGlwb2RpPSJodHRwOi8vc29kaXBvZGkuc291cmNlZm9yZ2UubmV0L0RURC9zb2RpcG9kaS0wLmR0ZCIgd2lkdGg9IjMyIiBoZWlnaHQ9IjMyIj4KICAgIDxzdHlsZSB0eXBlPSJ0ZXh0L2NzcyIgaWQ9ImN1cnJlbnQtY29sb3Itc2NoZW1lIj4uQ29sb3JTY2hlbWUtVGV4dCB7CiAgICAgICAgICAgIGNvbG9yOiMyMzI2Mjk7CiAgICAgICAgfQogICAgICAgIC5Db2xvclNjaGVtZS1CYWNrZ3JvdW5kIHsKICAgICAgICAgICAgY29sb3I6I2VmZjBmMTsKICAgICAgICB9CiAgICAgICAgLkNvbG9yU2NoZW1lLVBvc2l0aXZlVGV4dCB7CiAgICAgICAgICAgIGNvbG9yOiMyN2FlNjA7CiAgICAgICAgfQogICAgICAgIC5Db2xvclNjaGVtZS1OZXV0cmFsVGV4dCB7CiAgICAgICAgICAgIGNvbG9yOiNmNjc0MDA7CiAgICAgICAgfQogICAgICAgIC5Db2xvclNjaGVtZS1OZWdhdGl2ZVRleHQgewogICAgICAgICAgICBjb2xvcjojZGE0NDUzOwogICAgICAgIH08L3N0eWxlPgogICAgPGcgaWQ9InByZWZlcmVuY2VzLWRlc2t0b3AtZGlzcGxheS1yYW5kciIgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoLTI2LDEwKSI+CiAgICAgICAgPHJlY3QgaWQ9InJlY3QzODMyLTYiIHg9IjI2IiB5PSItMTAiIHdpZHRoPSIzMiIgaGVpZ2h0PSIzMiIgZmlsbC1vcGFjaXR5PSIwIi8+CiAgICAgICAgPHBhdGggaWQ9InJlY3Q3MjM1LTciIGNsYXNzPSJDb2xvclNjaGVtZS1UZXh0IiBkPSJtMzUuMDExMjQ5IDE1aDExLjk3NzUwMmwwLjAxMTI0OSAyaC0xMS45Nzc1MDJ6bTMuOTg4NzUxLTJoNHYyaC00em0tOS0xOHYxOGgyMnYtMTh6bTEgMWgyMHYxNGgtMjB6IiBmaWxsPSJjdXJyZW50Q29sb3IiLz4KICAgICAgICA8cGF0aCBpZD0icmVjdDMwMTgtNSIgY2xhc3M9IkNvbG9yU2NoZW1lLVRleHQiIGQ9Im0zMiA0IDUgNWgtNXoiIGZpbGw9ImN1cnJlbnRDb2xvciIvPgogICAgICAgIDxwYXRoIGlkPSJwYXRoMzAyOC0zIiBjbGFzcz0iQ29sb3JTY2hlbWUtVGV4dCIgZD0ibTUwIDItNS01aDV6IiBmaWxsPSJjdXJyZW50Q29sb3IiLz4KICAgIDwvZz4KPC9zdmc+Cg==",
             "preferences-desktop-font": "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHhtbG5zOnhsaW5rPSJodHRwOi8vd3d3LnczLm9yZy8xOTk5L3hsaW5rIiBoZWlnaHQ9IjI0IiB3aWR0aD0iMjQiIHZpZXdCb3g9IjAgMCAyNCAyNCI+CiAgPGxpbmVhckdyYWRpZW50IGlkPSJhIiBncmFkaWVudFRyYW5zZm9ybT0ibWF0cml4KC42NDI4NTc3NiAwIDAgLjY0Mjg1Nzc2IC0yNDYuNTEwNDUgLTMzMC44NzA0NCkiIGdyYWRpZW50VW5pdHM9InVzZXJTcGFjZU9uVXNlIiB4Mj0iMCIgeTE9IjU0NS43OTc5NyIgeTI9IjUxNy43OTc5NyI+CiAgICA8c3RvcCBvZmZzZXQ9IjAiIHN0b3AtY29sb3I9IiMyYTJjMmYiLz4KICAgIDxzdG9wIG9mZnNldD0iMSIgc3RvcC1jb2xvcj0iIzQyNDY0OSIvPgogIDwvbGluZWFyR3JhZGllbnQ+CiAgPGxpbmVhckdyYWRpZW50IGlkPSJiIiBncmFkaWVudFVuaXRzPSJ1c2VyU3BhY2VPblVzZSIgeDE9IjYuNDk5OTk4IiB4Mj0iMTUuNTAwMDA2IiB5MT0iNi41MDAwMjciIHkyPSIxNS41MDAwMzUiPgogICAgPHN0b3Agb2Zmc2V0PSIwIiBzdG9wLWNvbG9yPSIjMjkyYzJmIi8+CiAgICA8c3RvcCBvZmZzZXQ9IjEiIHN0b3Atb3BhY2l0eT0iMCIvPgogIDwvbGluZWFyR3JhZGllbnQ+CiAgPGxpbmVhckdyYWRpZW50IGlkPSJjIiBncmFkaWVudFVuaXRzPSJ1c2VyU3BhY2VPblVzZSIgeDE9IjUiIHgyPSI1IiB5MT0iMjAiIHkyPSI3Ij4KICAgIDxzdG9wIG9mZnNldD0iMCIgc3RvcC1jb2xvcj0iIzk5OWE5YyIvPgogICAgPHN0b3Agb2Zmc2V0PSIxIiBzdG9wLWNvbG9yPSIjZjRmNWY1Ii8+CiAgPC9saW5lYXJHcmFkaWVudD4KICA8ZyB0cmFuc2Zvcm09InRyYW5zbGF0ZSgxLDEpIj4KICAgIDxyZWN0IGZpbGw9InVybCgjYSkiIGhlaWdodD0iMTgiIHJ4PSI5IiBzdHJva2Utd2lkdGg9Ii42NDI4NTgiIHdpZHRoPSIxOCIgeD0iMi4wMDAwMDEiIHk9IjIuMDAwMDA1Ii8+CiAgICA8cGF0aCBkPSJtOS4yNTIyMzI3IDcuMTI0MDUwOC0zLjkyODcxNDcgNy42MjY0MDIyIDUuMjI4MjQxIDUuMjI2OTg2Yy4xNDk0ODUuMDA3My4yOTY4ODIuMDIyNi40NDgyNDMuMDIyNiA0LjI5NDc0MSAwIDcuODYwNjUtMi45ODEzNjQgOC43Njg5ODItNi45OTM1ODlsLTMuNDQwMjk0LTMuNDQwMjkzMy0yLjEzOTUxLS4xODQ1NzAyLTEuMjIyOTM3LjY5OTM1ODUuMDUxNDguMDMzOS0uMDQxNDMtLjAwNzUgMS42ODYyNDYgMS42ODYyNDYtLjM0NTI4NS4zOTY3NjR6IiBmaWxsPSJ1cmwoI2IpIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiIG9wYWNpdHk9Ii4yIiBzdHJva2Utd2lkdGg9Ii42NDI4NTgiLz4KICAgIDxwYXRoIGQ9Im03LjQyNTc4MTIgNi44Mzc4OTA2LTIuNTIxNDg0MyA3LjE2OTkyMTRoMS42MzA4NTkzbC41MTk1MzEzLTEuNzAxMTcxaDIuNTk5NjA5NGwuNTIxNDg0MSAxLjcwMTE3MWgxLjYyODkwN2wtMi41MjkyOTc0LTcuMTY5OTIxNHptLjkyOTY4NzYgMS4xMDkzNzVjLjAzMzMzMy4xMzMzMzM0LjA3NTU3My4yOTA3MDMyLjEyODkwNjIuNDcwNzAzMi4wNTMzMzMuMTc5OTk5OS4xMDY4MjI5LjM1NTk2MzUuMTYwMTU2Mi41MjkyOTY4LjA1MzMzMy4xNzMzMzM0LjA5NzUyNi4zMTYzNTQyLjEzMDg1OTQuNDI5Njg3NWwuNTE5NTMxMyAxLjY2MDE1NTloLTEuODU5Mzc1bC41MDk3NjU2LTEuNjYwMTU1OWMuMDI2NjY3LS4wNzMzMzMuMDYyNzA4LS4xOTU4MDczLjEwOTM3NS0uMzY5MTQwNi4wNTMzMzMtLjE4LjEwNjgyMjktLjM2NzIxMzUuMTYwMTU2My0uNTYwNTQ2OS4wNi0uMi4xMDcyOTE2LS4zNjY2NjY2LjE0MDYyNS0uNXptNi40Njg3MDkyLjA0ODgyN2MtLjM4NjY2NyAwLS43NTkxNDEuMDQ3MjkyLTEuMTE5MTQxLjE0MDYyNS0uMzYuMDg2NjY3LS42ODQwMzYuMjAyOTQyNy0uOTcwNzAzLjM0OTYwOTRsLjQ5MDIzNCAxLjAwOTc2NTZjLjI1MzMzNC0uMTEzMzMzMy41MDY0MzMtLjIwNTk2MzUuNzU5NzY2LS4yNzkyOTY5LjI1MzMzMy0uMDguNTE0NTgzLS4xMjEwOTM3Ljc4MTI1LS4xMjEwOTM3cy40NzI0NzQuMDY3ODM5LjYxOTE0MS4yMDExNzE4Yy4xNTMzMzMuMTMzMzMzNC4yMzA0NTEuMzQyMjM5OC4yMzA0NjguNjI4OTA2OGwuMDAwMDQxLjY4MTY0MTktLjk1MTE3Mi4wMjkzYy0uODEzMzMzLjAzMzMzLTEuNDIxNDU4LjE4NzYwNC0xLjgyODEyNC40NjA5MzctLjQwNjY2Ny4yNzMzMzQtLjYxMTMyOS42OTkyOTctLjYxMTMyOSAxLjI3OTI5NyAwIC41OTMzMzMuMTYwNDY5IDEuMDMwNTQ3LjQ4MDQ2OSAxLjMxMDU0N3MuNzIyMzE4LjQxOTkyMiAxLjIwODk4NC40MTk5MjJjLjQ1MzMzNCAwIC44MTAzMTMtLjA2NTg5IDEuMDcwMzEzLS4xOTkyMTkuMjYtLjEzMzMzMy41MDY5MDEtLjM0NzI5Mi43NDAyMzQtLjY0MDYyNWguMDQxMDJsLjI4OTA2My43NDAyMzRoMS4wNDEwMTVsLS4wMDAwNDEtNC4wODIwMzE5Yy0uMDAwMDA3LS42NTMzMzQtLjE5NjUxLTEuMTM1ODg1OS0uNTg5ODQ0LTEuNDQ5MjE5Mi0uMzg2NjctLjMyMDAwMzEtLjk0ODMxMS0uNDgwNDcxOC0xLjY4MTY0NC0uNDgwNDcxOHptLjc5MTA1NiAzLjQ4MDQ2OTl2LjQ1MTE3MmMwIC4zNDY2NjctLjExMDA3OC42MTcyMTQtLjMzMDA3OC44MTA1NDctLjIyLjE4NjY2Ny0uNDkwNTQ3LjI3OTI5Ny0uODEwNTQ3LjI3OTI5Ny0uMjEzMzMzIDAtLjM4NjE5OC0uMDQ3MjktLjUxOTUzMS0uMTQwNjI1LS4xMzMzMzMtLjEtLjE5OTIxOS0uMjYzNTY4LS4xOTkyMTktLjQ5MDIzNCAwLS4yNi4wOTI2My0uNDY4OTA2LjI3OTI5Ny0uNjI4OTA3LjE4NjY2Ny0uMTYuNTItLjI0NjQzMiAxLS4yNTk3NjV6IiBmaWxsPSJ1cmwoI2MpIi8+CiAgPC9nPgo8L3N2Zz4K",
@@ -204,6 +592,8 @@ class TextEditorApp(QMainWindow):
         
         self.setWindowTitle(APP_NAME)
         self.setGeometry(100, 100, 1200, 800)
+        self.setMinimumSize(760, 420)
+        self.setWindowFlag(Qt.WindowType.FramelessWindowHint, True)
         
         # Initialize managers first
         self.settings_manager = SettingsManager()
@@ -211,36 +601,41 @@ class TextEditorApp(QMainWindow):
         self.plugin_manager = PluginManager(self.settings_manager)
         self.plugin_manager.refresh()
         self.plugin_manager.activate_enabled_plugins()
-        
-        # Create toolbar first before styling
-        self.toolbar = QToolBar(_("Main Toolbar"))  # Add name here
-        self.toolbar.setObjectName("mainToolBar")  # Add this line
-        self.toolbar.setMovable(False)
+        self.app_menu_bar = None
         
         # Setup toolbar contents
         self.setup_toolbar()
         self.create_menu_bar()
+        self.setup_custom_title_bar()
         
         # Create status bar (simplified)
         self.statusBar = self.statusBar()
-        
-        # Set initial status message
-        self.statusBar.showMessage(_("Words: 0 | Characters: 0"))
         self.statusBar.setObjectName("statusBar")
+        self.statusBar.setSizeGripEnabled(True)
+        self.document_status_label = QLabel(_("Saved · 0 words · 0 characters · Plain text · UTF-8"))
+        self.document_status_label.setObjectName("bottomDocumentStatus")
+        self.document_status_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.statusBar.addPermanentWidget(self.document_status_label, 1)
+        QApplication.instance().installEventFilter(self)
         
         # Create main widget and layout
         main_widget = QWidget()
         main_widget.setObjectName("mainSurface")
+        main_widget.setProperty("chromeMaximized", False)
         self.setCentralWidget(main_widget)
         layout = QVBoxLayout(main_widget)
-        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setContentsMargins(0, 0, 1, 0)
         layout.setSpacing(0)
+        self.main_layout = layout
+        layout.addWidget(self.custom_title_bar)
+        layout.addWidget(self.toolbar)
         
         # Create tab widget
         self.main_splitter = QSplitter(Qt.Orientation.Horizontal)
         self.main_splitter.setObjectName("mainSplitter")
         self.workspace_path = ""
         self.setup_workspace_explorer()
+        self.setup_activity_ribbon()
 
         self.tab_widget = QTabWidget()
         self.tab_widget.setTabBar(LeftAlignedDocumentTabBar())
@@ -252,16 +647,17 @@ class TextEditorApp(QMainWindow):
         self.tab_widget.setIconSize(QSize(16, 16))
         self.tab_widget.tabBar().setExpanding(False)
         self.tab_widget.tabCloseRequested.connect(self.close_tab)
+        self.tab_widget.currentChanged.connect(self.update_topbar_context)
         
         # Install event filters on both the tab bar and its containing tab strip.
         self.tab_widget.tabBar().installEventFilter(self)
         self.tab_widget.installEventFilter(self)
         
+        self.main_splitter.addWidget(self.activity_ribbon)
         self.main_splitter.addWidget(self.workspace_widget)
         self.main_splitter.addWidget(self.tab_widget)
-        self.main_splitter.setStretchFactor(0, 0)
-        self.main_splitter.setStretchFactor(1, 1)
-        self.main_splitter.setSizes([260, 940])
+        self.apply_workspace_sidebar_position(save=False)
+        self.main_splitter.splitterMoved.connect(self.save_main_splitter_sizes)
         layout.addWidget(self.main_splitter)
         self.restore_workspace()
         
@@ -291,6 +687,8 @@ class TextEditorApp(QMainWindow):
         if application:
             application.setStyleSheet(stylesheet)
         self.setStyleSheet(stylesheet)
+        if hasattr(self, "workspace_tree"):
+            self.workspace_tree.set_connector_color(theme["app"]["accent"])
         self.update_action_icons()
         self.refresh_tab_icons()
 
@@ -304,12 +702,22 @@ class TextEditorApp(QMainWindow):
         app = theme["app"]
 
         if mode == "light":
-            return "#f8f8f2"
+            return "#FFFFFF"
         if mode == "dark":
-            return "#17202a"
+            return "#111111"
         if mode == "accent":
             return app["accent"]
-        return app["text"]
+        return self.high_contrast_color_for(app["surface_alt"])
+
+    def high_contrast_color_for(self, background_color):
+        """Choose a crisp icon color for the current chrome background."""
+        color = QColor(background_color)
+        luminance = (
+            0.2126 * color.redF() +
+            0.7152 * color.greenF() +
+            0.0722 * color.blueF()
+        )
+        return "#FFFFFF" if luminance < 0.45 else "#111111"
 
     def build_themed_icon(self, icon_name):
         icon_data = self.icons.get(icon_name)
@@ -348,6 +756,32 @@ class TextEditorApp(QMainWindow):
             return
         for action, icon_name in self.icon_actions:
             action.setIcon(self.build_themed_icon(icon_name))
+        for button, icon_name in getattr(self, "icon_buttons", []):
+            button.setIcon(self.build_themed_icon(icon_name))
+        self.update_workspace_model_icons()
+        if hasattr(self, "custom_title_bar"):
+            self.custom_title_bar.update_title_icon()
+
+    def update_workspace_model_icons(self):
+        if hasattr(self, "workspace_model"):
+            self.workspace_model.set_workspace_icons(
+                self.build_themed_icon("file"),
+                self.build_themed_icon("folder"),
+            )
+
+    def setup_custom_title_bar(self):
+        """Create the title bar with classic menus, search, and window controls."""
+        if not hasattr(self, "custom_title_bar"):
+            self.custom_title_bar = CustomTitleBar(self)
+        self.custom_title_bar.show()
+        menubar = self.menuBar()
+        self.custom_title_bar.set_menu_bar(menubar)
+        menubar.hide()
+
+    def menuBar(self):
+        if getattr(self, "app_menu_bar", None) is not None:
+            return self.app_menu_bar
+        return super().menuBar()
 
     def tab_icon_name_for_widget(self, tab):
         if getattr(tab, "is_settings_tab", False):
@@ -369,10 +803,173 @@ class TextEditorApp(QMainWindow):
         for index in range(self.tab_widget.count()):
             self.update_tab_icon(index)
 
+    def update_topbar_context(self):
+        """Refresh workspace and document labels in the top bar."""
+        if hasattr(self, "workspace_breadcrumb"):
+            if self.workspace_path:
+                self.workspace_breadcrumb.setText(os.path.basename(self.workspace_path) or self.workspace_path)
+                self.workspace_breadcrumb.setToolTip(self.workspace_path)
+            else:
+                self.workspace_breadcrumb.setText(_("No workspace"))
+                self.workspace_breadcrumb.setToolTip("")
+
+        if not hasattr(self, "document_breadcrumb") or not hasattr(self, "tab_widget"):
+            return
+        current = self.tab_widget.currentWidget()
+        current_index = self.tab_widget.currentIndex()
+        if isinstance(current, EditorTab):
+            title = self.tab_widget.tabText(current_index) if current_index >= 0 else _("Untitled")
+            title = title.replace("*", " •")
+            if getattr(current, "current_file", None):
+                label = os.path.basename(current.current_file)
+                if current.editor.document().isModified():
+                    label = f"{label} •"
+                self.document_breadcrumb.setToolTip(current.current_file)
+            else:
+                label = title or _("Untitled")
+                self.document_breadcrumb.setToolTip("")
+            self.document_breadcrumb.setText(label)
+        elif current_index >= 0:
+            self.document_breadcrumb.setText(self.tab_widget.tabText(current_index))
+            self.document_breadcrumb.setToolTip("")
+        else:
+            self.document_breadcrumb.setText(_("Untitled"))
+            self.document_breadcrumb.setToolTip("")
+
+    def set_document_status(self, text):
+        """Update the bottom ribbon without using QAction hover hints."""
+        if hasattr(self, "document_status_label"):
+            self.document_status_label.setText(text)
+
+    def resolved_workspace_sidebar_position(self):
+        """Return the actual sidebar side, honoring auto language direction."""
+        configured = self.settings_manager.get_setting("workspace_sidebar_position", "auto")
+        if configured not in ("auto", "left", "right"):
+            configured = "auto"
+        if configured != "auto":
+            return configured
+        language = self.settings_manager.get_setting("language", "en_US")
+        return "right" if is_rtl_language(language) else "left"
+
+    def apply_workspace_sidebar_position(self, save=True):
+        """Move the workspace explorer to the chosen side of the editor."""
+        if (
+            not hasattr(self, "main_splitter")
+            or not hasattr(self, "activity_ribbon")
+            or not hasattr(self, "workspace_widget")
+            or not hasattr(self, "tab_widget")
+        ):
+            return
+
+        side = self.resolved_workspace_sidebar_position()
+        splitter_sizes = self.main_splitter_sizes_for_side(side)
+
+        if side == "right":
+            if self.main_splitter.indexOf(self.tab_widget) != 0:
+                self.main_splitter.insertWidget(0, self.tab_widget)
+            if self.main_splitter.indexOf(self.workspace_widget) != 1:
+                self.main_splitter.insertWidget(1, self.workspace_widget)
+            if self.main_splitter.indexOf(self.activity_ribbon) != 2:
+                self.main_splitter.insertWidget(2, self.activity_ribbon)
+            self.main_splitter.setStretchFactor(0, 1)
+            self.main_splitter.setStretchFactor(1, 0)
+            self.main_splitter.setStretchFactor(2, 0)
+            self._applying_main_splitter_sizes = True
+            try:
+                self.main_splitter.setSizes(splitter_sizes)
+            finally:
+                self._applying_main_splitter_sizes = False
+        else:
+            if self.main_splitter.indexOf(self.activity_ribbon) != 0:
+                self.main_splitter.insertWidget(0, self.activity_ribbon)
+            if self.main_splitter.indexOf(self.workspace_widget) != 1:
+                self.main_splitter.insertWidget(1, self.workspace_widget)
+            if self.main_splitter.indexOf(self.tab_widget) != 2:
+                self.main_splitter.insertWidget(2, self.tab_widget)
+            self.main_splitter.setStretchFactor(0, 0)
+            self.main_splitter.setStretchFactor(1, 0)
+            self.main_splitter.setStretchFactor(2, 1)
+            self._applying_main_splitter_sizes = True
+            try:
+                self.main_splitter.setSizes(splitter_sizes)
+            finally:
+                self._applying_main_splitter_sizes = False
+
+        self.workspace_widget.setProperty("side", side)
+        self.activity_ribbon.setProperty("side", side)
+        self.workspace_widget.style().unpolish(self.workspace_widget)
+        self.workspace_widget.style().polish(self.workspace_widget)
+        self.workspace_widget.update()
+        self.activity_ribbon.style().unpolish(self.activity_ribbon)
+        self.activity_ribbon.style().polish(self.activity_ribbon)
+        self.activity_ribbon.update()
+
+        if save:
+            self.settings_manager.save_setting("workspace_sidebar_position", side)
+
+    def default_main_splitter_sizes(self, side):
+        activity_size = 48
+        workspace_size = WORKSPACE_SIDEBAR_WIDTH
+        editor_size = max(self.tab_widget.width(), 940) if hasattr(self, "tab_widget") else 940
+        if side == "right":
+            return [editor_size, workspace_size, activity_size]
+        return [activity_size, workspace_size, editor_size]
+
+    def valid_main_splitter_sizes(self, sizes):
+        if not isinstance(sizes, list) or len(sizes) != 3:
+            return False
+        try:
+            sizes = [int(size) for size in sizes]
+        except (TypeError, ValueError):
+            return False
+        return all(size >= 0 for size in sizes) and sum(sizes) > 0
+
+    def main_splitter_sizes_for_side(self, side):
+        saved_sizes = self.settings_manager.get_setting("main_splitter_sizes", {})
+        if isinstance(saved_sizes, dict) and self.valid_main_splitter_sizes(saved_sizes.get(side)):
+            return [int(size) for size in saved_sizes[side]]
+        return self.default_main_splitter_sizes(side)
+
+    def save_main_splitter_sizes(self, *_args):
+        if getattr(self, "_applying_main_splitter_sizes", False):
+            return
+        if not hasattr(self, "main_splitter"):
+            return
+        side = self.resolved_workspace_sidebar_position()
+        sizes = [int(size) for size in self.main_splitter.sizes()]
+        if not self.valid_main_splitter_sizes(sizes):
+            return
+        saved_sizes = self.settings_manager.get_setting("main_splitter_sizes", {})
+        if not isinstance(saved_sizes, dict):
+            saved_sizes = {}
+        if saved_sizes.get(side) == sizes:
+            return
+        saved_sizes[side] = sizes
+        self.settings_manager.save_setting("main_splitter_sizes", saved_sizes)
+
+    def toggle_workspace_sidebar_position(self):
+        """Toggle the file browser between left and right, like modern editors."""
+        self.save_main_splitter_sizes()
+        current = self.resolved_workspace_sidebar_position()
+        self.settings_manager.save_setting(
+            "workspace_sidebar_position",
+            "right" if current == "left" else "left"
+        )
+        self.apply_workspace_sidebar_position(save=False)
+
+    def toggle_workspace_sidebar_visibility(self):
+        """Show or hide the workspace explorer while keeping the activity ribbon available."""
+        if not hasattr(self, "workspace_widget"):
+            return
+        self.animate_widget_visibility(self.workspace_widget, not self.workspace_widget.isVisible())
+
     def setup_workspace_explorer(self):
         """Create the persisted workspace file explorer."""
         self.workspace_widget = QWidget()
         self.workspace_widget.setObjectName("workspaceExplorer")
+        self.workspace_widget.setProperty("side", "left")
+        self.workspace_widget.setMinimumWidth(WORKSPACE_SIDEBAR_MIN_WIDTH)
+        self.workspace_widget.setMaximumWidth(WORKSPACE_SIDEBAR_MAX_WIDTH)
         workspace_layout = QVBoxLayout(self.workspace_widget)
         workspace_layout.setContentsMargins(0, 0, 0, 0)
         workspace_layout.setSpacing(0)
@@ -380,8 +977,8 @@ class TextEditorApp(QMainWindow):
         header = QWidget()
         header.setObjectName("workspaceHeader")
         header_layout = QHBoxLayout(header)
-        header_layout.setContentsMargins(10, 8, 8, 8)
-        header_layout.setSpacing(8)
+        header_layout.setContentsMargins(6, 6, 6, 6)
+        header_layout.setSpacing(5)
 
         self.workspace_title = QPushButton(_("Workspace"))
         self.workspace_title.setObjectName("workspaceTitle")
@@ -400,31 +997,48 @@ class TextEditorApp(QMainWindow):
         title_stack_layout.addWidget(self.workspace_path_label)
         header_layout.addWidget(title_stack, 1)
 
-        new_file_button = QPushButton("+")
-        new_file_button.setObjectName("workspaceToolButton")
-        new_file_button.setFixedSize(24, 24)
-        new_file_button.setToolTip(_("New file in workspace"))
-        new_file_button.clicked.connect(self.create_workspace_file)
-        header_layout.addWidget(new_file_button)
+        self.icon_buttons = getattr(self, "icon_buttons", [])
+
+        self.new_workspace_file_button = QPushButton()
+        self.new_workspace_file_button.setObjectName("workspaceToolButton")
+        self.new_workspace_file_button.setFixedSize(22, 22)
+        self.new_workspace_file_button.setIcon(self.build_themed_icon("file"))
+        self.new_workspace_file_button.setIconSize(QSize(16, 16))
+        self.new_workspace_file_button.setToolTip(_("New file in workspace"))
+        self.new_workspace_file_button.clicked.connect(self.create_workspace_file)
+        self.icon_buttons.append((self.new_workspace_file_button, "file"))
+        header_layout.addWidget(self.new_workspace_file_button)
+
+        self.new_workspace_folder_button = QPushButton()
+        self.new_workspace_folder_button.setObjectName("workspaceToolButton")
+        self.new_workspace_folder_button.setFixedSize(22, 22)
+        self.new_workspace_folder_button.setIcon(self.build_themed_icon("folder"))
+        self.new_workspace_folder_button.setIconSize(QSize(16, 16))
+        self.new_workspace_folder_button.setToolTip(_("New folder in workspace"))
+        self.new_workspace_folder_button.clicked.connect(self.create_workspace_folder)
+        self.icon_buttons.append((self.new_workspace_folder_button, "folder"))
+        header_layout.addWidget(self.new_workspace_folder_button)
 
         workspace_layout.addWidget(header)
 
         self.workspace_model = WorkspaceFileSystemModel(self)
+        self.update_workspace_model_icons()
         self.workspace_model.setFilter(
             QDir.Filter.AllDirs |
             QDir.Filter.Files |
             QDir.Filter.NoDotAndDotDot
         )
+        self.workspace_model.setNameFilterDisables(False)
 
         self.workspace_tree = WorkspaceTreeView()
         self.workspace_tree.setObjectName("workspaceTree")
         self.workspace_tree.setModel(self.workspace_model)
         self.workspace_tree.setHeaderHidden(True)
         self.workspace_tree.setAnimated(True)
-        self.workspace_tree.setAlternatingRowColors(True)
-        self.workspace_tree.setAllColumnsShowFocus(True)
+        self.workspace_tree.setAlternatingRowColors(False)
+        self.workspace_tree.setAllColumnsShowFocus(False)
         self.workspace_tree.setExpandsOnDoubleClick(True)
-        self.workspace_tree.setIndentation(18)
+        self.workspace_tree.setIndentation(12)
         self.workspace_tree.setRootIsDecorated(True)
         self.workspace_tree.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         self.workspace_tree.doubleClicked.connect(self.open_workspace_index)
@@ -434,6 +1048,76 @@ class TextEditorApp(QMainWindow):
         workspace_layout.addWidget(self.workspace_tree)
         self.workspace_widget.hide()
         self.ui_animations = {}
+
+    def setup_activity_ribbon(self):
+        """Create a VS Code-style vertical activity bar for workspace and plugin surfaces."""
+        self.activity_ribbon = QWidget()
+        self.activity_ribbon.setObjectName("activityRibbon")
+        self.activity_ribbon.setProperty("side", "left")
+        self.activity_ribbon.setFixedWidth(48)
+        self.icon_buttons = getattr(self, "icon_buttons", [])
+
+        layout = QVBoxLayout(self.activity_ribbon)
+        layout.setContentsMargins(4, 6, 4, 6)
+        layout.setSpacing(4)
+
+        def add_button(title, icon_name, handler, checkable=False):
+            button = QToolButton()
+            button.setObjectName("activityButton")
+            button.setIcon(self.build_themed_icon(icon_name))
+            button.setIconSize(QSize(20, 20))
+            button.setFixedSize(40, 38)
+            button.setToolTip(_(title))
+            button.setCheckable(checkable)
+            button.clicked.connect(handler)
+            layout.addWidget(button)
+            self.icon_buttons.append((button, icon_name))
+            return button
+
+        self.workspace_activity_button = add_button(
+            "Files",
+            "document-open",
+            self.toggle_workspace_sidebar_visibility,
+            checkable=True
+        )
+        self.workspace_activity_button.setChecked(True)
+        add_button("Snippets", "snippets", self.toggle_snippets)
+        if self.settings_manager.is_plugin_enabled("browser-panel"):
+            add_button("Browser", "browser", self.toggle_browser)
+        add_button("RSS", "globe", self.new_rss_tab)
+
+        plugin_items = (
+            self.plugin_manager.registry.panels
+            + self.plugin_manager.registry.sidebar_items
+            + self.plugin_manager.registry.toolbar_actions
+        )
+        if plugin_items:
+            layout.addSpacing(8)
+        seen_plugin_targets = set()
+        for plugin_item in plugin_items:
+            target_key = (
+                plugin_item.get("panel")
+                or plugin_item.get("panelId")
+                or plugin_item.get("id")
+                or plugin_item.get("title")
+            )
+            if not target_key or target_key in seen_plugin_targets:
+                continue
+            seen_plugin_targets.add(target_key)
+            title = plugin_item.get("title") or target_key
+            icon_name = plugin_item.get("icon") or "applications-system"
+            add_button(
+                title,
+                icon_name,
+                lambda checked=False, item=plugin_item: self.trigger_plugin_action(item)
+            )
+
+        layout.addStretch(1)
+        self.settings_activity_button = add_button(
+            "Settings",
+            "applications-system",
+            self.show_settings
+        )
 
     def animations_enabled(self):
         if os.environ.get("QT_QPA_PLATFORM") == "offscreen":
@@ -458,7 +1142,8 @@ class TextEditorApp(QMainWindow):
             original_width = widget.maximumWidth()
             widget.setProperty("animation_original_max_width", original_width)
 
-        target_width = max(widget.width(), widget.sizeHint().width(), 260)
+        default_target_width = WORKSPACE_SIDEBAR_WIDTH if widget is getattr(self, "workspace_widget", None) else 260
+        target_width = max(widget.width(), widget.sizeHint().width(), default_target_width)
         if not visible and widget.width() > 0:
             target_width = widget.width()
 
@@ -530,6 +1215,7 @@ class TextEditorApp(QMainWindow):
             self.add_recent_workspace(path)
             self.save_workspace_markdown_files()
         self.statusBar.showMessage(_("Workspace: {path}").format(path=path))
+        self.update_topbar_context()
         return True
 
     def open_workspace_dialog(self):
@@ -782,8 +1468,8 @@ class TextEditorApp(QMainWindow):
         if not self.workspace_path:
             return
         menu = QMenu(self)
-        menu.addAction(_("New File"), self.create_workspace_file)
-        menu.addAction(_("New Folder"), self.create_workspace_folder)
+        menu.addAction(self.build_themed_icon("file"), _("New File"), self.create_workspace_file)
+        menu.addAction(self.build_themed_icon("folder"), _("New Folder"), self.create_workspace_folder)
         menu.addSeparator()
         index = self.workspace_tree.indexAt(position)
         if index.isValid() and os.path.isfile(self.workspace_model.filePath(index)):
@@ -842,15 +1528,13 @@ class TextEditorApp(QMainWindow):
         self.toolbar.setObjectName("mainToolBar")
         self.toolbar.setMovable(False)
         self.toolbar.setFloatable(False)
-        
-        # Add toolbar to main window
-        self.addToolBar(self.toolbar)
+        self.toolbar.setFixedHeight(40)
         
         # Prevent toolbar from being hidden
         self.toolbar.setContextMenuPolicy(Qt.ContextMenuPolicy.PreventContextMenu)
         
         # Set toolbar properties for better icon rendering
-        self.toolbar.setIconSize(QSize(22, 22))
+        self.toolbar.setIconSize(QSize(20, 20))
         self.toolbar.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonIconOnly)
         self.icon_actions = []
         self.translatable_actions = []
@@ -872,7 +1556,7 @@ class TextEditorApp(QMainWindow):
             action.setProperty("tooltip_key", text)
             self.translatable_actions.append(action)
             action.setToolTip(translated_text)
-            action.setStatusTip(translated_text)
+            action.setStatusTip("")
             if handler:
                 action.triggered.connect(handler)
             return action
@@ -880,74 +1564,39 @@ class TextEditorApp(QMainWindow):
         def set_action_tooltip(action, text):
             action.setProperty("tooltip_key", text)
             action.setToolTip(_(text))
-            action.setStatusTip(_(text))
+            action.setStatusTip("")
             action.setWhatsThis(_(text))
 
-        # Create the dropdown menu
-        self.menu_dropdown = QMenu(self)
-        
-        # Add actions to dropdown menu
-        settings_action = create_action("settings", "Settings", self.show_settings)
-        set_action_tooltip(settings_action, "Open Settings")
-        self.menu_dropdown.addAction(settings_action)
-        self.menu_dropdown.addSeparator()
-        workspace_action = create_action("document-open", "Open Workspace", self.open_workspace_dialog)
-        set_action_tooltip(workspace_action, "Open Workspace")
-        self.menu_dropdown.addAction(workspace_action)
-        new_workspace_file_action = create_action("new", "New Workspace File", self.create_workspace_file)
-        set_action_tooltip(new_workspace_file_action, "New File in Workspace")
-        self.menu_dropdown.addAction(new_workspace_file_action)
-        self.menu_dropdown.addSeparator()
-        help_action = create_action("help", "Help", self.show_help)
-        set_action_tooltip(help_action, "Open Help")
-        self.menu_dropdown.addAction(help_action)
-        about_action = create_action("about", "About", self.show_about)
-        set_action_tooltip(about_action, "About Jottr")
-        self.menu_dropdown.addAction(about_action)
-
-        # Add all toolbar items
+        # Add the calm primary top-bar actions. Complete command groups live in the classic menus.
         new_action = create_action("new", "New", self.new_editor_tab)
         new_action.setShortcut(QKeySequence.StandardKey.New)
         set_action_tooltip(new_action, "New (Ctrl+N)")
-        self.toolbar.addAction(new_action)
         
         open_action = create_action("open", "Open", self.open_file_dialog)
         open_action.setShortcut(QKeySequence.StandardKey.Open)
         set_action_tooltip(open_action, "Open (Ctrl+O)")
-        self.toolbar.addAction(open_action)
 
         workspace_toolbar_action = create_action("document-open", "Workspace", self.open_workspace_dialog)
         set_action_tooltip(workspace_toolbar_action, "Open Workspace")
-        self.toolbar.addAction(workspace_toolbar_action)
         
         save_action = create_action("save", "Save", self.save_file)
         save_action.setShortcut(QKeySequence.StandardKey.Save)
         set_action_tooltip(save_action, "Save (Ctrl+S)")
-        self.toolbar.addAction(save_action)
         
         save_as_action = create_action("save-as", "Save As", self.save_file_as)
         save_as_action.setShortcut(QKeySequence.StandardKey.SaveAs)
         set_action_tooltip(save_as_action, "Save As (Ctrl+Shift+S)")
-        self.menu_dropdown.insertAction(self.menu_dropdown.actions()[0], save_as_action)
         export_pdf_action = create_action("save-as", "Export PDF", self.export_pdf)
         set_action_tooltip(export_pdf_action, "Export current file as PDF")
-        self.menu_dropdown.insertAction(self.menu_dropdown.actions()[1], export_pdf_action)
-        self.menu_dropdown.insertSeparator(self.menu_dropdown.actions()[2])
-        
-        self.toolbar.addSeparator()
         
         # Undo/Redo
         undo_action = create_action("undo", "Undo", self.undo)
         undo_action.setShortcut(QKeySequence.StandardKey.Undo)
         set_action_tooltip(undo_action, "Undo (Ctrl+Z)")
-        self.toolbar.addAction(undo_action)
 
         redo_action = create_action("redo", "Redo", self.redo)
         redo_action.setShortcut(QKeySequence.StandardKey.Redo)
         set_action_tooltip(redo_action, "Redo (Ctrl+Shift+Z)")
-        self.toolbar.addAction(redo_action)
-        
-        self.toolbar.addSeparator()
         
         # Find/Replace and Focus Mode
         find_action = create_action("find", "Find/Replace", self.toggle_find)
@@ -961,8 +1610,6 @@ class TextEditorApp(QMainWindow):
         self.toolbar.addAction(focus_action)
         self.focus_mode_action = focus_action
         
-        self.toolbar.addSeparator()
-
         # Fonts
         editor_font_action = create_action("font", "Editor Font", self.show_editor_font_dialog)
         set_action_tooltip(editor_font_action, "Choose Editor Font")
@@ -977,7 +1624,6 @@ class TextEditorApp(QMainWindow):
         markdown_action = create_action("insert-text", "Markdown", self.toggle_markdown_preview)
         markdown_action.setShortcut(QKeySequence("Ctrl+Shift+M"))
         set_action_tooltip(markdown_action, "Toggle Markdown Preview (Ctrl+Shift+M)")
-        self.toolbar.addAction(markdown_action)
 
         for toolbar_action in self.plugin_manager.registry.toolbar_actions:
             title = toolbar_action.get("title") or toolbar_action.get("id") or _("Plugin")
@@ -991,8 +1637,6 @@ class TextEditorApp(QMainWindow):
             set_action_tooltip(action, toolbar_action.get("tooltip", title))
             self.toolbar.addAction(action)
 
-        self.toolbar.addSeparator()
-        
         # Zoom controls
         zoom_in_action = create_action("zoom-in", "Zoom In", self.zoom_in)
         zoom_in_action.setShortcut(QKeySequence("Ctrl+="))
@@ -1003,21 +1647,12 @@ class TextEditorApp(QMainWindow):
         zoom_out_action.setShortcut(QKeySequence("Ctrl+-"))
         set_action_tooltip(zoom_out_action, "Zoom Out (Ctrl+-)")
         self.toolbar.addAction(zoom_out_action)
-        self.menu_dropdown.insertAction(self.menu_dropdown.actions()[0], zoom_in_action)
-        self.menu_dropdown.insertAction(self.menu_dropdown.actions()[1], zoom_out_action)
 
         zoom_reset_action = create_action("zoom-reset", "Reset Zoom", self.zoom_reset)
         zoom_reset_action.setShortcut(QKeySequence("Ctrl+0"))
         set_action_tooltip(zoom_reset_action, "Reset Zoom (Ctrl+0)")
         self.toolbar.addAction(zoom_reset_action)
-        self.menu_dropdown.insertAction(self.menu_dropdown.actions()[2], zoom_reset_action)
-        self.menu_dropdown.insertSeparator(self.menu_dropdown.actions()[3])
-        
-        # Add flexible space
-        spacer = QWidget()
-        spacer.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
-        self.toolbar.addWidget(spacer)
-        
+
         # Now set the overflow button text after all items are added
         def update_overflow_button():
             overflow_button = self.toolbar.findChild(QToolButton, "qt_toolbar_ext_button")
@@ -1029,7 +1664,7 @@ class TextEditorApp(QMainWindow):
         QTimer.singleShot(0, update_overflow_button)
 
     def retranslate_actions(self):
-        """Refresh toolbar and dropdown labels after the active language changes."""
+        """Refresh toolbar and classic menu labels after the active language changes."""
         if not hasattr(self, "translatable_actions"):
             return
         for action in self.translatable_actions:
@@ -1040,12 +1675,14 @@ class TextEditorApp(QMainWindow):
             if tooltip_key:
                 translated_tooltip = _(tooltip_key)
                 action.setToolTip(translated_tooltip)
-                action.setStatusTip(translated_tooltip)
+                action.setStatusTip("")
                 action.setWhatsThis(translated_tooltip)
         if hasattr(self, "translatable_menus"):
             self.menuBar().setAccessibleName(_("Application menu"))
             for menu, title in self.translatable_menus:
                 menu.setAccessibleName(_("{title} menu").format(title=_(title)))
+        if hasattr(self, "custom_title_bar"):
+            self.custom_title_bar.refresh_title_menu_buttons(self.menuBar())
 
     def apply_layout_direction(self, language):
         direction = (
@@ -1057,6 +1694,11 @@ class TextEditorApp(QMainWindow):
         if app:
             app.setLayoutDirection(direction)
         self.setLayoutDirection(direction)
+        if (
+            hasattr(self, "main_splitter")
+            and self.settings_manager.get_setting("workspace_sidebar_position", "auto") == "auto"
+        ):
+            self.apply_workspace_sidebar_position(save=False)
 
     def apply_language_direction_to_tabs(self):
         for i in range(self.tab_widget.count()):
@@ -1140,6 +1782,7 @@ class TextEditorApp(QMainWindow):
             
     def create_menu_bar(self):
         menubar = self.menuBar()
+        self.app_menu_bar = menubar
         menubar.clear()
         menubar.setObjectName("appMenuBar")
         menubar.setAccessibleName(_("Application menu"))
@@ -1161,7 +1804,7 @@ class TextEditorApp(QMainWindow):
             action.setProperty("tooltip_key", tooltip or text)
             action.setProperty("accessibility_label", tooltip or text)
             action.setToolTip(_(tooltip or text))
-            action.setStatusTip(_(tooltip or text))
+            action.setStatusTip("")
             action.setWhatsThis(_(tooltip or text))
             action.setCheckable(checkable)
             if shortcut is not None:
@@ -1245,7 +1888,9 @@ class TextEditorApp(QMainWindow):
         # Workspace menu
         workspace_menu = add_menu("Workspace")
         add_action(workspace_menu, "Open Workspace...", self.open_workspace_dialog, "document-open", tooltip="Open Workspace")
-        add_action(workspace_menu, "New Workspace File...", self.create_workspace_file, "new", tooltip="New File in Workspace")
+        add_action(workspace_menu, "Move Workspace Sidebar", self.toggle_workspace_sidebar_position, "document-open", tooltip="Move Workspace Sidebar")
+        add_action(workspace_menu, "New Workspace File...", self.create_workspace_file, "file", tooltip="New File in Workspace")
+        add_action(workspace_menu, "New Workspace Folder...", self.create_workspace_folder, "folder", tooltip="New Folder in Workspace")
 
         # Plugins menu
         if (
@@ -1289,6 +1934,10 @@ class TextEditorApp(QMainWindow):
         help_menu = add_menu("Help")
         add_action(help_menu, "Help", self.show_help, "help", QKeySequence.StandardKey.HelpContents, "Open Help")
         add_action(help_menu, "About", self.show_about, "about", tooltip="About Jottr")
+        if hasattr(self, "custom_title_bar"):
+            self.setup_custom_title_bar()
+        else:
+            menubar.hide()
 
     def close_current_tab(self):
         """Close the active document tab from the menubar or shortcut."""
@@ -1320,6 +1969,7 @@ class TextEditorApp(QMainWindow):
         self.tab_widget.setCurrentWidget(editor_tab)
         editor_tab.editor.setFocus()
         self.save_workspace_open_files()
+        self.update_topbar_context()
         return editor_tab
         
     def new_rss_tab(self):
@@ -1422,6 +2072,7 @@ class TextEditorApp(QMainWindow):
     def closeEvent(self, event):
         """Handle application close event"""
         if self.handle_unsaved_changes():
+            self.save_main_splitter_sizes()
             self.save_workspace_markdown_files()
             self.save_workspace_open_files()
             # Save window state
@@ -1554,6 +2205,7 @@ class TextEditorApp(QMainWindow):
 
     def apply_settings_from_view(self, settings_view):
         settings = settings_view.get_data()
+        plugin_settings_changed = bool(getattr(settings_view, "_plugin_settings_dirty", False))
         self.settings_manager.save_setting('homepage', settings['homepage'])
         self.settings_manager.save_setting('search_sites', settings['search_sites'])
         self.settings_manager.save_setting('user_dictionary', settings['user_dictionary'])
@@ -1586,14 +2238,26 @@ class TextEditorApp(QMainWindow):
         self.settings_manager.save_setting('plugin_channels', settings.get('plugin_channels', []))
         self.settings_manager.save_setting('plugin_channel_filter', settings.get('plugin_channel_filter', 'all'))
         self.settings_manager.save_setting('plugin_state', settings['plugin_state'])
-        self.plugin_manager = PluginManager(self.settings_manager)
-        self.plugin_manager.refresh()
-        self.plugin_manager.activate_enabled_plugins()
-        self.removeToolBar(self.toolbar)
-        self.toolbar.deleteLater()
-        self.setup_toolbar()
         self.apply_app_style()
-        self.create_menu_bar()
+        if plugin_settings_changed:
+            self.plugin_manager = PluginManager(self.settings_manager)
+            self.plugin_manager.refresh()
+            self.plugin_manager.activate_enabled_plugins()
+            old_toolbar = self.toolbar
+            if hasattr(self, "main_layout"):
+                self.main_layout.removeWidget(old_toolbar)
+            self.removeToolBar(old_toolbar)
+            old_toolbar.deleteLater()
+            self.setup_toolbar()
+            if hasattr(self, "main_layout"):
+                self.main_layout.insertWidget(1, self.toolbar)
+            self.create_menu_bar()
+            self.setup_custom_title_bar()
+            if hasattr(settings_view, "_plugin_settings_dirty"):
+                settings_view._plugin_settings_dirty = False
+        else:
+            self.update_action_icons()
+            self.retranslate_actions()
         self.apply_editor_theme_to_tabs(settings['theme'])
         self.apply_editor_line_numbers(settings['editor_line_numbers'])
         self.apply_autosave_settings()
@@ -1741,22 +2405,139 @@ class TextEditorApp(QMainWindow):
         if current_tab and hasattr(current_tab, "export_pdf"):
             current_tab.export_pdf()
 
-    def show_menu_dropdown(self):
-        """Show the menu dropdown under the menu button"""
-        # Find the menu button
-        menu_button = None
-        for action in self.toolbar.actions():
-            if action.property("text_key") == "Menu" or action.text() == _("Menu"):
-                menu_button = self.toolbar.widgetForAction(action)
-                break
-        
-        if menu_button:
-            # Show menu below the button
-            pos = menu_button.mapToGlobal(menu_button.rect().bottomLeft())
-            self.menu_dropdown.popup(pos)
+    def update_window_state_properties(self):
+        """Refresh stylesheet state for frameless window chrome."""
+        self.setProperty("chromeMaximized", self.isMaximized())
+        central = self.centralWidget()
+        if central:
+            central.setProperty("chromeMaximized", self.isMaximized())
+            central.style().unpolish(central)
+            central.style().polish(central)
+            central.update()
+        self.style().unpolish(self)
+        self.style().polish(self)
+        self.update()
+
+    def changeEvent(self, event):
+        if event.type() == QEvent.Type.WindowStateChange:
+            self.update_window_state_properties()
+            if hasattr(self, "custom_title_bar"):
+                self.custom_title_bar.update_maximize_button()
+        super().changeEvent(event)
+
+    def showEvent(self, event):
+        self.update_window_state_properties()
+        super().showEvent(event)
+
+    def resize_hit_test(self, global_pos):
+        """Return native resize edges and cursor for a global pointer position."""
+        if self.isMaximized() or self.isFullScreen():
+            return None, None
+        if hasattr(global_pos, "toPoint"):
+            global_pos = global_pos.toPoint()
+
+        geometry = self.frameGeometry()
+        x = global_pos.x()
+        y = global_pos.y()
+        margin = self.resize_margin
+        left = geometry.left() <= x <= geometry.left() + margin
+        right = geometry.right() - margin <= x <= geometry.right()
+        top = geometry.top() <= y <= geometry.top() + margin
+        bottom = geometry.bottom() - margin <= y <= geometry.bottom()
+
+        edges = None
+        for enabled, edge in (
+            (left, Qt.Edge.LeftEdge),
+            (right, Qt.Edge.RightEdge),
+            (top, Qt.Edge.TopEdge),
+            (bottom, Qt.Edge.BottomEdge),
+        ):
+            if enabled:
+                edges = edge if edges is None else edges | edge
+
+        if edges is None:
+            return None, None
+        if (left and top) or (right and bottom):
+            return edges, Qt.CursorShape.SizeFDiagCursor
+        if (right and top) or (left and bottom):
+            return edges, Qt.CursorShape.SizeBDiagCursor
+        if left or right:
+            return edges, Qt.CursorShape.SizeHorCursor
+        return edges, Qt.CursorShape.SizeVerCursor
+
+    def object_belongs_to_window(self, obj):
+        return isinstance(obj, QWidget) and (obj is self or self.isAncestorOf(obj))
+
+    def set_resize_cursor(self, cursor):
+        app = QApplication.instance()
+        if not app:
+            return
+        if cursor and not self.resize_cursor_active:
+            app.setOverrideCursor(QCursor(cursor))
+            self.resize_cursor_active = True
+        elif not cursor and self.resize_cursor_active:
+            app.restoreOverrideCursor()
+            self.resize_cursor_active = False
+
+    def start_window_resize(self, edges, global_pos):
+        handle = self.windowHandle()
+        if handle and handle.startSystemResize(edges):
+            return True
+        if hasattr(global_pos, "toPoint"):
+            global_pos = global_pos.toPoint()
+        self.resize_edges = edges
+        self.resize_start_pos = global_pos
+        self.resize_start_geometry = QRect(self.geometry())
+        return True
+
+    def continue_window_resize(self, global_pos):
+        if self.resize_edges is None or self.resize_start_geometry is None:
+            return False
+        if hasattr(global_pos, "toPoint"):
+            global_pos = global_pos.toPoint()
+        delta = global_pos - self.resize_start_pos
+        geometry = QRect(self.resize_start_geometry)
+        minimum = self.minimumSize()
+
+        if self.resize_edges & Qt.Edge.LeftEdge:
+            new_left = geometry.left() + delta.x()
+            if geometry.right() - new_left + 1 >= minimum.width():
+                geometry.setLeft(new_left)
+        if self.resize_edges & Qt.Edge.RightEdge:
+            geometry.setWidth(max(minimum.width(), geometry.width() + delta.x()))
+        if self.resize_edges & Qt.Edge.TopEdge:
+            new_top = geometry.top() + delta.y()
+            if geometry.bottom() - new_top + 1 >= minimum.height():
+                geometry.setTop(new_top)
+        if self.resize_edges & Qt.Edge.BottomEdge:
+            geometry.setHeight(max(minimum.height(), geometry.height() + delta.y()))
+
+        self.setGeometry(geometry)
+        return True
 
     def eventFilter(self, obj, event):
-        """Handle double-click on the tab bar."""
+        """Handle frameless resize edges and double-click on the tab bar."""
+        if self.object_belongs_to_window(obj):
+            if event.type() == QEvent.Type.MouseMove:
+                if self.continue_window_resize(event.globalPosition()):
+                    return True
+                _edges, cursor = self.resize_hit_test(event.globalPosition())
+                self.set_resize_cursor(cursor)
+            elif event.type() == QEvent.Type.MouseButtonPress and event.button() == Qt.MouseButton.LeftButton:
+                if hasattr(self, "custom_title_bar"):
+                    self.custom_title_bar.collapse_search_if_empty_from_global_pos(event.globalPosition())
+                edges, _cursor = self.resize_hit_test(event.globalPosition())
+                if edges is not None:
+                    self.start_window_resize(edges, event.globalPosition())
+                    event.accept()
+                    return True
+            elif event.type() == QEvent.Type.MouseButtonRelease:
+                self.resize_edges = None
+                self.resize_start_geometry = None
+                self.resize_start_pos = None
+            elif event.type() == QEvent.Type.Leave and self.resize_edges is None:
+                self.set_resize_cursor(None)
+
         if event.type() == QEvent.Type.MouseButtonDblClick:
             if obj == self.tab_widget.tabBar():
                 tab_index = self.tab_widget.tabBar().tabAt(event.pos())
@@ -1810,6 +2591,7 @@ class TextEditorApp(QMainWindow):
             if getattr(tab, "current_file", None) and os.path.abspath(tab.current_file) == file_path:
                 self.tab_widget.setCurrentIndex(index)
                 tab.editor.setFocus()
+                self.update_topbar_context()
                 return True
         
         try:
@@ -1840,6 +2622,7 @@ class TextEditorApp(QMainWindow):
         self.tab_widget.setCurrentWidget(editor_tab)
         editor_tab.editor.setFocus()
         self.save_workspace_open_files()
+        self.update_topbar_context()
         return True
 
     def reusable_empty_editor_tab(self):
@@ -1891,6 +2674,19 @@ class TextEditorApp(QMainWindow):
         
         return True
 
+def install_terminal_interrupt_handler(app):
+    """Let Ctrl+C in a launching terminal stop the Qt event loop promptly."""
+    def handle_sigint(_signum, _frame):
+        app.quit()
+
+    signal.signal(signal.SIGINT, handle_sigint)
+    timer = QTimer(app)
+    timer.timeout.connect(lambda: None)
+    timer.start(100)
+    app._sigint_timer = timer
+    return timer
+
+
 def main():
     # Enable high DPI scaling
     # Qt 6 enables high-DPI scaling by default.
@@ -1904,6 +2700,7 @@ def main():
     app.setDesktopFileName("jottr")
     app.setApplicationVersion(APP_VERSION)
     app.setOrganizationDomain("github.com/mfat/jottr")
+    install_terminal_interrupt_handler(app)
     
     # Get file paths from command-line arguments
     file_paths = []

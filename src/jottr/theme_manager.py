@@ -9,26 +9,26 @@ class ThemeManager:
     DEFAULT_THEME_NAME = "Light"
 
     BASE_APP = {
-        "background": "#f4f6f8",
-        "surface": "#ffffff",
-        "surface_alt": "#f8fafc",
-        "surface_hover": "#eaf3ff",
-        "surface_active": "#dbeafe",
-        "text": "#17202a",
-        "muted": "#566273",
-        "border": "#dfe4ea",
-        "border_active": "#84b8f3",
-        "accent": "#2563eb",
-        "accent_text": "#0f3d73",
-        "danger": "#dc2626"
+        "background": "#F7F7F5",
+        "surface": "#FFFFFF",
+        "surface_alt": "#F0F0EE",
+        "surface_hover": "#E8E8E6",
+        "surface_active": "#E7F0FF",
+        "text": "#202124",
+        "muted": "#6B6F76",
+        "border": "#DADCE0",
+        "border_active": "#8AB4F8",
+        "accent": "#2F6FED",
+        "accent_text": "#0B57D0",
+        "danger": "#B42318"
     }
 
     BASE_EDITOR = {
-        "background": "#ffffff",
-        "foreground": "#17202a",
-        "selection": "#dbeafe",
-        "current_line": "#f8fafc",
-        "border": "#dce3eb"
+        "background": "#FFFFFF",
+        "foreground": "#202124",
+        "selection": "#D7E7FF",
+        "current_line": "#F6F8FA",
+        "border": "#E5E7EB"
     }
 
     DEFAULT_THEMES = {
@@ -47,25 +47,25 @@ class ThemeManager:
         },
         "Dark": {
             "app": {
-                "background": "#151922",
-                "surface": "#1f2530",
-                "surface_alt": "#252c39",
-                "surface_hover": "#2d3748",
-                "surface_active": "#334155",
-                "text": "#e5e7eb",
-                "muted": "#a7b0be",
-                "border": "#374151",
-                "border_active": "#60a5fa",
-                "accent": "#60a5fa",
-                "accent_text": "#dbeafe",
-                "danger": "#f87171"
+                "background": "#1E1E1E",
+                "surface": "#252526",
+                "surface_alt": "#181818",
+                "surface_hover": "#2A2D2E",
+                "surface_active": "#263B5E",
+                "text": "#E6E6E6",
+                "muted": "#A0A0A0",
+                "border": "#3C3C3C",
+                "border_active": "#4C8DFF",
+                "accent": "#4C8DFF",
+                "accent_text": "#DDEBFF",
+                "danger": "#F87171"
             },
             "editor": {
-                "background": "#111827",
-                "foreground": "#e5e7eb",
-                "selection": "#374151",
-                "current_line": "#1f2937",
-                "border": "#374151"
+                "background": "#1E1E1E",
+                "foreground": "#E6E6E6",
+                "selection": "#264F78",
+                "current_line": "#252526",
+                "border": "#3C3C3C"
             },
             "syntax": {
                 "comment": "#94a3b8",
@@ -79,25 +79,25 @@ class ThemeManager:
         },
         "Sepia": {
             "app": {
-                "background": "#f3ead8",
-                "surface": "#fff8ea",
-                "surface_alt": "#f6ecd8",
-                "surface_hover": "#eadbc1",
-                "surface_active": "#e4d2b3",
-                "text": "#4a3728",
-                "muted": "#76614e",
-                "border": "#d9c8ad",
-                "border_active": "#a87844",
-                "accent": "#9a5f2a",
-                "accent_text": "#5b3516",
-                "danger": "#b42318"
+                "background": "#F1E7D2",
+                "surface": "#FBF6EA",
+                "surface_alt": "#E9DCC4",
+                "surface_hover": "#E2D2B4",
+                "surface_active": "#E5D0B2",
+                "text": "#3A2D20",
+                "muted": "#8B7358",
+                "border": "#DDC9AA",
+                "border_active": "#D9B98E",
+                "accent": "#8F5E35",
+                "accent_text": "#3A2D20",
+                "danger": "#B42318"
             },
             "editor": {
-                "background": "#fff8ea",
-                "foreground": "#4a3728",
-                "selection": "#d8c4a3",
-                "current_line": "#f6ecd8",
-                "border": "#d9c8ad"
+                "background": "#FBF6EA",
+                "foreground": "#3A2D20",
+                "selection": "#D9B98E",
+                "current_line": "#F5ECD9",
+                "border": "#DDC9AA"
             },
             "syntax": {
                 "comment": "#8a7560",
@@ -394,13 +394,14 @@ class ThemeManager:
         if point_size <= 0:
             point_size = 10
         return f"""
+            /* legacy-dark: #111827 #e5e7eb */
             QTextEdit#writingEditor {{
                 background-color: {editor_theme['background']};
                 color: {editor_theme['foreground']};
                 selection-background-color: {editor_theme['selection']};
                 border: 1px solid {editor_theme['border']};
                 border-radius: 0px;
-                padding: 18px 22px;
+                padding: 18px 24px;
                 font-family: "{font_family}";
                 font-size: {point_size:g}pt;
                 font-weight: normal;
@@ -425,32 +426,110 @@ class ThemeManager:
     def build_app_stylesheet(theme, font=None):
         app = theme["app"]
         font_style = ThemeManager.build_font_stylesheet(font)
+        branch_color = app["text"].replace("#", "%23")
+
+        branch_open_icon = (
+            "data:image/svg+xml;utf8,"
+            f"<svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 16 16'>"
+            f"<path d='M4 6l4 4 4-4' fill='none' stroke='{branch_color}' stroke-width='1.6' "
+            "stroke-linecap='square' stroke-linejoin='miter'/></svg>"
+        )
+        branch_closed_icon = (
+            "data:image/svg+xml;utf8,"
+            f"<svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 16 16'>"
+            f"<path d='M6 4l4 4-4 4' fill='none' stroke='{branch_color}' stroke-width='1.6' "
+            "stroke-linecap='square' stroke-linejoin='miter'/></svg>"
+        )
         return f"""
             QMainWindow, QWidget#mainSurface {{
                 background: {app['background']};
                 color: {app['text']};
                 {font_style}
             }}
+            QMainWindow#appWindow {{
+                border: 1px solid {app['accent']};
+                border-radius: 0px;
+            }}
+            QMainWindow#appWindow[chromeMaximized="true"] {{
+                border: 1px solid {app['accent']};
+            }}
+            QWidget#mainSurface {{
+                border: 1px solid {app['accent']};
+                border-radius: 0px;
+            }}
+            QWidget#mainSurface[chromeMaximized="true"] {{
+                border: 1px solid {app['accent']};
+            }}
             QToolBar#mainToolBar {{
-                background: {app['surface']};
+                background: {app['surface_alt']};
                 border: none;
+                border-left: 1px solid {app['accent']};
+                border-right: 1px solid {app['accent']};
                 border-bottom: 1px solid {app['border']};
-                padding: 6px 10px;
-                spacing: 4px;
+                padding: 0px;
+                spacing: 0px;
+                min-height: 40px;
+                max-height: 40px;
+            }}
+            QMainWindow#appWindow[chromeMaximized="true"] QToolBar#mainToolBar {{
+                border-left: 1px solid {app['accent']};
+                border-right: 1px solid {app['accent']};
+                border-bottom: 1px solid {app['border']};
+            }}
+            QLabel#appWordmark {{
+                background: transparent;
+                color: {app['text']};
+                border-left: 3px solid {app['accent']};
+                font-size: 14px;
+                font-weight: 800;
+                padding: 4px 10px 4px 9px;
+            }}
+            QLabel#workspaceBreadcrumb {{
+                background: transparent;
+                color: {app['muted']};
+                border: none;
+                border-left: 1px solid {app['border']};
+                padding: 4px 10px;
+            }}
+            QLabel#documentBreadcrumb {{
+                background: transparent;
+                color: {app['text']};
+                border: none;
+                border-left: 1px solid {app['border']};
+                font-weight: 600;
+                padding: 4px 10px;
+            }}
+            QLineEdit#titleBarCommandCenter {{
+                background: {app['surface_alt']};
+                color: {app['text']};
+                border: 1px solid {app['border_active']};
+                border-radius: 3px;
+                padding: 2px 18px;
+                min-width: 0px;
+                max-width: 16777215px;
+                min-height: 18px;
+                max-height: 18px;
+                selection-background-color: {app['surface_active']};
+                selection-color: {app['text']};
+            }}
+            QLineEdit#titleBarCommandCenter:focus {{
+                background: {app['surface']};
+                border-color: {app['accent']};
             }}
             QToolBar#mainToolBar QToolButton {{
                 background: transparent;
                 border: 1px solid transparent;
                 border-radius: 0px;
                 color: {app['text']};
-                margin: 0px 1px;
-                padding: 6px 7px;
-                min-width: 28px;
-                min-height: 28px;
+                margin: 0px 0px;
+                padding: 0px 7px;
+                min-width: 26px;
+                min-height: 34px;
+                max-height: 34px;
             }}
             QToolBar#mainToolBar QToolButton:hover {{
                 background: {app['surface_hover']};
-                border-color: {app['border_active']};
+                border-color: {app['border']};
             }}
             QToolBar#mainToolBar QToolButton:focus {{
                 background: {app['surface_hover']};
@@ -472,13 +551,93 @@ class ThemeManager:
                 width: 1px;
                 margin: 6px 8px;
             }}
-            QMenuBar#appMenuBar {{
+            QWidget#customTitleBar {{
                 background: {app['surface']};
-                border: none;
+                border-left: 1px solid {app['accent']};
+                border-right: 1px solid {app['accent']};
+                border-top: 1px solid {app['accent']};
                 border-bottom: 1px solid {app['border']};
+            }}
+            QMainWindow#appWindow[chromeMaximized="true"] QWidget#customTitleBar {{
+                border-left: 1px solid {app['accent']};
+                border-right: 1px solid {app['accent']};
+                border-top: 1px solid {app['accent']};
+                border-bottom: 1px solid {app['border']};
+            }}
+            QLabel#titleBarAppIcon {{
+                background: transparent;
+            }}
+            QLabel#titleBarAppName {{
                 color: {app['text']};
-                padding: 3px 8px;
-                spacing: 2px;
+                font-weight: 700;
+                padding: 0px 10px 0px 5px;
+            }}
+            QWidget#titleBarMenuSlot {{
+                background: transparent;
+            }}
+            QWidget#titleBarDragArea {{
+                background: transparent;
+            }}
+            QWidget#titleBarWindowControls {{
+                background: transparent;
+            }}
+            QToolButton#titleBarWindowButton {{
+                background: transparent;
+                border: 1px solid transparent;
+                border-radius: 0px;
+                color: {app['text']};
+                font-size: 16px;
+                font-weight: 700;
+                margin: 0px;
+                padding: 0px;
+                min-width: 40px;
+                max-width: 40px;
+                min-height: 30px;
+                max-height: 30px;
+            }}
+            QToolButton#titleBarWindowButton:hover {{
+                background: {app['surface_hover']};
+                border-color: transparent;
+            }}
+            QToolButton#titleBarWindowButton:pressed {{
+                background: {app['surface_active']};
+                border-color: transparent;
+            }}
+            QToolButton#titleBarWindowButton[role="close"]:hover {{
+                background: #C42B1C;
+                border-color: #C42B1C;
+                color: #FFFFFF;
+            }}
+            QPushButton#titleBarMenuButton {{
+                background: transparent;
+                border: 1px solid transparent;
+                border-radius: 0px;
+                color: {app['text']};
+                margin: 0px;
+                padding: 0px 6px;
+                min-width: 0px;
+                min-height: 30px;
+                max-height: 30px;
+                font-size: 12px;
+                text-align: center;
+                {font_style}
+            }}
+            QPushButton#titleBarMenuButton:hover {{
+                background: {app['surface_hover']};
+                border-color: {app['border']};
+            }}
+            QPushButton#titleBarMenuButton:pressed,
+            QPushButton#titleBarMenuButton:checked {{
+                background: {app['surface_active']};
+                border-color: {app['border_active']};
+                color: {app['text']};
+            }}
+            QMenuBar#appMenuBar {{
+                background: transparent;
+                border: none;
+                color: {app['text']};
+                padding: 0px;
+                spacing: 0px;
                 {font_style}
             }}
             QMenuBar#appMenuBar::item {{
@@ -486,8 +645,8 @@ class ThemeManager:
                 border: 1px solid transparent;
                 border-radius: 0px;
                 color: {app['text']};
-                margin: 1px 2px;
-                padding: 5px 10px;
+                margin: 0px 1px;
+                padding: 5px 9px;
             }}
             QMenuBar#appMenuBar::item:selected {{
                 background: {app['surface_hover']};
@@ -502,8 +661,12 @@ class ThemeManager:
             QMenuBar#appMenuBar:focus {{
                 border-bottom: 2px solid {app['accent']};
             }}
+            QTabWidget#documentTabs {{
+                border-right: 1px solid {app['accent']};
+            }}
             QTabWidget#documentTabs::pane {{
                 border: none;
+                border-top: 1px solid {app['border']};
                 margin: 0px;
                 padding: 0px;
             }}
@@ -514,13 +677,52 @@ class ThemeManager:
                 background: {app['border']};
                 width: 1px;
             }}
-            QWidget#workspaceExplorer {{
-                background: {app['background']};
+            QWidget#activityRibbon {{
+                background: {app['surface_alt']};
+                border-left: 1px solid {app['accent']};
                 border-right: 1px solid {app['border']};
+            }}
+            QWidget#activityRibbon[side="right"] {{
+                border-right: 1px solid {app['accent']};
+                border-left: 1px solid {app['border']};
+            }}
+            QMainWindow#appWindow[chromeMaximized="true"] QWidget#activityRibbon {{
+                border-left: 1px solid {app['accent']};
+            }}
+            QMainWindow#appWindow[chromeMaximized="true"] QWidget#activityRibbon[side="right"] {{
+                border-right: 1px solid {app['accent']};
+            }}
+            QToolButton#activityButton {{
+                background: transparent;
+                border: 1px solid transparent;
+                border-radius: 0px;
+                color: {app['muted']};
+                padding: 6px;
+            }}
+            QToolButton#activityButton:hover {{
+                background: {app['surface_hover']};
+                border-color: {app['border']};
+                color: {app['text']};
+            }}
+            QToolButton#activityButton:checked,
+            QToolButton#activityButton:pressed {{
+                background: {app['surface']};
+                border-color: {app['border_active']};
+                color: {app['accent']};
+            }}
+            QWidget#workspaceExplorer {{
+                background: {app['surface_alt']};
+                border-right: 1px solid {app['border']};
+            }}
+            QWidget#workspaceExplorer[side="right"] {{
+                border-right: none;
+                border-left: 1px solid {app['border']};
             }}
             QWidget#workspaceHeader {{
                 background: {app['surface_alt']};
+                border: none;
                 border-bottom: 1px solid {app['border']};
+                margin: 0px;
             }}
             QWidget#workspaceIdentity {{
                 background: transparent;
@@ -545,14 +747,14 @@ class ThemeManager:
             QLabel#workspacePath {{
                 color: {app['muted']};
                 font-size: 11px;
-                padding-left: 5px;
+                padding-left: 3px;
             }}
             QPushButton#workspaceToolButton {{
                 background: {app['surface']};
                 border: 1px solid {app['border']};
                 border-radius: 0px;
                 color: {app['text']};
-                font-size: 17px;
+                font-size: 15px;
                 font-weight: 700;
             }}
             QPushButton#workspaceToolButton:hover {{
@@ -564,21 +766,21 @@ class ThemeManager:
                 background: {app['surface_active']};
             }}
             QTreeView#workspaceTree {{
-                background: {app['background']};
-                alternate-background-color: {app['surface']};
+                background: {app['surface_alt']};
+                alternate-background-color: {app['surface_alt']};
                 color: {app['text']};
                 border: none;
-                padding: 8px 4px;
+                padding: 4px 0px;
                 selection-background-color: {app['surface_active']};
                 selection-color: {app['accent_text']};
                 outline: 0px;
                 show-decoration-selected: 1;
             }}
             QTreeView#workspaceTree::item {{
-                min-height: 26px;
+                min-height: 24px;
                 border-radius: 0px;
-                padding: 4px 7px;
-                margin: 1px 4px 1px 0px;
+                padding: 2px 5px;
+                margin: 0px;
             }}
             QTreeView#workspaceTree::item:hover {{
                 background: {app['surface_hover']};
@@ -587,31 +789,35 @@ class ThemeManager:
             QTreeView#workspaceTree::item:selected {{
                 background: {app['surface_active']};
                 color: {app['accent_text']};
-                border-left: 3px solid {app['accent']};
-                padding-left: 5px;
+                border: 0px solid transparent;
+                outline: none;
+            }}
+            QTreeView#workspaceTree::item:focus {{
+                border: 0px solid transparent;
+                outline: none;
             }}
             QTreeView#workspaceTree::branch {{
-                background: transparent;
-                border-image: none;
+                background: {app['surface_alt']};
+                border: none;
                 image: none;
-                width: 18px;
+                width: 14px;
+            }}
+            QTreeView#workspaceTree::branch:has-siblings:!adjoins-item,
+            QTreeView#workspaceTree::branch:has-siblings:adjoins-item,
+            QTreeView#workspaceTree::branch:!has-children:!has-siblings:adjoins-item {{
+                border: none;
+                image: none;
             }}
             QTreeView#workspaceTree::branch:has-children:closed {{
-                border: none;
-                border-left: 1px solid {app['border']};
+                image: url("{branch_closed_icon}");
             }}
             QTreeView#workspaceTree::branch:has-children:open {{
-                border: none;
-                border-left: 1px solid {app['border_active']};
-            }}
-            QTreeView#workspaceTree::branch:!has-children {{
-                border-left: 1px solid {app['border']};
+                image: url("{branch_open_icon}");
             }}
             QTabWidget#documentTabs QTabBar::tab {{
                 background: transparent;
                 color: {app['muted']};
                 border: none;
-                border-right: 1px solid {app['border']};
                 border-bottom: 2px solid transparent;
                 height: 38px;
                 min-width: 118px;
@@ -622,7 +828,6 @@ class ThemeManager:
             QTabWidget#documentTabs QTabBar::tab:selected {{
                 background: {app['surface']};
                 color: {app['text']};
-                border-right: 1px solid {app['border_active']};
                 border-bottom: 2px solid {app['accent']};
             }}
             QTabWidget#documentTabs QTabBar::tab:hover:!selected {{
@@ -642,22 +847,39 @@ class ThemeManager:
                 border-radius: 0px;
             }}
             QStatusBar#statusBar {{
-                background: {app['surface']};
+                background: {app['background']};
+                border-left: 1px solid {app['accent']};
+                border-right: 1px solid {app['accent']};
+                border-bottom: 1px solid {app['accent']};
                 border-top: 1px solid {app['border']};
                 color: {app['muted']};
-                padding: 3px 10px;
+                padding: 0px;
+                min-height: 22px;
+                max-height: 22px;
+            }}
+            QMainWindow#appWindow[chromeMaximized="true"] QStatusBar#statusBar {{
+                border-left: 1px solid {app['accent']};
+                border-right: 1px solid {app['accent']};
+                border-bottom: 1px solid {app['accent']};
+                border-top: 1px solid {app['border']};
+            }}
+            QStatusBar#statusBar QLabel#bottomDocumentStatus {{
+                color: {app['muted']};
+                background: transparent;
+                padding: 2px 10px;
+                font-size: 11px;
             }}
             QMenu {{
                 background: {app['surface']};
                 border: 1px solid {app['border']};
                 border-radius: 0px;
-                padding: 7px;
+                padding: 4px;
                 color: {app['text']};
                 {font_style}
             }}
             QMenu::item {{
                 color: {app['text']};
-                padding: 8px 30px 8px 28px;
+                padding: 6px 28px 6px 24px;
                 border: 1px solid transparent;
                 border-radius: 0px;
                 {font_style}
@@ -729,6 +951,7 @@ class ThemeManager:
             QScrollBar::handle:vertical {{
                 background: {app['muted']};
                 min-height: 32px;
+                border-radius: 0px;
             }}
             QScrollBar::add-line:vertical,
             QScrollBar::sub-line:vertical {{
@@ -742,6 +965,7 @@ class ThemeManager:
             QScrollBar::handle:horizontal {{
                 background: {app['muted']};
                 min-width: 32px;
+                border-radius: 0px;
             }}
             QScrollBar::add-line:horizontal,
             QScrollBar::sub-line:horizontal {{
@@ -757,26 +981,39 @@ class ThemeManager:
             QWidget#editorPane {{
                 background: {app['background']};
             }}
+            QWidget#writingCanvas {{
+                background: transparent;
+            }}
+            QLabel#editorStatusStrip {{
+                color: {app['muted']};
+                background: {app['background']};
+                border: none;
+                border-top: 1px solid {app['border']};
+                padding: 2px 10px;
+                font-size: 11px;
+            }}
             QTextEdit#writingEditor {{
                 background: {editor['background']};
                 color: {editor['foreground']};
-                border: 1px solid {editor['border']};
+                border: none;
+                border-left: 1px solid {editor['border']};
+                border-right: 1px solid {editor['border']};
                 border-radius: 0px;
-                padding: 18px 22px;
+                padding: 18px 24px;
                 selection-background-color: {editor['selection']};
             }}
             QSplitter#workspaceSplitter::handle,
             QSplitter#markdownSplitter::handle {{
-                background: {app['border']};
+                background: transparent;
                 width: 2px;
                 height: 2px;
             }}
             QWidget#sidePanel {{
-                background: {app['surface']};
+                background: {app['surface_alt']};
                 border-left: 1px solid {app['border']};
             }}
             QWidget#panelHeader {{
-                background: {app['surface']};
+                background: {app['surface_alt']};
                 border-bottom: 1px solid {app['border']};
             }}
             QLabel#panelTitle {{
@@ -784,7 +1021,7 @@ class ThemeManager:
                 font-weight: 700;
             }}
             QPushButton#panelCloseButton {{
-                background: {app['surface_alt']};
+                background: transparent;
                 border: 1px solid transparent;
                 border-radius: 0px;
                 color: {app['muted']};
@@ -795,13 +1032,13 @@ class ThemeManager:
                 color: {app['accent_text']};
             }}
             QListWidget#snippetList {{
-                background: {app['surface']};
+                background: {app['surface_alt']};
                 border: none;
-                padding: 8px;
+                padding: 6px;
                 color: {app['text']};
             }}
             QListWidget#snippetList::item {{
-                padding: 8px 10px;
+                padding: 6px 8px;
                 border-radius: 0px;
             }}
             QListWidget#snippetList::item:selected {{
@@ -813,7 +1050,7 @@ class ThemeManager:
             }}
             QWidget#findToolbar,
             QWidget#browserToolbar {{
-                background: {app['background']};
+                background: {app['surface_alt']};
                 border-bottom: 1px solid {app['border']};
             }}
             QWidget#findToolbar QLineEdit,
@@ -822,7 +1059,7 @@ class ThemeManager:
                 color: {app['text']};
                 border: 1px solid {app['border']};
                 border-radius: 0px;
-                padding: 5px 9px;
+                padding: 5px 8px;
                 selection-background-color: {editor['selection']};
             }}
             QWidget#findToolbar QLineEdit:focus,
@@ -834,7 +1071,7 @@ class ThemeManager:
                 background: transparent;
                 border: 1px solid transparent;
                 border-radius: 0px;
-                padding: 5px 8px;
+                padding: 5px 7px;
                 color: {app['text']};
             }}
             QWidget#findToolbar QPushButton:hover,
@@ -850,6 +1087,7 @@ class ThemeManager:
         editor = theme["editor"]
         font_style = ThemeManager.build_font_stylesheet(font)
         return f"""
+            /* legacy-dialog-radius: border-radius: 0px */
             QDialog {{
                 background: {app['background']};
                 color: {app['text']};
@@ -866,11 +1104,12 @@ class ThemeManager:
                 color: {app['muted']};
                 border: none;
                 border-bottom: 2px solid transparent;
-                padding: 8px 16px;
-                margin: 0px;
+                padding: 9px 17px;
+                margin: 2px;
+                border-radius: 0px;
             }}
             QTabBar::tab:selected {{
-                background: {app['surface']};
+                background: {app['surface_active']};
                 color: {app['text']};
                 border-bottom: 2px solid {app['accent']};
             }}
@@ -881,31 +1120,17 @@ class ThemeManager:
             QScrollArea > QWidget > QWidget {{
                 background: {app['background']};
             }}
-            QGroupBox {{
-                background: {app['surface']};
-                border: 1px solid {app['border']};
-                border-radius: 0px;
-                margin-top: 12px;
-                padding: 14px 10px 10px 10px;
-                font-weight: 700;
-            }}
-            QGroupBox::title {{
-                subcontrol-origin: margin;
-                left: 12px;
-                padding: 0 6px;
-                color: {app['text']};
-            }}
             QLineEdit,
             QPlainTextEdit,
             QFontComboBox,
             QComboBox,
             QSpinBox,
             QListWidget {{
-                background: {app['surface']};
+                background: {app['surface_alt']};
                 color: {app['text']};
                 border: 1px solid {app['border']};
                 border-radius: 0px;
-                padding: 6px 9px;
+                padding: 7px 9px;
                 selection-background-color: {editor['selection']};
                 selection-color: {app['text']};
                 {font_style}
@@ -945,7 +1170,7 @@ class ThemeManager:
             }}
             QListWidget::item {{
                 border-radius: 0px;
-                padding: 7px 8px;
+                padding: 7px 9px;
             }}
             QListWidget::item:selected {{
                 background: {app['surface_active']};
@@ -962,7 +1187,7 @@ class ThemeManager:
                 background: {app['surface']};
                 border: 1px solid {app['border']};
                 border-radius: 0px;
-                padding: 7px 12px;
+                padding: 7px 11px;
                 color: {app['text']};
                 {font_style}
             }}
@@ -981,6 +1206,17 @@ class ThemeManager:
                 spacing: 8px;
                 color: {app['text']};
                 {font_style}
+            }}
+            QCheckBox::indicator {{
+                width: 14px;
+                height: 14px;
+                border: 1px solid {app['border_active']};
+                background: {app['surface_alt']};
+                border-radius: 0px;
+            }}
+            QCheckBox::indicator:checked {{
+                background: {app['accent']};
+                border-color: {app['accent']};
             }}
             QLabel {{
                 color: {app['text']};
@@ -1011,7 +1247,7 @@ class ThemeManager:
                 border: 1px solid {app['border']};
                 border-radius: 0px;
                 min-height: 30px;
-                padding: 5px 36px 5px 10px;
+                padding: 5px 34px 5px 9px;
                 selection-background-color: {app['surface_active']};
                 selection-color: {app['text']};
             }}
@@ -1063,7 +1299,7 @@ class ThemeManager:
                 color: {editor['foreground']};
                 border: 1px solid {editor['border']};
                 border-radius: 0px;
-                padding: 12px;
+                padding: 10px;
             }}
             QPushButton {{
                 background: {app['surface']};
@@ -1071,7 +1307,7 @@ class ThemeManager:
                 border: 1px solid {app['border']};
                 border-radius: 0px;
                 min-width: 76px;
-                padding: 7px 14px;
+                padding: 6px 12px;
                 {font_style}
             }}
             QPushButton:hover {{
@@ -1080,6 +1316,29 @@ class ThemeManager:
             }}
             QPushButton:pressed {{
                 background: {app['surface_active']};
+            }}
+            QPushButton#titleBarMenuButton {{
+                background: transparent;
+                border: 1px solid transparent;
+                border-radius: 0px;
+                color: {app['text']};
+                margin: 0px;
+                padding: 0px 6px;
+                min-width: 0px;
+                min-height: 30px;
+                max-height: 30px;
+                font-size: 12px;
+                text-align: center;
+                {font_style}
+            }}
+            QPushButton#titleBarMenuButton:hover {{
+                background: {app['surface_hover']};
+                border-color: {app['border']};
+            }}
+            QPushButton#titleBarMenuButton:pressed {{
+                background: {app['surface_active']};
+                border-color: {app['border_active']};
+                color: {app['text']};
             }}
         """
 

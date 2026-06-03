@@ -1,4 +1,5 @@
 import os
+import signal
 import sys
 import tempfile
 import time
@@ -16,7 +17,8 @@ sys.path.insert(0, str(SRC_DIR))
 
 from PyQt6.QtCore import QPoint, QRect, Qt, QEvent
 from PyQt6.QtGui import QColor, QFont, QKeyEvent, QTextCursor, QTextDocument
-from PyQt6.QtWidgets import QApplication, QDialog, QTextEdit, QWidget
+from PyQt6.QtGui import QIcon, QPixmap
+from PyQt6.QtWidgets import QApplication, QDialog, QPushButton, QTextEdit, QWidget
 
 from editor_tab import EditorTab, SpellCheckHighlighter
 import editor_tab as editor_tab_module
@@ -106,19 +108,60 @@ class EditorAndMainTests(unittest.TestCase):
 
         self.assertEqual(model.data(index, Qt.ItemDataRole.ToolTipRole), str(note))
 
+    def test_workspace_model_uses_themed_decoration_icons(self):
+        workspace = Path(self.temp_dir.name) / "workspace"
+        workspace.mkdir()
+        note = workspace / "note.md"
+        note.write_text("# Note", encoding="utf-8")
+
+        file_icon = QIcon(QPixmap(8, 8))
+        folder_icon = QIcon(QPixmap(10, 10))
+        model = WorkspaceFileSystemModel()
+        self.addCleanup(model.deleteLater)
+        model.set_workspace_icons(file_icon, folder_icon)
+        model.setRootPath(str(workspace))
+        app().processEvents()
+
+        file_index = model.index(str(note))
+        folder_index = model.index(str(workspace))
+
+        self.assertEqual(
+            model.data(file_index, Qt.ItemDataRole.DecorationRole).cacheKey(),
+            file_icon.cacheKey()
+        )
+        self.assertEqual(
+            model.data(folder_index, Qt.ItemDataRole.DecorationRole).cacheKey(),
+            folder_icon.cacheKey()
+        )
+
+    def test_terminal_interrupt_handler_installs_sigint_timer(self):
+        qt_app = app()
+
+        with patch.object(main_module.signal, "signal") as signal_mock:
+            timer = main_module.install_terminal_interrupt_handler(qt_app)
+
+        self.addCleanup(timer.stop)
+        self.assertIs(qt_app._sigint_timer, timer)
+        self.assertTrue(timer.isActive())
+        self.assertEqual(timer.interval(), 100)
+        signal_mock.assert_called_once()
+        self.assertEqual(signal_mock.call_args.args[0], signal.SIGINT)
+
     def test_workspace_tree_uses_visible_hierarchy_settings(self):
         tree = WorkspaceTreeView()
         self.addCleanup(tree.deleteLater)
 
         tree.setIndentation(18)
         tree.setRootIsDecorated(True)
-        tree.setAlternatingRowColors(True)
-        tree.setAllColumnsShowFocus(True)
+        tree.setAlternatingRowColors(False)
+        tree.setAllColumnsShowFocus(False)
+        tree.set_connector_color("#2F6FED")
 
         self.assertEqual(tree.indentation(), 18)
         self.assertTrue(tree.rootIsDecorated())
-        self.assertTrue(tree.alternatingRowColors())
-        self.assertTrue(tree.allColumnsShowFocus())
+        self.assertFalse(tree.alternatingRowColors())
+        self.assertFalse(tree.allColumnsShowFocus())
+        self.assertEqual(tree.connector_color, QColor("#2F6FED"))
 
     def make_editor(self):
         web_view_patch = patch.object(editor_tab_module, "QWebEngineView", _FakeWebEngineView)
@@ -133,6 +176,18 @@ class EditorAndMainTests(unittest.TestCase):
         self.addCleanup(editor.preview_scroll_timer.stop)
         self.addCleanup(editor.markdown_render_timer.stop)
         return editor
+
+    def test_editor_uses_full_width_when_markdown_preview_is_hidden(self):
+        editor = self.make_editor()
+
+        self.assertFalse(editor.markdown_preview_visible)
+        self.assertGreater(editor.editor.maximumWidth(), 1000000)
+
+        editor.set_markdown_preview_visible(True, save_state=False)
+        self.assertEqual(editor.editor.maximumWidth(), editor_tab_module.EDITOR_PREVIEW_MAX_WIDTH)
+
+        editor.set_markdown_preview_visible(False, save_state=False)
+        self.assertGreater(editor.editor.maximumWidth(), 1000000)
 
     def test_markdown_helpers_cover_tables_tasks_math_and_shortcodes(self):
         editor = self.make_editor()
@@ -706,6 +761,31 @@ class EditorAndMainTests(unittest.TestCase):
         self.assertTrue(states["snippets_visible"])
         self.assertIn("sizes", states)
 
+    def test_markdown_preview_splitter_size_survives_hide_and_show(self):
+        self.settings.save_setting("pane_states", {
+            "snippets_visible": False,
+            "browser_visible": False,
+            "markdown_preview_visible": False,
+            "markdown_sizes": [720, 360],
+            "sizes": [700, 300, 300],
+        })
+        editor = self.make_editor()
+
+        self.assertEqual(editor.saved_markdown_sizes, [720, 360])
+
+        editor.set_markdown_preview_visible(True)
+        with patch.object(editor.markdown_splitter, "sizes", return_value=[800, 320]):
+            editor.save_pane_states()
+        self.assertEqual(self.settings.get_setting("pane_states")["markdown_sizes"], [800, 320])
+
+        editor.set_markdown_preview_visible(False)
+        with patch.object(editor.markdown_splitter, "sizes", return_value=[1120, 0]):
+            editor.save_pane_states()
+        self.assertEqual(self.settings.get_setting("pane_states")["markdown_sizes"], [800, 320])
+
+        editor.set_markdown_preview_visible(True)
+        self.assertEqual(editor.saved_markdown_sizes, [800, 320])
+
     def test_editor_disables_animated_visibility_when_requested(self):
         self.settings.save_setting("enable_animations", False)
         editor = self.make_editor()
@@ -822,17 +902,24 @@ class EditorAndMainTests(unittest.TestCase):
             self.assertEqual(first_tab.current_font.pointSize(), original_size)
             self.assertIn("QToolBar#mainToolBar QToolButton:focus", QApplication.instance().styleSheet())
             self.assertIn("QToolBar#mainToolBar QToolButton:disabled", QApplication.instance().styleSheet())
+            self.assertIn("padding: 0px", QApplication.instance().styleSheet())
+            self.assertIn("spacing: 0px", QApplication.instance().styleSheet())
+            self.assertIn("margin: 0px 0px", QApplication.instance().styleSheet())
+            self.assertIn("max-height: 34px", QApplication.instance().styleSheet())
             self.assertIn("QTabWidget#documentTabs QTabBar::close-button", QApplication.instance().styleSheet())
             self.assertIn("subcontrol-position: center right", QApplication.instance().styleSheet())
             self.assertIn("margin-bottom: 2px", QApplication.instance().styleSheet())
             self.assertIn("text-align: center", QApplication.instance().styleSheet())
             self.assertIn("height: 38px", QApplication.instance().styleSheet())
-            dropdown_tooltips = {
+            self.assertIn("QTabWidget#documentTabs::pane", QApplication.instance().styleSheet())
+            self.assertIn("QSplitter#mainSplitter::handle", QApplication.instance().styleSheet())
+            file_menu = next(action.menu() for action in window.menuBar().actions() if action.text() == "File")
+            file_tooltips = {
                 action.text(): action.toolTip()
-                for action in window.menu_dropdown.actions()
+                for action in file_menu.actions()
                 if not action.isSeparator() and action.text()
             }
-            self.assertEqual(dropdown_tooltips["Export PDF"], "Export current file as PDF")
+            self.assertEqual(file_tooltips["Export as PDF..."], "Export current file as PDF")
             self.assertNotEqual(window.icons["snippets"], window.icons["menu"])
 
     def test_settings_opens_as_reusable_workspace_tab(self):
@@ -845,13 +932,28 @@ class EditorAndMainTests(unittest.TestCase):
             def set_main_window(self, main_window):
                 self.main_window = main_window
 
+            def apply_theme(self, theme_name):
+                self.theme_name = theme_name
+
+            def update_line_numbers_visibility(self, visible):
+                self.line_numbers_visible = visible
+
+            def set_line_numbers_visible(self, visible):
+                self.line_numbers_visible = visible
+
+            def configure_autosave_timer(self):
+                self.autosave_configured = True
+
         with patch.object(main_module, "EditorTab", FakeEditorTab):
             window = TextEditorApp()
             self.addCleanup(window.close)
             self.addCleanup(window.deleteLater)
 
             initial_count = window.tab_widget.count()
-            settings_tab = window.show_settings()
+            self.assertTrue(hasattr(window, "settings_activity_button"))
+            self.assertFalse(window.settings_activity_button.icon().isNull())
+            window.settings_activity_button.click()
+            settings_tab = window.tab_widget.currentWidget()
             self.assertEqual(window.tab_widget.count(), initial_count + 1)
             self.assertIs(window.tab_widget.currentWidget(), settings_tab)
             self.assertFalse(window.tab_widget.tabIcon(window.tab_widget.currentIndex()).isNull())
@@ -871,6 +973,45 @@ class EditorAndMainTests(unittest.TestCase):
             self.assertIs(window.show_settings(), settings_tab)
             self.assertEqual(window.tab_widget.count(), initial_count + 1)
 
+    def test_settings_autosave_does_not_recreate_chrome_for_regular_changes(self):
+        class FakeEditorTab(QWidget):
+            def __init__(self, snippet_manager, settings_manager):
+                super().__init__()
+                self.editor = QTextEdit(self)
+                self.current_file = None
+
+            def set_main_window(self, main_window):
+                self.main_window = main_window
+
+            def apply_theme(self, theme_name):
+                self.theme_name = theme_name
+
+            def update_line_numbers_visibility(self, visible):
+                self.line_numbers_visible = visible
+
+            def set_line_numbers_visible(self, visible):
+                self.line_numbers_visible = visible
+
+            def configure_autosave_timer(self):
+                self.autosave_configured = True
+
+        with patch.object(main_module, "EditorTab", FakeEditorTab):
+            window = TextEditorApp()
+            self.addCleanup(window.close)
+            self.addCleanup(window.deleteLater)
+
+            settings_tab = window.show_settings()
+            toolbar = window.toolbar
+            title_buttons = list(window.custom_title_bar.title_menu_buttons)
+
+            settings_tab.autosave_enabled_check.setChecked(
+                not settings_tab.autosave_enabled_check.isChecked()
+            )
+            settings_tab.commit_auto_save()
+
+            self.assertIs(window.toolbar, toolbar)
+            self.assertEqual(window.custom_title_bar.title_menu_buttons, title_buttons)
+
     def test_main_window_builds_accessible_themed_menubar(self):
         class FakeEditorTab(QWidget):
             def __init__(self, snippet_manager, settings_manager):
@@ -888,6 +1029,92 @@ class EditorAndMainTests(unittest.TestCase):
             self.addCleanup(lambda: QApplication.instance().setStyleSheet(""))
 
             menubar = window.menuBar()
+            self.assertEqual(window.objectName(), "appWindow")
+            self.assertEqual(window.minimumSize().width(), 760)
+            self.assertEqual(window.minimumSize().height(), 420)
+            self.assertTrue(window.statusBar.isSizeGripEnabled())
+            self.assertIs(window.main_layout.itemAt(0).widget(), window.custom_title_bar)
+            self.assertIs(window.main_layout.itemAt(1).widget(), window.toolbar)
+            self.assertFalse(window.custom_title_bar.isHidden())
+            self.assertTrue(window.custom_title_bar.app_title.isHidden())
+            self.assertTrue(hasattr(window.custom_title_bar, "show_title_menu"))
+            self.assertEqual(window.custom_title_bar.command_center.objectName(), "titleBarCommandCenter")
+            self.assertLessEqual(window.custom_title_bar.command_center.minimumHeight(), 30)
+            self.assertLessEqual(window.custom_title_bar.command_center.maximumHeight(), 30)
+            self.assertLessEqual(window.custom_title_bar.command_center.width(), 380)
+            self.assertIsNotNone(window.custom_title_bar.command_center.graphicsEffect())
+            self.assertTrue(window.statusBar.isSizeGripEnabled())
+            self.assertEqual(window.main_layout.contentsMargins().right(), 1)
+            self.assertEqual(window.custom_title_bar.left_balance_area.width(), 10)
+            self.assertGreaterEqual(window.custom_title_bar.right_balance_area.width(), 8)
+            collapsed_width = window.custom_title_bar.command_center.width()
+            expanded_width = window.custom_title_bar.search_expanded_width()
+            self.assertGreaterEqual(expanded_width, collapsed_width * 4)
+            self.assertFalse(window.custom_title_bar.menu_container.isHidden())
+            self.assertTrue(hasattr(window.custom_title_bar, "title_menu_buttons"))
+            self.assertEqual(
+                [button.text() for button in window.custom_title_bar.title_menu_buttons],
+                ["File", "Edit", "View", "Workspace", "Help"]
+            )
+            self.assertTrue(all(isinstance(button, QPushButton) for button in window.custom_title_bar.title_menu_buttons))
+            self.assertTrue(all(button.height() <= 32 for button in window.custom_title_bar.title_menu_buttons))
+            self.assertTrue(
+                all(
+                    button.width() >= button.fontMetrics().horizontalAdvance(button.text()) + 14
+                    for button in window.custom_title_bar.title_menu_buttons
+                )
+            )
+            window.show()
+            QApplication.processEvents()
+            self.assertEqual(window.custom_title_bar.title_menu_buttons[0].geometry().x(), 0)
+            menu_right = window.custom_title_bar.menu_container.geometry().right()
+            search_left = window.custom_title_bar.command_center.geometry().left()
+            self.assertEqual(search_left - menu_right - 1, 10)
+            window.custom_title_bar.animate_search_width(True)
+            QApplication.processEvents()
+            self.assertTrue(window.custom_title_bar.search_expanded)
+            window.custom_title_bar.command_center.clear()
+            outside_search = window.tab_widget.mapToGlobal(window.tab_widget.rect().center())
+            window.custom_title_bar.collapse_search_if_empty_from_global_pos(outside_search)
+            self.assertFalse(window.custom_title_bar.search_expanded)
+            window.custom_title_bar.animate_search_width(True)
+            window.custom_title_bar.command_center.setText("find me")
+            window.custom_title_bar.collapse_search_if_empty_from_global_pos(outside_search)
+            self.assertTrue(window.custom_title_bar.search_expanded)
+            window.custom_title_bar.command_center.clear()
+            window.custom_title_bar.animate_search_width(False)
+            controls_right = window.custom_title_bar.window_controls.mapTo(
+                window.custom_title_bar,
+                window.custom_title_bar.window_controls.rect().topRight()
+            ).x()
+            self.assertEqual(controls_right, window.custom_title_bar.width() - 1)
+            self.assertIn(window.custom_title_bar.left_balance_area, window.custom_title_bar.draggable_title_widgets)
+            self.assertIn(window.custom_title_bar.right_balance_area, window.custom_title_bar.draggable_title_widgets)
+            self.assertFalse(hasattr(window, "toolbar_menu_container"))
+            self.assertTrue(bool(window.windowFlags() & Qt.WindowType.FramelessWindowHint))
+            self.assertTrue(menubar.isHidden())
+            self.assertFalse(window.custom_title_bar.close_button.isHidden())
+            self.assertFalse(window.custom_title_bar.maximize_button.isHidden())
+            self.assertFalse(window.custom_title_bar.minimize_button.isHidden())
+            self.assertEqual(window.custom_title_bar.close_button.text(), "×")
+            self.assertEqual(window.custom_title_bar.maximize_button.text(), "□")
+            self.assertEqual(window.custom_title_bar.minimize_button.text(), "−")
+            self.assertEqual(window.new_workspace_file_button.text(), "")
+            self.assertEqual(window.new_workspace_folder_button.text(), "")
+            self.assertFalse(window.new_workspace_file_button.icon().isNull())
+            self.assertFalse(window.new_workspace_folder_button.icon().isNull())
+            self.assertIn((window.new_workspace_file_button, "file"), window.icon_buttons)
+            self.assertIn((window.new_workspace_folder_button, "folder"), window.icon_buttons)
+            window.settings_manager.save_setting("icon_contrast", "auto")
+            self.assertEqual(window.get_icon_color(), "#111111")
+            window.settings_manager.save_setting("ui_theme", "Dark")
+            self.assertEqual(window.get_icon_color(), "#FFFFFF")
+            window.settings_manager.save_setting("ui_theme", "Light")
+            original_workspace_file_icon = window.workspace_model.workspace_file_icon.cacheKey()
+            window.settings_manager.save_setting("icon_contrast", "accent")
+            window.update_action_icons()
+            self.assertNotEqual(window.workspace_model.workspace_file_icon.cacheKey(), original_workspace_file_icon)
+            self.assertFalse(hasattr(window, "toolbar_window_controls"))
             self.assertEqual(menubar.objectName(), "appMenuBar")
             self.assertFalse(menubar.isNativeMenuBar())
             self.assertEqual(menubar.focusPolicy(), Qt.FocusPolicy.StrongFocus)
@@ -912,7 +1139,69 @@ class EditorAndMainTests(unittest.TestCase):
             self.assertEqual(edit_actions[:3], ["Undo", "Redo", "Cut"])
             self.assertIn("Find/Replace", edit_actions)
             self.assertNotIn("Settings", edit_actions)
+            workspace_actions = [
+                action for action in menubar.actions()[3].menu().actions()
+                if not action.isSeparator()
+            ]
+            self.assertIn("New Workspace File...", [action.text() for action in workspace_actions])
+            self.assertIn("New Workspace Folder...", [action.text() for action in workspace_actions])
+            self.assertTrue(
+                all(
+                    not action.icon().isNull()
+                    for action in workspace_actions
+                    if action.text() in {"New Workspace File...", "New Workspace Folder..."}
+                )
+            )
+            self.assertIn("QWidget#customTitleBar", QApplication.instance().styleSheet())
+            self.assertIn("QWidget#titleBarWindowControls", QApplication.instance().styleSheet())
+            self.assertIn("QLineEdit#titleBarCommandCenter", QApplication.instance().styleSheet())
             self.assertIn("QMenuBar#appMenuBar", QApplication.instance().styleSheet())
+            self.assertIn("QTreeView#workspaceTree::branch", QApplication.instance().styleSheet())
+            self.assertIn("data:image/svg+xml;utf8", QApplication.instance().styleSheet())
+            self.assertIn("QTreeView#workspaceTree::branch:has-children:closed", QApplication.instance().styleSheet())
+            self.assertIn("QTreeView#workspaceTree::branch:has-children:open", QApplication.instance().styleSheet())
+            self.assertEqual(window.workspace_tree.connector_color, QColor("#2F6FED"))
+            self.assertIn("QTabWidget#documentTabs {\n                border-right: 1px solid", QApplication.instance().styleSheet())
+            self.assertIn("QMainWindow#appWindow", QApplication.instance().styleSheet())
+            self.assertIn('QMainWindow#appWindow[chromeMaximized="true"]', QApplication.instance().styleSheet())
+            self.assertIn("QWidget#mainSurface", QApplication.instance().styleSheet())
+            self.assertIn('QWidget#mainSurface[chromeMaximized="true"]', QApplication.instance().styleSheet())
+            self.assertIn('QMainWindow#appWindow[chromeMaximized="true"] QWidget#customTitleBar', QApplication.instance().styleSheet())
+            self.assertIn('QMainWindow#appWindow[chromeMaximized="true"] QStatusBar#statusBar', QApplication.instance().styleSheet())
+            self.assertIn("QWidget#activityRibbon", QApplication.instance().styleSheet())
+            self.assertIn('QMainWindow#appWindow[chromeMaximized="true"] QWidget#activityRibbon', QApplication.instance().styleSheet())
+            maximized_styles = [
+                block
+                for block in QApplication.instance().styleSheet().split("}")
+                if 'chromeMaximized="true"' in block
+            ]
+            self.assertTrue(maximized_styles)
+            self.assertFalse(any("border-left: 0px" in block for block in maximized_styles))
+            self.assertFalse(any("border-right: 0px" in block for block in maximized_styles))
+            self.assertFalse(any("border-top: 0px" in block for block in maximized_styles))
+            self.assertFalse(any("border-bottom: 0px" in block for block in maximized_styles))
+
+            window.show()
+            QApplication.processEvents()
+            self.assertFalse(window.property("chromeMaximized"))
+            self.assertFalse(window.centralWidget().property("chromeMaximized"))
+            window.showMaximized()
+            QApplication.processEvents()
+            window.update_window_state_properties()
+            self.assertTrue(window.property("chromeMaximized"))
+            self.assertTrue(window.centralWidget().property("chromeMaximized"))
+            window.showNormal()
+            QApplication.processEvents()
+            window.update_window_state_properties()
+            self.assertFalse(window.property("chromeMaximized"))
+            self.assertFalse(window.centralWidget().property("chromeMaximized"))
+            top_left_edges, top_left_cursor = window.resize_hit_test(window.frameGeometry().topLeft())
+            self.assertTrue(top_left_edges & Qt.Edge.LeftEdge)
+            self.assertTrue(top_left_edges & Qt.Edge.TopEdge)
+            self.assertEqual(top_left_cursor, Qt.CursorShape.SizeFDiagCursor)
+            right_edges, right_cursor = window.resize_hit_test(window.frameGeometry().topRight() - QPoint(1, -20))
+            self.assertTrue(right_edges & Qt.Edge.RightEdge)
+            self.assertEqual(right_cursor, Qt.CursorShape.SizeHorCursor)
 
     def test_plugin_menu_deduplicates_sidebar_items_that_open_existing_panels(self):
         class FakeEditorTab(QWidget):
@@ -1195,9 +1484,14 @@ class EditorAndMainTests(unittest.TestCase):
                 for action in window.toolbar.actions()
                 if not action.isSeparator() and action.text()
             }
+            file_menu = next(
+                action.menu()
+                for action in window.menuBar().actions()
+                if action.property("text_key") == "File"
+            )
             menu_actions = {
                 action.text(): action.toolTip()
-                for action in window.menu_dropdown.actions()
+                for action in file_menu.actions()
                 if not action.isSeparator() and action.text()
             }
 
@@ -1233,6 +1527,75 @@ class EditorAndMainTests(unittest.TestCase):
 
             self.assertEqual(window.layoutDirection(), Qt.LayoutDirection.LeftToRight)
             self.assertEqual(QApplication.instance().layoutDirection(), Qt.LayoutDirection.LeftToRight)
+
+    def test_workspace_sidebar_position_follows_language_and_can_toggle(self):
+        class FakeEditorTab(QWidget):
+            def __init__(self, snippet_manager, settings_manager):
+                super().__init__()
+                self.editor = QTextEdit(self)
+                self.current_font = settings_manager.get_font()
+                self.current_file = None
+
+            def set_main_window(self, main_window):
+                self.main_window = main_window
+
+        self.settings.save_setting("language", "fa_IR")
+        self.settings.save_setting("workspace_sidebar_position", "auto")
+        self.addCleanup(lambda: QApplication.instance().setLayoutDirection(Qt.LayoutDirection.LeftToRight))
+        self.addCleanup(lambda: translation_manager.set_language("en_US"))
+
+        with patch.object(main_module, "EditorTab", FakeEditorTab):
+            window = TextEditorApp()
+            self.addCleanup(window.close)
+            self.addCleanup(window.deleteLater)
+
+            self.assertEqual(window.resolved_workspace_sidebar_position(), "right")
+            self.assertEqual(window.main_splitter.indexOf(window.activity_ribbon), 2)
+            self.assertEqual(window.main_splitter.indexOf(window.workspace_widget), 1)
+            self.assertEqual(window.main_splitter.indexOf(window.tab_widget), 0)
+            self.assertEqual(window.activity_ribbon.property("side"), "right")
+            self.assertEqual(window.workspace_widget.property("side"), "right")
+            self.assertEqual(window.workspace_widget.maximumWidth(), main_module.WORKSPACE_SIDEBAR_MAX_WIDTH)
+            self.assertGreaterEqual(main_module.WORKSPACE_SIDEBAR_MAX_WIDTH, main_module.WORKSPACE_SIDEBAR_WIDTH * 2)
+
+            window.toggle_workspace_sidebar_position()
+
+            self.assertEqual(window.settings_manager.get_setting("workspace_sidebar_position"), "left")
+            self.assertEqual(window.main_splitter.indexOf(window.activity_ribbon), 0)
+            self.assertEqual(window.main_splitter.indexOf(window.workspace_widget), 1)
+            self.assertEqual(window.main_splitter.indexOf(window.tab_widget), 2)
+            self.assertEqual(window.activity_ribbon.property("side"), "left")
+            self.assertEqual(window.workspace_widget.property("side"), "left")
+
+    def test_main_splitter_sizes_are_saved_and_restored_by_sidebar_side(self):
+        class FakeEditorTab(QWidget):
+            def __init__(self, snippet_manager, settings_manager):
+                super().__init__()
+                self.editor = QTextEdit(self)
+                self.current_font = settings_manager.get_font()
+                self.current_file = None
+
+            def set_main_window(self, main_window):
+                self.main_window = main_window
+
+        self.settings.save_setting("language", "en_US")
+        self.settings.save_setting("workspace_sidebar_position", "left")
+        self.settings.save_setting("main_splitter_sizes", {"left": [48, 360, 840]})
+
+        with patch.object(main_module, "EditorTab", FakeEditorTab):
+            window = TextEditorApp()
+            self.addCleanup(window.close)
+            self.addCleanup(window.deleteLater)
+
+            self.assertEqual(window.main_splitter_sizes_for_side("left"), [48, 360, 840])
+
+            with patch.object(window.main_splitter, "sizes", return_value=[48, 420, 780]):
+                window.save_main_splitter_sizes()
+
+            self.assertEqual(
+                window.settings_manager.get_setting("main_splitter_sizes")["left"],
+                [48, 420, 780]
+            )
 
     def test_main_window_opens_file_in_new_tab(self):
         class FakeEditorTab(QWidget):

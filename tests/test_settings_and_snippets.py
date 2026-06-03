@@ -54,6 +54,7 @@ class SettingsAndSnippetTests(unittest.TestCase):
         self.assertTrue(manager.get_setting("double_click_empty_tab_bar_new_tab"))
         self.assertTrue(manager.get_setting("double_click_tab_closes_tab"))
         self.assertEqual(manager.get_setting("workspace_path"), "")
+        self.assertEqual(manager.get_setting("workspace_sidebar_position"), "auto")
         self.assertEqual(manager.get_setting("recent_workspaces"), [])
         self.assertEqual(manager.get_setting("workspace_sessions"), {})
         self.assertEqual(manager.get_setting("workspace_open_files"), [])

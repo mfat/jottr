@@ -1,9 +1,9 @@
 from PyQt6.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QLabel,
                             QLineEdit, QPushButton, QListWidget, QListWidgetItem, QTabWidget,
                             QWidget, QCheckBox, QMessageBox, QInputDialog, QComboBox,
-                            QGroupBox, QPlainTextEdit, QScrollArea, QFormLayout,
+                            QPlainTextEdit, QScrollArea, QFormLayout,
                             QFileDialog, QFrame, QStackedWidget)
-from PyQt6.QtCore import Qt, QSize
+from PyQt6.QtCore import Qt, QSize, QTimer
 from PyQt6.QtGui import QFont, QColor
 import json
 import os
@@ -31,6 +31,14 @@ class SettingsDialog(QDialog):
         self.embedded = embedded
         self.apply_callback = apply_callback
         self.close_callback = close_callback
+        self._auto_save_ready = False
+        self._applying_auto_save = False
+        self._plugin_settings_dirty = False
+        self._plugin_dirty_widgets = set()
+        self.auto_save_timer = QTimer(self)
+        self.auto_save_timer.setSingleShot(True)
+        self.auto_save_timer.setInterval(180)
+        self.auto_save_timer.timeout.connect(self.commit_auto_save)
         if self.embedded:
             self.setWindowFlags(Qt.WindowType.Widget)
         self.settings_manager = settings_manager
@@ -69,15 +77,16 @@ class SettingsDialog(QDialog):
         """Setup the UI components"""
         # Create layout
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(14, 14, 14, 12)
-        layout.setSpacing(10)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(0)
         
         settings_body = QHBoxLayout()
-        settings_body.setSpacing(12)
+        settings_body.setContentsMargins(0, 0, 0, 0)
+        settings_body.setSpacing(0)
         self.settings_nav = QListWidget()
         self.settings_nav.setObjectName("settingsNavList")
-        self.settings_nav.setFixedWidth(180)
-        self.settings_nav.setSpacing(4)
+        self.settings_nav.setFixedWidth(210)
+        self.settings_nav.setSpacing(0)
         self.settings_stack = QStackedWidget()
         self.settings_stack.setObjectName("settingsStack")
         self.settings_nav.currentRowChanged.connect(self.settings_stack.setCurrentIndex)
@@ -90,14 +99,17 @@ class SettingsDialog(QDialog):
         
         # Appearance tab
         appearance_tab = QWidget()
+        appearance_tab.setObjectName("settingsPage")
         appearance_layout = QVBoxLayout(appearance_tab)
-        appearance_layout.setContentsMargins(12, 12, 12, 12)
-        appearance_layout.setSpacing(10)
+        appearance_layout.setContentsMargins(22, 18, 22, 26)
+        appearance_layout.setSpacing(14)
 
-        general_box = QGroupBox(_("General"))
-        general_layout = QFormLayout(general_box)
-        general_layout.setContentsMargins(12, 10, 12, 12)
-        general_layout.setSpacing(8)
+        general_box, general_body = self.create_settings_section(_("General"))
+        general_layout = QFormLayout()
+        general_layout.setContentsMargins(0, 0, 0, 0)
+        general_layout.setHorizontalSpacing(16)
+        general_layout.setVerticalSpacing(10)
+        general_body.addLayout(general_layout)
         language_label = QLabel(_("Language:"))
         self.language_combo = QComboBox()
         self.load_language_options()
@@ -137,8 +149,7 @@ class SettingsDialog(QDialog):
         general_layout.addRow(font_label, self.ui_font_button)
         appearance_layout.addWidget(general_box)
 
-        theme_box = QGroupBox(_("Custom App Themes"))
-        theme_box_layout = QVBoxLayout(theme_box)
+        theme_box, theme_box_layout = self.create_settings_section(_("Custom App Themes"))
         standard_label = QLabel(
             _("Themes control app chrome, editor colors, panels, menus, and selection states.")
         )
@@ -146,6 +157,7 @@ class SettingsDialog(QDialog):
         theme_box_layout.addWidget(standard_label)
 
         self.custom_theme_list = QListWidget()
+        self.custom_theme_list.setObjectName("compactSettingsList")
         self.custom_theme_list.currentItemChanged.connect(self.load_selected_custom_theme)
         self.custom_theme_list.setMaximumHeight(95)
         theme_box_layout.addWidget(self.custom_theme_list)
@@ -175,9 +187,7 @@ class SettingsDialog(QDialog):
         appearance_layout.addWidget(theme_box, 1)
         self.load_custom_theme_list()
 
-        editor_box = QGroupBox(_("Editor"))
-        editor_layout = QVBoxLayout(editor_box)
-        editor_layout.setContentsMargins(12, 10, 12, 12)
+        editor_box, editor_layout = self.create_settings_section(_("Editor"))
         editor_layout.setSpacing(8)
         self.markdown_scroll_sync_check = QCheckBox(_("Sync markdown editor and preview scrolling"))
         self.markdown_scroll_sync_check.setChecked(
@@ -209,9 +219,7 @@ class SettingsDialog(QDialog):
         editor_layout.addWidget(self.double_click_tab_closes_tab_check)
         appearance_layout.addWidget(editor_box)
 
-        autosave_box = QGroupBox(_("Autosave"))
-        autosave_layout = QVBoxLayout(autosave_box)
-        autosave_layout.setContentsMargins(12, 10, 12, 12)
+        autosave_box, autosave_layout = self.create_settings_section(_("Autosave"))
         autosave_layout.setSpacing(8)
         self.autosave_enabled_check = QCheckBox(_("Automatically save changed files"))
         self.autosave_enabled_check.setChecked(
@@ -240,28 +248,29 @@ class SettingsDialog(QDialog):
         
         # Browser tab
         browser_tab = QWidget()
+        browser_tab.setObjectName("settingsPage")
         self.browser_settings_page = browser_tab
         browser_layout = QVBoxLayout(browser_tab)
-        browser_layout.setSpacing(10)
+        browser_layout.setContentsMargins(22, 18, 22, 26)
+        browser_layout.setSpacing(14)
         
-        # Homepage setting
+        browser_section, browser_section_layout = self.create_settings_section(_("Browser"))
         homepage_layout = QHBoxLayout()
         homepage_label = QLabel(_("Homepage:"))
         self.homepage_edit = QLineEdit()
         self.homepage_edit.setText(self.settings_manager.get_setting('homepage', 'https://www.apnews.com/'))
         homepage_layout.addWidget(homepage_label)
         homepage_layout.addWidget(self.homepage_edit)
-        browser_layout.addLayout(homepage_layout)
+        browser_section_layout.addLayout(homepage_layout)
         
-        # Search sites
         search_label = QLabel(_("Site-specific searches:"))
-        browser_layout.addWidget(search_label)
+        search_label.setObjectName("settingsFieldLabel")
+        browser_section_layout.addWidget(search_label)
         
         self.search_list = QListWidget()
         self.load_search_sites()
-        browser_layout.addWidget(self.search_list)
+        browser_section_layout.addWidget(self.search_list)
         
-        # Search site buttons
         search_buttons = QHBoxLayout()
         add_search = QPushButton(_("Add"))
         edit_search = QPushButton(_("Edit"))
@@ -272,21 +281,26 @@ class SettingsDialog(QDialog):
         search_buttons.addWidget(add_search)
         search_buttons.addWidget(edit_search)
         search_buttons.addWidget(delete_search)
-        browser_layout.addLayout(search_buttons)
+        browser_section_layout.addLayout(search_buttons)
+        browser_layout.addWidget(browser_section)
+        browser_layout.addStretch()
         
         # Dictionary tab
         dict_tab = QWidget()
+        dict_tab.setObjectName("settingsPage")
         dict_layout = QVBoxLayout(dict_tab)
-        dict_layout.setSpacing(10)
+        dict_layout.setContentsMargins(22, 18, 22, 26)
+        dict_layout.setSpacing(14)
         
+        dict_section, dict_section_layout = self.create_settings_section(_("Dictionary"))
         dict_label = QLabel(_("User Dictionary:"))
-        dict_layout.addWidget(dict_label)
+        dict_label.setObjectName("settingsFieldLabel")
+        dict_section_layout.addWidget(dict_label)
         
         self.dict_list = QListWidget()
         self.load_user_dict()
-        dict_layout.addWidget(self.dict_list)
+        dict_section_layout.addWidget(self.dict_list)
         
-        # Dictionary buttons
         dict_buttons = QHBoxLayout()
         add_word = QPushButton(_("Add Word"))
         delete_word = QPushButton(_("Delete Word"))
@@ -294,7 +308,9 @@ class SettingsDialog(QDialog):
         delete_word.clicked.connect(self.delete_dict_word)
         dict_buttons.addWidget(add_word)
         dict_buttons.addWidget(delete_word)
-        dict_layout.addLayout(dict_buttons)
+        dict_section_layout.addLayout(dict_buttons)
+        dict_layout.addWidget(dict_section)
+        dict_layout.addStretch()
         
         # Add tabs
         if self.browser_settings_available():
@@ -305,29 +321,41 @@ class SettingsDialog(QDialog):
             self.settings_nav.setCurrentRow(0)
         
         layout.addLayout(settings_body, 1)
-        
-        buttons = QHBoxLayout()
-        buttons.addStretch()
-        if self.embedded:
-            apply_button = QPushButton(_("Apply"))
-            close_button = QPushButton(_("Close"))
-            apply_button.clicked.connect(self.apply_embedded_settings)
-            close_button.clicked.connect(self.close_embedded_settings)
-            buttons.addWidget(apply_button)
-            buttons.addWidget(close_button)
-        else:
+
+        if not self.embedded:
+            buttons = QHBoxLayout()
+            buttons.addStretch()
             ok_button = QPushButton(_("OK"))
             cancel_button = QPushButton(_("Cancel"))
             ok_button.clicked.connect(self.accept)
             cancel_button.clicked.connect(self.reject)
             buttons.addWidget(ok_button)
             buttons.addWidget(cancel_button)
-        layout.addLayout(buttons)
+            layout.addLayout(buttons)
+        self.connect_auto_save_signals()
+        self._auto_save_ready = True
         self.apply_dialog_style()
 
     def add_settings_page(self, title, widget):
         self.settings_nav.addItem(title)
         self.settings_stack.addWidget(widget)
+
+    def create_settings_section(self, title):
+        section = QFrame()
+        section.setObjectName("settingsSection")
+        section_layout = QVBoxLayout(section)
+        section_layout.setContentsMargins(14, 12, 14, 14)
+        section_layout.setSpacing(10)
+
+        title_label = QLabel(title)
+        title_label.setObjectName("settingsSectionTitle")
+        section_layout.addWidget(title_label)
+
+        body_layout = QVBoxLayout()
+        body_layout.setContentsMargins(0, 0, 0, 0)
+        body_layout.setSpacing(10)
+        section_layout.addLayout(body_layout)
+        return section, body_layout
 
     def settings_page_index(self, widget):
         return self.settings_stack.indexOf(widget)
@@ -363,6 +391,61 @@ class SettingsDialog(QDialog):
         if callable(self.close_callback):
             self.close_callback(self)
 
+    def schedule_auto_save(self):
+        if not self.embedded or not callable(self.apply_callback):
+            return
+        if not self._auto_save_ready or self._applying_auto_save:
+            return
+        sender = self.sender()
+        if sender in self._plugin_dirty_widgets:
+            self._plugin_settings_dirty = True
+        self.auto_save_timer.start()
+
+    def commit_auto_save(self):
+        if not self.embedded or not callable(self.apply_callback):
+            return
+        if self._applying_auto_save:
+            return
+        self._applying_auto_save = True
+        try:
+            self.apply_callback(self)
+            self.apply_dialog_style()
+        finally:
+            self._applying_auto_save = False
+
+    def connect_auto_save_signals(self):
+        widgets = [
+            self.language_combo,
+            self.ui_theme_combo,
+            self.editor_theme_combo,
+            self.icon_contrast_combo,
+            self.enable_animations_check,
+            self.markdown_scroll_sync_check,
+            self.editor_line_numbers_check,
+            self.double_click_empty_tab_bar_new_tab_check,
+            self.double_click_tab_closes_tab_check,
+            self.autosave_enabled_check,
+            self.autosave_interval_combo,
+            self.homepage_edit,
+            self.plugins_directory_edit,
+            self.plugin_registry_url_edit,
+            self.plugin_registry_checksum_url_edit,
+            self.plugin_channel_filter_combo,
+        ]
+        self._plugin_dirty_widgets = {
+            self.plugins_directory_edit,
+            self.plugin_registry_url_edit,
+            self.plugin_registry_checksum_url_edit,
+            self.plugin_channel_filter_combo,
+        }
+        for widget in widgets:
+            if isinstance(widget, QComboBox):
+                widget.currentTextChanged.connect(self.schedule_auto_save)
+            elif isinstance(widget, QCheckBox):
+                widget.toggled.connect(self.schedule_auto_save)
+            elif isinstance(widget, QLineEdit):
+                widget.textChanged.connect(self.schedule_auto_save)
+
     def apply_dialog_style(self):
         theme = ThemeManager.get_theme(
             self.ui_theme_combo.currentText() if hasattr(self, "ui_theme_combo") else self.settings_manager.get_ui_theme(),
@@ -370,13 +453,26 @@ class SettingsDialog(QDialog):
         )
         app = theme["app"]
         selected_bg = self.theme_rgba(app["accent"], 0.18)
+        selected_border = self.theme_rgba(app["accent"], 0.9)
+        subtle_surface = self.theme_rgba(app["border"], 0.14)
         divider_color = self.theme_rgba(app["border"], 0.75)
         item_divider_color = self.theme_rgba(app["border"], 0.65)
         self.setStyleSheet(ThemeManager.build_dialog_stylesheet(theme, self.ui_font) + f"""
+            QDialog {{
+                background: {app['background']};
+            }}
+            QWidget#settingsPage,
+            QWidget#pluginsSettingsTab {{
+                background: {app['background']};
+            }}
+            QStackedWidget#settingsStack {{
+                background: {app['background']};
+                border: none;
+            }}
             QListWidget#settingsNavList {{
                 border: none;
-                padding: 6px;
-                background: transparent;
+                padding: 10px 0 10px 0;
+                background: {app['surface_alt']};
                 outline: none;
             }}
             QWidget#settingsContentDivider {{
@@ -387,14 +483,38 @@ class SettingsDialog(QDialog):
                 max-width: 1px;
             }}
             QListWidget#settingsNavList::item {{
-                padding: 9px 10px;
+                padding: 11px 14px;
                 border-radius: 0px;
                 border-bottom: 1px solid {item_divider_color};
+            }}
+            QListWidget#settingsNavList::item:hover {{
+                background: {app['surface_hover']};
             }}
             QListWidget#settingsNavList::item:selected {{
                 background: {selected_bg};
                 border-radius: 0px;
+                border-left: 3px solid {selected_border};
                 font-weight: 700;
+            }}
+            QFrame#settingsSection {{
+                background: {app['surface']};
+                border: 1px solid {app['border']};
+                border-left: 3px solid {app['border_active']};
+                border-radius: 0px;
+            }}
+            QLabel#settingsSectionTitle {{
+                color: {app['text']};
+                font-size: 13px;
+                font-weight: 800;
+                padding-bottom: 4px;
+                border-bottom: 1px solid {divider_color};
+            }}
+            QLabel#settingsFieldLabel {{
+                color: {app['muted']};
+                font-weight: 700;
+            }}
+            QListWidget#compactSettingsList {{
+                background: {subtle_surface};
             }}
         """)
 
@@ -435,6 +555,7 @@ class SettingsDialog(QDialog):
             self.setFont(self.ui_font)
             self.apply_dialog_style()
             self.update_font_button(self.ui_font_button, selected_font)
+            self.schedule_auto_save()
 
     def common_autosave_intervals(self):
         return [1, 5, 10, 15, 30, 45, 60, 120, 300, 600, 900, 1800, 3600]
@@ -520,6 +641,7 @@ class SettingsDialog(QDialog):
         self.set_custom_themes(themes)
         self.refresh_theme_combos()
         self.editor_theme_combo.setCurrentText(name)
+        self.schedule_auto_save()
 
     def delete_custom_theme(self):
         name = self.get_selected_custom_theme_name()
@@ -535,6 +657,7 @@ class SettingsDialog(QDialog):
                 self.ui_theme_combo.setCurrentText("Light")
             if was_selected:
                 self.editor_theme_combo.setCurrentText("Light")
+            self.schedule_auto_save()
 
     def use_selected_custom_theme(self):
         current = self.custom_theme_list.currentItem()
@@ -598,6 +721,7 @@ class SettingsDialog(QDialog):
         if dialog.exec():
             name, site = dialog.get_data()
             self.search_list.addItem(f"{name}: {site}")
+            self.schedule_auto_save()
 
     def edit_search_site(self):
         """Edit selected search site"""
@@ -608,24 +732,28 @@ class SettingsDialog(QDialog):
             if dialog.exec():
                 new_name, new_site = dialog.get_data()
                 current.setText(f"{new_name}: {new_site}")
+                self.schedule_auto_save()
 
     def delete_search_site(self):
         """Delete selected search site"""
         current = self.search_list.currentRow()
         if current >= 0:
             self.search_list.takeItem(current)
+            self.schedule_auto_save()
 
     def add_dict_word(self):
         """Add word to user dictionary"""
         word, ok = QInputDialog.getText(self, _("Add Word"), _("Enter word:"))
         if ok and word:
             self.dict_list.addItem(word)
+            self.schedule_auto_save()
 
     def delete_dict_word(self):
         """Delete word from user dictionary"""
         current = self.dict_list.currentRow()
         if current >= 0:
             self.dict_list.takeItem(current)
+            self.schedule_auto_save()
 
     def get_data(self):
         """Get dialog data"""
@@ -658,12 +786,10 @@ class SettingsDialog(QDialog):
         plugins_tab = QWidget()
         plugins_tab.setObjectName("pluginsSettingsTab")
         layout = QVBoxLayout(plugins_tab)
-        layout.setContentsMargins(12, 12, 12, 12)
-        layout.setSpacing(10)
+        layout.setContentsMargins(22, 18, 22, 26)
+        layout.setSpacing(14)
 
-        source_box = QGroupBox(_("Plugin Sources"))
-        source_layout = QVBoxLayout(source_box)
-        source_layout.setContentsMargins(12, 10, 12, 12)
+        source_box, source_layout = self.create_settings_section(_("Plugin Sources"))
         source_layout.setSpacing(8)
         local_layout = QHBoxLayout()
         local_layout.addWidget(QLabel(_("Local plugins folder:")))
@@ -937,6 +1063,7 @@ class SettingsDialog(QDialog):
             self.plugin_channel_filter_combo.setCurrentIndex(channel_index)
         self.plugin_manager.refresh()
         self.refresh_plugin_list()
+        self.schedule_auto_save()
 
     def remove_plugin_channel(self):
         channel = self.selected_plugin_channel()
@@ -952,6 +1079,7 @@ class SettingsDialog(QDialog):
         self.populate_plugin_channel_filter()
         self.plugin_manager.refresh()
         self.refresh_plugin_list()
+        self.schedule_auto_save()
 
     def change_plugin_channel_filter(self):
         if not hasattr(self, "plugin_channel_filter_combo"):
@@ -960,6 +1088,7 @@ class SettingsDialog(QDialog):
         self.update_plugin_channel_action_state()
         self.plugin_manager.refresh()
         self.refresh_plugin_list()
+        self.schedule_auto_save()
 
     def plugin_source_label(self, plugin):
         if plugin.source == "remote":
@@ -1022,6 +1151,7 @@ class SettingsDialog(QDialog):
             self.plugin_manager.set_plugins_directory(directory)
             self.plugin_manager.refresh()
             self.refresh_plugin_list()
+            self.schedule_auto_save()
 
     def update_plugin_registry(self):
         try:
@@ -1032,6 +1162,7 @@ class SettingsDialog(QDialog):
             self.plugin_manager.update_plugin_registry(channel_name=selected_channel)
             self.plugin_manager.refresh()
             self.refresh_plugin_list()
+            self.schedule_auto_save()
         except Exception as exc:
             QMessageBox.warning(self, _("Plugins"), _("Could not update plugin index: {error}").format(error=exc))
 
@@ -1150,6 +1281,7 @@ class SettingsDialog(QDialog):
             self.plugin_manager.set_enabled(plugin.name, True, trusted=trusted)
             self.sync_plugin_dependent_settings_pages()
             self.refresh_plugin_list()
+            self.schedule_auto_save()
         except PermissionError as exc:
             QMessageBox.warning(self, _("Plugins"), str(exc))
 
@@ -1173,6 +1305,7 @@ class SettingsDialog(QDialog):
             except Exception as exc:
                 QMessageBox.warning(self, _("Plugins"), _("Could not install plugin version: {error}").format(error=exc))
             self.refresh_plugin_list()
+            self.schedule_auto_save()
 
     def disable_selected_plugin(self):
         plugin = self.selected_plugin()
@@ -1181,6 +1314,7 @@ class SettingsDialog(QDialog):
         self.plugin_manager.set_enabled(plugin.name, False)
         self.sync_plugin_dependent_settings_pages()
         self.refresh_plugin_list()
+        self.schedule_auto_save()
 
     def update_selected_plugin(self):
         plugin = self.selected_plugin()
@@ -1193,6 +1327,7 @@ class SettingsDialog(QDialog):
                 self.plugin_manager.refresh()
             self.sync_plugin_dependent_settings_pages()
             self.refresh_plugin_list()
+            self.schedule_auto_save()
         except Exception as exc:
             QMessageBox.warning(self, _("Plugins"), _("Could not update plugin: {error}").format(error=exc))
 
@@ -1212,6 +1347,7 @@ class SettingsDialog(QDialog):
             self.plugin_manager.remove_plugin(plugin.name)
             self.sync_plugin_dependent_settings_pages()
             self.refresh_plugin_list()
+            self.schedule_auto_save()
         except Exception as exc:
             QMessageBox.warning(self, _("Plugins"), _("Could not remove plugin: {error}").format(error=exc))
 

@@ -32,6 +32,9 @@ import base64
 import mimetypes
 import tempfile
 
+EDITOR_PREVIEW_MAX_WIDTH = 1180
+EDITOR_FULL_WIDTH = 16777215
+
 try:
     import markdown as markdown_lib
     MARKDOWN_LIB_AVAILABLE = True
@@ -690,8 +693,10 @@ class EditorTab(QWidget):
         # Create text editor with default font
         self.editor = CompletingTextEdit(self)  # Pass self as parent
         self.editor.setObjectName("writingEditor")
+        self.editor.setPlaceholderText(_("Start writing...\n\nPress Ctrl+/ for commands"))
         self.editor.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         self.editor.customContextMenuRequested.connect(self.show_context_menu)
+        self.editor.setLineWrapMode(QTextEdit.LineWrapMode.WidgetWidth)
         self.editor.set_line_numbers_visible(
             self.settings_manager.get_setting('editor_line_numbers', True)
         )
@@ -699,13 +704,20 @@ class EditorTab(QWidget):
 
         self.editor_pane = QWidget()
         self.editor_pane.setObjectName("editorPane")
-        editor_pane_layout = QHBoxLayout(self.editor_pane)
-        editor_pane_layout.setContentsMargins(12, 0, 12, 10)
+        editor_pane_layout = QVBoxLayout(self.editor_pane)
+        editor_pane_layout.setContentsMargins(0, 0, 0, 0)
         editor_pane_layout.setSpacing(0)
 
         self.markdown_splitter = QSplitter(Qt.Orientation.Horizontal)
         self.markdown_splitter.setObjectName("markdownSplitter")
-        self.markdown_splitter.addWidget(self.editor)
+        self.editor_canvas = QWidget()
+        self.editor_canvas.setObjectName("writingCanvas")
+        editor_canvas_layout = QHBoxLayout(self.editor_canvas)
+        editor_canvas_layout.setContentsMargins(0, 0, 0, 0)
+        editor_canvas_layout.setSpacing(0)
+        self.update_editor_width_for_preview(False)
+        editor_canvas_layout.addWidget(self.editor, 1)
+        self.markdown_splitter.addWidget(self.editor_canvas)
 
         self.markdown_preview = QWebEngineView()
         self.markdown_preview.setObjectName("markdownPreview")
@@ -721,6 +733,9 @@ class EditorTab(QWidget):
         self.markdown_splitter.setSizes([600, 600])
         self.markdown_splitter.splitterMoved.connect(self.save_pane_states)
         editor_pane_layout.addWidget(self.markdown_splitter)
+        self.editor_status_label = QLabel(_("Saved · 0 words · 0 characters · Plain text · UTF-8"))
+        self.editor_status_label.setObjectName("editorStatusStrip")
+        self.editor_status_label.hide()
         self.apply_language_direction()
         
         # Connect text changed signal to update status
@@ -807,6 +822,7 @@ class EditorTab(QWidget):
             'markdown_sizes': [600, 600],
             'sizes': [700, 300, 300]
         })
+        self.saved_markdown_sizes = self.normalized_markdown_splitter_sizes(states.get('markdown_sizes'))
         
         # Apply visibility
         self.snippet_widget.setVisible(states.get('snippets_visible', False))
@@ -816,8 +832,7 @@ class EditorTab(QWidget):
         # Apply sizes
         if 'sizes' in states:
             self.splitter.setSizes(states['sizes'])
-        if 'markdown_sizes' in states:
-            self.markdown_splitter.setSizes(states['markdown_sizes'])
+        self.markdown_splitter.setSizes(self.saved_markdown_sizes)
         
         # Connect splitter moved signal to save states
         self.splitter.splitterMoved.connect(self.save_pane_states)
@@ -883,6 +898,11 @@ class EditorTab(QWidget):
             self.settings_manager.get_custom_themes()
         )
         self.setStyleSheet(ThemeManager.build_workspace_stylesheet(theme))
+        self.apply_editor_depth(theme)
+
+    def apply_editor_depth(self, theme=None):
+        """Give the writing sheet quiet modern depth without adding chrome."""
+        self.editor.setGraphicsEffect(None)
 
     def autosave_enabled(self):
         """Return whether autosave should write existing files."""
@@ -1656,23 +1676,30 @@ class EditorTab(QWidget):
     def set_markdown_preview_visible(self, visible, save_state=True):
         """Show or hide the rendered markdown preview."""
         self.markdown_preview_visible = visible
+        self.update_editor_width_for_preview(visible)
         self.animate_widget_visibility(self.markdown_preview, visible)
         self.markdown_preview.setMinimumWidth(240 if visible else 0)
         if visible:
             if self.preview_scroll_timer:
                 self.preview_scroll_timer.start()
             if hasattr(self, 'markdown_splitter') and self.markdown_splitter.sizes()[1] < 100:
-                self.markdown_splitter.setSizes([600, 600])
+                self.markdown_splitter.setSizes(getattr(self, "saved_markdown_sizes", [600, 600]))
             self.update_markdown_preview()
         else:
             if self.preview_scroll_timer:
                 self.preview_scroll_timer.stop()
         if save_state:
-            self.save_pane_states()
+            self.save_pane_states(preserve_markdown_sizes=True)
 
     def toggle_markdown_preview(self):
         """Toggle the rendered markdown preview pane."""
         self.set_markdown_preview_visible(not self.markdown_preview_visible)
+
+    def update_editor_width_for_preview(self, preview_visible=None):
+        """Use full editor width unless the preview pane is sharing the row."""
+        if preview_visible is None:
+            preview_visible = getattr(self, "markdown_preview_visible", False)
+        self.editor.setMaximumWidth(EDITOR_PREVIEW_MAX_WIDTH if preview_visible else EDITOR_FULL_WIDTH)
 
     def animations_enabled(self):
         if os.environ.get("QT_QPA_PLATFORM") == "offscreen":
@@ -1748,6 +1775,17 @@ class EditorTab(QWidget):
         if target is None:
             return widget.isVisible()
         return bool(target)
+
+    def normalized_markdown_splitter_sizes(self, sizes):
+        if not isinstance(sizes, list) or len(sizes) != 2:
+            return [600, 600]
+        try:
+            sizes = [int(size) for size in sizes]
+        except (TypeError, ValueError):
+            return [600, 600]
+        if sizes[0] < 100 or sizes[1] < 100:
+            return [600, 600]
+        return sizes
 
     def schedule_markdown_preview_update(self):
         """Render the preview after typing has settled briefly."""
@@ -2448,33 +2486,44 @@ class EditorTab(QWidget):
             body.append(render_display_math(math_start_line or 1, chr(10).join(math_lines)))
         flush_paragraph()
         close_list()
+        theme = ThemeManager.get_theme(
+            self.current_theme,
+            self.settings_manager.get_custom_themes()
+        )
+        app_theme = theme["app"]
+        editor_theme = theme["editor"]
 
         return f"""
         <html>
         <head>
             <style>
+                html {{
+                    background: {app_theme['background']};
+                }}
                 body {{
-                    color: #202124;
+                    background: {editor_theme['background']};
+                    color: {editor_theme['foreground']};
                     font-family: "DejaVu Sans", "Segoe UI", sans-serif;
                     font-size: 14px;
-                    line-height: 1.55;
-                    margin: 18px;
+                    line-height: 1.6;
+                    margin: 0;
+                    padding: 22px 28px 56px;
                 }}
                 h1, h2, h3, h4, h5, h6 {{
-                    color: #111827;
+                    color: {editor_theme['foreground']};
                     font-weight: 700;
                     margin: 1.1em 0 0.45em;
                 }}
-                h1 {{ font-size: 30px; border-bottom: 1px solid #d8dee4; padding-bottom: 6px; }}
-                h2 {{ font-size: 24px; border-bottom: 1px solid #d8dee4; padding-bottom: 4px; }}
+                h1 {{ font-size: 30px; border-bottom: 1px solid {app_theme['border']}; padding-bottom: 6px; }}
+                h2 {{ font-size: 24px; border-bottom: 1px solid {app_theme['border']}; padding-bottom: 4px; }}
                 h3 {{ font-size: 20px; }}
                 h4 {{ font-size: 17px; }}
                 h5 {{ font-size: 15px; }}
-                h6 {{ font-size: 14px; color: #57606a; }}
+                h6 {{ font-size: 14px; color: {app_theme['muted']}; }}
                 p {{ margin: 0 0 0.8em; }}
                 pre {{
-                    background: #f6f8fa;
-                    border: 1px solid #d0d7de;
+                    background: {app_theme['surface_alt']};
+                    border: 1px solid {app_theme['border']};
                     border-radius: 0px;
                     padding: 12px;
                     white-space: pre-wrap;
@@ -2482,7 +2531,7 @@ class EditorTab(QWidget):
                 }}
                 code {{
                     font-family: "DejaVu Sans Mono", "Consolas", monospace;
-                    background: #f6f8fa;
+                    background: {app_theme['surface_alt']};
                     border-radius: 0px;
                     padding: 2px 4px;
                 }}
@@ -2492,8 +2541,8 @@ class EditorTab(QWidget):
                     min-height: 1.55em;
                 }}
                 blockquote {{
-                    border-left: 4px solid #d0d7de;
-                    color: #57606a;
+                    border-left: 3px solid {app_theme['accent']};
+                    color: {app_theme['muted']};
                     margin: 0.8em 0;
                     padding-left: 12px;
                 }}
@@ -2503,7 +2552,7 @@ class EditorTab(QWidget):
                     margin-right: 0.45em;
                     vertical-align: -0.1em;
                 }}
-                a {{ color: #0969da; }}
+                a {{ color: {app_theme['accent']}; }}
                 table {{
                     border-collapse: collapse;
                     margin: 1em 0;
@@ -2511,16 +2560,16 @@ class EditorTab(QWidget):
                     overflow: hidden;
                 }}
                 th, td {{
-                    border: 1px solid #d0d7de;
+                    border: 1px solid {app_theme['border']};
                     padding: 6px 10px;
                     vertical-align: top;
                 }}
                 th {{
-                    background: #f6f8fa;
+                    background: {app_theme['surface_alt']};
                     font-weight: 700;
                 }}
                 tr:nth-child(even) td {{
-                    background: #fbfbfc;
+                    background: {app_theme['surface_alt']};
                 }}
                 img {{
                     display: block;
@@ -2960,6 +3009,12 @@ class EditorTab(QWidget):
         preview_font = QFont(getattr(self, "current_font", self.settings_manager.get_font("editor")))
         preview_family = html.escape(preview_font.family().replace("\\", "\\\\").replace('"', '\\"'), quote=True)
         preview_size = max(8, preview_font.pointSize() if preview_font.pointSize() > 0 else 14)
+        theme = ThemeManager.get_theme(
+            self.current_theme,
+            self.settings_manager.get_custom_themes()
+        )
+        app_theme = theme["app"]
+        editor_theme = theme["editor"]
         dir_attr = "auto"
         try:
             restore_scroll_ratio = max(0.0, min(1.0, float(initial_scroll_ratio or 0)))
@@ -3005,12 +3060,17 @@ class EditorTab(QWidget):
                 html.jottr-restoring-preview-scroll body {{
                     visibility: hidden;
                 }}
+                html {{
+                    background: {app_theme['background']};
+                }}
                 body {{
-                    color: #202124;
+                    background: {editor_theme['background']};
+                    color: {editor_theme['foreground']};
                     font-family: "{preview_family}", "Segoe UI", sans-serif;
                     font-size: {preview_size}pt;
-                    line-height: 1.55;
-                    margin: 18px;
+                    line-height: 1.6;
+                    margin: 0;
+                    padding: 22px 28px 56px;
                     text-align: start;
                     unicode-bidi: plaintext;
                 }}
@@ -3019,20 +3079,20 @@ class EditorTab(QWidget):
                     unicode-bidi: plaintext;
                 }}
                 h1, h2, h3, h4, h5, h6 {{
-                    color: #111827;
+                    color: {editor_theme['foreground']};
                     font-weight: 700;
                     margin: 1.1em 0 0.45em;
                 }}
-                h1 {{ font-size: 30px; border-bottom: 1px solid #d8dee4; padding-bottom: 6px; }}
-                h2 {{ font-size: 24px; border-bottom: 1px solid #d8dee4; padding-bottom: 4px; }}
+                h1 {{ font-size: 30px; border-bottom: 1px solid {app_theme['border']}; padding-bottom: 6px; }}
+                h2 {{ font-size: 24px; border-bottom: 1px solid {app_theme['border']}; padding-bottom: 4px; }}
                 h3 {{ font-size: 20px; }}
                 h4 {{ font-size: 17px; }}
                 h5 {{ font-size: 15px; }}
-                h6 {{ font-size: 14px; color: #57606a; }}
+                h6 {{ font-size: 14px; color: {app_theme['muted']}; }}
                 p {{ margin: 0 0 0.8em; }}
                 pre {{
-                    background: #f6f8fa;
-                    border: 1px solid #d0d7de;
+                    background: {app_theme['surface_alt']};
+                    border: 1px solid {app_theme['border']};
                     border-radius: 0px;
                     padding: 12px;
                     white-space: pre-wrap;
@@ -3040,14 +3100,14 @@ class EditorTab(QWidget):
                 }}
                 code {{
                     font-family: "{preview_family}", "Consolas", monospace;
-                    background: #f6f8fa;
+                    background: {app_theme['surface_alt']};
                     border-radius: 0px;
                     padding: 2px 4px;
                 }}
                 pre code {{ background: transparent; padding: 0; }}
                 blockquote {{
-                    border-inline-start: 4px solid #d0d7de;
-                    color: #57606a;
+                    border-inline-start: 3px solid {app_theme['accent']};
+                    color: {app_theme['muted']};
                     margin: 0.8em 0;
                     padding-inline-start: 12px;
                 }}
@@ -3060,7 +3120,7 @@ class EditorTab(QWidget):
                     margin-inline-end: 0.45em;
                     vertical-align: -0.1em;
                 }}
-                a {{ color: #0969da; }}
+                a {{ color: {app_theme['accent']}; }}
                 table {{
                     border-collapse: collapse;
                     margin: 1em 0;
@@ -3068,16 +3128,16 @@ class EditorTab(QWidget):
                     overflow: hidden;
                 }}
                 th, td {{
-                    border: 1px solid #d0d7de;
+                    border: 1px solid {app_theme['border']};
                     padding: 6px 10px;
                     vertical-align: top;
                 }}
                 th {{
-                    background: #f6f8fa;
+                    background: {app_theme['surface_alt']};
                     font-weight: 700;
                 }}
                 tr:nth-child(even) td {{
-                    background: #fbfbfc;
+                    background: {app_theme['surface_alt']};
                 }}
                 img {{
                     display: block;
@@ -3093,8 +3153,8 @@ class EditorTab(QWidget):
                     overflow-x: auto;
                 }}
                 .admonition {{
-                    border-left: 4px solid #0969da;
-                    background: #f6f8fa;
+                    border-left: 3px solid {app_theme['accent']};
+                    background: {app_theme['surface_alt']};
                     padding: 10px 14px;
                     margin: 1em 0;
                 }}
@@ -3155,6 +3215,8 @@ class EditorTab(QWidget):
                     self.main_window.tab_widget.setTabText(current_index, current_text + '*')
                 elif not modified and current_text.endswith('*'):
                     self.main_window.tab_widget.setTabText(current_index, current_text[:-1])
+                if hasattr(self.main_window, 'update_topbar_context'):
+                    self.main_window.update_topbar_context()
 
     def toggle_pane(self, pane_type):
         """Toggle visibility of side panes"""
@@ -3296,9 +3358,17 @@ class EditorTab(QWidget):
         # Update word count (split by whitespace and filter empty strings)
         words = len([word for word in text.split() if word.strip()])
         chars = len(text)
+        state = _("Unsaved") if self.editor.document().isModified() else _("Saved")
+        status_text = _("{state} · {words} words · {chars} characters · Plain text · UTF-8").format(
+            state=state,
+            words=words,
+            chars=chars
+        )
+        if hasattr(self, "editor_status_label"):
+            self.editor_status_label.setText(status_text)
         
-        # Update status bar
-        self.main_window.statusBar.showMessage(_("Words: {words} | Characters: {chars}").format(words=words, chars=chars))
+        if hasattr(self.main_window, "set_document_status"):
+            self.main_window.set_document_status(status_text)
 
     def toggle_focus_mode(self):
         """Toggle focus mode"""
@@ -3326,46 +3396,67 @@ class EditorTab(QWidget):
         self.pre_focus_states = {
             'snippets_visible': self.snippet_widget.isVisible(),
             'browser_visible': self.browser_widget.isVisible(),
-            'sizes': self.splitter.sizes()
+            'sizes': self.splitter.sizes(),
+            'workspace_visible': bool(
+                self.main_window
+                and hasattr(self.main_window, 'workspace_widget')
+                and self.main_window.workspace_widget.isVisible()
+            )
         }
         
         # Hide UI elements
         window.toolbar.hide()
         window.tab_widget.tabBar().hide()
+        if self.main_window and hasattr(self.main_window, 'workspace_widget'):
+            self.main_window.workspace_widget.hide()
         
         # Hide panes
         self.snippet_widget.hide()
         self.browser_widget.hide()
-        self.editor_pane.setMaximumWidth(900)
-        self.editor_pane.setStyleSheet("""
+        self.editor.setMaximumWidth(980)
+        if hasattr(self, "editor_status_label"):
+            self.editor_status_label.hide()
+        theme = ThemeManager.get_theme(
+            self.current_theme,
+            self.settings_manager.get_custom_themes()
+        )
+        app = theme["app"]
+        editor = theme["editor"]
+        self.editor_pane.setStyleSheet(f"""
             QWidget#editorPane {
-                background: #eef3f8;
+                background: {app['background']};
+            }
+            QWidget#writingCanvas {
+                background: {app['background']};
             }
             QTextEdit#writingEditor {
-                background: #ffffff;
-                border: 1px solid #d7e0ea;
+                background: {editor['background']};
+                color: {editor['foreground']};
+                border: none;
                 border-radius: 0px;
-                padding: 36px 48px;
+                padding: 22px 28px;
+                selection-background-color: {editor['selection']};
                 font-size: 15pt;
             }
         """)
+        self.editor.setGraphicsEffect(None)
         
         # Add exit button
         self.exit_focus_btn = QPushButton(_("Exit Focus Mode"), self)
         self.exit_focus_btn.clicked.connect(self.disable_focus_mode)
-        self.exit_focus_btn.setStyleSheet("""
+        self.exit_focus_btn.setStyleSheet(f"""
             QPushButton {
-                background-color: #ffffff;
-                border: 1px solid #cbd5e1;
+                background-color: {app['surface']};
+                border: 1px solid {app['border']};
                 border-radius: 0px;
-                padding: 9px 16px;
+                padding: 7px 12px;
                 min-width: 120px;
                 min-height: 32px;
-                color: #17202a;
+                color: {app['text']};
             }
             QPushButton:hover {
-                background: #eaf3ff;
-                border-color: #9fc8f7;
+                background: {app['surface_hover']};
+                border-color: {app['border_active']};
             }
         """)
         self.update_exit_button_position()
@@ -3393,9 +3484,18 @@ class EditorTab(QWidget):
         # Show UI elements
         window.toolbar.show()
         window.tab_widget.tabBar().show()
-        self.editor_pane.setMaximumWidth(16777215)
+        if (
+            self.main_window
+            and hasattr(self.main_window, 'workspace_widget')
+            and hasattr(self, 'pre_focus_states')
+            and self.pre_focus_states.get('workspace_visible')
+        ):
+            self.main_window.workspace_widget.show()
+        self.update_editor_width_for_preview()
         self.editor_pane.setStyleSheet("")
         self.apply_workspace_style()
+        if hasattr(self, "editor_status_label"):
+            self.editor_status_label.hide()
         
         # Remove exit button
         if hasattr(self, 'exit_focus_btn'):
@@ -3648,13 +3748,23 @@ class EditorTab(QWidget):
             if suggestions:
                 self.show_suggestion_tooltip(suggestions, cursor)
 
-    def save_pane_states(self):
+    def save_pane_states(self, *args, preserve_markdown_sizes=False):
         """Save pane visibility and sizes"""
+        markdown_sizes = getattr(self, "saved_markdown_sizes", [600, 600])
+        if (
+            not preserve_markdown_sizes
+            and hasattr(self, 'markdown_splitter')
+            and getattr(self, "markdown_preview_visible", False)
+        ):
+            current_markdown_sizes = self.markdown_splitter.sizes()
+            if self.normalized_markdown_splitter_sizes(current_markdown_sizes) == current_markdown_sizes:
+                markdown_sizes = [int(size) for size in current_markdown_sizes]
+                self.saved_markdown_sizes = markdown_sizes
         states = {
             'snippets_visible': self.intended_widget_visibility(self.snippet_widget),
             'browser_visible': self.intended_widget_visibility(self.browser_widget),
             'markdown_preview_visible': self.markdown_preview_visible if hasattr(self, 'markdown_preview') else False,
-            'markdown_sizes': self.markdown_splitter.sizes() if hasattr(self, 'markdown_splitter') else [600, 600],
+            'markdown_sizes': markdown_sizes,
             'sizes': self.splitter.sizes()
         }
         self.settings_manager.save_setting('pane_states', states)
