@@ -153,7 +153,7 @@ class CustomTitleBar(QWidget):
         self.window = window
         self.drag_position = None
         self.search_expanded = False
-        self.search_collapsed_min = 140
+        self.search_collapsed_min = 220
         self.search_collapsed_max = 380
         self.setObjectName("customTitleBar")
         self.setFixedHeight(34)
