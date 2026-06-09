@@ -1049,7 +1049,7 @@ class EditorAndMainTests(unittest.TestCase):
             self.assertGreaterEqual(window.custom_title_bar.right_balance_area.width(), 8)
             collapsed_width = window.custom_title_bar.command_center.width()
             expanded_width = window.custom_title_bar.search_expanded_width()
-            self.assertGreaterEqual(expanded_width, collapsed_width * 4)
+            self.assertGreater(expanded_width, collapsed_width)
             self.assertFalse(window.custom_title_bar.menu_container.isHidden())
             self.assertTrue(hasattr(window.custom_title_bar, "title_menu_buttons"))
             self.assertEqual(

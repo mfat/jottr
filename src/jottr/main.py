@@ -14,7 +14,7 @@ from PyQt6.QtWidgets import (
                             QDialogButtonBox, QTabBar, QFileDialog, QToolButton,
                             QTreeView, QInputDialog, QPushButton, QGraphicsOpacityEffect,
                             QStyle, QStyleOptionTab, QStylePainter, QLineEdit,
-                            QGraphicsDropShadowEffect)
+                            QGraphicsDropShadowEffect, QStyleFactory)
 from PyQt6.QtCore import (
     Qt, QUrl, QTimer, QEvent, QDir, QPropertyAnimation,
     QEasingCurve, QParallelAnimationGroup, QRect, QPoint, QVariantAnimation,
@@ -195,11 +195,11 @@ class CustomTitleBar(QWidget):
         self.command_center.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.command_center.setClearButtonEnabled(False)
         self.command_center.setFrame(False)
-        self.command_center.setFixedHeight(24)
+        self.command_center.setFixedHeight(2)
         self.command_center.setFixedWidth(self.search_collapsed_width())
         self.command_center.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
         search_shadow = QGraphicsDropShadowEffect(self.command_center)
-        search_shadow.setBlurRadius(16)
+        search_shadow.setBlurRadius(5)
         search_shadow.setOffset(0, 1)
         search_shadow.setColor(QColor(0, 0, 0, 55))
         self.command_center.setGraphicsEffect(search_shadow)
@@ -2693,6 +2693,8 @@ def main():
     
     # Create application instance
     app = QApplication(sys.argv)
+    if "Fusion" in QStyleFactory.keys():
+        app.setStyle("Fusion")
     
     # Set application metadata
     app.setApplicationName("Jottr")
