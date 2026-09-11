@@ -16,7 +16,7 @@ if __package__ is None:
 import os
 
 from PyQt6.QtCore import Qt, QTimer
-from PyQt6.QtWidgets import QApplication, QFileDialog, QInputDialog, QMessageBox
+from PyQt6.QtWidgets import QApplication, QInputDialog, QMessageBox
 from PyQt6.QtGui import QFont
 from PyQt6.QtOpenGLWidgets import QOpenGLWidget
 
@@ -73,7 +73,7 @@ def main():
     # Set application metadata
     app.setApplicationName("Jottr")
     app.setApplicationDisplayName("Jottr")
-    app.setDesktopFileName("jottr")
+    app.setDesktopFileName(os.environ.get("FLATPAK_ID") or "io.github.mfat.jottr")
     app.setApplicationVersion(APP_VERSION)
     app.setOrganizationDomain("github.com/mfat/jottr")
     app.setWindowIcon(load_app_icon())

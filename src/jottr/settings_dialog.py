@@ -2,7 +2,7 @@ from PyQt6.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QLabel,
                             QLineEdit, QPushButton, QListWidget, QListWidgetItem, QTabWidget,
                             QWidget, QCheckBox, QMessageBox, QInputDialog, QComboBox,
                             QGroupBox, QPlainTextEdit, QScrollArea, QFormLayout,
-                            QFileDialog, QFrame, QStackedWidget)
+                            QFrame, QStackedWidget)
 from PyQt6.QtCore import Qt, QSize
 from PyQt6.QtGui import QFont
 import json
@@ -17,6 +17,7 @@ from jottr.icon_manager import (
 from jottr.plugin_manager import PluginManager, REMOTE_WARNING
 from jottr.qt_style import available_qt_styles
 from jottr.theme_manager import ThemeManager
+from jottr.file_dialogs import get_existing_directory
 from jottr.editor.spellcheck import (
     DOCUMENT_LANGUAGE_AUTO,
     get_document_language,
@@ -1096,7 +1097,7 @@ class SettingsDialog(QDialog):
         return card
 
     def browse_plugins_directory(self):
-        directory = QFileDialog.getExistingDirectory(
+        directory = get_existing_directory(
             self,
             _("Choose Plugins Folder"),
             self.plugins_directory_edit.text()

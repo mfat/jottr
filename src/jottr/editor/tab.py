@@ -8,7 +8,7 @@ from urllib.parse import quote
 
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QSplitter, QTextEdit, QListWidget,
-    QInputDialog, QMenu, QFileDialog, QDialog, QToolBar, QCompleter,
+    QInputDialog, QMenu, QDialog, QToolBar, QCompleter,
     QListWidgetItem, QLineEdit, QPushButton, QMessageBox, QLabel, QToolTip,
     QGraphicsOpacityEffect,
 )
@@ -27,7 +27,7 @@ from PyQt6.QtWebEngineCore import QWebEnginePage, QWebEngineSettings
 from jottr.snippet_editor_dialog import SnippetEditorDialog
 from jottr.theme_manager import ThemeManager
 from jottr.translation_manager import _, is_rtl_language, localize_digits
-from jottr.icon_manager import apply_dialog_window_icon
+from jottr.file_dialogs import get_open_file_name, get_save_file_name
 
 from jottr.editor.spellcheck import (
     SpellCheckHighlighter,
@@ -482,7 +482,7 @@ class EditorTab(
             filters, initial_filter = self.save_dialog_filters()
             start_path = self.current_file or os.path.expanduser("~")
             fallback_suffix = self.preferred_save_suffix()
-            file_name, selected_filter = QFileDialog.getSaveFileName(
+            file_name, selected_filter = get_save_file_name(
                 self,
                 _("Save File"),
                 start_path,
@@ -523,37 +523,21 @@ class EditorTab(
         return os.path.join(os.path.expanduser("~"), "document.pdf")
 
     def prompt_pdf_export_path(self):
-        """Show a translated save dialog for PDF export."""
-        dialog = QFileDialog(self, _("Export as PDF"), self.suggested_pdf_export_path())
-        dialog.setAcceptMode(QFileDialog.AcceptMode.AcceptSave)
-        dialog.setFileMode(QFileDialog.FileMode.AnyFile)
-        dialog.setOption(QFileDialog.Option.DontUseNativeDialog, True)
-        dialog.setOption(QFileDialog.Option.DontConfirmOverwrite, True)
-        apply_dialog_window_icon(dialog, "save", getattr(self, "settings_manager", None))
-        dialog.setDefaultSuffix("pdf")
+        """Show a native/portal save dialog for PDF export."""
         pdf_filter = _("PDF Files (*.pdf)")
         all_files_filter = _("All Files (*.*)")
-        dialog.setNameFilters([pdf_filter, all_files_filter])
-        dialog.selectNameFilter(pdf_filter)
-        dialog.setLabelText(QFileDialog.DialogLabel.LookIn, _("Look in:"))
-        dialog.setLabelText(QFileDialog.DialogLabel.FileName, _("File name:"))
-        dialog.setLabelText(QFileDialog.DialogLabel.FileType, _("File type:"))
-        dialog.setLabelText(QFileDialog.DialogLabel.Accept, _("Save"))
-        dialog.setLabelText(QFileDialog.DialogLabel.Reject, _("Cancel"))
-        dialog.setLayoutDirection(
-            Qt.LayoutDirection.RightToLeft
-            if is_rtl_language(self.settings_manager.get_setting("language", "en_US"))
-            else Qt.LayoutDirection.LeftToRight
+        selected_path, _selected_filter = get_save_file_name(
+            self,
+            _("Export as PDF"),
+            self.suggested_pdf_export_path(),
+            f"{pdf_filter};;{all_files_filter}",
+            pdf_filter,
         )
-
-        if dialog.exec() != QDialog.DialogCode.Accepted:
+        if not selected_path:
             return ""
-        selected_files = dialog.selectedFiles()
-        if not selected_files:
-            return ""
-        selected_path = selected_files[0]
-        if os.path.exists(selected_path) and not self.confirm_pdf_export_replace(selected_path):
-            return ""
+        if not os.path.splitext(selected_path)[1]:
+            selected_path = f"{selected_path}.pdf"
+        # Overwrite confirmation is handled by the native/portal dialog.
         return selected_path
 
     def confirm_pdf_export_replace(self, file_path):
@@ -686,7 +670,7 @@ class EditorTab(
         return True
 
     def open_file(self):
-        file_name, _selected_filter = QFileDialog.getOpenFileName(
+        file_name, _selected_filter = get_open_file_name(
             self,
             _("Open File"),
             "",

@@ -803,7 +803,7 @@ class EditorAndMainTests(unittest.TestCase):
         target = Path(self.temp_dir.name) / "save-dialog.md"
         editor.editor.setPlainText("dialog save")
 
-        with patch.object(editor_tab_impl.QFileDialog, "getSaveFileName", return_value=(str(target), "")):
+        with patch.object(editor_tab_impl, "get_save_file_name", return_value=(str(target), "")):
             self.assertTrue(editor.save_file(force_dialog=True))
 
         self.assertEqual(editor.current_file, str(target))
@@ -862,8 +862,8 @@ class EditorAndMainTests(unittest.TestCase):
         md_filter = "Markdown Files (*.md *.markdown)"
 
         with patch.object(
-            editor_tab_impl.QFileDialog,
-            "getSaveFileName",
+            editor_tab_impl,
+            "get_save_file_name",
             return_value=(str(target), md_filter),
         ) as save_dialog:
             self.assertTrue(editor.save_file(force_dialog=True))
@@ -874,86 +874,25 @@ class EditorAndMainTests(unittest.TestCase):
         self.assertEqual(editor.current_file, f"{target}.md")
         self.assertEqual(Path(f"{target}.md").read_text(encoding="utf-8"), "needs extension")
 
-    def test_pdf_export_dialog_uses_app_translations(self):
+    def test_pdf_export_dialog_uses_native_portal_path(self):
         self.settings.save_setting("language", "fa_IR")
         translation_manager.set_language("fa_IR")
         self.addCleanup(lambda: translation_manager.set_language("en_US"))
         editor = self.make_editor()
         target = str(Path(self.temp_dir.name) / "translated-export.pdf")
-        dialogs = []
 
-        class FakeFileDialog:
-            class AcceptMode:
-                AcceptSave = object()
-
-            class FileMode:
-                AnyFile = object()
-
-            class Option:
-                DontUseNativeDialog = object()
-                DontConfirmOverwrite = object()
-
-            class DialogLabel:
-                LookIn = "look_in"
-                FileName = "file_name"
-                FileType = "file_type"
-                Accept = "accept"
-                Reject = "reject"
-
-            def __init__(self, parent, title, directory):
-                self.parent = parent
-                self.title = title
-                self.directory = directory
-                self.labels = {}
-                self.name_filters = []
-                self.selected_name_filter = ""
-                self.layout_direction = None
-                self.options = []
-                dialogs.append(self)
-
-            def setAcceptMode(self, value):
-                self.accept_mode = value
-
-            def setFileMode(self, value):
-                self.file_mode = value
-
-            def setOption(self, option, enabled):
-                self.options.append((option, enabled))
-
-            def setDefaultSuffix(self, suffix):
-                self.default_suffix = suffix
-
-            def setNameFilters(self, filters):
-                self.name_filters = filters
-
-            def selectNameFilter(self, name_filter):
-                self.selected_name_filter = name_filter
-
-            def setLabelText(self, label, text):
-                self.labels[label] = text
-
-            def setLayoutDirection(self, direction):
-                self.layout_direction = direction
-
-            def exec(self):
-                return QDialog.DialogCode.Accepted
-
-            def selectedFiles(self):
-                return [target]
-
-        with patch.object(editor_tab_impl, "QFileDialog", FakeFileDialog):
+        with patch.object(
+            editor_tab_impl,
+            "get_save_file_name",
+            return_value=(target, "فایل‌های PDF (*.pdf)"),
+        ) as save_dialog:
             self.assertEqual(editor.prompt_pdf_export_path(), target)
 
-        dialog = dialogs[0]
-        self.assertEqual(dialog.title, "برون‌بری به PDF")
-        self.assertEqual(dialog.name_filters, ["فایل‌های PDF (*.pdf)", "همهٔ فایل‌ها (*.*)"])
-        self.assertIn((FakeFileDialog.Option.DontConfirmOverwrite, True), dialog.options)
-        self.assertEqual(dialog.labels[FakeFileDialog.DialogLabel.LookIn], "نگاه در:")
-        self.assertEqual(dialog.labels[FakeFileDialog.DialogLabel.FileName], "نام فایل:")
-        self.assertEqual(dialog.labels[FakeFileDialog.DialogLabel.FileType], "نوع فایل:")
-        self.assertEqual(dialog.labels[FakeFileDialog.DialogLabel.Accept], "ذخیره")
-        self.assertEqual(dialog.labels[FakeFileDialog.DialogLabel.Reject], "لغو")
-        self.assertEqual(dialog.layout_direction, Qt.LayoutDirection.RightToLeft)
+        save_dialog.assert_called_once()
+        self.assertEqual(save_dialog.call_args.args[1], "برون‌بری به PDF")
+        self.assertIn("*.pdf", save_dialog.call_args.args[3])
+        self.assertTrue(save_dialog.call_args.args[3].startswith("فایل‌های PDF (*.pdf)"))
+        self.assertEqual(save_dialog.call_args.args[4], "فایل‌های PDF (*.pdf)")
 
     def test_pdf_export_replace_confirmation_uses_app_translations(self):
         self.settings.save_setting("language", "fa_IR")
@@ -1014,7 +953,7 @@ class EditorAndMainTests(unittest.TestCase):
         target = Path(self.temp_dir.name) / "open-dialog.txt"
         target.write_text("# Dialog Open", encoding="utf-8")
 
-        with patch.object(editor_tab_impl.QFileDialog, "getOpenFileName", return_value=(str(target), "")):
+        with patch.object(editor_tab_impl, "get_open_file_name", return_value=(str(target), "")):
             editor.open_file()
 
         self.assertEqual(editor.current_file, str(target))
@@ -1787,7 +1726,7 @@ class EditorAndMainTests(unittest.TestCase):
         target.write_text("# Dialog", encoding="utf-8")
 
         with patch.object(window_module, "EditorTab", FakeEditorTab), \
-             patch.object(window_module.QFileDialog, "getOpenFileName", return_value=(str(target), "")):
+             patch.object(window_module, "get_open_file_name", return_value=(str(target), "")):
             window = TextEditorApp()
             self.addCleanup(window.close)
             self.addCleanup(window.deleteLater)

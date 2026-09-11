@@ -136,6 +136,7 @@ class ImportAndPackagingTests(unittest.TestCase):
             "jottr.editor_tab",
             "jottr.feed_manager_dialog",
             "jottr.font_dialog",
+            "jottr.file_dialogs",
             "jottr.icon_manager",
             "jottr.resources",
             "jottr.resources.rc_symbolic_icons",

@@ -4,11 +4,12 @@ import os
 from PyQt6.QtCore import Qt, QDir
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QLabel, QMenu,
-    QFileDialog, QMessageBox, QInputDialog,
+    QMessageBox, QInputDialog,
 )
 
 from jottr.translation_manager import _
 from jottr.icon_manager import ask_themed_question
+from jottr.file_dialogs import get_existing_directory
 from jottr.ui.workspace import WorkspaceFileSystemModel, WorkspaceTreeView
 
 
@@ -110,7 +111,7 @@ class WorkspaceControllerMixin:
     def open_workspace_dialog(self):
         """Choose a directory to use as the current workspace."""
         start_dir = self.workspace_path or os.path.expanduser("~")
-        directory = QFileDialog.getExistingDirectory(self, _("Open Workspace"), start_dir)
+        directory = get_existing_directory(self, _("Open Workspace"), start_dir)
         if directory:
             self.switch_workspace(directory)
 

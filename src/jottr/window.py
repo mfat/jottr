@@ -5,7 +5,7 @@ import json
 from PyQt6.QtWidgets import (
     QMainWindow, QTabWidget, QWidget, QVBoxLayout, QSplitter,
     QMenu, QToolBar, QMessageBox, QLabel, QDialog, QSizePolicy,
-    QDialogButtonBox, QFileDialog, QToolButton, QTabBar,
+    QDialogButtonBox, QToolButton, QTabBar,
     QGraphicsOpacityEffect, QApplication, QComboBox,
 )
 from PyQt6.QtCore import (
@@ -28,6 +28,7 @@ from jottr.settings_dialog import SettingsDialog
 from jottr.translation_manager import _, format_language_label, is_rtl_language, set_language
 from jottr.font_dialog import FontSelectionDialog
 from jottr.plugin_manager import PluginManager
+from jottr.file_dialogs import get_open_file_name
 from jottr.editor.spellcheck import (
     DOCUMENT_LANGUAGE_AUTO,
     get_document_language,
@@ -1547,7 +1548,7 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
         """Open a file immediately, reusing an empty untitled tab when possible."""
         if file_path is None:
             # Show file dialog if no path provided
-            file_path, _selected_filter = QFileDialog.getOpenFileName(
+            file_path, _selected_filter = get_open_file_name(
                 self,
                 _("Open File"),
                 "",
