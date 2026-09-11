@@ -139,6 +139,7 @@ class ImportAndPackagingTests(unittest.TestCase):
             "jottr.icon_manager",
             "jottr.resources",
             "jottr.resources.rc_symbolic_icons",
+            "jottr.resources.rc_bootstrap_icons",
             "jottr.paths",
             "jottr.plugin_manager",
             "jottr.qt_style",
@@ -194,9 +195,14 @@ class ImportAndPackagingTests(unittest.TestCase):
             app = QApplication(["jottr-tests"])
 
         themes = list_bundled_icon_themes()
-        self.assertEqual([theme["id"] for theme in themes], ["symbolic"])
+        self.assertEqual(
+            [theme["id"] for theme in themes],
+            ["symbolic", "bootstrap"],
+        )
         self.assertEqual(themes[0]["label"], "Adwaita")
+        self.assertEqual(themes[1]["label"], "Bootstrap")
         self.assertEqual(normalize_icon_theme("Adwaita"), "symbolic")
+        self.assertEqual(normalize_icon_theme("Bootstrap"), "bootstrap")
         self.assertEqual(normalize_icon_theme("missing"), DEFAULT_ICON_THEME)
 
         icons = load_bundled_icon_paths("symbolic")
@@ -223,6 +229,20 @@ class ImportAndPackagingTests(unittest.TestCase):
         self.assertTrue((PROJECT_ROOT / "icons" / "symbolic.qrc").is_file())
         self.assertTrue(
             (PACKAGE_DIR / "resources" / "rc_symbolic_icons.py").is_file()
+        )
+
+        bootstrap = load_bundled_icon_paths("bootstrap")
+        self.assertIn("save", bootstrap)
+        self.assertIn("snippets", bootstrap)
+        self.assertIn("markdown", bootstrap)
+        self.assertTrue(bootstrap["save"].startswith(":/icons/bootstrap/"))
+        self.assertTrue(bootstrap["tab-close"].startswith(":/icons/bootstrap/"))
+        self.assertNotEqual(bootstrap["save"], icons["save"])
+        bootstrap_tinted = build_themed_icon(bootstrap["save"], "#f8f8f2", size=16)
+        self.assertFalse(bootstrap_tinted.isNull())
+        self.assertTrue((PROJECT_ROOT / "icons" / "bootstrap.qrc").is_file())
+        self.assertTrue(
+            (PACKAGE_DIR / "resources" / "rc_bootstrap_icons.py").is_file()
         )
         self.assertIsNotNone(app)
 

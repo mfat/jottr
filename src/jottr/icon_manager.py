@@ -55,6 +55,13 @@ BUNDLED_ICON_THEMES: tuple[BundledIconTheme, ...] = (
         "resource_prefix": ":/icons/symbolic",
         "resource_module": "jottr.resources.rc_symbolic_icons",
     },
+    {
+        "id": "bootstrap",
+        "label": "Bootstrap",
+        "subdir": "bootstrap",
+        "resource_prefix": ":/icons/bootstrap",
+        "resource_module": "jottr.resources.rc_bootstrap_icons",
+    },
 )
 DEFAULT_ICON_THEME = BUNDLED_ICON_THEMES[0]["id"]
 

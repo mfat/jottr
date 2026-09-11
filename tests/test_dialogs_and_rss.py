@@ -148,9 +148,12 @@ class DialogAndRssTests(unittest.TestCase):
                 dialog.icon_theme_combo.itemData(i)
                 for i in range(dialog.icon_theme_combo.count())
             ],
-            ["symbolic"],
+            ["symbolic", "bootstrap"],
         )
         self.assertEqual(dialog.icon_theme_combo.currentData(), "symbolic")
+        dialog.icon_theme_combo.setCurrentIndex(
+            dialog.icon_theme_combo.findData("bootstrap")
+        )
         dialog.icon_contrast_combo.setCurrentText("light")
         dialog.markdown_scroll_sync_check.setChecked(False)
         dialog.editor_line_numbers_check.setChecked(False)
@@ -176,7 +179,7 @@ class DialogAndRssTests(unittest.TestCase):
         self.assertEqual(data["theme"], "Forest")
         self.assertEqual(data["qt_style"], fusion)
         self.assertEqual(data["custom_themes"]["Forest"]["editor"]["background"], "#102018")
-        self.assertEqual(data["icon_theme"], "symbolic")
+        self.assertEqual(data["icon_theme"], "bootstrap")
         self.assertEqual(data["icon_contrast"], "light")
         self.assertFalse(data["enable_animations"])
         self.assertEqual(data["ui_font"].family(), manager.get_font("ui").family())

@@ -193,7 +193,10 @@ class SettingsAndSnippetTests(unittest.TestCase):
         from jottr.icon_manager import DEFAULT_ICON_THEME, list_bundled_icon_themes
 
         themes = list_bundled_icon_themes()
-        self.assertEqual([theme["id"] for theme in themes], [DEFAULT_ICON_THEME])
+        self.assertEqual(
+            [theme["id"] for theme in themes],
+            ["symbolic", "bootstrap"],
+        )
 
         manager = SettingsManager()
         self.assertEqual(manager.get_icon_theme(), DEFAULT_ICON_THEME)
@@ -201,6 +204,10 @@ class SettingsAndSnippetTests(unittest.TestCase):
         manager.save_icon_theme("Adwaita")
         reloaded = SettingsManager()
         self.assertEqual(reloaded.get_icon_theme(), "symbolic")
+
+        manager.save_icon_theme("Bootstrap")
+        reloaded = SettingsManager()
+        self.assertEqual(reloaded.get_icon_theme(), "bootstrap")
 
         manager.save_icon_theme("NotARealTheme")
         self.assertEqual(manager.get_icon_theme(), DEFAULT_ICON_THEME)

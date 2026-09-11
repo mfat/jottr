@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Compile ``icons/symbolic.qrc`` into a PyQt6 resource module.
+"""Compile bundled icon ``*.qrc`` files into PyQt6 resource modules.
 
 Uses Qt's ``rcc -g python`` (official Qt Resource System workflow). PyQt6 does
 not ship ``pyrcc6``, so this script prefers the system Qt6 ``rcc`` binary and
@@ -17,8 +17,14 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-QRC = ROOT / "icons" / "symbolic.qrc"
-OUTPUT = ROOT / "src" / "jottr" / "resources" / "rc_symbolic_icons.py"
+ICONS_DIR = ROOT / "icons"
+RESOURCES_DIR = ROOT / "src" / "jottr" / "resources"
+
+# theme id -> (qrc path, output module path)
+ICON_THEME_RESOURCES = (
+    ("symbolic", ICONS_DIR / "symbolic.qrc", RESOURCES_DIR / "rc_symbolic_icons.py"),
+    ("bootstrap", ICONS_DIR / "bootstrap.qrc", RESOURCES_DIR / "rc_bootstrap_icons.py"),
+)
 
 RCC_CANDIDATES = (
     Path("/usr/lib/qt6/libexec/rcc"),
@@ -49,22 +55,10 @@ def rewrite_for_pyqt6(path: Path) -> None:
     path.write_text(updated, encoding="utf-8")
 
 
-def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument(
-        "-o",
-        "--output",
-        type=Path,
-        default=OUTPUT,
-        help=f"Output module (default: {OUTPUT})",
-    )
-    args = parser.parse_args(argv)
-
-    if not QRC.is_file():
-        raise SystemExit(f"Missing resource collection: {QRC}")
-
-    args.output.parent.mkdir(parents=True, exist_ok=True)
-    rcc = find_rcc()
+def compile_qrc(rcc: str, qrc: Path, output: Path) -> None:
+    if not qrc.is_file():
+        raise SystemExit(f"Missing resource collection: {qrc}")
+    output.parent.mkdir(parents=True, exist_ok=True)
     cmd = [
         rcc,
         "-g",
@@ -72,13 +66,36 @@ def main(argv: list[str] | None = None) -> int:
         "--compress-algo",
         "zlib",
         "-o",
-        str(args.output),
-        str(QRC),
+        str(output),
+        str(qrc),
     ]
     print(" ".join(cmd))
     subprocess.run(cmd, check=True, cwd=ROOT)
-    rewrite_for_pyqt6(args.output)
-    print(f"Wrote {args.output.relative_to(ROOT)}")
+    rewrite_for_pyqt6(output)
+    print(f"Wrote {output.relative_to(ROOT)}")
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "themes",
+        nargs="*",
+        help="Theme ids to compile (default: all). Known: symbolic, bootstrap",
+    )
+    args = parser.parse_args(argv)
+
+    wanted = {name.casefold() for name in args.themes} if args.themes else None
+    rcc = find_rcc()
+    compiled = 0
+    for theme_id, qrc, output in ICON_THEME_RESOURCES:
+        if wanted is not None and theme_id.casefold() not in wanted:
+            continue
+        compile_qrc(rcc, qrc, output)
+        compiled += 1
+
+    if wanted is not None and compiled == 0:
+        known = ", ".join(theme_id for theme_id, *_ in ICON_THEME_RESOURCES)
+        raise SystemExit(f"No matching themes. Known: {known}")
     return 0
 
 

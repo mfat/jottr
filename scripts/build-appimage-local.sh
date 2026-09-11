@@ -174,6 +174,7 @@ echo "==> Building PyInstaller bundle"
     --hidden-import jottr.icon_manager \
     --hidden-import jottr.resources \
     --hidden-import jottr.resources.rc_symbolic_icons \
+    --hidden-import jottr.resources.rc_bootstrap_icons \
     --hidden-import jottr.paths \
     --hidden-import jottr.plugin_manager \
     --hidden-import jottr.qt_style \
