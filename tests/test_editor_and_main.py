@@ -15,7 +15,7 @@ SRC_ROOT = PROJECT_ROOT / "src"
 sys.path.insert(0, str(SRC_ROOT))
 
 from PyQt6.QtCore import QPoint, QRect, Qt, QEvent
-from PyQt6.QtGui import QColor, QFont, QKeyEvent, QTextCursor, QTextDocument
+from PyQt6.QtGui import QColor, QFont, QKeyEvent, QTextCharFormat, QTextCursor, QTextDocument
 from PyQt6.QtWidgets import QApplication, QDialog, QTextEdit, QWidget
 
 from jottr.editor_tab import EditorTab, SpellCheckHighlighter
@@ -484,6 +484,33 @@ class EditorAndMainTests(unittest.TestCase):
         self.assertIn("#bd93f9", code_colors)
         self.assertIn("#50fa7b", link_colors)
         self.assertIn("#f1fa8c", link_colors)
+
+    def test_spell_check_keeps_contractions_intact(self):
+        document = QTextDocument()
+        highlighter = SpellCheckHighlighter(document, self.settings)
+        document.setPlainText("This shouldn't and shouldn’t be wrong. xyzzyq is wrong.")
+        highlighter.rehighlight()
+
+        block = document.firstBlock()
+        underlined = []
+        for item in block.layout().formats():
+            if item.format.underlineStyle() == QTextCharFormat.UnderlineStyle.SpellCheckUnderline:
+                underlined.append(block.text()[item.start:item.start + item.length])
+
+        self.assertNotIn("shouldn't", underlined)
+        self.assertNotIn("shouldn’t", underlined)
+        self.assertNotIn("shouldn", underlined)
+        self.assertIn("xyzzyq", underlined)
+
+    def test_replace_word_keeps_contractions_intact(self):
+        editor = self.make_editor()
+        editor.editor.setPlainText("shouldn'tt")
+        cursor = editor.editor.textCursor()
+        cursor.setPosition(3)  # inside "shouldn"
+        editor.editor.setTextCursor(cursor)
+
+        editor.replace_word("shouldn't")
+        self.assertEqual(editor.editor.toPlainText(), "shouldn't")
 
     def test_editor_snippet_insert_find_replace_and_save(self):
         editor = self.make_editor()

@@ -45,6 +45,33 @@ try:
 except (ImportError, ModuleNotFoundError):
     SpellChecker = None
 
+# Words may include internal apostrophes (shouldn't / don’t)
+_WORD_PATTERN = re.compile(r"\w+(?:['’]\w+)*")
+
+
+def find_word_bounds(text, pos):
+    """Return [start, end) for the word at pos, keeping contractions intact."""
+    if not text:
+        return 0, 0
+
+    pos = max(0, min(pos, len(text)))
+
+    def locate(index):
+        for match in _WORD_PATTERN.finditer(text):
+            if match.start() <= index < match.end():
+                return match.start(), match.end()
+        return None
+
+    if pos < len(text):
+        found = locate(pos)
+        if found:
+            return found
+    if pos > 0:
+        found = locate(pos - 1)
+        if found:
+            return found
+    return pos, pos
+
 
 class FallbackSpellChecker:
     def __init__(self):
@@ -278,8 +305,8 @@ class SpellCheckHighlighter(QSyntaxHighlighter):
         format.setUnderlineColor(Qt.GlobalColor.red)
         format.setUnderlineStyle(QTextCharFormat.UnderlineStyle.SpellCheckUnderline)
 
-        # For each word in the text
-        for match in re.finditer(r'\b\w+\b', text):
+        # Include apostrophes so contractions like "shouldn't" / "don’t" stay whole
+        for match in _WORD_PATTERN.finditer(text):
             index = match.start()
             word = match.group(0)
             length = len(word)
@@ -295,9 +322,9 @@ class SpellCheckHighlighter(QSyntaxHighlighter):
                         pass  # Skip words that can't be encoded
 
     def is_latin_word(self, word):
-        """Check if word contains only Latin characters"""
+        """Check if word contains only Latin characters (plus apostrophes)"""
         try:
-            word.encode('latin-1')
+            word.replace("'", "").replace("’", "").encode('latin-1')
             return True
         except UnicodeEncodeError:
             return False
@@ -553,10 +580,11 @@ class CompletingTextEdit(QTextEdit):
         text = block.text()
         pos = cursor.positionInBlock()
         
-        # Find start of current word
-        start = pos
-        while start > 0 and (text[start-1].isalnum() or text[start-1] == '_'):
-            start -= 1
+        # Replace from start of current word (including contractions) to cursor
+        if pos > 0 and (text[pos - 1].isalnum() or text[pos - 1] in "_'’"):
+            start, _ = find_word_bounds(text, pos - 1)
+        else:
+            start = pos
         
         # Find if this is a snippet or word suggestion
         is_snippet = False
@@ -1217,9 +1245,12 @@ class EditorTab(QWidget):
         had_selection = cursor.hasSelection()
         
         if not had_selection:
-            # Only select word under cursor if there was no existing selection
+            # Select word under cursor, keeping contractions like "shouldn't" intact
             cursor = self.editor.cursorForPosition(pos)
-            cursor.select(QTextCursor.SelectionType.WordUnderCursor)
+            block = cursor.block()
+            start, end = find_word_bounds(block.text(), cursor.positionInBlock())
+            cursor.setPosition(block.position() + start)
+            cursor.setPosition(block.position() + end, QTextCursor.MoveMode.KeepAnchor)
             self.editor.setTextCursor(cursor)
         
         # Create menu with a slight delay to prevent accidental triggers
@@ -3638,12 +3669,14 @@ class EditorTab(QWidget):
         current_line = cursor.block().text()
         current_position = cursor.positionInBlock()
         
-        # Find the word being typed
+        # Find the word being typed (keep contractions intact)
         word_start = current_position
-        while word_start > 0 and (current_line[word_start - 1].isalnum() or 
-                                 current_line[word_start - 1] in '_-'):
+        while word_start > 0 and (
+            current_line[word_start - 1].isalnum()
+            or current_line[word_start - 1] in "_-'’"
+        ):
             word_start -= 1
-        
+
         current_word = current_line[word_start:current_position]
         
         if len(current_word) >= 2:  # Only show suggestions after 2 characters
@@ -3819,10 +3852,11 @@ class EditorTab(QWidget):
         text = block.text()
         pos = cursor.positionInBlock()
         
-        # Find start of current word
-        start = pos
-        while start > 0 and (text[start-1].isalnum() or text[start-1] == '_'):
-            start -= 1
+        # Replace from start of current word (including contractions) to cursor
+        if pos > 0 and (text[pos - 1].isalnum() or text[pos - 1] in "_'’"):
+            start, _ = find_word_bounds(text, pos - 1)
+        else:
+            start = pos
             
         # Find if this is a snippet or word suggestion
         is_snippet = False
@@ -3869,15 +3903,8 @@ class EditorTab(QWidget):
         text = block.text()
         pos = cursor.positionInBlock()
 
-        # Find start of word (including alphanumeric and underscores)
-        start = pos
-        while start > 0 and (text[start-1].isalnum() or text[start-1] == '_'):
-            start -= 1
-
-        # Find end of word (including alphanumeric and underscores)
-        end = pos
-        while end < len(text) and (text[end].isalnum() or text[end] == '_'):
-            end += 1
+        # Keep contractions like "shouldn't" intact when replacing
+        start, end = find_word_bounds(text, pos)
 
         # Select and replace the word
         cursor.setPosition(block.position() + start)
