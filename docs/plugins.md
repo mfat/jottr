@@ -222,8 +222,8 @@ Toolbar actions appear in the main toolbar.
 ```
 
 Use short labels because toolbar space is limited. If `icon` matches a bundled
-symbolic icon name under `icons/symbolic/` (for example `save`, `find`,
-`snippets`), Jottr may use it.
+symbolic icon name (for example `save`, `find`, `snippets` — sources live under
+`icons/symbolic/` and are loaded from Qt resources at runtime), Jottr may use it.
 
 ### Sidebar Items
 

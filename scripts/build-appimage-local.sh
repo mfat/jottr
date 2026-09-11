@@ -162,6 +162,8 @@ echo "==> Building PyInstaller bundle"
     --hidden-import jottr.feed_manager_dialog \
     --hidden-import jottr.font_dialog \
     --hidden-import jottr.icon_manager \
+    --hidden-import jottr.resources \
+    --hidden-import jottr.resources.rc_symbolic_icons \
     --hidden-import jottr.paths \
     --hidden-import jottr.plugin_manager \
     --hidden-import jottr.rss_reader \

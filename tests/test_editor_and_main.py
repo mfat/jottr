@@ -816,6 +816,7 @@ class EditorAndMainTests(unittest.TestCase):
             self.assertEqual(close_button.objectName(), "tabCloseButton")
             self.assertFalse(close_button.icon().isNull())
             self.assertIn("tab-close", window.icons)
+            self.assertTrue(window.icons["tab-close"].startswith(":/icons/symbolic/"))
             first_tab = window.tab_widget.currentWidget()
             original_size = first_tab.current_font.pointSize()
 

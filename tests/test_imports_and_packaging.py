@@ -117,6 +117,8 @@ class ImportAndPackagingTests(unittest.TestCase):
             "jottr.feed_manager_dialog",
             "jottr.font_dialog",
             "jottr.icon_manager",
+            "jottr.resources",
+            "jottr.resources.rc_symbolic_icons",
             "jottr.paths",
             "jottr.plugin_manager",
             "jottr.rss_reader",
@@ -149,6 +151,32 @@ class ImportAndPackagingTests(unittest.TestCase):
         self.assertIn('--add-data "icons:icons"', appimage_script)
         self.assertIn('--add-data "translations:translations"', workflow)
         self.assertIn('--add-data "translations:translations"', appimage_script)
+
+    def test_symbolic_icons_use_qt_resources(self):
+        from PyQt6.QtWidgets import QApplication
+
+        from jottr.icon_manager import build_themed_icon, load_bundled_icon_paths
+
+        # Keep a strong reference; QPixmap requires a live QGuiApplication.
+        app = QApplication.instance()
+        if app is None:
+            app = QApplication(["jottr-tests"])
+
+        icons = load_bundled_icon_paths()
+
+        self.assertIn("save", icons)
+        self.assertIn("tab-close", icons)
+        self.assertTrue(icons["save"].startswith(":/icons/symbolic/"))
+        self.assertTrue(icons["tab-close"].startswith(":/icons/symbolic/"))
+        self.assertNotEqual(icons["save"], icons["menu"])
+
+        tinted = build_themed_icon(icons["save"], "#f8f8f2", size=16)
+        self.assertFalse(tinted.isNull())
+        self.assertTrue((PROJECT_ROOT / "icons" / "symbolic.qrc").is_file())
+        self.assertTrue(
+            (PACKAGE_DIR / "resources" / "rc_symbolic_icons.py").is_file()
+        )
+        self.assertIsNotNone(app)
 
 
 if __name__ == "__main__":

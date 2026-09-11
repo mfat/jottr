@@ -56,7 +56,7 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
         # Create snippet manager with settings manager
         self.snippet_manager = SnippetManager(self.settings_manager)
         
-        # Logical name -> bundled symbolic SVG path (icons/symbolic/)
+        # Logical name -> Qt resource path (:/icons/symbolic/…)
         self.icons = load_bundled_icon_paths()
 
 

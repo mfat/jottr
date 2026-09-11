@@ -1,0 +1,39 @@
+<!DOCTYPE RCC>
+<RCC version="1.0">
+    <qresource prefix="/icons/symbolic">
+        <file alias="about.svg">symbolic/about.svg</file>
+        <file alias="applications-system.svg">symbolic/applications-system.svg</file>
+        <file alias="browser.svg">symbolic/browser.svg</file>
+        <file alias="color-mode-invert-text.svg">symbolic/color-mode-invert-text.svg</file>
+        <file alias="cross-large-square-outline-symbolic.svg">symbolic/cross-large-square-outline-symbolic.svg</file>
+        <file alias="document-open.svg">symbolic/document-open.svg</file>
+        <file alias="find.svg">symbolic/find.svg</file>
+        <file alias="focus-mode.svg">symbolic/focus-mode.svg</file>
+        <file alias="font.svg">symbolic/font.svg</file>
+        <file alias="format-text-color.svg">symbolic/format-text-color.svg</file>
+        <file alias="gtk-select-font.svg">symbolic/gtk-select-font.svg</file>
+        <file alias="help.svg">symbolic/help.svg</file>
+        <file alias="insert-text-frame.svg">symbolic/insert-text-frame.svg</file>
+        <file alias="insert-text.svg">symbolic/insert-text.svg</file>
+        <file alias="larger.svg">symbolic/larger.svg</file>
+        <file alias="menu.svg">symbolic/menu.svg</file>
+        <file alias="new.svg">symbolic/new.svg</file>
+        <file alias="open.svg">symbolic/open.svg</file>
+        <file alias="preferences-desktop-display-randr.svg">symbolic/preferences-desktop-display-randr.svg</file>
+        <file alias="preferences-desktop-font.svg">symbolic/preferences-desktop-font.svg</file>
+        <file alias="preferences-desktop-theme-applications.svg">symbolic/preferences-desktop-theme-applications.svg</file>
+        <file alias="redo.svg">symbolic/redo.svg</file>
+        <file alias="save-as.svg">symbolic/save-as.svg</file>
+        <file alias="save.svg">symbolic/save.svg</file>
+        <file alias="settings.svg">symbolic/settings.svg</file>
+        <file alias="smaller.svg">symbolic/smaller.svg</file>
+        <file alias="snippets.svg">symbolic/snippets.svg</file>
+        <file alias="theme.svg">symbolic/theme.svg</file>
+        <file alias="undo.svg">symbolic/undo.svg</file>
+        <file alias="view-fullscreen-symbolic.svg">symbolic/view-fullscreen-symbolic.svg</file>
+        <file alias="zoom-in.svg">symbolic/zoom-in.svg</file>
+        <file alias="zoom-out.svg">symbolic/zoom-out.svg</file>
+        <file alias="zoom-reset.svg">symbolic/zoom-reset.svg</file>
+        <file alias="tab-close.svg">symbolic/cross-large-square-outline-symbolic.svg</file>
+    </qresource>
+</RCC>

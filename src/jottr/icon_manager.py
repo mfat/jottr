@@ -1,14 +1,20 @@
 """Load and theme bundled symbolic UI icons.
 
-Icons are shipped under ``icons/symbolic/`` (copied from Adwaita symbolic
-set). Runtime lookup uses only those files — never the host icon theme.
+Symbolic SVGs are embedded via the Qt Resource System (``icons/symbolic.qrc``
+→ ``jottr.resources.rc_symbolic_icons``) and addressed as ``:/icons/symbolic/…``.
+That matches Qt's recommended packaging for always-needed assets and avoids
+broken relative paths when freezing or installing.
+
+``QIcon(":/…svg")`` would use QtSvg's icon engine for scaling, but does not
+recolor glyphs for light/dark themes. Monochrome symbolic icons are therefore
+rendered with ``QSvgRenderer`` and tinted via ``CompositionMode_SourceIn``.
 """
 
 from __future__ import annotations
 
 import os
 
-from PyQt6.QtCore import QByteArray, QRectF, Qt
+from PyQt6.QtCore import QByteArray, QDir, QFile, QRectF, Qt
 from PyQt6.QtGui import QColor, QGuiApplication, QIcon, QPainter, QPixmap
 from PyQt6.QtSvg import QSvgRenderer
 
@@ -17,10 +23,24 @@ from jottr.paths import data_roots, find_data_dir
 # Logical sizes used by the UI (tabs 16, toolbar 22, menus ~16–24).
 _ICON_SIZES = (16, 22, 24, 32)
 _ICON_PATH_CACHE: dict[str, str] | None = None
+_RESOURCES_LOADED = False
+
+
+def _ensure_resources_registered() -> None:
+    """Import the compiled resource module so ``:/icons/symbolic`` is available."""
+    global _RESOURCES_LOADED
+    if _RESOURCES_LOADED:
+        return
+    try:
+        from jottr.resources import rc_symbolic_icons  # noqa: F401
+    except ImportError:
+        pass
+    else:
+        _RESOURCES_LOADED = True
 
 
 def resolve_icons_dir() -> str:
-    """Return the directory that contains bundled UI icons."""
+    """Return the directory that contains bundled UI icons (filesystem fallback)."""
     for root in data_roots():
         candidate = root / "icons"
         if (candidate / "symbolic").is_dir():
@@ -29,8 +49,27 @@ def resolve_icons_dir() -> str:
     return str(found) if found is not None else os.path.join(os.getcwd(), "icons")
 
 
-def load_bundled_icon_paths() -> dict[str, str]:
-    """Map logical icon names to absolute SVG paths under ``icons/symbolic``."""
+def _load_resource_icon_paths() -> dict[str, str]:
+    """Map logical names to ``:/icons/symbolic/….svg`` resource paths."""
+    _ensure_resources_registered()
+    directory = QDir(":/icons/symbolic")
+    if not directory.exists():
+        return {}
+
+    icons: dict[str, str] = {}
+    for filename in directory.entryList(["*.svg"], QDir.Filter.Files):
+        name = filename[:-4]
+        icons[name] = f":/icons/symbolic/{filename}"
+
+    # Filesystem-era alias if the .qrc tab-close alias is missing.
+    if "tab-close" not in icons and "cross-large-square-outline-symbolic" in icons:
+        icons["tab-close"] = icons["cross-large-square-outline-symbolic"]
+
+    return icons
+
+
+def _load_filesystem_icon_paths() -> dict[str, str]:
+    """Fallback map when the compiled resource module is unavailable."""
     symbolic_dir = os.path.join(resolve_icons_dir(), "symbolic")
     icons: dict[str, str] = {}
     if not os.path.isdir(symbolic_dir):
@@ -42,11 +81,18 @@ def load_bundled_icon_paths() -> dict[str, str]:
         name = filename[:-4]
         icons[name] = os.path.join(symbolic_dir, filename)
 
-    # Short aliases for UI call sites
     if "cross-large-square-outline-symbolic" in icons:
         icons["tab-close"] = icons["cross-large-square-outline-symbolic"]
 
     return icons
+
+
+def load_bundled_icon_paths() -> dict[str, str]:
+    """Map logical icon names to resource (preferred) or filesystem SVG paths."""
+    icons = _load_resource_icon_paths()
+    if icons:
+        return icons
+    return _load_filesystem_icon_paths()
 
 
 def bundled_icon_paths() -> dict[str, str]:
@@ -58,7 +104,13 @@ def bundled_icon_paths() -> dict[str, str]:
 
 
 def resolve_icon_color(settings_manager=None) -> str:
-    """Return the tint color for symbolic icons from settings / theme."""
+    """Return the tint color for symbolic icons from settings / theme.
+
+    ``icon_contrast`` modes:
+    - ``auto``: theme text color (follows light/dark UI themes)
+    - ``light`` / ``dark``: fixed high-contrast glyphs
+    - ``accent``: theme accent color
+    """
     from jottr.theme_manager import ThemeManager
 
     if settings_manager is None:
@@ -106,8 +158,11 @@ def settings_manager_from(widget) -> object | None:
 
 def apply_dialog_window_icon(dialog, icon_name: str, settings_manager=None) -> None:
     """Set a dialog's window icon from a bundled symbolic glyph."""
+    setter = getattr(dialog, "setWindowIcon", None)
+    if not callable(setter):
+        return
     manager = settings_manager or settings_manager_from(dialog)
-    dialog.setWindowIcon(themed_symbolic_icon(icon_name, manager))
+    setter(themed_symbolic_icon(icon_name, manager))
 
 
 def _device_pixel_ratio() -> float:
@@ -115,6 +170,25 @@ def _device_pixel_ratio() -> float:
     if app is None:
         return 1.0
     return float(app.devicePixelRatio())
+
+
+def _read_svg_bytes(icon_path: str) -> QByteArray | None:
+    """Read SVG bytes from a ``:/`` resource or filesystem path."""
+    if not icon_path:
+        return None
+
+    if icon_path.startswith(":"):
+        resource = QFile(icon_path)
+        if not resource.open(QFile.OpenModeFlag.ReadOnly):
+            return None
+        data = resource.readAll()
+        resource.close()
+        return data if not data.isEmpty() else None
+
+    if not os.path.isfile(icon_path):
+        return None
+    with open(icon_path, "rb") as handle:
+        return QByteArray(handle.read())
 
 
 def _render_tinted_pixmap(
@@ -145,13 +219,12 @@ def build_themed_icon(icon_path: str, color: str, size: int | None = None) -> QI
     """Render a monochrome symbolic SVG tinted to ``color``.
 
     Pixmaps are generated at the UI's logical sizes (and HiDPI DPR) so Qt does
-    not soft-scale a single oversized bitmap.
+    not soft-scale a single oversized bitmap. Works with ``:/`` resource paths
+    and filesystem paths.
     """
-    if not icon_path or not os.path.isfile(icon_path):
+    svg_data = _read_svg_bytes(icon_path)
+    if svg_data is None:
         return QIcon()
-
-    with open(icon_path, "rb") as handle:
-        svg_data = QByteArray(handle.read())
 
     renderer = QSvgRenderer(svg_data)
     if not renderer.isValid():
