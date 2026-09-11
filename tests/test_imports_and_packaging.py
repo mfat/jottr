@@ -130,6 +130,7 @@ class ImportAndPackagingTests(unittest.TestCase):
             "jottr.ui",
             "jottr.ui.document_tab_bar",
             "jottr.ui.workspace",
+            "jottr.ui.workspace_controller",
             "jottr.window",
             "spellchecker",
         )

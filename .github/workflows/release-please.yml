@@ -253,18 +253,19 @@ jobs:
             --hidden-import ctypes.util \
             --hidden-import jottr \
             --hidden-import jottr.editor_tab \
---hidden-import jottr.editor \
---hidden-import jottr.editor.browser \
---hidden-import jottr.editor.find_replace \
---hidden-import jottr.editor.focus_mode \
---hidden-import jottr.editor.markdown \
---hidden-import jottr.editor.spellcheck \
---hidden-import jottr.editor.tab \
---hidden-import jottr.editor.text_edit \
---hidden-import jottr.ui \
---hidden-import jottr.ui.document_tab_bar \
---hidden-import jottr.ui.workspace \
---hidden-import jottr.window \
+            --hidden-import jottr.editor \
+            --hidden-import jottr.editor.browser \
+            --hidden-import jottr.editor.find_replace \
+            --hidden-import jottr.editor.focus_mode \
+            --hidden-import jottr.editor.markdown \
+            --hidden-import jottr.editor.spellcheck \
+            --hidden-import jottr.editor.tab \
+            --hidden-import jottr.editor.text_edit \
+            --hidden-import jottr.ui \
+            --hidden-import jottr.ui.document_tab_bar \
+            --hidden-import jottr.ui.workspace \
+            --hidden-import jottr.ui.workspace_controller \
+            --hidden-import jottr.window \
             --hidden-import jottr.feed_manager_dialog \
             --hidden-import jottr.font_dialog \
             --hidden-import jottr.icon_manager \
@@ -380,18 +381,19 @@ jobs:
             --hidden-import ctypes.util \
             --hidden-import jottr \
             --hidden-import jottr.editor_tab \
---hidden-import jottr.editor \
---hidden-import jottr.editor.browser \
---hidden-import jottr.editor.find_replace \
---hidden-import jottr.editor.focus_mode \
---hidden-import jottr.editor.markdown \
---hidden-import jottr.editor.spellcheck \
---hidden-import jottr.editor.tab \
---hidden-import jottr.editor.text_edit \
---hidden-import jottr.ui \
---hidden-import jottr.ui.document_tab_bar \
---hidden-import jottr.ui.workspace \
---hidden-import jottr.window \
+            --hidden-import jottr.editor \
+            --hidden-import jottr.editor.browser \
+            --hidden-import jottr.editor.find_replace \
+            --hidden-import jottr.editor.focus_mode \
+            --hidden-import jottr.editor.markdown \
+            --hidden-import jottr.editor.spellcheck \
+            --hidden-import jottr.editor.tab \
+            --hidden-import jottr.editor.text_edit \
+            --hidden-import jottr.ui \
+            --hidden-import jottr.ui.document_tab_bar \
+            --hidden-import jottr.ui.workspace \
+            --hidden-import jottr.ui.workspace_controller \
+            --hidden-import jottr.window \
             --hidden-import jottr.feed_manager_dialog \
             --hidden-import jottr.font_dialog \
             --hidden-import jottr.icon_manager \

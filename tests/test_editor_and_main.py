@@ -1525,7 +1525,7 @@ class EditorAndMainTests(unittest.TestCase):
             self.addCleanup(window.deleteLater)
             window.set_workspace_path(str(workspace))
 
-            with patch("jottr.window.QInputDialog.getText", return_value=("draft.txt", True)):
+            with patch("jottr.ui.workspace_controller.QInputDialog.getText", return_value=("draft.txt", True)):
                 window.create_workspace_file()
 
             target = workspace / "draft.txt"

@@ -157,6 +157,7 @@ echo "==> Building PyInstaller bundle"
     --hidden-import jottr.ui \
     --hidden-import jottr.ui.document_tab_bar \
     --hidden-import jottr.ui.workspace \
+    --hidden-import jottr.ui.workspace_controller \
     --hidden-import jottr.window \
     --hidden-import jottr.feed_manager_dialog \
     --hidden-import jottr.font_dialog \
