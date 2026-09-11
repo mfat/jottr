@@ -4917,6 +4917,9 @@ bool Style::drawMenuBarItemControl(const QStyleOption *option, QPainter *painter
     const State &state(option->state);
     bool enabled(state & State_Enabled);
     bool sunken(enabled && (state & State_Sunken));
+    bool selected(enabled && (state & State_Selected));
+    bool mouseOver(enabled && (state & State_MouseOver));
+    bool active(sunken || selected || mouseOver);
     bool useStrongFocus(Adwaita::Config::MenuItemDrawStrongFocus);
 
     painter->save();
@@ -4932,22 +4935,28 @@ bool Style::drawMenuBarItemControl(const QStyleOption *option, QPainter *painter
     painter->drawLine(rect.bottomLeft(), rect.bottomRight());
     painter->restore();
 
-    // render hover and focus
-    if (useStrongFocus && sunken) {
-        StyleOptions styleOptions(painter, QRect(rect.left(), rect.bottom() - 2, rect.width(), 3));
-        styleOptions.setColorVariant(_variant);
-        styleOptions.setOutlineColor(Colors::focusColor(StyleOptions(palette, _variant)));
-        styleOptions.setColor(palette.color(QPalette::Highlight));
-        Adwaita::Renderer::renderFocusRect(styleOptions);
+    // Match popup menu hover: soft Adwaita menu_selected_color, not QPalette::Highlight.
+    if (useStrongFocus && active) {
+        const int hMargin = qMax(2, Metrics::MenuBarItem_MarginWidth / 2);
+        const int vMargin = 2;
+        const QRect highlightRect = rect.adjusted(hMargin, vMargin, -hMargin, -vMargin - 1);
+        painter->save();
+        painter->setRenderHint(QPainter::Antialiasing, true);
+        painter->setPen(Qt::NoPen);
+        QColor fill = Colors::selectedMenuColor(StyleOptions(palette, _variant));
+        if (!sunken && (mouseOver || selected)) {
+            fill.setAlphaF(0.55);
+        }
+        painter->setBrush(fill);
+        painter->drawRoundedRect(highlightRect, 6, 6);
+        painter->restore();
     }
 
     // get text rect
     int textFlags(Qt::AlignCenter | _mnemonics->textFlags());
     QRect textRect = option->fontMetrics.boundingRect(rect, textFlags, menuItemOption->text);
 
-    // render text
-    const QPalette::ColorRole role = (useStrongFocus && sunken) ? QPalette::Link : QPalette::WindowText;
-    drawItemText(painter, textRect, textFlags, palette, enabled, menuItemOption->text, role);
+    drawItemText(painter, textRect, textFlags, palette, enabled, menuItemOption->text, QPalette::WindowText);
 
     return true;
 }

@@ -466,9 +466,14 @@ class ThemeManager:
         text = QColor(app["text"])
         muted = QColor(app["muted"])
         accent = QColor(app["accent"])
-        accent_text = QColor(app["accent_text"])
         border = QColor(app["border"])
-        highlight = QColor(app["surface_active"])
+        # Selection must stay vivid: styles like Adwaita paint menu-bar chips and
+        # focus cues from Highlight / HighlightedText (not the soft surface_active chip).
+        highlight = QColor(app["accent"])
+        if highlight.lightnessF() >= 0.55:
+            highlighted_text = QColor("#1a1a1a")
+        else:
+            highlighted_text = QColor("#ffffff")
 
         roles = {
             QPalette.ColorRole.Window: background,
@@ -483,7 +488,7 @@ class ThemeManager:
             QPalette.ColorRole.ToolTipText: text,
             QPalette.ColorRole.PlaceholderText: muted,
             QPalette.ColorRole.Highlight: highlight,
-            QPalette.ColorRole.HighlightedText: accent_text,
+            QPalette.ColorRole.HighlightedText: highlighted_text,
             QPalette.ColorRole.Link: accent,
             QPalette.ColorRole.LinkVisited: accent,
             QPalette.ColorRole.Light: surface,

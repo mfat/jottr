@@ -304,6 +304,12 @@ class SettingsAndSnippetTests(unittest.TestCase):
         from PyQt6.QtGui import QPalette
         palette = ThemeManager.build_app_palette(dracula)
         self.assertEqual(palette.color(QPalette.ColorRole.Window).name(), "#282a36")
+        self.assertEqual(
+            palette.color(QPalette.ColorRole.Highlight).name(),
+            dracula["app"]["accent"].lower(),
+        )
+        # Dracula's accent is light, so selected text must be dark for contrast.
+        self.assertEqual(palette.color(QPalette.ColorRole.HighlightedText).name(), "#1a1a1a")
         dialog_style = ThemeManager.build_dialog_stylesheet(dracula, QFont("Liberation Serif", 15))
         self.assertNotIn("QComboBox QAbstractItemView", dialog_style)
         self.assertNotIn("QPushButton {", dialog_style)
