@@ -8,7 +8,12 @@ from PyQt6.QtGui import QFont
 import json
 import os
 from jottr.font_dialog import FontSelectionDialog
-from jottr.icon_manager import apply_dialog_window_icon, themed_symbolic_icon
+from jottr.icon_manager import (
+    apply_dialog_window_icon,
+    list_bundled_icon_themes,
+    normalize_icon_theme,
+    themed_symbolic_icon,
+)
 from jottr.plugin_manager import PluginManager, REMOTE_WARNING
 from jottr.qt_style import available_qt_styles
 from jottr.theme_manager import ThemeManager
@@ -141,6 +146,21 @@ class SettingsDialog(QDialog):
               "to match the Color Scheme.")
         )
         general_layout.addRow(qt_style_label, self.qt_style_combo)
+
+        icon_theme_label = QLabel(_("Icon Theme:"))
+        self.icon_theme_combo = QComboBox()
+        for theme in list_bundled_icon_themes():
+            self.icon_theme_combo.addItem(theme["label"], theme["id"])
+        current_icon_theme = self.settings_manager.get_icon_theme()
+        icon_theme_index = self.icon_theme_combo.findData(current_icon_theme)
+        self.icon_theme_combo.setCurrentIndex(
+            icon_theme_index if icon_theme_index >= 0 else 0
+        )
+        self.icon_theme_combo.setToolTip(
+            _("Lists icon packs bundled with Jottr only. "
+              "Desktop/system icon themes are not used.")
+        )
+        general_layout.addRow(icon_theme_label, self.icon_theme_combo)
 
         icon_label = QLabel(_("Icon Contrast:"))
         self.icon_contrast_combo = QComboBox()
@@ -438,6 +458,14 @@ class SettingsDialog(QDialog):
             )
         return self.settings_manager.get_ui_theme()
 
+    def selected_icon_theme(self):
+        if hasattr(self, "icon_theme_combo"):
+            return normalize_icon_theme(
+                self.icon_theme_combo.currentData()
+                or self.settings_manager.get_icon_theme()
+            )
+        return self.settings_manager.get_icon_theme()
+
     def apply_dialog_style(self):
         # Palette + QStyle only — no dialog QSS so Widget Style stays visible.
         from jottr.qt_style import apply_qt_color_scheme
@@ -474,6 +502,7 @@ class SettingsDialog(QDialog):
             color=color,
             size=16,
             palette=self.palette(),
+            theme_id=self.selected_icon_theme(),
         )
 
     def refresh_settings_nav_icons(self):
@@ -780,6 +809,7 @@ class SettingsDialog(QDialog):
             'qt_style': self.qt_style_combo.currentText(),
             'custom_themes': self.get_custom_themes(),
             'language': self.language_combo.currentData() or self.language_combo.currentText(),
+            'icon_theme': self.selected_icon_theme(),
             'icon_contrast': self.icon_contrast_combo.currentText(),
             'enable_animations': self.enable_animations_check.isChecked(),
             'ui_font': QFont(self.ui_font),

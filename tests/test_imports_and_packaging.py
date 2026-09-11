@@ -180,14 +180,26 @@ class ImportAndPackagingTests(unittest.TestCase):
     def test_symbolic_icons_use_qt_resources(self):
         from PyQt6.QtWidgets import QApplication
 
-        from jottr.icon_manager import build_themed_icon, load_bundled_icon_paths
+        from jottr.icon_manager import (
+            DEFAULT_ICON_THEME,
+            build_themed_icon,
+            list_bundled_icon_themes,
+            load_bundled_icon_paths,
+            normalize_icon_theme,
+        )
 
         # Keep a strong reference; QPixmap requires a live QGuiApplication.
         app = QApplication.instance()
         if app is None:
             app = QApplication(["jottr-tests"])
 
-        icons = load_bundled_icon_paths()
+        themes = list_bundled_icon_themes()
+        self.assertEqual([theme["id"] for theme in themes], ["symbolic"])
+        self.assertEqual(themes[0]["label"], "Adwaita")
+        self.assertEqual(normalize_icon_theme("Adwaita"), "symbolic")
+        self.assertEqual(normalize_icon_theme("missing"), DEFAULT_ICON_THEME)
+
+        icons = load_bundled_icon_paths("symbolic")
 
         self.assertIn("save", icons)
         self.assertIn("tab-close", icons)

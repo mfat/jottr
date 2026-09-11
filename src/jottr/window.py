@@ -66,10 +66,6 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
         
         # Create snippet manager with settings manager
         self.snippet_manager = SnippetManager(self.settings_manager)
-        
-        # Logical name -> Qt resource path (:/icons/symbolic/…)
-        self.icons = load_bundled_icon_paths()
-
 
         self.setWindowTitle(APP_NAME)
         self.setWindowIcon(load_app_icon())
@@ -81,6 +77,9 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
         self.plugin_manager = PluginManager(self.settings_manager)
         self.plugin_manager.refresh()
         self.plugin_manager.activate_enabled_plugins()
+
+        # Logical name -> Qt resource path for the selected bundled icon theme
+        self.icons = load_bundled_icon_paths(self.settings_manager.get_icon_theme())
         
         # Create toolbar first before styling
         self.toolbar = QToolBar(_("Main Toolbar"))  # Add name here
@@ -1314,6 +1313,7 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
         self.apply_layout_direction(settings['language'])
         self.apply_language_direction_to_tabs()
         self.retranslate_actions()
+        self.settings_manager.save_icon_theme(settings['icon_theme'])
         self.settings_manager.save_setting('icon_contrast', settings['icon_contrast'])
         self.settings_manager.save_setting('enable_animations', settings['enable_animations'])
         self.settings_manager.save_font(settings['ui_font'], "ui")
@@ -1338,6 +1338,7 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
         self.plugin_manager = PluginManager(self.settings_manager)
         self.plugin_manager.refresh()
         self.plugin_manager.activate_enabled_plugins()
+        self.icons = load_bundled_icon_paths(self.settings_manager.get_icon_theme())
         self.removeToolBar(self.toolbar)
         self.toolbar.deleteLater()
         self.setup_toolbar()

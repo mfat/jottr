@@ -1,9 +1,8 @@
-"""Load and theme bundled symbolic UI icons.
+"""Load and tint bundled UI icon themes.
 
-Symbolic SVGs are embedded via the Qt Resource System (``icons/symbolic.qrc``
-→ ``jottr.resources.rc_symbolic_icons``) and addressed as ``:/icons/symbolic/…``.
-That matches Qt's recommended packaging for always-needed assets and avoids
-broken relative paths when freezing or installing.
+Only icon packs shipped with Jottr are supported (no host desktop themes).
+Each pack is a subdirectory under ``icons/`` with a matching Qt resource prefix
+(for example ``icons/symbolic.qrc`` → ``:/icons/symbolic/…``).
 
 ``QIcon(":/…svg")`` would use QtSvg's icon engine for scaling, but does not
 recolor glyphs for light/dark themes. Monochrome symbolic icons are therefore
@@ -13,6 +12,7 @@ rendered with ``QSvgRenderer`` and tinted via ``CompositionMode_SourceIn``.
 from __future__ import annotations
 
 import os
+from typing import TypedDict
 
 from PyQt6.QtCore import QByteArray, QDir, QFile, QRectF, QSize, Qt
 from PyQt6.QtGui import QColor, QGuiApplication, QIcon, QPainter, QPalette, QPixmap
@@ -24,9 +24,84 @@ from jottr.paths import data_roots, find_data_dir, find_data_file
 # Logical sizes used by the UI (tabs 16, toolbar 22, menus ~16–24).
 _ICON_SIZES = (16, 22, 24, 32)
 _APP_ICON_SIZES = (16, 24, 32, 48, 64, 128, 256, 512)
-_ICON_PATH_CACHE: dict[str, str] | None = None
+_ICON_PATH_CACHE: dict[str, dict[str, str]] = {}
 _APP_ICON_CACHE: QIcon | None = None
-_RESOURCES_LOADED = False
+_RESOURCES_LOADED: set[str] = set()
+
+# Logical name aliases applied when a theme does not ship explicit aliases.
+_ICON_ALIASES = (
+    ("tab-close", "cross-large-square-outline-symbolic"),
+    ("snippets", "star-large-symbolic"),
+    ("markdown", "eye-outline-filled-symbolic"),
+    ("eye", "eye-outline-filled-symbolic"),
+    ("font", "large-text-symbolic"),
+)
+
+
+class BundledIconTheme(TypedDict):
+    id: str
+    label: str
+    subdir: str
+    resource_prefix: str
+    resource_module: str
+
+
+# Only packs listed here appear in Settings. Do not scan the host icon theme.
+BUNDLED_ICON_THEMES: tuple[BundledIconTheme, ...] = (
+    {
+        "id": "symbolic",
+        "label": "Adwaita",
+        "subdir": "symbolic",
+        "resource_prefix": ":/icons/symbolic",
+        "resource_module": "jottr.resources.rc_symbolic_icons",
+    },
+)
+DEFAULT_ICON_THEME = BUNDLED_ICON_THEMES[0]["id"]
+
+
+def list_bundled_icon_themes() -> list[BundledIconTheme]:
+    """Return the bundled icon themes available in Settings (copy)."""
+    return [dict(theme) for theme in BUNDLED_ICON_THEMES]
+
+
+def bundled_icon_theme(theme_id: str | None = None) -> BundledIconTheme:
+    """Return the theme record for *theme_id*, or the default pack."""
+    return dict(_theme_record(theme_id))
+
+
+def normalize_icon_theme(theme_id: str | None) -> str:
+    """Map a saved value to a known bundled theme id."""
+    wanted = (theme_id or DEFAULT_ICON_THEME).strip()
+    if not wanted:
+        return DEFAULT_ICON_THEME
+    for theme in BUNDLED_ICON_THEMES:
+        if theme["id"].casefold() == wanted.casefold():
+            return theme["id"]
+        if theme["label"].casefold() == wanted.casefold():
+            return theme["id"]
+    return DEFAULT_ICON_THEME
+
+
+def resolve_icon_theme_id(settings_manager=None, theme_id: str | None = None) -> str:
+    """Resolve the active bundled icon theme from an explicit id or settings."""
+    if theme_id is not None:
+        return normalize_icon_theme(theme_id)
+    if settings_manager is None:
+        return DEFAULT_ICON_THEME
+    getter = getattr(settings_manager, "get_icon_theme", None)
+    if callable(getter):
+        return normalize_icon_theme(getter())
+    return normalize_icon_theme(
+        settings_manager.get_setting("icon_theme", DEFAULT_ICON_THEME)
+    )
+
+
+def _theme_record(theme_id: str | None = None) -> BundledIconTheme:
+    resolved = normalize_icon_theme(theme_id)
+    for theme in BUNDLED_ICON_THEMES:
+        if theme["id"] == resolved:
+            return theme
+    return BUNDLED_ICON_THEMES[0]
 
 
 def resolve_app_icon_path() -> str | None:
@@ -74,96 +149,83 @@ def load_app_icon() -> QIcon:
     return QIcon(_APP_ICON_CACHE)
 
 
-def _ensure_resources_registered() -> None:
-    """Import the compiled resource module so ``:/icons/symbolic`` is available."""
-    global _RESOURCES_LOADED
-    if _RESOURCES_LOADED:
+def _ensure_resources_registered(theme: BundledIconTheme) -> None:
+    """Import the compiled resource module for a bundled icon theme."""
+    theme_id = theme["id"]
+    if theme_id in _RESOURCES_LOADED:
         return
     try:
-        from jottr.resources import rc_symbolic_icons  # noqa: F401
+        __import__(theme["resource_module"])
     except ImportError:
-        pass
-    else:
-        _RESOURCES_LOADED = True
+        return
+    _RESOURCES_LOADED.add(theme_id)
 
 
 def resolve_icons_dir() -> str:
     """Return the directory that contains bundled UI icons (filesystem fallback)."""
     for root in data_roots():
         candidate = root / "icons"
-        if (candidate / "symbolic").is_dir():
+        if any((candidate / theme["subdir"]).is_dir() for theme in BUNDLED_ICON_THEMES):
             return str(candidate)
     found = find_data_dir("icons")
     return str(found) if found is not None else os.path.join(os.getcwd(), "icons")
 
 
-def _load_resource_icon_paths() -> dict[str, str]:
-    """Map logical names to ``:/icons/symbolic/….svg`` resource paths."""
-    _ensure_resources_registered()
-    directory = QDir(":/icons/symbolic")
+def _apply_icon_aliases(icons: dict[str, str]) -> dict[str, str]:
+    """Fill logical aliases when a theme only ships the source glyph names."""
+    for alias, source in _ICON_ALIASES:
+        if alias not in icons and source in icons:
+            icons[alias] = icons[source]
+    return icons
+
+
+def _load_resource_icon_paths(theme: BundledIconTheme) -> dict[str, str]:
+    """Map logical names to ``:/icons/<theme>/….svg`` resource paths."""
+    _ensure_resources_registered(theme)
+    prefix = theme["resource_prefix"]
+    directory = QDir(prefix)
     if not directory.exists():
         return {}
 
     icons: dict[str, str] = {}
     for filename in directory.entryList(["*.svg"], QDir.Filter.Files):
         name = filename[:-4]
-        icons[name] = f":/icons/symbolic/{filename}"
-
-    # Filesystem-era aliases if the .qrc aliases are missing.
-    if "tab-close" not in icons and "cross-large-square-outline-symbolic" in icons:
-        icons["tab-close"] = icons["cross-large-square-outline-symbolic"]
-    if "snippets" not in icons and "star-large-symbolic" in icons:
-        icons["snippets"] = icons["star-large-symbolic"]
-    if "markdown" not in icons and "eye-outline-filled-symbolic" in icons:
-        icons["markdown"] = icons["eye-outline-filled-symbolic"]
-    if "eye" not in icons and "eye-outline-filled-symbolic" in icons:
-        icons["eye"] = icons["eye-outline-filled-symbolic"]
-    if "font" not in icons and "large-text-symbolic" in icons:
-        icons["font"] = icons["large-text-symbolic"]
-
-    return icons
+        icons[name] = f"{prefix}/{filename}"
+    return _apply_icon_aliases(icons)
 
 
-def _load_filesystem_icon_paths() -> dict[str, str]:
+def _load_filesystem_icon_paths(theme: BundledIconTheme) -> dict[str, str]:
     """Fallback map when the compiled resource module is unavailable."""
-    symbolic_dir = os.path.join(resolve_icons_dir(), "symbolic")
+    theme_dir = os.path.join(resolve_icons_dir(), theme["subdir"])
     icons: dict[str, str] = {}
-    if not os.path.isdir(symbolic_dir):
+    if not os.path.isdir(theme_dir):
         return icons
 
-    for filename in os.listdir(symbolic_dir):
+    for filename in os.listdir(theme_dir):
         if not filename.endswith(".svg"):
             continue
         name = filename[:-4]
-        icons[name] = os.path.join(symbolic_dir, filename)
-
-    if "cross-large-square-outline-symbolic" in icons:
-        icons["tab-close"] = icons["cross-large-square-outline-symbolic"]
-    if "star-large-symbolic" in icons:
-        icons["snippets"] = icons["star-large-symbolic"]
-    if "eye-outline-filled-symbolic" in icons:
-        icons["markdown"] = icons["eye-outline-filled-symbolic"]
-        icons["eye"] = icons["eye-outline-filled-symbolic"]
-    if "large-text-symbolic" in icons:
-        icons["font"] = icons["large-text-symbolic"]
-
-    return icons
+        icons[name] = os.path.join(theme_dir, filename)
+    return _apply_icon_aliases(icons)
 
 
-def load_bundled_icon_paths() -> dict[str, str]:
+def load_bundled_icon_paths(theme_id: str | None = None) -> dict[str, str]:
     """Map logical icon names to resource (preferred) or filesystem SVG paths."""
-    icons = _load_resource_icon_paths()
+    theme = _theme_record(theme_id)
+    icons = _load_resource_icon_paths(theme)
     if icons:
         return icons
-    return _load_filesystem_icon_paths()
+    return _load_filesystem_icon_paths(theme)
 
 
-def bundled_icon_paths() -> dict[str, str]:
-    """Cached map of logical icon name -> SVG path."""
-    global _ICON_PATH_CACHE
-    if _ICON_PATH_CACHE is None:
-        _ICON_PATH_CACHE = load_bundled_icon_paths()
-    return _ICON_PATH_CACHE
+def bundled_icon_paths(theme_id: str | None = None) -> dict[str, str]:
+    """Cached map of logical icon name -> SVG path for a bundled theme."""
+    resolved = normalize_icon_theme(theme_id)
+    cached = _ICON_PATH_CACHE.get(resolved)
+    if cached is None:
+        cached = load_bundled_icon_paths(resolved)
+        _ICON_PATH_CACHE[resolved] = cached
+    return cached
 
 
 def resolve_icon_color(settings_manager=None) -> str:
@@ -198,6 +260,7 @@ def themed_symbolic_icon(
     color: str | None = None,
     size: int | None = None,
     palette=None,
+    theme_id: str | None = None,
 ) -> QIcon:
     """Build a tinted symbolic icon by logical name for windows and dialogs.
 
@@ -228,8 +291,9 @@ def themed_symbolic_icon(
         selected_color = "#1a1a1a" if accent.lightnessF() >= 0.55 else "#ffffff"
         disabled_color = theme["app"]["muted"]
 
+    resolved_theme = resolve_icon_theme_id(settings_manager, theme_id)
     return build_themed_icon(
-        bundled_icon_paths().get(name, ""),
+        bundled_icon_paths(resolved_theme).get(name, ""),
         color,
         size,
         selected_color=selected_color,

@@ -49,6 +49,7 @@ class SettingsAndSnippetTests(unittest.TestCase):
         self.assertEqual(manager.get_setting("spell_languages"), ["en_US"])
         self.assertEqual(manager.get_setting("document_language"), "auto")
         self.assertEqual(manager.get_setting("icon_contrast"), "auto")
+        self.assertEqual(manager.get_icon_theme(), "symbolic")
         self.assertEqual(manager.get_setting("language"), "en_US")
         self.assertFalse(manager.get_setting("autosave_enabled"))
         self.assertEqual(manager.get_setting("autosave_interval_seconds"), 30)
@@ -187,6 +188,22 @@ class SettingsAndSnippetTests(unittest.TestCase):
 
         manager.save_qt_style("NotARealStyle")
         self.assertEqual(manager.get_qt_style(), SYSTEM_QT_STYLE)
+
+    def test_settings_manager_persists_icon_theme(self):
+        from jottr.icon_manager import DEFAULT_ICON_THEME, list_bundled_icon_themes
+
+        themes = list_bundled_icon_themes()
+        self.assertEqual([theme["id"] for theme in themes], [DEFAULT_ICON_THEME])
+
+        manager = SettingsManager()
+        self.assertEqual(manager.get_icon_theme(), DEFAULT_ICON_THEME)
+
+        manager.save_icon_theme("Adwaita")
+        reloaded = SettingsManager()
+        self.assertEqual(reloaded.get_icon_theme(), "symbolic")
+
+        manager.save_icon_theme("NotARealTheme")
+        self.assertEqual(manager.get_icon_theme(), DEFAULT_ICON_THEME)
 
     def test_apply_qt_style_switches_application_style(self):
         from PyQt6.QtWidgets import QStyleFactory
@@ -386,6 +403,11 @@ class SettingsAndSnippetTests(unittest.TestCase):
         self.assertIn("#f8f8f2", font_dialog_style)
         self.assertIn("#282a36", font_dialog_style)
         self.assertIn('font-family: "Liberation Serif"', font_dialog_style)
+        self.assertIn("font-size: 15pt", font_dialog_style)
+        # Chosen face/size belong only on the preview, not every form label.
+        label_block = font_dialog_style.split("QLabel#fontPreview")[0]
+        self.assertNotIn("font-family:", label_block)
+        self.assertNotIn("font-size:", label_block)
 
 
 if __name__ == "__main__":
