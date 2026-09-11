@@ -3,12 +3,7 @@ from PyQt6.QtWidgets import QTextEdit, QWidget
 from PyQt6.QtCore import Qt, QRect, QSize
 from PyQt6.QtGui import QColor, QPainter, QTextCursor
 
-from jottr.editor.spellcheck import (
-    Dict,
-    SpellChecker,
-    USE_ENCHANT,
-    find_word_bounds,
-)
+from jottr.editor.spellcheck import find_word_bounds
 from jottr.translation_manager import localize_digits
 
 class CustomTextEdit(QTextEdit):
@@ -100,16 +95,6 @@ class CompletingTextEdit(QTextEdit):
         self.document().blockCountChanged.connect(self.update_line_number_area_width)
         self.verticalScrollBar().valueChanged.connect(self.update_line_number_area)
         self.textChanged.connect(self.update_line_number_area)
-        
-        # Initialize spell checker
-        if USE_ENCHANT:
-            try:
-                self.spell_checker = Dict("en_US")
-            except:
-                self.spell_checker = SpellChecker()
-                print("Fallback to pyspellchecker in CompletingTextEdit")
-        else:
-            self.spell_checker = SpellChecker()
 
     def line_number_area_width(self):
         digits = max(2, len(str(max(1, self.document().blockCount()))))

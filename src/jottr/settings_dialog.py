@@ -11,6 +11,7 @@ from jottr.font_dialog import FontSelectionDialog
 from jottr.icon_manager import apply_dialog_window_icon, themed_symbolic_icon
 from jottr.plugin_manager import PluginManager, REMOTE_WARNING
 from jottr.theme_manager import ThemeManager
+from jottr.editor.spellcheck import list_available_spell_languages, normalize_spell_languages
 from jottr.translation_manager import (
     _,
     format_language_label,
@@ -285,6 +286,30 @@ class SettingsDialog(QDialog):
         dict_tab = QWidget()
         dict_layout = QVBoxLayout(dict_tab)
         dict_layout.setSpacing(10)
+
+        spell_box = QGroupBox(_("Spell Checking"))
+        spell_form = QFormLayout(spell_box)
+        spell_form.setContentsMargins(12, 10, 12, 12)
+        spell_form.setSpacing(8)
+        self.spell_check_enabled = QCheckBox(_("Enable spell checking"))
+        self.spell_check_enabled.setChecked(
+            bool(self.settings_manager.get_setting("spell_check", True))
+        )
+        spell_form.addRow(self.spell_check_enabled)
+
+        spell_langs_label = QLabel(_("Active dictionaries:"))
+        spell_langs_hint = QLabel(
+            _("A word is valid if any checked dictionary accepts it. "
+              "Install system packages (for example hunspell-en-us) to add languages.")
+        )
+        spell_langs_hint.setWordWrap(True)
+        self.spell_language_list = QListWidget()
+        self.spell_language_list.setMinimumHeight(120)
+        self.load_spell_languages()
+        spell_form.addRow(spell_langs_label)
+        spell_form.addRow(spell_langs_hint)
+        spell_form.addRow(self.spell_language_list)
+        dict_layout.addWidget(spell_box)
         
         dict_label = QLabel(_("User Dictionary:"))
         dict_layout.addWidget(dict_label)
@@ -614,6 +639,33 @@ class SettingsDialog(QDialog):
         words = self.settings_manager.get_setting('user_dictionary', [])
         self.dict_list.addItems(words)
 
+    def load_spell_languages(self):
+        """Populate checkable list of installed Enchant dictionaries."""
+        available = list_available_spell_languages()
+        active = set(normalize_spell_languages(
+            self.settings_manager.get_setting("spell_languages", ["en_US"]),
+            available
+        ))
+        self.spell_language_list.clear()
+        for language in available:
+            item = QListWidgetItem(format_language_label(language))
+            item.setData(Qt.ItemDataRole.UserRole, language)
+            item.setFlags(item.flags() | Qt.ItemFlag.ItemIsUserCheckable)
+            item.setCheckState(
+                Qt.CheckState.Checked if language in active else Qt.CheckState.Unchecked
+            )
+            self.spell_language_list.addItem(item)
+
+    def get_spell_languages(self):
+        """Return checked spell dictionary tags."""
+        selected = []
+        for index in range(self.spell_language_list.count()):
+            item = self.spell_language_list.item(index)
+            if item.checkState() == Qt.CheckState.Checked:
+                language = item.data(Qt.ItemDataRole.UserRole) or item.text()
+                selected.append(language)
+        return normalize_spell_languages(selected, list_available_spell_languages())
+
     def add_search_site(self):
         """Add new search site"""
         dialog = SearchSiteDialog(self)
@@ -655,6 +707,8 @@ class SettingsDialog(QDialog):
             'homepage': self.homepage_edit.text(),
             'search_sites': self.get_search_sites(),
             'user_dictionary': self.get_user_dictionary(),
+            'spell_check': self.spell_check_enabled.isChecked(),
+            'spell_languages': self.get_spell_languages(),
             'ui_theme': self.ui_theme_combo.currentText(),
             'theme': self.editor_theme_combo.currentText(),
             'custom_themes': self.get_custom_themes(),

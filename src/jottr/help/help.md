@@ -74,12 +74,20 @@ Enter distraction-free writing mode:
 - Hides side panels for distraction-free writing
 - Click exit button, Escape key or Ctrl+Shift+D (or Cmd+Shift+D on Mac) to exit focus mode
 
+## Spell Checking
+Jottr underlines misspelled words while you type:
+
+- Enable or disable spell checking in Settings > Dictionary
+- Choose one or more active dictionaries; a word is accepted if any checked dictionary knows it
+- Dictionary languages come from Enchant/system packages (for example `hunspell-en-us` on Linux, or `brew install enchant` on macOS)
+- Changing dictionaries rechecks open documents immediately
+
 ## User Dictionary
 The editor maintains a custom dictionary for your frequently used words:
 
 - Words you add to the dictionary won't be marked as misspelled
 - These words will also appear as autocomplete suggestions
-- Manage your dictionary in Settings > User Dictionary
+- Manage your dictionary in Settings > Dictionary
 
 To add words:
 1. Right-click on a word

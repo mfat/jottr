@@ -528,6 +528,72 @@ class EditorAndMainTests(unittest.TestCase):
         self.assertNotIn("shouldn", underlined)
         self.assertIn("xyzzyq", underlined)
 
+    def test_spell_check_accepts_word_from_any_active_dictionary(self):
+        document = QTextDocument()
+        highlighter = SpellCheckHighlighter(document, self.settings)
+
+        class AcceptOnly:
+            def __init__(self, word):
+                self.word = word.lower()
+
+            def check(self, candidate):
+                return candidate.lower() == self.word
+
+            def suggest(self, candidate):
+                return [self.word] if candidate.lower() != self.word else []
+
+            def add(self, word):
+                return None
+
+        highlighter.USE_ENCHANT = True
+        highlighter.spells = [AcceptOnly("bonjour"), AcceptOnly("hello")]
+        highlighter.spell_check_enabled = True
+
+        self.assertTrue(highlighter.check_word("bonjour"))
+        self.assertTrue(highlighter.check_word("Hello"))
+        self.assertFalse(highlighter.check_word("xyzzyq"))
+
+        suggestions = highlighter.suggest("he")
+        self.assertIn("hello", suggestions)
+
+    def test_spell_check_language_switch_reloads_dictionaries(self):
+        document = QTextDocument()
+        self.settings.save_setting("spell_check", True)
+        self.settings.save_setting("spell_languages", ["en_US"])
+        highlighter = SpellCheckHighlighter(document, self.settings)
+
+        with patch("jottr.editor.spellcheck._build_enchant_dicts") as build_dicts, \
+             patch("jottr.editor.spellcheck.USE_ENCHANT", True), \
+             patch("jottr.editor.spellcheck.list_available_spell_languages", return_value=["en_US", "en_GB"]):
+            build_dicts.side_effect = lambda languages: [f"dict:{tag}" for tag in languages]
+            highlighter.USE_ENCHANT = True
+            highlighter.set_spell_languages(["en_GB", "en_US"], rehighlight=False)
+
+        self.assertEqual(highlighter.spell_languages, ["en_GB", "en_US"])
+        self.assertEqual(highlighter.spells, ["dict:en_GB", "dict:en_US"])
+
+    def test_spell_check_setting_disables_underlines(self):
+        document = QTextDocument()
+        self.settings.save_setting("spell_check", False)
+        highlighter = SpellCheckHighlighter(document, self.settings)
+        document.setPlainText("xyzzyq")
+        highlighter.rehighlight()
+
+        block = document.firstBlock()
+        underlined = [
+            block.text()[item.start:item.start + item.length]
+            for item in block.layout().formats()
+            if item.format.underlineStyle() == QTextCharFormat.UnderlineStyle.SpellCheckUnderline
+        ]
+        self.assertEqual(underlined, [])
+
+    def test_spell_check_user_dictionary_is_case_insensitive(self):
+        document = QTextDocument()
+        self.settings.save_setting("user_dictionary", ["Jottr"])
+        highlighter = SpellCheckHighlighter(document, self.settings)
+        self.assertTrue(highlighter.check_word("jottr"))
+        self.assertTrue(highlighter.word_in_user_dictionary("JOTTR"))
+
     def test_replace_word_keeps_contractions_intact(self):
         editor = self.make_editor()
         editor.editor.setPlainText("shouldn'tt")

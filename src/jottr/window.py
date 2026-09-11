@@ -816,6 +816,13 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
             if isinstance(tab, EditorTab):
                 tab.apply_theme(theme_name)
 
+    def apply_spell_check_to_tabs(self):
+        """Reload spell dictionaries and rehighlight all open editor tabs."""
+        for index in range(self.tab_widget.count()):
+            tab = self.tab_widget.widget(index)
+            if isinstance(tab, EditorTab) and hasattr(tab, "highlighter"):
+                tab.highlighter.apply_spell_settings()
+
     def toggle_snippets(self):
         """Toggle snippets pane in current tab"""
         current_tab = self.tab_widget.currentWidget()
@@ -1025,6 +1032,8 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
         self.settings_manager.save_setting('homepage', settings['homepage'])
         self.settings_manager.save_setting('search_sites', settings['search_sites'])
         self.settings_manager.save_setting('user_dictionary', settings['user_dictionary'])
+        self.settings_manager.save_setting('spell_check', settings['spell_check'])
+        self.settings_manager.save_setting('spell_languages', settings['spell_languages'])
         self.settings_manager.save_custom_themes(settings['custom_themes'])
         self.settings_manager.save_ui_theme(settings['ui_theme'])
         self.settings_manager.save_theme(settings['theme'])
@@ -1063,6 +1072,7 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
         self.apply_app_style()
         self.create_menu_bar()
         self.apply_editor_theme_to_tabs(settings['theme'])
+        self.apply_spell_check_to_tabs()
         self.apply_editor_line_numbers(settings['editor_line_numbers'])
         self.apply_autosave_settings()
         self.statusBar.showMessage(_("Settings applied"), 3000)

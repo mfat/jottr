@@ -30,10 +30,7 @@ from jottr.translation_manager import _, is_rtl_language, localize_digits
 from jottr.icon_manager import apply_dialog_window_icon
 
 from jottr.editor.spellcheck import (
-    Dict,
     SpellCheckHighlighter,
-    SpellChecker,
-    USE_ENCHANT,
     find_word_bounds,
 )
 from jottr.editor.text_edit import CompletingTextEdit
@@ -77,19 +74,6 @@ class EditorTab(
             tempfile.gettempdir(),
             f'jottr_markdown_preview_{id(self)}.html'
         )
-        # Add USE_ENCHANT as instance attribute
-        self.USE_ENCHANT = USE_ENCHANT  # Use the module-level variable
-        
-        # Initialize spell checker
-        if self.USE_ENCHANT:
-            try:
-                self.spell_checker = Dict("en_US")
-            except:
-                self.USE_ENCHANT = False  # Fall back if enchant fails
-                self.spell_checker = SpellChecker()
-                print("Fallback to pyspellchecker in EditorTab")
-        else:
-            self.spell_checker = SpellChecker()
         
         # Setup UI components
         self.setup_ui()
@@ -773,7 +757,7 @@ class EditorTab(
                         menu.addSeparator()
                 
                 # Add to dictionary option if not already in it
-                if selected_text not in self.settings_manager.get_setting('user_dictionary', []):
+                if not self.highlighter.word_in_user_dictionary(selected_text):
                     add_action = menu.addAction(_("Add to Dictionary"))
                     add_action.triggered.connect(lambda: self.add_to_dictionary(selected_text))
                     menu.addSeparator()
@@ -790,21 +774,8 @@ class EditorTab(
         menu.exec(self.editor.mapToGlobal(pos))
 
     def add_to_dictionary(self, word):
-        """Add word to user dictionary"""
-        if self.USE_ENCHANT:
-            # Enchant spell checker implementation
-            self.spell_checker.add(word)
-        else:
-            # PySpellChecker implementation
-            self.spell_checker.word_frequency.add(word)
-            # Force a recheck of the document
-            self.highlighter.rehighlight()
-        
-        # Add to user dictionary in settings
-        user_dict = self.settings_manager.get_setting('user_dictionary', [])
-        if word not in user_dict:
-            user_dict.append(word)
-            self.settings_manager.save_setting('user_dictionary', user_dict)
+        """Add word to user dictionary via the shared highlighter."""
+        self.highlighter.add_to_dictionary(word)
 
     def save_snippet(self, text):
         """Save selected text as a snippet"""

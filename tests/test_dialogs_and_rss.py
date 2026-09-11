@@ -119,6 +119,7 @@ class DialogAndRssTests(unittest.TestCase):
         dialog.autosave_enabled_check.setChecked(True)
         dialog.autosave_interval_combo.setCurrentText("15")
         dialog.plugins_directory_edit.setText(str(Path(self.temp_dir.name) / "plugins"))
+        dialog.spell_check_enabled.setChecked(False)
 
         data = dialog.get_data()
 
@@ -127,6 +128,8 @@ class DialogAndRssTests(unittest.TestCase):
         self.assertGreaterEqual(dialog.language_combo.count(), 1)
         self.assertEqual(data["search_sites"], {"News": "site:news.example"})
         self.assertEqual(data["user_dictionary"], ["jottr"])
+        self.assertFalse(data["spell_check"])
+        self.assertIn("en_US", data["spell_languages"])
         self.assertEqual(data["ui_theme"], "Dark")
         self.assertEqual(data["theme"], "Forest")
         self.assertEqual(data["custom_themes"]["Forest"]["editor"]["background"], "#102018")
