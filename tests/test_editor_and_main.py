@@ -809,6 +809,71 @@ class EditorAndMainTests(unittest.TestCase):
         self.assertEqual(editor.current_file, str(target))
         self.assertEqual(target.read_text(encoding="utf-8"), "dialog save")
 
+    def test_save_dialog_prefers_markdown_or_text_extension(self):
+        editor = self.make_editor()
+
+        self.assertEqual(editor.preferred_save_kind(), "text")
+        self.assertEqual(editor.preferred_save_suffix(), "txt")
+        filters, initial = editor.save_dialog_filters()
+        self.assertTrue(filters.startswith("Text Files (*.txt)"))
+        self.assertEqual(initial, "Text Files (*.txt)")
+
+        editor.markdown_preview_visible = True
+        self.assertEqual(editor.preferred_save_kind(), "markdown")
+        self.assertEqual(editor.preferred_save_suffix(), "md")
+        filters, initial = editor.save_dialog_filters()
+        self.assertTrue(filters.startswith("Markdown Files (*.md *.markdown)"))
+        self.assertEqual(initial, "Markdown Files (*.md *.markdown)")
+
+        editor.current_file = str(Path(self.temp_dir.name) / "notes.txt")
+        self.assertEqual(editor.preferred_save_kind(), "text")
+
+        editor.current_file = str(Path(self.temp_dir.name) / "notes.md")
+        self.assertEqual(editor.preferred_save_kind(), "markdown")
+
+        editor.current_file = str(Path(self.temp_dir.name) / "script.py")
+        self.assertEqual(editor.preferred_save_kind(), "other")
+        self.assertEqual(editor.preferred_save_suffix(), "")
+
+    def test_save_dialog_appends_extension_when_missing(self):
+        editor = self.make_editor()
+        base = str(Path(self.temp_dir.name) / "untitled")
+
+        self.assertEqual(
+            editor.ensure_save_extension(base, "Markdown Files (*.md *.markdown)", "txt"),
+            f"{base}.md",
+        )
+        self.assertEqual(
+            editor.ensure_save_extension(base, "Text Files (*.txt)", "md"),
+            f"{base}.txt",
+        )
+        self.assertEqual(
+            editor.ensure_save_extension(base, "All Files (*.*)", "md"),
+            f"{base}.md",
+        )
+        self.assertEqual(
+            editor.ensure_save_extension(f"{base}.rst", "Markdown Files (*.md *.markdown)", "md"),
+            f"{base}.rst",
+        )
+
+        target = Path(self.temp_dir.name) / "no-ext"
+        editor.editor.setPlainText("needs extension")
+        editor.markdown_preview_visible = True
+        md_filter = "Markdown Files (*.md *.markdown)"
+
+        with patch.object(
+            editor_tab_impl.QFileDialog,
+            "getSaveFileName",
+            return_value=(str(target), md_filter),
+        ) as save_dialog:
+            self.assertTrue(editor.save_file(force_dialog=True))
+
+        save_dialog.assert_called_once()
+        self.assertEqual(save_dialog.call_args.args[4], md_filter)
+        self.assertTrue(save_dialog.call_args.args[3].startswith(md_filter))
+        self.assertEqual(editor.current_file, f"{target}.md")
+        self.assertEqual(Path(f"{target}.md").read_text(encoding="utf-8"), "needs extension")
+
     def test_pdf_export_dialog_uses_app_translations(self):
         self.settings.save_setting("language", "fa_IR")
         translation_manager.set_language("fa_IR")

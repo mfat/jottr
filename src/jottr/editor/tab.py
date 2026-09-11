@@ -414,17 +414,85 @@ class EditorTab(
             self.main_window.save_workspace_markdown_files()
         return True
 
+    def preferred_save_kind(self):
+        """Return 'markdown', 'text', or 'other' for Save dialog defaults."""
+        if self.current_file:
+            if self.is_markdown_file(self.current_file):
+                return "markdown"
+            extension = os.path.splitext(self.current_file)[1].lower()
+            if extension == ".txt":
+                return "text"
+            if extension:
+                return "other"
+        if getattr(self, "markdown_preview_visible", False):
+            return "markdown"
+        return "text"
+
+    def preferred_save_suffix(self):
+        """Default extension (without dot) for the preferred save kind."""
+        kind = self.preferred_save_kind()
+        if kind == "markdown":
+            return "md"
+        if kind == "text":
+            return "txt"
+        return ""
+
+    def save_dialog_filters(self):
+        """Name filters and initial selection for the Save dialog."""
+        markdown_filter = _("Markdown Files (*.md *.markdown)")
+        text_filter = _("Text Files (*.txt)")
+        all_files_filter = _("All Files (*.*)")
+        kind = self.preferred_save_kind()
+        if kind == "markdown":
+            return (
+                f"{markdown_filter};;{text_filter};;{all_files_filter}",
+                markdown_filter,
+            )
+        if kind == "text":
+            return (
+                f"{text_filter};;{markdown_filter};;{all_files_filter}",
+                text_filter,
+            )
+        return (
+            f"{all_files_filter};;{markdown_filter};;{text_filter}",
+            all_files_filter,
+        )
+
+    def suffix_for_save_filter(self, selected_filter, fallback_suffix=""):
+        """Pick an extension from the chosen Save dialog filter."""
+        selected = (selected_filter or "").lower()
+        if "*.md" in selected or "*.markdown" in selected:
+            return "md"
+        if "*.txt" in selected:
+            return "txt"
+        return fallback_suffix
+
+    def ensure_save_extension(self, file_path, selected_filter="", fallback_suffix=""):
+        """Append a relevant extension when the chosen path has none."""
+        if not file_path or os.path.splitext(file_path)[1]:
+            return file_path
+        suffix = self.suffix_for_save_filter(selected_filter, fallback_suffix)
+        if not suffix:
+            return file_path
+        return f"{file_path}.{suffix}"
+
     def save_file(self, force_dialog=False):
         """Save file, optionally forcing Save As dialog"""
         if not self.current_file or force_dialog:
-            file_name, _selected_filter = QFileDialog.getSaveFileName(
+            filters, initial_filter = self.save_dialog_filters()
+            start_path = self.current_file or os.path.expanduser("~")
+            fallback_suffix = self.preferred_save_suffix()
+            file_name, selected_filter = QFileDialog.getSaveFileName(
                 self,
                 _("Save File"),
-                os.path.expanduser("~"),
-                _("Markdown Files (*.md *.markdown);;Text Files (*.txt);;All Files (*.*)")
+                start_path,
+                filters,
+                initial_filter,
             )
             if file_name:
-                self.current_file = file_name
+                self.current_file = self.ensure_save_extension(
+                    file_name, selected_filter, fallback_suffix
+                )
             else:
                 return False
                 
