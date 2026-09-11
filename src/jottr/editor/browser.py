@@ -205,8 +205,8 @@ class BrowserPaneMixin:
             is_visible = self.browser_widget.isVisible()
             
             if is_visible:
-                # If currently visible, hide it and destroy web view
-                self.animate_widget_visibility(self.browser_widget, False)
+                # Tear down WebEngine before animating — opacity/effects on a live
+                # QWebEngineView briefly blank the whole window on Qt6.
                 if self.web_view:
                     self.web_view.stop()
                     self.web_view.setParent(None)
@@ -218,6 +218,7 @@ class BrowserPaneMixin:
                         item = self.web_container.layout().takeAt(0)
                         if item.widget():
                             item.widget().deleteLater()
+                self.animate_widget_visibility(self.browser_widget, False, fade=False)
             else:
                 # If showing browser, make sure it has reasonable size first
                 current_sizes = self.splitter.sizes()
@@ -227,16 +228,29 @@ class BrowserPaneMixin:
                     new_editor_size = editor_size - new_browser_size
                     self.splitter.setSizes([new_editor_size, current_sizes[1], new_browser_size])
         
-                self.animate_widget_visibility(self.browser_widget, True)
-                
-                # Create web view and load URL
-                self.create_web_view()
-                if hasattr(self, '_pending_url'):
-                    self.web_view.setUrl(QUrl(self._pending_url))
-                    del self._pending_url
+                # Width-only animation: fade effects are incompatible with WebEngine.
+                animation = self.animate_widget_visibility(
+                    self.browser_widget, True, fade=False
+                )
+
+                def attach_web_view():
+                    if not self.intended_widget_visibility(self.browser_widget):
+                        return
+                    if not self.web_view:
+                        self.create_web_view()
+                    if hasattr(self, '_pending_url'):
+                        self.web_view.setUrl(QUrl(self._pending_url))
+                        del self._pending_url
+                    else:
+                        homepage = self.settings_manager.get_setting(
+                            'homepage', 'https://www.apnews.com/'
+                        )
+                        self.web_view.setUrl(QUrl(homepage))
+
+                if animation is not None:
+                    animation.finished.connect(attach_web_view)
                 else:
-                    homepage = self.settings_manager.get_setting('homepage', 'https://www.apnews.com/')
-                    self.web_view.setUrl(QUrl(homepage))
+                    attach_web_view()
         
         # Track if pane was opened during focus mode
         if self.focus_mode:

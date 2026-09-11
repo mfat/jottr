@@ -232,7 +232,7 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
             return False
         return bool(self.settings_manager.get_setting("enable_animations", True))
 
-    def animate_widget_visibility(self, widget, visible, duration=260):
+    def animate_widget_visibility(self, widget, visible, duration=260, fade=True):
         if not self.animations_enabled():
             widget.setGraphicsEffect(None)
             original_width = widget.property("animation_original_max_width")
@@ -254,35 +254,41 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
         if not visible and widget.width() > 0:
             target_width = widget.width()
 
-        effect = widget.graphicsEffect()
-        if not isinstance(effect, QGraphicsOpacityEffect):
-            effect = QGraphicsOpacityEffect(widget)
-            widget.setGraphicsEffect(effect)
-
         group = QParallelAnimationGroup(self)
-        opacity_animation = QPropertyAnimation(effect, b"opacity", group)
-        opacity_animation.setDuration(duration)
-        opacity_animation.setEasingCurve(QEasingCurve.Type.OutCubic)
-        opacity_animation.setStartValue(0.0 if visible else 1.0)
-        opacity_animation.setEndValue(1.0 if visible else 0.0)
+
+        effect = None
+        if fade:
+            effect = widget.graphicsEffect()
+            if not isinstance(effect, QGraphicsOpacityEffect):
+                effect = QGraphicsOpacityEffect(widget)
+                widget.setGraphicsEffect(effect)
+
+            opacity_animation = QPropertyAnimation(effect, b"opacity", group)
+            opacity_animation.setDuration(duration)
+            opacity_animation.setEasingCurve(QEasingCurve.Type.OutCubic)
+            opacity_animation.setStartValue(0.0 if visible else 1.0)
+            opacity_animation.setEndValue(1.0 if visible else 0.0)
+            group.addAnimation(opacity_animation)
+        else:
+            widget.setGraphicsEffect(None)
 
         width_animation = QPropertyAnimation(widget, b"maximumWidth", group)
         width_animation.setDuration(duration)
         width_animation.setEasingCurve(QEasingCurve.Type.OutCubic)
         width_animation.setStartValue(0 if visible else target_width)
         width_animation.setEndValue(target_width if visible else 0)
-
-        group.addAnimation(opacity_animation)
         group.addAnimation(width_animation)
         self.ui_animations[widget] = group
 
         if visible:
             widget.setMaximumWidth(0)
-            effect.setOpacity(0.0)
+            if effect is not None:
+                effect.setOpacity(0.0)
             widget.setVisible(True)
         else:
             widget.setMaximumWidth(target_width)
-            effect.setOpacity(1.0)
+            if effect is not None:
+                effect.setOpacity(1.0)
 
         def finish_animation():
             if not visible:

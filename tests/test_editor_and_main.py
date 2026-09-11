@@ -763,6 +763,60 @@ class EditorAndMainTests(unittest.TestCase):
         self.assertIsNotNone(editor.snippet_widget.graphicsEffect())
         animation.stop()
 
+    def test_editor_animated_visibility_can_skip_fade(self):
+        editor = self.make_editor()
+        editor.animations_enabled = lambda: True
+        editor.show()
+        app().processEvents()
+
+        animation = editor.animate_widget_visibility(
+            editor.browser_widget, True, fade=False
+        )
+
+        self.assertIsNotNone(animation)
+        self.assertEqual(animation.animationCount(), 1)
+        self.assertTrue(editor.browser_widget.isVisible())
+        self.assertIsNone(editor.browser_widget.graphicsEffect())
+        animation.stop()
+
+    def test_main_warms_webengine_before_show(self):
+        self.assertTrue(
+            callable(getattr(main_module, "warmup_webengine", None))
+        )
+        source = Path(main_module.__file__).read_text(encoding="utf-8")
+        self.assertIn("AA_ShareOpenGLContexts", source)
+        self.assertIn("warmup_webengine(window)", source)
+        self.assertLess(
+            source.index("warmup_webengine(window)"),
+            source.index("window.show()"),
+        )
+
+    def test_browser_toggle_avoids_fade_over_webengine(self):
+        editor = self.make_editor()
+        editor.animations_enabled = lambda: True
+        editor.settings_manager.is_plugin_enabled = lambda name: name == "browser-panel"
+        editor.show()
+        app().processEvents()
+
+        calls = []
+        original = editor.animate_widget_visibility
+
+        def tracking_animate(widget, visible, duration=260, fade=True):
+            calls.append({"widget": widget, "visible": visible, "fade": fade})
+            return original(widget, visible, duration=duration, fade=fade)
+
+        editor.animate_widget_visibility = tracking_animate
+        editor._pending_url = "https://example.com/search"
+        editor.toggle_pane("browser")
+
+        self.assertTrue(calls)
+        self.assertFalse(calls[0]["fade"])
+        self.assertIs(calls[0]["widget"], editor.browser_widget)
+        self.assertTrue(calls[0]["visible"])
+        animation = editor.ui_animations.get(editor.browser_widget)
+        if animation is not None:
+            animation.stop()
+
     def test_main_window_smoke_actions(self):
         class FakeEditorTab(QWidget):
             def __init__(self, snippet_manager, settings_manager):

@@ -34,7 +34,7 @@ class MarkdownPreviewMixin:
     def set_markdown_preview_visible(self, visible, save_state=True):
         """Show or hide the rendered markdown preview."""
         self.markdown_preview_visible = visible
-        self.animate_widget_visibility(self.markdown_preview, visible)
+        self.animate_widget_visibility(self.markdown_preview, visible, fade=False)
         self.markdown_preview.setMinimumWidth(240 if visible else 0)
         if visible:
             if self.preview_scroll_timer:

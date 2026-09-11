@@ -15,8 +15,10 @@ if __package__ is None:
 
 import os
 
+from PyQt6.QtCore import Qt, QTimer
 from PyQt6.QtWidgets import QApplication, QFileDialog, QInputDialog, QMessageBox
 from PyQt6.QtGui import QFont
+from PyQt6.QtWebEngineWidgets import QWebEngineView
 
 from jottr.font_dialog import FontSelectionDialog
 from jottr.theme_manager import ThemeManager
@@ -29,10 +31,34 @@ from jottr.window import (
 )
 
 
+def warmup_webengine(parent):
+    """Force WebEngine/OpenGL init before the window is mapped.
+
+    Qt6 switches the window into an OpenGL-compatible compositing path the first
+    time a QWebEngineView becomes visible. Doing that after show() briefly blanks
+    the whole UI (felt as a reload). Warming up off-screen avoids that flash on
+    the first browser search / markdown preview.
+    """
+    warmup = QWebEngineView(parent)
+    warmup.setAttribute(Qt.WidgetAttribute.WA_DontShowOnScreen, True)
+    warmup.resize(1, 1)
+    warmup.show()
+    parent._webengine_gl_warmup = warmup
+
+    def cleanup():
+        view = getattr(parent, "_webengine_gl_warmup", None)
+        if view is None:
+            return
+        parent._webengine_gl_warmup = None
+        view.deleteLater()
+
+    QTimer.singleShot(0, cleanup)
+
+
 def main():
-    # Enable high DPI scaling
-    # Qt 6 enables high-DPI scaling by default.
-    
+    # Share GL contexts for Qt WebEngine (must be set before QApplication).
+    QApplication.setAttribute(Qt.ApplicationAttribute.AA_ShareOpenGLContexts)
+
     # Create application instance
     app = QApplication(sys.argv)
     
@@ -48,8 +74,9 @@ def main():
     if len(sys.argv) > 1:
         file_paths = [arg for arg in sys.argv[1:] if os.path.isfile(arg)]
     
-    # Create main window
+    # Create main window and warm WebEngine before mapping the window.
     window = TextEditorApp()
+    warmup_webengine(window)
     window.show()
     
     # Open files from command line
