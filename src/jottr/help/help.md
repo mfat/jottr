@@ -77,7 +77,7 @@ Enter distraction-free writing mode:
 ## Spell Checking
 Jottr underlines misspelled words while you type:
 
-- Enable or disable spell checking in Settings > Dictionary
+- Toggle from Tools > Spelling > Automatic Spell Checking (Ctrl+Shift+O), or in Settings > Dictionary
 - Choose one or more active dictionaries; a word is accepted if any checked dictionary knows it
 - Dictionary languages come from Enchant/system packages (for example `hunspell-en-us` on Linux, or `brew install enchant` on macOS)
 - Changing dictionaries rechecks open documents immediately

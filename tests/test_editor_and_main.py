@@ -1074,7 +1074,7 @@ class EditorAndMainTests(unittest.TestCase):
             self.assertEqual(menubar.accessibleName(), "Application menu")
 
             menu_titles = [action.text() for action in menubar.actions()]
-            self.assertEqual(menu_titles, ["File", "Edit", "View", "Workspace", "Help"])
+            self.assertEqual(menu_titles, ["File", "Edit", "View", "Tools", "Workspace", "Help"])
 
             file_actions = [
                 action for action in menubar.actions()[0].menu().actions()
@@ -1093,6 +1093,36 @@ class EditorAndMainTests(unittest.TestCase):
             self.assertIn("Find/Replace", edit_actions)
             self.assertNotIn("Settings", edit_actions)
             self.assertIn("QMenuBar#appMenuBar", QApplication.instance().styleSheet())
+            self.assertIn("QMenu::indicator:non-exclusive:checked", QApplication.instance().styleSheet())
+
+            tools_menu = menubar.actions()[3].menu()
+            spelling_action = next(
+                action for action in tools_menu.actions()
+                if action.text() == "Spelling"
+            )
+            spelling_items = {
+                action.text(): action
+                for action in spelling_action.menu().actions()
+                if not action.isSeparator()
+            }
+            self.assertIn("Automatic Spell Checking", spelling_items)
+            spell_action = spelling_items["Automatic Spell Checking"]
+            self.assertTrue(spell_action.isCheckable())
+            self.assertTrue(spell_action.isChecked())
+            self.assertTrue(spell_action.icon().isNull())
+            self.assertEqual(spell_action.shortcut().toString(), "Ctrl+Shift+O")
+
+            spell_action.trigger()
+            self.assertFalse(window.settings_manager.get_setting("spell_check"))
+            self.assertFalse(spell_action.isChecked())
+            for index in range(window.tab_widget.count()):
+                tab = window.tab_widget.widget(index)
+                if isinstance(tab, EditorTab):
+                    self.assertFalse(tab.highlighter.spell_check_enabled)
+
+            spell_action.trigger()
+            self.assertTrue(window.settings_manager.get_setting("spell_check"))
+            self.assertTrue(spell_action.isChecked())
 
     def test_plugin_menu_deduplicates_sidebar_items_that_open_existing_panels(self):
         class FakeEditorTab(QWidget):

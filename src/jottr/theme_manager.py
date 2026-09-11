@@ -1,4 +1,5 @@
 from copy import deepcopy
+from urllib.parse import quote
 
 from PyQt6.QtGui import QColor, QPalette
 
@@ -422,9 +423,20 @@ class ThemeManager:
         """
 
     @staticmethod
+    def menu_check_indicator_image(color):
+        """SVG checkmark for styled QMenu indicators (Kate-style menu ticks)."""
+        svg = (
+            '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16">'
+            f'<path fill="{color}" d="M6.2 11.6 2.6 8l1.2-1.2 2.4 2.4 5.8-5.8L13.2 4.6z"/>'
+            "</svg>"
+        )
+        return f'url("data:image/svg+xml,{quote(svg)}")'
+
+    @staticmethod
     def build_app_stylesheet(theme, font=None):
         app = theme["app"]
         font_style = ThemeManager.build_font_stylesheet(font)
+        menu_check = ThemeManager.menu_check_indicator_image(app["accent"])
         return f"""
             QMainWindow, QWidget#mainSurface {{
                 background: {app['background']};
@@ -688,6 +700,15 @@ class ThemeManager:
                 background: {app['border']};
                 height: 1px;
                 margin: 6px 8px;
+            }}
+            QMenu::indicator {{
+                width: 14px;
+                height: 14px;
+                margin-left: 8px;
+            }}
+            QMenu::indicator:non-exclusive:checked,
+            QMenu::indicator:exclusive:checked {{
+                image: {menu_check};
             }}
             QMenu::icon {{
                 padding-left: 6px;

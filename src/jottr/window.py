@@ -706,6 +706,27 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
         add_action(view_menu, "Zoom Out", self.zoom_out, "zoom-out", QKeySequence("Ctrl+-"), "Zoom Out")
         add_action(view_menu, "Reset Zoom", self.zoom_reset, "zoom-reset", QKeySequence("Ctrl+0"), "Reset Zoom")
 
+        # Tools menu (Kate-style Spelling submenu)
+        tools_menu = add_menu("Tools")
+        spelling_menu = tools_menu.addMenu(_("Spelling"))
+        spelling_menu.setAccessibleName(_("{title} menu").format(title=_("Spelling")))
+        spelling_menu.menuAction().setProperty("text_key", "Spelling")
+        self.translatable_actions.append(spelling_menu.menuAction())
+        self.translatable_menus.append((spelling_menu, "Spelling"))
+        self.spell_check_action = add_action(
+            spelling_menu,
+            "Automatic Spell Checking",
+            self.toggle_spell_check,
+            None,
+            QKeySequence("Ctrl+Shift+O"),
+            "Toggle automatic spell checking",
+            True
+        )
+        self.spell_check_action.setChecked(
+            bool(self.settings_manager.get_setting("spell_check", True))
+        )
+        self.spell_check_action.setIconVisibleInMenu(False)
+
         # Workspace menu
         workspace_menu = add_menu("Workspace")
         add_action(workspace_menu, "Open Workspace...", self.open_workspace_dialog, "document-open", tooltip="Open Workspace")
@@ -822,6 +843,30 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
             tab = self.tab_widget.widget(index)
             if isinstance(tab, EditorTab) and hasattr(tab, "highlighter"):
                 tab.highlighter.apply_spell_settings()
+
+    def sync_spell_check_ui(self, enabled):
+        """Keep the Tools menu action and open Settings tabs in sync."""
+        enabled = bool(enabled)
+        if hasattr(self, "spell_check_action") and self.spell_check_action is not None:
+            self.spell_check_action.blockSignals(True)
+            self.spell_check_action.setChecked(enabled)
+            self.spell_check_action.blockSignals(False)
+        for index in range(self.tab_widget.count()):
+            tab = self.tab_widget.widget(index)
+            checkbox = getattr(tab, "spell_check_enabled", None)
+            if checkbox is not None:
+                checkbox.blockSignals(True)
+                checkbox.setChecked(enabled)
+                checkbox.blockSignals(False)
+
+    def toggle_spell_check(self, checked=None):
+        """Toggle automatic spell checking from Tools > Spelling."""
+        if checked is None:
+            checked = not bool(self.settings_manager.get_setting("spell_check", True))
+        enabled = bool(checked)
+        self.settings_manager.save_setting("spell_check", enabled)
+        self.sync_spell_check_ui(enabled)
+        self.apply_spell_check_to_tabs()
 
     def toggle_snippets(self):
         """Toggle snippets pane in current tab"""
@@ -1073,6 +1118,7 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
         self.create_menu_bar()
         self.apply_editor_theme_to_tabs(settings['theme'])
         self.apply_spell_check_to_tabs()
+        self.sync_spell_check_ui(settings['spell_check'])
         self.apply_editor_line_numbers(settings['editor_line_numbers'])
         self.apply_autosave_settings()
         self.statusBar.showMessage(_("Settings applied"), 3000)
