@@ -1346,12 +1346,16 @@ class EditorAndMainTests(unittest.TestCase):
             self.assertEqual(edit_actions[:3], ["Undo", "Redo", "Cut"])
             self.assertIn("Find/Replace", edit_actions)
             self.assertNotIn("Settings", edit_actions)
-            # Menu bar titles and popup menus are drawn by the active QStyle
-            # (via palette), not by chrome stylesheets.
+            # In-window menubar is chrome-styled to match the toolbar. Do not
+            # style QMainWindow (cascades hide titles under Breeze dark) or
+            # popup QMenu items (left to QStyle + palette).
             stylesheet = QApplication.instance().styleSheet()
-            self.assertNotIn("QMenuBar#appMenuBar", stylesheet)
+            self.assertIn("QMenuBar#appMenuBar", stylesheet)
+            self.assertIn("QMenuBar#appMenuBar::item", stylesheet)
             self.assertNotIn("QMenu::item", stylesheet)
             self.assertNotIn("data:image/svg+xml", stylesheet)
+            self.assertNotIn("QMainWindow", stylesheet)
+            self.assertFalse(menubar.isNativeMenuBar())
 
             tools_menu = menubar.actions()[3].menu()
             tools_items = {

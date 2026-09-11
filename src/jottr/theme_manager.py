@@ -608,13 +608,45 @@ class ThemeManager:
     def build_app_stylesheet(theme, font=None):
         app = theme["app"]
         font_style = ThemeManager.build_font_stylesheet(font)
-        # Style Jottr chrome by object name only. Menu bar titles, popup menus,
-        # and standard controls are left to QStyle + QPalette.
+        # Style Jottr chrome by object name only. Do not style QMainWindow:
+        # cascading color/background onto QMenuBar breaks some widget styles
+        # (e.g. Breeze) so menu titles go missing in dark mode. Style the
+        # in-window menubar (#appMenuBar) explicitly so it matches the toolbar.
         return f"""
-            QMainWindow, QWidget#mainSurface {{
+            QWidget#mainSurface {{
                 background: {app['background']};
                 color: {app['text']};
                 {font_style}
+            }}
+            QMenuBar#appMenuBar {{
+                background: {app['surface']};
+                border: none;
+                border-bottom: 1px solid {app['border']};
+                color: {app['text']};
+                padding: 3px 8px;
+                spacing: 2px;
+                {font_style}
+            }}
+            QMenuBar#appMenuBar::item {{
+                background: transparent;
+                border: 1px solid transparent;
+                border-radius: 0px;
+                color: {app['text']};
+                margin: 1px 2px;
+                padding: 5px 10px;
+            }}
+            QMenuBar#appMenuBar::item:selected {{
+                background: {app['surface_hover']};
+                border-color: {app['border_active']};
+                color: {app['text']};
+            }}
+            QMenuBar#appMenuBar::item:pressed {{
+                background: {app['surface_active']};
+                border-color: {app['accent']};
+                color: {app['accent_text']};
+            }}
+            QMenuBar#appMenuBar:focus {{
+                border-bottom: 2px solid {app['accent']};
             }}
             QToolBar#mainToolBar {{
                 background: {app['surface']};

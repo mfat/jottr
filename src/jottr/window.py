@@ -659,6 +659,7 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
         menubar.clear()
         menubar.setObjectName("appMenuBar")
         menubar.setAccessibleName(_("Application menu"))
+        # In-window bar so chrome QSS can match the toolbar (not the OS menu).
         menubar.setNativeMenuBar(False)
         menubar.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
         self.translatable_menus = []

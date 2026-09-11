@@ -388,6 +388,9 @@ class SettingsAndSnippetTests(unittest.TestCase):
         self.assertNotIn("QScrollBar:vertical", app_style)
         self.assertNotIn("QComboBox {", app_style)
         self.assertNotIn("QToolTip", app_style)
+        self.assertNotIn("QMainWindow", app_style)
+        self.assertIn("QMenuBar#appMenuBar", app_style)
+        self.assertNotIn("QMenu::item", app_style)
         from PyQt6.QtGui import QPalette
         palette = ThemeManager.build_app_palette(dracula)
         self.assertEqual(palette.color(QPalette.ColorRole.Window).name(), "#282a36")
