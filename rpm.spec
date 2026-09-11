@@ -81,9 +81,9 @@ MimeType=text/plain;text/markdown;text/x-markdown;
 StartupNotify=true
 EOF
 
-# App icon
-mkdir -p %{buildroot}%{_datadir}/icons/hicolor/256x256/apps/
-install -p -m 644 icons/jottr.png %{buildroot}%{_datadir}/icons/hicolor/256x256/apps/%{name}.png
+# App icon (Freedesktop scalable SVG)
+mkdir -p %{buildroot}%{_datadir}/icons/hicolor/scalable/apps/
+install -p -m 644 icons/jottr.svg %{buildroot}%{_datadir}/icons/hicolor/scalable/apps/%{name}.svg
 
 %files
 %license LICENSE
@@ -92,7 +92,7 @@ install -p -m 644 icons/jottr.png %{buildroot}%{_datadir}/icons/hicolor/256x256/
 %{_datadir}/%{name}
 %{_bindir}/%{name}
 %{_datadir}/applications/%{name}.desktop
-%{_datadir}/icons/hicolor/256x256/apps/%{name}.png
+%{_datadir}/icons/hicolor/scalable/apps/%{name}.svg
 
 %changelog
 * Sat Mar 01 2025 mFat <newmfat@gmail.com> - 1.4.3-1

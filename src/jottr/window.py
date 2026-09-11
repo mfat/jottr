@@ -40,6 +40,7 @@ from jottr.icon_manager import (
     apply_dialog_window_icon,
     ask_themed_question,
     build_themed_icon as render_bundled_icon,
+    load_app_icon,
     load_bundled_icon_paths,
     resolve_icon_color,
 )
@@ -71,6 +72,7 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
 
 
         self.setWindowTitle(APP_NAME)
+        self.setWindowIcon(load_app_icon())
         self.setGeometry(100, 100, 1200, 800)
         
         # Initialize managers first

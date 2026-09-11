@@ -103,7 +103,7 @@ need_command cmake
 need_file "$repo_root/requirements.txt"
 need_file "$repo_root/pyproject.toml"
 need_file "$repo_root/src/jottr/__main__.py"
-need_file "$repo_root/icons/jottr.png"
+need_file "$repo_root/icons/jottr.svg"
 need_file "$repo_root/io.github.mfat.jottr.desktop"
 need_file "$repo_root/scripts/build-adwaita-qt.sh"
 need_file "$repo_root/vendor/adwaita-qt/CMakeLists.txt"
@@ -210,11 +210,11 @@ mkdir -p \
   "$app_dir/usr/bin" \
   "$app_dir/usr/share/jottr" \
   "$app_dir/usr/share/applications" \
-  "$app_dir/usr/share/icons/hicolor/256x256/apps"
+  "$app_dir/usr/share/icons/hicolor/scalable/apps"
 
 cp -r "$repo_root/dist/jottr/." "$app_dir/usr/share/jottr/"
-cp "$repo_root/icons/jottr.png" "$app_dir/usr/share/icons/hicolor/256x256/apps/jottr.png"
-cp "$repo_root/icons/jottr.png" "$app_dir/jottr.png"
+cp "$repo_root/icons/jottr.svg" "$app_dir/usr/share/icons/hicolor/scalable/apps/jottr.svg"
+cp "$repo_root/icons/jottr.svg" "$app_dir/jottr.svg"
 cp "$repo_root/io.github.mfat.jottr.desktop" "$app_dir/usr/share/applications/jottr.desktop"
 cp "$repo_root/io.github.mfat.jottr.desktop" "$app_dir/jottr.desktop"
 sed -i 's/^Icon=.*/Icon=jottr/' "$app_dir/usr/share/applications/jottr.desktop"

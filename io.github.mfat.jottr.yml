@@ -49,13 +49,7 @@ modules:
       - cp -r icons ${FLATPAK_DEST}/share/jottr/icons
       - cp -r translations ${FLATPAK_DEST}/share/jottr/translations
       - install -D -m644 io.github.mfat.jottr.desktop -t ${FLATPAK_DEST}/share/applications/
-      - install -D icons/jottr_icon_16x16.png ${FLATPAK_DEST}/share/icons/hicolor/16x16/apps/io.github.mfat.jottr.png
-      - install -D icons/jottr_icon_32x32.png ${FLATPAK_DEST}/share/icons/hicolor/32x32/apps/io.github.mfat.jottr.png
-      - install -D icons/jottr_icon_48x48.png ${FLATPAK_DEST}/share/icons/hicolor/48x48/apps/io.github.mfat.jottr.png
-      - install -D icons/jottr_icon_64x64.png ${FLATPAK_DEST}/share/icons/hicolor/64x64/apps/io.github.mfat.jottr.png
-      - install -D icons/jottr_icon_128x128.png ${FLATPAK_DEST}/share/icons/hicolor/128x128/apps/io.github.mfat.jottr.png
-      - install -D icons/jottr_icon_256x256.png ${FLATPAK_DEST}/share/icons/hicolor/256x256/apps/io.github.mfat.jottr.png
-      - install -D icons/jottr_icon_512x512.png ${FLATPAK_DEST}/share/icons/hicolor/512x512/apps/io.github.mfat.jottr.png
+      - install -D -m644 icons/jottr.svg ${FLATPAK_DEST}/share/icons/hicolor/scalable/apps/io.github.mfat.jottr.svg
       - install -D -m644 io.github.mfat.jottr.metainfo.xml -t ${FLATPAK_DEST}/share/metainfo/
     sources:
       - type: git

@@ -46,8 +46,9 @@ completion, snippets, and integrated web browsing.
 %install
 %py3_install
 
-# Install desktop file
+# Install desktop file + scalable SVG app icon
 mkdir -p %{buildroot}%{_datadir}/applications/
+mkdir -p %{buildroot}%{_datadir}/icons/hicolor/scalable/apps/
 cat > %{buildroot}%{_datadir}/applications/jottr.desktop << EOL
 [Desktop Entry]
 Name=Jottr
@@ -58,12 +59,14 @@ Terminal=false
 Type=Application
 Categories=Office;TextEditor;
 EOL
+install -p -m 644 icons/jottr.svg %{buildroot}%{_datadir}/icons/hicolor/scalable/apps/jottr.svg
 
 %files
 %{python3_sitelib}/jottr/
 %{python3_sitelib}/jottr-%{version}*
 %{_bindir}/jottr
 %{_datadir}/applications/jottr.desktop
+%{_datadir}/icons/hicolor/scalable/apps/jottr.svg
 
 %changelog
 * $(date '+%a %b %d %Y') Package Builder <builder@example.com> - ${PACKAGE_VERSION}-1

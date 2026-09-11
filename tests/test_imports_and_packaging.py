@@ -214,6 +214,52 @@ class ImportAndPackagingTests(unittest.TestCase):
         )
         self.assertIsNotNone(app)
 
+    def test_app_icon_loads_from_jottr_svg(self):
+        from PyQt6.QtWidgets import QApplication
+
+        from jottr.icon_manager import load_app_icon, resolve_app_icon_path
+
+        app = QApplication.instance()
+        if app is None:
+            app = QApplication(["jottr-tests"])
+
+        path = resolve_app_icon_path()
+        self.assertIsNotNone(path)
+        self.assertTrue(path.endswith("jottr.svg"))
+        self.assertTrue((PROJECT_ROOT / "icons" / "jottr.svg").is_file())
+
+        icon = load_app_icon()
+        self.assertFalse(icon.isNull())
+        self.assertFalse(icon.pixmap(64, 64).isNull())
+        self.assertIsNotNone(app)
+
+    def test_linux_packaging_installs_scalable_svg_icon(self):
+        rpm_spec = (PROJECT_ROOT / "rpm.spec").read_text(encoding="utf-8")
+        debian_rules = (PROJECT_ROOT / "packaging" / "debian" / "rules").read_text(
+            encoding="utf-8"
+        )
+        flatpak = (PROJECT_ROOT / "io.github.mfat.jottr.yml").read_text(encoding="utf-8")
+        appimage = (PROJECT_ROOT / "scripts" / "build-appimage-local.sh").read_text(
+            encoding="utf-8"
+        )
+
+        self.assertIn("hicolor/scalable/apps", rpm_spec)
+        self.assertIn("icons/jottr.svg", rpm_spec)
+        self.assertNotIn("hicolor/256x256/apps/%{name}.png", rpm_spec)
+
+        self.assertIn("hicolor/scalable/apps", debian_rules)
+        self.assertIn("jottr.svg", debian_rules)
+
+        self.assertIn(
+            "hicolor/scalable/apps/io.github.mfat.jottr.svg",
+            flatpak,
+        )
+        self.assertNotIn("jottr_icon_256x256.png", flatpak)
+
+        self.assertIn("hicolor/scalable/apps", appimage)
+        self.assertIn("icons/jottr.svg", appimage)
+        self.assertNotIn("icons/jottr.png", appimage)
+
     def test_message_box_uses_bundled_button_icons(self):
         from PyQt6.QtCore import QSize
         from PyQt6.QtWidgets import QApplication, QMessageBox

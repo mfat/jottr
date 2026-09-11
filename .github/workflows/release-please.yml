@@ -302,10 +302,10 @@ jobs:
       - name: Build AppDir
         run: |
           version="${{ needs.release-please.outputs.tag_name }}"
-          mkdir -p AppDir/usr/bin AppDir/usr/share/jottr AppDir/usr/share/applications AppDir/usr/share/icons/hicolor/256x256/apps
+          mkdir -p AppDir/usr/bin AppDir/usr/share/jottr AppDir/usr/share/applications AppDir/usr/share/icons/hicolor/scalable/apps
           cp -r dist/jottr/* AppDir/usr/share/jottr/
-          cp icons/jottr.png AppDir/usr/share/icons/hicolor/256x256/apps/jottr.png
-          cp icons/jottr.png AppDir/jottr.png
+          cp icons/jottr.svg AppDir/usr/share/icons/hicolor/scalable/apps/jottr.svg
+          cp icons/jottr.svg AppDir/jottr.svg
           cp io.github.mfat.jottr.desktop AppDir/usr/share/applications/jottr.desktop
           cp io.github.mfat.jottr.desktop AppDir/jottr.desktop
           sed -i 's/^Icon=.*/Icon=jottr/' AppDir/usr/share/applications/jottr.desktop

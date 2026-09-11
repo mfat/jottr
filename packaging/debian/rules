@@ -43,14 +43,14 @@ override_dh_auto_install:
 	cp -a icons debian/jottr/usr/share/jottr/icons
 	cp -a translations debian/jottr/usr/share/jottr/translations
 
-	# Desktop entry + app icon
+	# Desktop entry + app icon (Freedesktop scalable SVG)
 	mkdir -p debian/jottr/usr/share/applications
-	mkdir -p debian/jottr/usr/share/icons/hicolor/128x128/apps
+	mkdir -p debian/jottr/usr/share/icons/hicolor/scalable/apps
 	cp packaging/debian/jottr.desktop debian/jottr/usr/share/applications/
-	if [ -f icons/jottr.png ]; then \
-		cp icons/jottr.png debian/jottr/usr/share/icons/hicolor/128x128/apps/; \
-	elif [ -f src/jottr/icons/jottr.png ]; then \
-		cp src/jottr/icons/jottr.png debian/jottr/usr/share/icons/hicolor/128x128/apps/; \
+	if [ -f icons/jottr.svg ]; then \
+		cp icons/jottr.svg debian/jottr/usr/share/icons/hicolor/scalable/apps/jottr.svg; \
+	elif [ -f src/jottr/icons/jottr.svg ]; then \
+		cp src/jottr/icons/jottr.svg debian/jottr/usr/share/icons/hicolor/scalable/apps/jottr.svg; \
 	fi
 
 	# Launcher

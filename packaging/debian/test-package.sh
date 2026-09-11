@@ -32,7 +32,7 @@ if [ ! -f "/usr/share/applications/jottr.desktop" ]; then
 fi
 
 # Check if icon is installed
-if [ ! -f "/usr/share/icons/hicolor/128x128/apps/jottr.png" ]; then
+if [ ! -f "/usr/share/icons/hicolor/scalable/apps/jottr.svg" ]; then
     echo -e "${RED}Error: Application icon not installed${NC}"
     exit 1
 fi

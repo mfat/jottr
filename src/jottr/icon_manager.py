@@ -19,12 +19,59 @@ from PyQt6.QtGui import QColor, QGuiApplication, QIcon, QPainter, QPalette, QPix
 from PyQt6.QtSvg import QSvgRenderer
 from PyQt6.QtWidgets import QMessageBox
 
-from jottr.paths import data_roots, find_data_dir
+from jottr.paths import data_roots, find_data_dir, find_data_file
 
 # Logical sizes used by the UI (tabs 16, toolbar 22, menus ~16–24).
 _ICON_SIZES = (16, 22, 24, 32)
+_APP_ICON_SIZES = (16, 24, 32, 48, 64, 128, 256, 512)
 _ICON_PATH_CACHE: dict[str, str] | None = None
+_APP_ICON_CACHE: QIcon | None = None
 _RESOURCES_LOADED = False
+
+
+def resolve_app_icon_path() -> str | None:
+    """Return the filesystem path of the branded app icon (SVG preferred)."""
+    for name in ("jottr.svg", "jottr.png"):
+        found = find_data_file("icons", name)
+        if found is not None:
+            return str(found)
+    return None
+
+
+def load_app_icon() -> QIcon:
+    """Load the Jottr application icon for the window and task switcher.
+
+    Prefers ``icons/jottr.svg`` and registers common pixmap sizes so window
+    managers pick a sharp raster instead of a tiny default.
+    """
+    global _APP_ICON_CACHE
+    if _APP_ICON_CACHE is not None:
+        return QIcon(_APP_ICON_CACHE)
+
+    path = resolve_app_icon_path()
+    if not path:
+        _APP_ICON_CACHE = QIcon()
+        return QIcon(_APP_ICON_CACHE)
+
+    icon = QIcon(path)
+    if path.endswith(".svg"):
+        renderer = QSvgRenderer(path)
+        if renderer.isValid():
+            dpr = _device_pixel_ratio()
+            for logical in _APP_ICON_SIZES:
+                physical = max(1, int(round(logical * dpr)))
+                pixmap = QPixmap(physical, physical)
+                pixmap.fill(Qt.GlobalColor.transparent)
+                painter = QPainter(pixmap)
+                painter.setRenderHint(QPainter.RenderHint.Antialiasing, True)
+                painter.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform, True)
+                renderer.render(painter, QRectF(0, 0, physical, physical))
+                painter.end()
+                pixmap.setDevicePixelRatio(dpr)
+                icon.addPixmap(pixmap)
+
+    _APP_ICON_CACHE = icon
+    return QIcon(_APP_ICON_CACHE)
 
 
 def _ensure_resources_registered() -> None:

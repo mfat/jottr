@@ -21,6 +21,7 @@ from PyQt6.QtGui import QFont
 from PyQt6.QtOpenGLWidgets import QOpenGLWidget
 
 from jottr.font_dialog import FontSelectionDialog
+from jottr.icon_manager import load_app_icon
 from jottr.qt_style import capture_platform_qt_style, register_bundled_qt_plugins
 from jottr.theme_manager import ThemeManager
 from jottr.ui import LeftAlignedDocumentTabBar, WorkspaceFileSystemModel, WorkspaceTreeView
@@ -73,6 +74,7 @@ def main():
     app.setDesktopFileName("jottr")
     app.setApplicationVersion(APP_VERSION)
     app.setOrganizationDomain("github.com/mfat/jottr")
+    app.setWindowIcon(load_app_icon())
     
     # Get file paths from command-line arguments
     file_paths = []
