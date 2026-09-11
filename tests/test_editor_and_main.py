@@ -1230,7 +1230,7 @@ class EditorAndMainTests(unittest.TestCase):
             self.assertEqual(file_actions[0].text(), "New Editor Tab")
             self.assertEqual(file_actions[0].toolTip(), "Create a new editor tab")
             self.assertFalse(file_actions[0].icon().isNull())
-            self.assertIn("Settings", [action.text() for action in file_actions])
+            self.assertNotIn("Settings", [action.text() for action in file_actions])
 
             edit_actions = [
                 action.text() for action in menubar.actions()[1].menu().actions()
@@ -1254,6 +1254,11 @@ class EditorAndMainTests(unittest.TestCase):
             }
             self.assertIn("Automatic Spell Checking", tools_items)
             self.assertIn("Document Language", tools_items)
+            self.assertIn("Settings", tools_items)
+            self.assertEqual(
+                [action.text() for action in tools_menu.actions() if not action.isSeparator()][-1],
+                "Settings",
+            )
             self.assertIsNotNone(tools_items["Document Language"].menu())
             spell_action = tools_items["Automatic Spell Checking"]
             self.assertTrue(spell_action.isCheckable())

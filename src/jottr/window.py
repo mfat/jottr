@@ -706,8 +706,6 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
         )
         add_action(file_menu, "Export as PDF...", self.export_pdf, "save-as", tooltip="Export current file as PDF")
         file_menu.addSeparator()
-        add_action(file_menu, "Settings", self.show_settings, "settings", tooltip="Open Settings")
-        file_menu.addSeparator()
         add_action(file_menu, "Close Tab", self.close_current_tab, shortcut=QKeySequence.StandardKey.Close, tooltip="Close current tab")
         add_action(file_menu, "Exit", self.close, shortcut=QKeySequence.StandardKey.Quit, tooltip="Exit Jottr")
 
@@ -793,6 +791,9 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
             )
             self.document_language_actions.addAction(action)
             document_language_menu.addAction(action)
+
+        tools_menu.addSeparator()
+        add_action(tools_menu, "Settings", self.show_settings, "settings", tooltip="Open Settings")
 
         # Workspace menu
         workspace_menu = add_menu("Workspace")
