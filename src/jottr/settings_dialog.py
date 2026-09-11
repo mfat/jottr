@@ -4,7 +4,7 @@ from PyQt6.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QLabel,
                             QGroupBox, QPlainTextEdit, QScrollArea, QFormLayout,
                             QFileDialog, QFrame, QStackedWidget)
 from PyQt6.QtCore import Qt, QSize
-from PyQt6.QtGui import QFont, QColor
+from PyQt6.QtGui import QFont
 import json
 import os
 from jottr.font_dialog import FontSelectionDialog
@@ -28,13 +28,6 @@ from jottr.translation_manager import (
 )
 
 class SettingsDialog(QDialog):
-    @staticmethod
-    def theme_rgba(color, alpha):
-        qcolor = QColor(color)
-        if not qcolor.isValid():
-            qcolor = QColor(127, 127, 127)
-        return f"rgba({qcolor.red()}, {qcolor.green()}, {qcolor.blue()}, {alpha})"
-
     def __init__(self, settings_manager, parent=None, embedded=False, apply_callback=None, close_callback=None):
         super().__init__(parent)
         self.embedded = embedded
@@ -165,7 +158,7 @@ class SettingsDialog(QDialog):
         standard_label = QLabel(
             _("Themes control app chrome, editor colors, panels, menus, and selection states.")
         )
-        standard_label.setStyleSheet("color: gray; font-size: 10px;")
+        standard_label.setWordWrap(True)
         theme_box_layout.addWidget(standard_label)
 
         self.custom_theme_list = QListWidget()
@@ -174,7 +167,6 @@ class SettingsDialog(QDialog):
         theme_box_layout.addWidget(self.custom_theme_list)
 
         json_label = QLabel(_("Theme JSON:"))
-        json_label.setStyleSheet("color: gray; font-size: 10px;")
         theme_box_layout.addWidget(json_label)
         self.theme_json_edit = QPlainTextEdit()
         self.theme_json_edit.setPlaceholderText(json.dumps(ThemeManager.get_theme_standard(), indent=2))
@@ -427,40 +419,13 @@ class SettingsDialog(QDialog):
             self.close_callback(self)
 
     def apply_dialog_style(self):
+        # Palette + QStyle only — no dialog QSS so Widget Style stays visible.
         theme = ThemeManager.get_theme(
             self.ui_theme_combo.currentText() if hasattr(self, "ui_theme_combo") else self.settings_manager.get_ui_theme(),
             self.settings_manager.get_custom_themes()
         )
-        app = theme["app"]
-        selected_bg = self.theme_rgba(app["accent"], 0.18)
-        divider_color = self.theme_rgba(app["border"], 0.75)
-        item_divider_color = self.theme_rgba(app["border"], 0.65)
         ThemeManager.apply_app_palette(self, theme)
-        self.setStyleSheet(ThemeManager.build_dialog_stylesheet(theme, self.ui_font) + f"""
-            QListWidget#settingsNavList {{
-                border: none;
-                padding: 6px;
-                background: transparent;
-                outline: none;
-            }}
-            QWidget#settingsContentDivider {{
-                background: {divider_color};
-                border: none;
-                border-radius: 0px;
-                min-width: 1px;
-                max-width: 1px;
-            }}
-            QListWidget#settingsNavList::item {{
-                padding: 9px 10px;
-                border-radius: 0px;
-                border-bottom: 1px solid {item_divider_color};
-            }}
-            QListWidget#settingsNavList::item:selected {{
-                background: {selected_bg};
-                border-radius: 0px;
-                font-weight: 700;
-            }}
-        """)
+        self.setStyleSheet("")
         apply_dialog_window_icon(self, "settings", self.settings_manager)
         self.refresh_settings_nav_icons()
 
@@ -696,12 +661,10 @@ class SettingsDialog(QDialog):
                     _("Auto-detects language from the document, then loads a matching "
                       "installed dictionary. Short text may be unreliable.")
                 )
-                self.document_language_status.setStyleSheet("")
             else:
                 self.document_language_status.setText(
                     _("Auto-detect requires the langdetect package.")
                 )
-                self.document_language_status.setStyleSheet("color: #c0392b;")
             return
 
         matched = match_dictionary_for_language(language)
@@ -709,10 +672,8 @@ class SettingsDialog(QDialog):
             self.document_language_status.setText(
                 _("Dictionary ready: {dictionary}").format(dictionary=matched)
             )
-            self.document_language_status.setStyleSheet("")
         else:
             self.document_language_status.setText(missing_dictionary_message(language))
-            self.document_language_status.setStyleSheet("color: #c0392b;")
 
     def get_document_language(self):
         """Return the selected document language tag."""
@@ -935,95 +896,6 @@ class SettingsDialog(QDialog):
         warning.setObjectName("pluginWarningText")
         warning.setWordWrap(True)
         layout.addWidget(warning)
-        theme = ThemeManager.get_theme(
-            self.ui_theme_combo.currentText() if hasattr(self, "ui_theme_combo") else self.settings_manager.get_ui_theme(),
-            self.settings_manager.get_custom_themes()
-        )
-        app = theme["app"]
-        selected_bg = self.theme_rgba(app["accent"], 0.18)
-        hover_bg = self.theme_rgba(app["accent"], 0.10)
-        badge_bg = self.theme_rgba(app["accent"], 0.16)
-        panel_border = self.theme_rgba(app["border"], 0.85)
-        card_border = self.theme_rgba(app["border"], 0.78)
-        selected_border = self.theme_rgba(app["accent"], 0.95)
-        subtle_surface = self.theme_rgba(app["border"], 0.14)
-        plugin_text_muted = app["muted"]
-        plugins_tab.setStyleSheet(f"""
-            QFrame#pluginManagerSurface {{
-                background: transparent;
-            }}
-            QLabel#pluginPanelTitle {{
-                font-size: 13px;
-                font-weight: 700;
-                padding: 0 2px;
-            }}
-            QListWidget#pluginCardList {{
-                border: 1px solid {panel_border};
-                border-radius: 0px;
-                padding: 8px;
-                background: {subtle_surface};
-                outline: none;
-            }}
-            QListWidget#pluginCardList::item {{
-                border-radius: 0px;
-                margin: 0;
-                padding: 0;
-            }}
-            QListWidget#pluginCardList::item:selected {{
-                background: transparent;
-            }}
-            QFrame#pluginCard {{
-                border: 1px solid {card_border};
-                border-left: 4px solid transparent;
-                border-radius: 0px;
-                background: {app['surface']};
-            }}
-            QFrame#pluginCard:hover {{
-                border-color: {selected_border};
-                border-left: 4px solid {selected_border};
-                background: {hover_bg};
-            }}
-            QFrame#pluginCard[selected="true"] {{
-                border-color: {selected_border};
-                border-left: 4px solid {selected_border};
-                background: {selected_bg};
-            }}
-            QLabel#pluginCardTitle {{
-                font-weight: 700;
-                font-size: 12px;
-            }}
-            QLabel#pluginCardChannel {{
-                padding: 2px 6px;
-                font-size: 10px;
-                font-weight: 700;
-                background: {subtle_surface};
-                color: {plugin_text_muted};
-                border: 1px solid {card_border};
-            }}
-            QLabel#pluginCardMeta, QLabel#pluginCardDescription, QLabel#pluginDetailSubtitle,
-            QLabel#pluginDetailText, QLabel#pluginPermissions, QLabel#pluginWarningText {{
-                color: {plugin_text_muted};
-            }}
-            QLabel#pluginBadge, QLabel#pluginStatusBadge {{
-                border-radius: 0px;
-                padding: 3px 8px;
-                font-size: 10px;
-                font-weight: 700;
-                background: {badge_bg};
-            }}
-            QFrame#pluginDetailPanel {{
-                border: 1px solid {panel_border};
-                border-radius: 0px;
-                background: {subtle_surface};
-            }}
-            QLabel#pluginDetailTitle {{
-                font-size: 17px;
-                font-weight: 800;
-            }}
-            QLabel#pluginFieldLabel {{
-                font-weight: 700;
-            }}
-        """)
         self.refresh_plugin_list()
         return plugins_tab
 
@@ -1402,7 +1274,7 @@ class SearchSiteDialog(QDialog):
         
         # Add help text
         help_label = QLabel(_("Enter the website domain without 'http://' or 'www.'"))
-        help_label.setStyleSheet("color: gray; font-size: 10px;")
+        help_label.setWordWrap(True)
         layout.addWidget(help_label)
         
         # Buttons

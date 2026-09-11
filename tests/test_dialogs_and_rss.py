@@ -177,8 +177,9 @@ class DialogAndRssTests(unittest.TestCase):
         self.assertTrue(any(channel["name"] == "Official" and channel["verified"] for channel in data["plugin_channels"]))
         self.assertEqual(data["plugin_state"], {})
         plugin_tab = dialog.findChild(QWidget, "pluginsSettingsTab")
-        self.assertIn("QFrame#pluginCard:hover", plugin_tab.styleSheet())
-        self.assertIn('QFrame#pluginCard[selected="true"]', plugin_tab.styleSheet())
+        self.assertIsNotNone(plugin_tab)
+        self.assertEqual(plugin_tab.styleSheet(), "")
+        self.assertEqual(dialog.styleSheet(), "")
         self.assertGreater(dialog.plugin_list.count(), 0)
         current_card = dialog.plugin_list.itemWidget(dialog.plugin_list.currentItem())
         self.assertEqual(current_card.cursor().shape(), Qt.CursorShape.PointingHandCursor)
@@ -269,9 +270,9 @@ class DialogAndRssTests(unittest.TestCase):
 
         dialog.autosave_interval_combo.setCurrentText("bad")
         self.assertEqual(dialog.get_data()["autosave_interval_seconds"], 30)
-        self.assertIn("QWidget#settingsContentDivider", dialog.styleSheet())
-        self.assertIn("border-radius: 0px", dialog.styleSheet())
-        self.assertNotIn("border-right: 1px solid rgba(127, 127, 127, 0.25)", dialog.styleSheet())
+        # Settings chrome uses QStyle + palette — no dialog QSS overrides.
+        self.assertEqual(dialog.styleSheet(), "")
+        self.assertIsNotNone(dialog.findChild(QWidget, "settingsContentDivider"))
 
     def test_settings_dialog_translates_autosave_seconds_label(self):
         translations_dir = Path(self.temp_dir.name) / "translations"
