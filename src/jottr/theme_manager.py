@@ -507,7 +507,7 @@ class ThemeManager:
                 background-color: {editor_theme['background']};
                 color: {editor_theme['foreground']};
                 selection-background-color: {editor_theme['selection']};
-                border: 1px solid {editor_theme['border']};
+                border: none;
                 border-radius: 0px;
                 padding: 18px 22px;
                 font-family: "{font_family}";
@@ -824,7 +824,7 @@ class ThemeManager:
             QTextEdit#writingEditor {{
                 background: {editor['background']};
                 color: {editor['foreground']};
-                border: 1px solid {editor['border']};
+                border: none;
                 border-radius: 0px;
                 padding: 18px 22px;
                 selection-background-color: {editor['selection']};

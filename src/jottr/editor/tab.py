@@ -153,7 +153,7 @@ class EditorTab(
         self.editor_pane = QWidget()
         self.editor_pane.setObjectName("editorPane")
         editor_pane_layout = QHBoxLayout(self.editor_pane)
-        editor_pane_layout.setContentsMargins(12, 0, 12, 10)
+        editor_pane_layout.setContentsMargins(0, 0, 0, 0)
         editor_pane_layout.setSpacing(0)
 
         self.markdown_splitter = QSplitter(Qt.Orientation.Horizontal)

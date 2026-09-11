@@ -1,5 +1,5 @@
 """Editor text widgets with completer and line numbers."""
-from PyQt6.QtWidgets import QTextEdit, QWidget
+from PyQt6.QtWidgets import QFrame, QTextEdit, QWidget
 from PyQt6.QtCore import Qt, QRect, QSize
 from PyQt6.QtGui import QColor, QPainter, QTextCursor
 
@@ -9,6 +9,7 @@ from jottr.translation_manager import localize_digits
 class CustomTextEdit(QTextEdit):
     def __init__(self, parent=None):
         super().__init__(parent)
+        self.setFrameShape(QFrame.Shape.NoFrame)
         self.parent_tab = parent
         self.completer = None
         self.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
@@ -85,6 +86,7 @@ class LineNumberArea(QWidget):
 class CompletingTextEdit(QTextEdit):
     def __init__(self, parent=None):
         super().__init__(parent)
+        self.setFrameShape(QFrame.Shape.NoFrame)
         self.parent_tab = parent
         self.completion_text = ""
         self.completion_start = None

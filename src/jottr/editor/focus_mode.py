@@ -6,7 +6,7 @@ from jottr.translation_manager import _
 
 # Readable writing column width in focus mode (centered in the window).
 FOCUS_COLUMN_MAX_WIDTH = 900
-_EDITOR_PANE_DEFAULT_MARGINS = (12, 0, 12, 10)
+_EDITOR_PANE_DEFAULT_MARGINS = (0, 0, 0, 0)
 
 
 class _FocusPaneResizeFilter(QObject):
@@ -69,7 +69,7 @@ class FocusModeMixin:
             }
             QTextEdit#writingEditor {
                 background: #ffffff;
-                border: 1px solid #d7e0ea;
+                border: none;
                 border-radius: 0px;
                 padding: 36px 48px;
                 font-size: 15pt;
