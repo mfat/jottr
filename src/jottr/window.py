@@ -4,19 +4,19 @@ import json
 import sys
 
 from PyQt6.QtWidgets import (
-    QMainWindow, QTabWidget, QWidget, QVBoxLayout, QSplitter,
-    QToolBar, QMessageBox, QLabel, QDialog, QSizePolicy,
-    QDialogButtonBox, QToolButton, QTabBar,
+    QMainWindow, QTabWidget, QWidget, QVBoxLayout, QHBoxLayout, QGridLayout,
+    QSplitter, QToolBar, QMessageBox, QLabel, QDialog, QSizePolicy, QMenu,
+    QDialogButtonBox, QToolButton, QTabBar, QWidgetAction,
     QGraphicsOpacityEffect, QApplication, QComboBox,
 )
 from PyQt6.QtCore import (
     Qt, QUrl, QTimer, QEvent, QPropertyAnimation,
-    QEasingCurve, QParallelAnimationGroup, QSize,
+    QEasingCurve, QParallelAnimationGroup, QSize, pyqtSignal,
 )
 from PyQt6.QtWebEngineWidgets import QWebEngineView
 from PyQt6.QtGui import (
     QAction, QActionGroup, QIcon, QDesktopServices,
-    QKeySequence, QFont,
+    QKeySequence, QFont, QPalette,
 )
 
 from jottr.editor_tab import EditorTab
@@ -54,6 +54,51 @@ from jottr.ui.document_tab_bar import LeftAlignedDocumentTabBar
 APP_NAME = "Jottr"
 APP_VERSION = __version__
 APP_HOMEPAGE = "https://github.com/mfat/jottr"
+
+
+class EditorThemeGrid(QWidget):
+    """Grid of editor theme swatches for View → Editor Theme."""
+
+    TILE_SIZE = 56
+    COLUMNS = 3
+    theme_chosen = pyqtSignal(str)
+
+    def __init__(self, themes, current, parent=None):
+        super().__init__(parent)
+        self.setObjectName("editorThemeGrid")
+        self._buttons = {}
+
+        layout = QGridLayout(self)
+        layout.setContentsMargins(8, 8, 8, 8)
+        layout.setHorizontalSpacing(8)
+        layout.setVerticalSpacing(8)
+
+        for index, (name, theme) in enumerate(themes.items()):
+            button = QToolButton(self)
+            button.setObjectName("editorThemeSwatch")
+            button.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonIconOnly)
+            button.setIcon(ThemeManager.build_theme_tile_icon(theme, size=self.TILE_SIZE))
+            button.setIconSize(QSize(self.TILE_SIZE, self.TILE_SIZE))
+            button.setText("")
+            button.setToolTip(name)
+            button.setAccessibleName(name)
+            button.setFixedSize(self.TILE_SIZE + 8, self.TILE_SIZE + 8)
+            button.setCheckable(True)
+            button.setAutoExclusive(True)
+            button.setChecked(name == current)
+            button.setAutoRaise(True)
+            button.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
+            button.clicked.connect(
+                lambda checked=False, tag=name: self.theme_chosen.emit(tag)
+            )
+            row, column = divmod(index, self.COLUMNS)
+            layout.addWidget(button, row, column, Qt.AlignmentFlag.AlignCenter)
+            self._buttons[name] = button
+
+    def set_current(self, name):
+        button = self._buttons.get(name)
+        if button is not None:
+            button.setChecked(True)
 
 
 class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
@@ -846,8 +891,7 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
         self.translatable_actions.append(editor_theme_menu.menuAction())
         self.translatable_menus.append((editor_theme_menu, "Editor Theme"))
         self.editor_theme_menu = editor_theme_menu
-        self.editor_theme_actions = QActionGroup(self)
-        self.editor_theme_actions.setExclusive(True)
+        self.editor_theme_grid = None
         editor_theme_menu.aboutToShow.connect(self.refresh_editor_theme_menu)
         self.refresh_editor_theme_menu()
 
@@ -986,49 +1030,41 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
                 tab.apply_theme(theme_name)
 
     def refresh_editor_theme_menu(self):
-        """Rebuild View → Editor Theme entries with color tiles."""
+        """Rebuild View → Editor Theme as a color-tile grid."""
         if not hasattr(self, "editor_theme_menu") or self.editor_theme_menu is None:
             return
-        if not hasattr(self, "editor_theme_actions") or self.editor_theme_actions is None:
-            self.editor_theme_actions = QActionGroup(self)
-            self.editor_theme_actions.setExclusive(True)
 
         menu = self.editor_theme_menu
         menu.clear()
-        for action in list(self.editor_theme_actions.actions()):
-            self.editor_theme_actions.removeAction(action)
-            action.deleteLater()
+        self.editor_theme_grid = None
 
         themes = ThemeManager.get_themes(self.settings_manager.get_custom_themes())
         current = self.settings_manager.get_theme()
         if current not in themes and themes:
             current = next(iter(themes))
 
-        for name, theme in themes.items():
-            action = QAction(ThemeManager.build_theme_tile_icon(theme), name, self)
-            action.setCheckable(True)
-            action.setData(name)
-            action.setIconVisibleInMenu(True)
-            action.setChecked(name == current)
-            action.triggered.connect(
-                lambda checked=False, tag=name: self.set_editor_theme(tag)
-            )
-            self.editor_theme_actions.addAction(action)
-            menu.addAction(action)
+        grid = EditorThemeGrid(themes, current)
+        grid.theme_chosen.connect(self._on_editor_theme_grid_chosen)
+        action = QWidgetAction(self)
+        action.setDefaultWidget(grid)
+        menu.addAction(action)
+        self.editor_theme_grid = grid
+
+    def _on_editor_theme_grid_chosen(self, theme_name):
+        self.set_editor_theme(theme_name)
+        if self.editor_theme_menu is not None:
+            self.editor_theme_menu.close()
 
     def sync_editor_theme_menu(self):
-        """Mark the active Editor Theme entry without rebuilding tiles."""
-        if not hasattr(self, "editor_theme_actions") or self.editor_theme_actions is None:
+        """Mark the active Editor Theme swatch without rebuilding the grid."""
+        grid = getattr(self, "editor_theme_grid", None)
+        if grid is None:
             return
         current = self.settings_manager.get_theme()
-        known = {action.data() for action in self.editor_theme_actions.actions()}
-        if current not in known:
+        if current not in grid._buttons:
             self.refresh_editor_theme_menu()
             return
-        for action in self.editor_theme_actions.actions():
-            action.blockSignals(True)
-            action.setChecked(action.data() == current)
-            action.blockSignals(False)
+        grid.set_current(current)
 
     def sync_color_scheme_menu(self):
         """Mark the active Color Scheme entry in View → Color Scheme."""

@@ -982,9 +982,9 @@ class ThemeManager:
 
     @staticmethod
     def build_theme_tile_icon(theme, size=16):
-        """Build a menu icon tile from editor and syntax colors."""
-        from PyQt6.QtCore import Qt
-        from PyQt6.QtGui import QBrush, QGuiApplication, QIcon, QPainter, QPen, QPixmap
+        """Build a menu icon: background with two foreground text lines."""
+        from PyQt6.QtCore import QPointF, Qt
+        from PyQt6.QtGui import QGuiApplication, QIcon, QPainter, QPen, QPixmap
 
         if not isinstance(theme, dict):
             theme = ThemeManager.get_theme(ThemeManager.DEFAULT_THEME_NAME)
@@ -994,7 +994,13 @@ class ThemeManager:
             )
 
         editor = theme["editor"]
-        syntax = theme.get("syntax") or {}
+        background = editor.get("background", "#ffffff")
+        foreground = editor.get("foreground", "#000000")
+        if not ThemeManager.is_valid_color(background):
+            background = "#ffffff"
+        if not ThemeManager.is_valid_color(foreground):
+            foreground = "#000000"
+
         app = QGuiApplication.instance()
         dpr = float(app.devicePixelRatio()) if app is not None else 1.0
         dpr = dpr if dpr > 0 else 1.0
@@ -1006,45 +1012,37 @@ class ThemeManager:
 
         painter = QPainter(pixmap)
         painter.setRenderHint(QPainter.RenderHint.Antialiasing, False)
-        scale = dpr
+        # Painter uses logical coordinates when the pixmap has a devicePixelRatio.
+        painter.fillRect(0, 0, size, size, QColor(background))
 
-        def fill_rect(x, y, w, h, color):
-            brush = QBrush(QColor(color))
-            if brush.color().isValid():
-                painter.fillRect(
-                    int(round(x * scale)),
-                    int(round(y * scale)),
-                    max(1, int(round(w * scale))),
-                    max(1, int(round(h * scale))),
-                    brush,
-                )
+        inset = max(3, size // 6)
+        line_width = max(2, size // 12)
+        gap = max(line_width + 2, size // 5)
+        center = size / 2
+        painter.setPen(
+            QPen(
+                QColor(foreground),
+                line_width,
+                Qt.PenStyle.SolidLine,
+                Qt.PenCapStyle.FlatCap,
+            )
+        )
+        # Longer top line, shorter bottom line — like two text rows.
+        painter.drawLine(
+            QPointF(inset, center - gap / 2),
+            QPointF(size - inset, center - gap / 2),
+        )
+        painter.drawLine(
+            QPointF(inset, center + gap / 2),
+            QPointF(inset + (size - 2 * inset) * 0.6, center + gap / 2),
+        )
 
-        fill_rect(0, 0, size, size, editor.get("background", "#ffffff"))
-
-        # Vertical syntax strips across the right half of the tile.
-        strip_keys = ("keyword", "string", "function", "type")
-        strip_colors = [
-            syntax.get(key)
-            for key in strip_keys
-            if ThemeManager.is_valid_color(syntax.get(key))
-        ]
-        if strip_colors:
-            strip_x = size * 0.45
-            strip_w = (size - strip_x) / len(strip_colors)
-            for index, color in enumerate(strip_colors):
-                fill_rect(strip_x + index * strip_w, 0, strip_w, size, color)
-
-        # Foreground sample bar along the bottom-left.
-        fg = editor.get("foreground", "#000000")
-        if ThemeManager.is_valid_color(fg):
-            fill_rect(1, size - 4, max(3, size * 0.35), 2, fg)
-
-        border = editor.get("border") or editor.get("foreground") or "#888888"
-        if ThemeManager.is_valid_color(border):
-            painter.setPen(QPen(QColor(border), max(1, int(round(scale)))))
-            painter.setBrush(Qt.BrushStyle.NoBrush)
-            painter.drawRect(0, 0, pixel - 1, pixel - 1)
-
+        border = editor.get("border")
+        if not ThemeManager.is_valid_color(border):
+            border = foreground if QColor(background).lightnessF() > 0.5 else "#888888"
+        painter.setPen(QPen(QColor(border), 1))
+        painter.setBrush(Qt.BrushStyle.NoBrush)
+        painter.drawRect(0, 0, size - 1, size - 1)
         painter.end()
         return QIcon(pixmap)
 

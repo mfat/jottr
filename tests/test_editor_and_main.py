@@ -1413,9 +1413,25 @@ class EditorAndMainTests(unittest.TestCase):
             theme_actions = [
                 action for action in editor_theme_menu.actions() if not action.isSeparator()
             ]
-            self.assertGreaterEqual(len(theme_actions), 5)
-            self.assertTrue(all(not action.icon().isNull() for action in theme_actions))
-            self.assertTrue(all(action.isIconVisibleInMenu() for action in theme_actions))
+            self.assertEqual(len(theme_actions), 1)
+            from PyQt6.QtWidgets import QWidgetAction
+
+            self.assertIsInstance(theme_actions[0], QWidgetAction)
+            grid = theme_actions[0].defaultWidget()
+            self.assertIsInstance(grid, window_module.EditorThemeGrid)
+            self.assertGreaterEqual(len(grid._buttons), 5)
+            self.assertEqual(
+                grid.layout().columnCount(),
+                window_module.EditorThemeGrid.COLUMNS,
+            )
+            sample = next(iter(grid._buttons.values()))
+            self.assertEqual(
+                sample.iconSize().width(),
+                window_module.EditorThemeGrid.TILE_SIZE,
+            )
+            self.assertFalse(sample.icon().isNull())
+            self.assertEqual(sample.text(), "")
+            self.assertTrue(all(button.toolTip() for button in grid._buttons.values()))
             # In-window menubar is chrome-styled to match the toolbar. Do not
             # style QMainWindow (cascades hide titles under Breeze dark) or
             # popup QMenu items (left to QStyle + palette).
@@ -1479,18 +1495,11 @@ class EditorAndMainTests(unittest.TestCase):
         self.assertEqual(window.settings_manager.get_theme(), "Dracula")
         editor_tab = window.tab_widget.widget(0)
         self.assertEqual(editor_tab.current_theme, "Dracula")
-        self.assertTrue(
-            any(
-                action.isChecked() and action.data() == "Dracula"
-                for action in window.editor_theme_actions.actions()
-            )
-        )
-        self.assertTrue(
-            all(
-                not action.icon().isNull()
-                for action in window.editor_theme_actions.actions()
-            )
-        )
+        grid = window.editor_theme_grid
+        self.assertIsInstance(grid, window_module.EditorThemeGrid)
+        self.assertTrue(grid._buttons["Dracula"].isChecked())
+        self.assertGreaterEqual(len(grid._buttons), 5)
+        self.assertFalse(grid._buttons["Dracula"].icon().isNull())
 
     def test_plugin_menu_deduplicates_sidebar_items_that_open_existing_panels(self):
         class FakeEditorTab(QWidget):

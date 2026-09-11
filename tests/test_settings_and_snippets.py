@@ -371,9 +371,15 @@ class SettingsAndSnippetTests(unittest.TestCase):
             ThemeManager.ui_theme_color_scheme("Dark"),
             Qt.ColorScheme.Dark,
         )
-        tile = ThemeManager.build_theme_tile_icon(ThemeManager.get_theme("Dracula"))
+        tile = ThemeManager.build_theme_tile_icon(ThemeManager.get_theme("Dracula"), size=16)
         self.assertFalse(tile.isNull())
-        self.assertFalse(tile.pixmap(16, 16).isNull())
+        image = tile.pixmap(16, 16).toImage()
+        self.assertFalse(image.isNull())
+        self.assertEqual(image.pixelColor(2, 2).name(), "#282a36")
+        # Longer top text line and shorter bottom line in foreground color.
+        self.assertEqual(image.pixelColor(8, 5).name(), "#f8f8f2")
+        self.assertEqual(image.pixelColor(5, 10).name(), "#f8f8f2")
+        self.assertEqual(image.pixelColor(13, 10).name(), "#282a36")
         self.assertIn(
             "Forest",
             ThemeManager.get_themes({
