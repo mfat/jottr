@@ -52,6 +52,11 @@ msgstr "فایل‌های Markdown (*.md *.markdown);;فایل‌های متنی
 msgid "Could not save file: {error}"
 msgstr ""
 
+#: src/jottr/editor/tab.py
+#, python-brace-format
+msgid "Autosave failed: {error}"
+msgstr ""
+
 #: src/jottr/editor_tab.py
 msgid "Export as PDF"
 msgstr "برون‌بری به PDF"

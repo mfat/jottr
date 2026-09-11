@@ -52,6 +52,11 @@ msgstr "Markdown Files (*.md *.markdown);;Text Files (*.txt);;All Files (*.*)"
 msgid "Could not save file: {error}"
 msgstr "Could not save file: {error}"
 
+#: src/jottr/editor/tab.py
+#, python-brace-format
+msgid "Autosave failed: {error}"
+msgstr "Autosave failed: {error}"
+
 #: src/jottr/editor_tab.py
 msgid "Export as PDF"
 msgstr "Export as PDF"

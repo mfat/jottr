@@ -79,7 +79,6 @@ class EditorTab(
         self.setup_ui()
         
         # Setup autosave after UI is ready
-        self.last_save_time = time.time()
         self.changes_pending = False
         
         # Start configurable autosave timer
@@ -353,6 +352,8 @@ class EditorTab(
         """Apply autosave settings to this tab."""
         self.backup_timer.setInterval(self.autosave_interval_ms())
         if self.autosave_enabled():
+            if self.current_file and self.editor.document().isModified():
+                self.changes_pending = True
             self.backup_timer.start()
         else:
             self.backup_timer.stop()
@@ -364,17 +365,18 @@ class EditorTab(
         if not self.current_file:
             return
         self.changes_pending = True
-        
-    def on_text_changed(self):
-        """Handle text changes"""
-        self.mark_autosave_pending()
 
     def force_save(self):
-        """Force save if there are pending changes"""
+        """Force save if there are pending changes."""
         if self.autosave_enabled() and self.changes_pending:
             self.autosave()
-            self.last_save_time = time.time()
-            self.changes_pending = False
+
+    def report_autosave_failure(self, error):
+        """Surface an autosave failure in the console and status bar."""
+        message = _("Autosave failed: {error}").format(error=str(error))
+        print(message)
+        if self.main_window and hasattr(self.main_window, "statusBar"):
+            self.main_window.statusBar.showMessage(message, 5000)
 
     def autosave(self):
         """Autosave the current file with an atomic replace."""
@@ -403,7 +405,7 @@ class EditorTab(
                     os.remove(temp_content)
             except OSError:
                 pass
-            print(f"Autosave failed: {str(e)}")
+            self.report_autosave_failure(e)
             return False
 
         self.changes_pending = False
@@ -507,6 +509,7 @@ class EditorTab(
             
             # Mark document as unmodified
             self.editor.document().setModified(False)
+            self.changes_pending = False
             if self.main_window and hasattr(self.main_window, 'save_workspace_open_files'):
                 self.main_window.save_workspace_open_files()
             if self.main_window and hasattr(self.main_window, 'save_workspace_markdown_files'):
@@ -677,9 +680,12 @@ class EditorTab(
             _("Markdown Files (*.md *.markdown);;Text Files (*.txt);;All Files (*)")
         )
         if file_name:
-            self.current_file = file_name
             with open(file_name, 'r', encoding='utf-8') as file:
-                self.editor.setPlainText(file.read())
+                content = file.read()
+            self.editor.setPlainText(content)
+            self.current_file = file_name
+            self.editor.document().setModified(False)
+            self.changes_pending = False
             if self.is_markdown_file(file_name):
                 self.set_markdown_preview_visible(True)
             

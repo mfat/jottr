@@ -990,6 +990,55 @@ class EditorAndMainTests(unittest.TestCase):
         self.assertEqual(target.read_text(encoding="utf-8"), "old")
         self.assertFalse(editor.backup_timer.isActive())
 
+    def test_editor_keeps_autosave_pending_after_failure(self):
+        self.settings.save_setting("autosave_enabled", True)
+        self.settings.save_setting("autosave_interval_seconds", 1)
+        editor = self.make_editor()
+        target = Path(self.temp_dir.name) / "autosave-fail.md"
+        target.write_text("old", encoding="utf-8")
+        editor.current_file = str(target)
+        editor.editor.setPlainText("new content")
+        editor.editor.document().setModified(True)
+        self.assertTrue(editor.changes_pending)
+
+        with patch.object(editor_tab_impl.os, "replace", side_effect=OSError("denied")):
+            editor.force_save()
+
+        self.assertTrue(editor.changes_pending)
+        self.assertEqual(target.read_text(encoding="utf-8"), "old")
+        self.assertTrue(editor.editor.document().isModified())
+
+    def test_editor_manual_save_clears_autosave_pending(self):
+        self.settings.save_setting("autosave_enabled", True)
+        editor = self.make_editor()
+        target = Path(self.temp_dir.name) / "manual-clear.md"
+        target.write_text("old", encoding="utf-8")
+        editor.current_file = str(target)
+        editor.editor.setPlainText("saved manually")
+        self.assertTrue(editor.changes_pending)
+
+        self.assertTrue(editor.save_file())
+
+        self.assertFalse(editor.changes_pending)
+        self.assertEqual(target.read_text(encoding="utf-8"), "saved manually")
+
+    def test_editor_seeds_autosave_pending_when_enabled_with_dirty_file(self):
+        self.settings.save_setting("autosave_enabled", False)
+        editor = self.make_editor()
+        target = Path(self.temp_dir.name) / "seed-pending.md"
+        target.write_text("old", encoding="utf-8")
+        editor.current_file = str(target)
+        editor.editor.setPlainText("dirty before enable")
+        editor.editor.document().setModified(True)
+        self.assertFalse(editor.changes_pending)
+        self.assertTrue(editor.editor.document().isModified())
+
+        self.settings.save_setting("autosave_enabled", True)
+        editor.configure_autosave_timer()
+
+        self.assertTrue(editor.changes_pending)
+        self.assertTrue(editor.backup_timer.isActive())
+
     def test_editor_pane_state_is_saved(self):
         editor = self.make_editor()
         editor.show()
