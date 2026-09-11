@@ -641,6 +641,15 @@ class ThemeManager:
                 background: {app['surface_hover']};
                 border-radius: 0px;
             }}
+            QTabWidget#documentTabs QTabBar QToolButton#tabCloseButton {{
+                border: none;
+                background: transparent;
+                padding: 0px;
+                margin-right: 6px;
+            }}
+            QTabWidget#documentTabs QTabBar QToolButton#tabCloseButton:hover {{
+                background: {app['surface_hover']};
+            }}
             QStatusBar#statusBar {{
                 background: {app['surface']};
                 border-top: 1px solid {app['border']};

@@ -27,6 +27,7 @@ from PyQt6.QtWebEngineCore import QWebEnginePage, QWebEngineSettings
 from jottr.snippet_editor_dialog import SnippetEditorDialog
 from jottr.theme_manager import ThemeManager
 from jottr.translation_manager import _, is_rtl_language, localize_digits
+from jottr.icon_manager import apply_dialog_window_icon
 
 from jottr.editor.spellcheck import (
     Dict,
@@ -471,6 +472,7 @@ class EditorTab(
         dialog.setFileMode(QFileDialog.FileMode.AnyFile)
         dialog.setOption(QFileDialog.Option.DontUseNativeDialog, True)
         dialog.setOption(QFileDialog.Option.DontConfirmOverwrite, True)
+        apply_dialog_window_icon(dialog, "save", getattr(self, "settings_manager", None))
         dialog.setDefaultSuffix("pdf")
         pdf_filter = _("PDF Files (*.pdf)")
         all_files_filter = _("All Files (*.*)")

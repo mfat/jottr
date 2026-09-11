@@ -1,11 +1,13 @@
 from PyQt6.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QLineEdit, 
                             QTextEdit, QPushButton, QLabel)
+from jottr.icon_manager import apply_dialog_window_icon
 from jottr.translation_manager import _
 
 class SnippetEditorDialog(QDialog):
     def __init__(self, title="", content="", parent=None):
         super().__init__(parent)
         self.setWindowTitle(_("Edit Snippet"))
+        apply_dialog_window_icon(self, "snippets")
         self.setMinimumWidth(500)
         self.setMinimumHeight(400)
         

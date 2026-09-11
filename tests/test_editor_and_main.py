@@ -16,7 +16,7 @@ sys.path.insert(0, str(SRC_ROOT))
 
 from PyQt6.QtCore import QPoint, QRect, Qt, QEvent
 from PyQt6.QtGui import QColor, QFont, QKeyEvent, QTextCharFormat, QTextCursor, QTextDocument
-from PyQt6.QtWidgets import QApplication, QDialog, QTextEdit, QWidget
+from PyQt6.QtWidgets import QApplication, QDialog, QTabBar, QTextEdit, QWidget
 
 from jottr.editor_tab import EditorTab, SpellCheckHighlighter
 import jottr.editor.markdown as editor_markdown_module
@@ -811,6 +811,11 @@ class EditorAndMainTests(unittest.TestCase):
             self.assertEqual(label_rect.bottom(), 35)
             self.assertEqual(tab_bar.icon_vertical_offset, -1)
             self.assertFalse(window.tab_widget.tabIcon(0).isNull())
+            close_button = tab_bar.tabButton(0, QTabBar.ButtonPosition.RightSide)
+            self.assertIsNotNone(close_button)
+            self.assertEqual(close_button.objectName(), "tabCloseButton")
+            self.assertFalse(close_button.icon().isNull())
+            self.assertIn("tab-close", window.icons)
             first_tab = window.tab_widget.currentWidget()
             original_size = first_tab.current_font.pointSize()
 

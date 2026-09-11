@@ -8,6 +8,7 @@ from PyQt6.QtGui import QFont, QColor
 import json
 import os
 from jottr.font_dialog import FontSelectionDialog
+from jottr.icon_manager import apply_dialog_window_icon, themed_symbolic_icon
 from jottr.plugin_manager import PluginManager, REMOTE_WARNING
 from jottr.theme_manager import ThemeManager
 from jottr.translation_manager import (
@@ -44,6 +45,7 @@ class SettingsDialog(QDialog):
             else Qt.LayoutDirection.LeftToRight
         )
         self.setWindowTitle(_("Settings"))
+        apply_dialog_window_icon(self, "settings", self.settings_manager)
         if self.embedded:
             self.setMinimumSize(0, 0)
         else:
@@ -78,6 +80,7 @@ class SettingsDialog(QDialog):
         self.settings_nav.setObjectName("settingsNavList")
         self.settings_nav.setFixedWidth(180)
         self.settings_nav.setSpacing(4)
+        self.settings_nav.setIconSize(QSize(16, 16))
         self.settings_stack = QStackedWidget()
         self.settings_stack.setObjectName("settingsStack")
         self.settings_nav.currentRowChanged.connect(self.settings_stack.setCurrentIndex)
@@ -236,7 +239,11 @@ class SettingsDialog(QDialog):
         appearance_layout.addStretch()
         
         # Add appearance tab
-        self.add_settings_page(_("Appearance"), self.create_scrollable_tab(appearance_tab))
+        self.add_settings_page(
+            _("Appearance"),
+            self.create_scrollable_tab(appearance_tab),
+            "preferences-desktop-theme-applications",
+        )
         
         # Browser tab
         browser_tab = QWidget()
@@ -298,9 +305,9 @@ class SettingsDialog(QDialog):
         
         # Add tabs
         if self.browser_settings_available():
-            self.add_settings_page(_("Browser"), browser_tab)
-        self.add_settings_page(_("Dictionary"), dict_tab)
-        self.add_settings_page(_("Plugins"), self.create_plugins_tab())
+            self.add_settings_page(_("Browser"), browser_tab, "browser")
+        self.add_settings_page(_("Dictionary"), dict_tab, "insert-text")
+        self.add_settings_page(_("Plugins"), self.create_plugins_tab(), "applications-system")
         if self.settings_nav.count():
             self.settings_nav.setCurrentRow(0)
         
@@ -325,8 +332,12 @@ class SettingsDialog(QDialog):
         layout.addLayout(buttons)
         self.apply_dialog_style()
 
-    def add_settings_page(self, title, widget):
-        self.settings_nav.addItem(title)
+    def add_settings_page(self, title, widget, icon_name=None):
+        item = QListWidgetItem(title)
+        if icon_name:
+            item.setData(Qt.ItemDataRole.UserRole, icon_name)
+            item.setIcon(themed_symbolic_icon(icon_name, self.settings_manager))
+        self.settings_nav.addItem(item)
         self.settings_stack.addWidget(widget)
 
     def settings_page_index(self, widget):
@@ -351,7 +362,7 @@ class SettingsDialog(QDialog):
             return
         browser_index = self.settings_page_index(self.browser_settings_page)
         if self.browser_settings_available() and browser_index < 0:
-            self.add_settings_page(_("Browser"), self.browser_settings_page)
+            self.add_settings_page(_("Browser"), self.browser_settings_page, "browser")
         elif not self.browser_settings_available() and browser_index >= 0:
             self.remove_settings_page(self.browser_settings_page)
 
@@ -397,6 +408,17 @@ class SettingsDialog(QDialog):
                 font-weight: 700;
             }}
         """)
+        apply_dialog_window_icon(self, "settings", self.settings_manager)
+        self.refresh_settings_nav_icons()
+
+    def refresh_settings_nav_icons(self):
+        if not hasattr(self, "settings_nav"):
+            return
+        for index in range(self.settings_nav.count()):
+            item = self.settings_nav.item(index)
+            icon_name = item.data(Qt.ItemDataRole.UserRole)
+            if icon_name:
+                item.setIcon(themed_symbolic_icon(icon_name, self.settings_manager))
 
     def create_scrollable_tab(self, content):
         scroll_area = QScrollArea()
@@ -1234,6 +1256,7 @@ class SearchSiteDialog(QDialog):
     def __init__(self, parent=None, name='', site=''):
         super().__init__(parent)
         self.setWindowTitle(_("Search Site"))
+        apply_dialog_window_icon(self, "find")
         
         # Remove 'site:' prefix if it exists for display
         if site.startswith('site:'):

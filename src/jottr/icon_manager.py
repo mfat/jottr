@@ -16,6 +16,7 @@ from jottr.paths import data_roots, find_data_dir
 
 # Logical sizes used by the UI (tabs 16, toolbar 22, menus ~16–24).
 _ICON_SIZES = (16, 22, 24, 32)
+_ICON_PATH_CACHE: dict[str, str] | None = None
 
 
 def resolve_icons_dir() -> str:
@@ -40,7 +41,73 @@ def load_bundled_icon_paths() -> dict[str, str]:
             continue
         name = filename[:-4]
         icons[name] = os.path.join(symbolic_dir, filename)
+
+    # Short aliases for UI call sites
+    if "cross-large-square-outline-symbolic" in icons:
+        icons["tab-close"] = icons["cross-large-square-outline-symbolic"]
+
     return icons
+
+
+def bundled_icon_paths() -> dict[str, str]:
+    """Cached map of logical icon name -> SVG path."""
+    global _ICON_PATH_CACHE
+    if _ICON_PATH_CACHE is None:
+        _ICON_PATH_CACHE = load_bundled_icon_paths()
+    return _ICON_PATH_CACHE
+
+
+def resolve_icon_color(settings_manager=None) -> str:
+    """Return the tint color for symbolic icons from settings / theme."""
+    from jottr.theme_manager import ThemeManager
+
+    if settings_manager is None:
+        theme = ThemeManager.get_theme(ThemeManager.DEFAULT_THEME_NAME)
+        return theme["app"]["text"]
+
+    mode = settings_manager.get_setting("icon_contrast", "auto")
+    theme = ThemeManager.get_theme(
+        settings_manager.get_ui_theme(),
+        settings_manager.get_custom_themes(),
+    )
+    app = theme["app"]
+    if mode == "light":
+        return "#f8f8f2"
+    if mode == "dark":
+        return "#17202a"
+    if mode == "accent":
+        return app["accent"]
+    return app["text"]
+
+
+def themed_symbolic_icon(
+    name: str,
+    settings_manager=None,
+    color: str | None = None,
+    size: int | None = None,
+) -> QIcon:
+    """Build a tinted symbolic icon by logical name for windows and dialogs."""
+    if color is None:
+        color = resolve_icon_color(settings_manager)
+    return build_themed_icon(bundled_icon_paths().get(name, ""), color, size)
+
+
+def settings_manager_from(widget) -> object | None:
+    """Walk parents for a settings_manager attribute."""
+    current = widget
+    while current is not None:
+        manager = getattr(current, "settings_manager", None)
+        if manager is not None:
+            return manager
+        parent = getattr(current, "parent", None)
+        current = parent() if callable(parent) else None
+    return None
+
+
+def apply_dialog_window_icon(dialog, icon_name: str, settings_manager=None) -> None:
+    """Set a dialog's window icon from a bundled symbolic glyph."""
+    manager = settings_manager or settings_manager_from(dialog)
+    dialog.setWindowIcon(themed_symbolic_icon(icon_name, manager))
 
 
 def _device_pixel_ratio() -> float:

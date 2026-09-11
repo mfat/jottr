@@ -9,6 +9,7 @@ from PyQt6.QtWidgets import (
 )
 from PyQt6.QtGui import QColor, QFont, QPalette
 
+from jottr.icon_manager import apply_dialog_window_icon
 from jottr.theme_manager import ThemeManager
 from jottr.translation_manager import _
 
@@ -20,6 +21,7 @@ class FontSelectionDialog(QDialog):
         super().__init__(parent)
         self.setObjectName("fontSelectionDialog")
         self.setWindowTitle(title or _("Choose Editor Font"))
+        apply_dialog_window_icon(self, "font")
         self.setMinimumWidth(420)
 
         layout = QVBoxLayout(self)

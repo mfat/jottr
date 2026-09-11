@@ -1,6 +1,6 @@
 """Document tab bar with centered label painting."""
 from PyQt6.QtWidgets import QTabBar, QStyle, QStyleOptionTab, QStylePainter
-from PyQt6.QtCore import Qt, QRect, QSize
+from PyQt6.QtCore import Qt, QRect, QSize, pyqtSignal
 from PyQt6.QtGui import QColor
 
 from jottr.theme_manager import ThemeManager
@@ -9,11 +9,21 @@ from jottr.theme_manager import ThemeManager
 class LeftAlignedDocumentTabBar(QTabBar):
     """Document tab bar that keeps labels centered in the tab area."""
 
+    tabs_changed = pyqtSignal()
+
     label_left_padding = 8
     label_right_padding = 30
     icon_text_gap = 5
     icon_vertical_offset = -1
     underline_height = 2
+
+    def tabInserted(self, index):
+        super().tabInserted(index)
+        self.tabs_changed.emit()
+
+    def tabRemoved(self, index):
+        super().tabRemoved(index)
+        self.tabs_changed.emit()
 
     def paintEvent(self, event):
         painter = QStylePainter(self)

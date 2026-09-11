@@ -38,3 +38,6 @@ io.github.mfat.jottr-1.4.1.flatpak
 # MemPalace per-project files (issue #185)
 mempalace.yaml
 entities.json
+
+# Codebase Memory MCP local index
+.codebase-memory/

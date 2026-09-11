@@ -101,6 +101,12 @@ class DialogAndRssTests(unittest.TestCase):
         manager.save_ui_theme("Dark")
 
         dialog = SettingsDialog(manager)
+        self.assertFalse(dialog.windowIcon().isNull())
+        for index in range(dialog.settings_nav.count()):
+            self.assertFalse(
+                dialog.settings_nav.item(index).icon().isNull(),
+                msg=f"missing icon for {dialog.settings_nav.item(index).text()}",
+            )
         dialog.homepage_edit.setText("https://home.example")
         dialog.ui_theme_combo.setCurrentText("Dark")
         dialog.editor_theme_combo.setCurrentText("Forest")

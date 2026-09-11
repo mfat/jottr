@@ -5,7 +5,7 @@ import json
 from PyQt6.QtWidgets import (
     QMainWindow, QTabWidget, QWidget, QVBoxLayout, QSplitter,
     QMenu, QToolBar, QMessageBox, QLabel, QDialog, QSizePolicy,
-    QDialogButtonBox, QFileDialog, QToolButton,
+    QDialogButtonBox, QFileDialog, QToolButton, QTabBar,
     QGraphicsOpacityEffect, QApplication,
 )
 from PyQt6.QtCore import (
@@ -27,7 +27,12 @@ from jottr.settings_dialog import SettingsDialog
 from jottr.translation_manager import _, is_rtl_language, set_language
 from jottr.font_dialog import FontSelectionDialog
 from jottr.plugin_manager import PluginManager
-from jottr.icon_manager import build_themed_icon as render_bundled_icon, load_bundled_icon_paths
+from jottr.icon_manager import (
+    apply_dialog_window_icon,
+    build_themed_icon as render_bundled_icon,
+    load_bundled_icon_paths,
+    resolve_icon_color,
+)
 from jottr.paths import find_data_file
 from jottr import __version__
 from jottr.ui.workspace_controller import WorkspaceControllerMixin
@@ -105,6 +110,7 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
         self.tab_widget.setIconSize(QSize(16, 16))
         self.tab_widget.tabBar().setExpanding(False)
         self.tab_widget.tabCloseRequested.connect(self.close_tab)
+        self.tab_widget.tabBar().tabs_changed.connect(self.refresh_tab_close_buttons)
         
         # Install event filters on both the tab bar and its containing tab strip.
         self.tab_widget.tabBar().installEventFilter(self)
@@ -149,20 +155,7 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
 
     def get_icon_color(self):
         """Return the configured icon color for the active app theme."""
-        mode = self.settings_manager.get_setting("icon_contrast", "auto")
-        theme = ThemeManager.get_theme(
-            self.settings_manager.get_ui_theme(),
-            self.settings_manager.get_custom_themes()
-        )
-        app = theme["app"]
-
-        if mode == "light":
-            return "#f8f8f2"
-        if mode == "dark":
-            return "#17202a"
-        if mode == "accent":
-            return app["accent"]
-        return app["text"]
+        return resolve_icon_color(self.settings_manager)
 
     def build_themed_icon(self, icon_name):
         """Tint a bundled symbolic SVG to the active icon color."""
@@ -196,6 +189,42 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
             return
         for index in range(self.tab_widget.count()):
             self.update_tab_icon(index)
+        self.refresh_tab_close_buttons()
+
+    def tab_close_icon(self):
+        """Bundled themed icon for document tab close buttons."""
+        return self.build_themed_icon("tab-close")
+
+    def refresh_tab_close_buttons(self):
+        """Replace default close glyphs with the bundled cross icon."""
+        if not hasattr(self, "tab_widget"):
+            return
+        tab_bar = self.tab_widget.tabBar()
+        icon = self.tab_close_icon()
+        for index in range(self.tab_widget.count()):
+            button = tab_bar.tabButton(index, QTabBar.ButtonPosition.RightSide)
+            if button is None or button.objectName() != "tabCloseButton":
+                button = QToolButton(tab_bar)
+                button.setObjectName("tabCloseButton")
+                button.setAutoRaise(True)
+                button.setFocusPolicy(Qt.FocusPolicy.NoFocus)
+                button.setCursor(Qt.CursorShape.PointingHandCursor)
+                button.setToolTip(_("Close tab"))
+                button.clicked.connect(self._on_tab_close_button_clicked)
+                tab_bar.setTabButton(index, QTabBar.ButtonPosition.RightSide, button)
+            button.setIcon(icon)
+            button.setIconSize(QSize(12, 12))
+            button.setFixedSize(18, 18)
+
+    def _on_tab_close_button_clicked(self):
+        button = self.sender()
+        if button is None:
+            return
+        tab_bar = self.tab_widget.tabBar()
+        for index in range(self.tab_widget.count()):
+            if tab_bar.tabButton(index, QTabBar.ButtonPosition.RightSide) is button:
+                self.close_tab(index)
+                return
 
     def animations_enabled(self):
         if os.environ.get("QT_QPA_PLATFORM") == "offscreen":
@@ -889,6 +918,7 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
         about_dialog = QDialog(self)
         about_dialog.setWindowTitle(_("About {APP_NAME}").format(APP_NAME=APP_NAME))
         about_dialog.setMinimumWidth(400)
+        apply_dialog_window_icon(about_dialog, "about", self.settings_manager)
         
         layout = QVBoxLayout(about_dialog)
         layout.setSpacing(10)

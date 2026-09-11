@@ -3,6 +3,7 @@ from PyQt6.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QPushButton,
                             QMessageBox, QHeaderView)
 import requests
 import feedparser
+from jottr.icon_manager import apply_dialog_window_icon
 from jottr.translation_manager import _
 
 class FeedManagerDialog(QDialog):
@@ -10,6 +11,7 @@ class FeedManagerDialog(QDialog):
         super().__init__(parent)
         self.feeds = feeds.copy()  # Work with a copy of the feeds
         self.setWindowTitle(_("Feed Manager"))
+        apply_dialog_window_icon(self, "browser")
         self.setMinimumWidth(600)
         self.setMinimumHeight(400)
         self.setup_ui()
