@@ -594,6 +594,127 @@ class EditorAndMainTests(unittest.TestCase):
         self.assertTrue(highlighter.check_word("jottr"))
         self.assertTrue(highlighter.word_in_user_dictionary("JOTTR"))
 
+    def test_spell_check_keeps_persian_zwnj_words_intact(self):
+        from jottr.editor.spellcheck import find_word_bounds, _WORD_PATTERN
+
+        text = "من می‌روم به خانه"
+        words = [match.group(0) for match in _WORD_PATTERN.finditer(text)]
+        self.assertIn("می‌روم", words)
+        self.assertNotIn("می", words)
+        self.assertNotIn("روم", words)
+
+        start, end = find_word_bounds(text, text.index("\u200c"))
+        self.assertEqual(text[start:end], "می‌روم")
+
+    def test_spell_check_skips_persian_when_no_arabic_dictionary_available(self):
+        document = QTextDocument()
+        self.settings.save_setting("spell_check", True)
+        self.settings.save_setting("spell_languages", ["en_US"])
+        self.settings.save_setting("spell_languages_disabled", [])
+        highlighter = SpellCheckHighlighter(document, self.settings)
+
+        with patch("jottr.editor.spellcheck.list_available_spell_languages", return_value=["en_US"]), \
+             patch("jottr.editor.spellcheck.USE_ENCHANT", True), \
+             patch("jottr.editor.spellcheck._build_enchant_dicts", return_value=[]):
+            highlighter.apply_spell_settings(rehighlight=False)
+            highlighter.USE_ENCHANT = True
+            highlighter.spells = []
+            highlighter.spell_languages = ["en_US"]
+            highlighter.spell_check_enabled = True
+
+            # Without an Arabic-script dictionary, Farsi must not be flagged.
+            self.assertTrue(highlighter.check_word("سلام"))
+            self.assertTrue(highlighter.check_word("می‌روم"))
+
+            document.setPlainText("سلام xyzzyq")
+            highlighter.rehighlight()
+            block = document.firstBlock()
+            underlined = [
+                block.text()[item.start:item.start + item.length]
+                for item in block.layout().formats()
+                if item.format.underlineStyle() == QTextCharFormat.UnderlineStyle.SpellCheckUnderline
+            ]
+            self.assertNotIn("سلام", underlined)
+
+    def test_spell_check_auto_enables_installed_persian_dictionary(self):
+        from jottr.editor.spellcheck import resolve_spell_languages
+
+        self.settings.save_setting("spell_languages", ["en_US"])
+        self.settings.save_setting("spell_languages_disabled", [])
+        with patch("jottr.editor.spellcheck.list_available_spell_languages",
+                   return_value=["en_US", "fa", "fa_IR"]):
+            resolved = resolve_spell_languages(self.settings)
+        self.assertIn("en_US", resolved)
+        self.assertIn("fa_IR", resolved)
+        self.assertNotIn("fa", resolved)
+
+    def test_spell_check_respects_disabled_persian_dictionary(self):
+        from jottr.editor.spellcheck import resolve_spell_languages
+
+        self.settings.save_setting("spell_languages", ["en_US"])
+        self.settings.save_setting("spell_languages_disabled", ["fa", "fa_IR"])
+        with patch("jottr.editor.spellcheck.list_available_spell_languages",
+                   return_value=["en_US", "fa", "fa_IR"]):
+            resolved = resolve_spell_languages(self.settings)
+        self.assertEqual(resolved, ["en_US"])
+
+    def test_spell_check_checks_persian_against_persian_dictionary(self):
+        document = QTextDocument()
+        highlighter = SpellCheckHighlighter(document, self.settings)
+
+        class AcceptOnly:
+            def __init__(self, word, tag="fa_IR"):
+                self.word = word
+                self.tag = tag
+
+            def check(self, candidate):
+                return candidate == self.word
+
+            def suggest(self, candidate):
+                return [self.word] if candidate != self.word else []
+
+            def add(self, word):
+                return None
+
+        highlighter.USE_ENCHANT = True
+        highlighter.spell_languages = ["fa_IR"]
+        highlighter.spells = [AcceptOnly("سلام")]
+        highlighter.spell_check_enabled = True
+
+        self.assertTrue(highlighter.check_word("سلام"))
+        self.assertFalse(highlighter.check_word("سلامم"))
+        self.assertIn("سلام", highlighter.suggest("سلامم"))
+
+    def test_spell_check_suggestions_ignore_english_dict_for_persian(self):
+        document = QTextDocument()
+        highlighter = SpellCheckHighlighter(document, self.settings)
+
+        class TaggedDict:
+            def __init__(self, tag, suggestions):
+                self.tag = tag
+                self._suggestions = suggestions
+
+            def check(self, candidate):
+                return False
+
+            def suggest(self, candidate):
+                return list(self._suggestions)
+
+            def add(self, word):
+                return None
+
+        highlighter.USE_ENCHANT = True
+        highlighter.spell_languages = ["en_US", "fa_IR"]
+        highlighter.spells = [
+            TaggedDict("en_US", ["W", "Y", "w"]),
+            TaggedDict("fa_IR", ["غلط کلمه", "غلطنامه"]),
+        ]
+        highlighter.spell_check_enabled = True
+
+        suggestions = highlighter.suggest("غلطکلمه")
+        self.assertEqual(suggestions, ["غلط کلمه", "غلطنامه"])
+        self.assertNotIn("W", suggestions)
+
     def test_replace_word_keeps_contractions_intact(self):
         editor = self.make_editor()
         editor.editor.setPlainText("shouldn'tt")

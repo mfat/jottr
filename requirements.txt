@@ -3,8 +3,8 @@
 #
 # System packages may still be required:
 #   macOS: brew install enchant
-#   Ubuntu/Debian: sudo apt-get install hunspell hunspell-en-us
-#   Fedora: sudo dnf install hunspell hunspell-en
+#   Ubuntu/Debian: sudo apt-get install hunspell hunspell-en-us myspell-fa
+#   Fedora: sudo dnf install hunspell hunspell-en hunspell-fa
 
 PyQt6>=6.6.0
 PyQt6-WebEngine>=6.6.0

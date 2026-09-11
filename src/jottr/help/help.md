@@ -79,7 +79,8 @@ Jottr underlines misspelled words while you type:
 
 - Toggle from Tools > Spelling > Automatic Spell Checking (Ctrl+Shift+O), or in Settings > Dictionary
 - Choose one or more active dictionaries; a word is accepted if any checked dictionary knows it
-- Dictionary languages come from Enchant/system packages (for example `hunspell-en-us` on Linux, or `brew install enchant` on macOS)
+- Dictionary languages come from Enchant/system packages (for example `hunspell-en-us` and `myspell-fa` on Linux, or `brew install enchant` on macOS)
+- For Persian/Farsi, install `myspell-fa` (Debian/Ubuntu) or `hunspell-fa` (Fedora). Jottr enables the Persian dictionary automatically once it is installed; you can uncheck it in Settings > Dictionary to disable
 - Changing dictionaries rechecks open documents immediately
 
 ## User Dictionary

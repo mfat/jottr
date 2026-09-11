@@ -27,6 +27,7 @@ from jottr.settings_dialog import SettingsDialog
 from jottr.translation_manager import _, is_rtl_language, set_language
 from jottr.font_dialog import FontSelectionDialog
 from jottr.plugin_manager import PluginManager
+from jottr.editor.spellcheck import list_available_spell_languages
 from jottr.icon_manager import (
     apply_dialog_window_icon,
     ask_themed_question,
@@ -1078,7 +1079,29 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
         self.settings_manager.save_setting('search_sites', settings['search_sites'])
         self.settings_manager.save_setting('user_dictionary', settings['user_dictionary'])
         self.settings_manager.save_setting('spell_check', settings['spell_check'])
-        self.settings_manager.save_setting('spell_languages', settings['spell_languages'])
+        spell_languages = list(settings['spell_languages'])
+        disabled = list(settings.get('spell_languages_disabled', []) or [])
+        ui_language = str(settings['language']).replace('-', '_')
+        previous_language = str(
+            self.settings_manager.get_setting('language', 'en_US')
+        ).replace('-', '_')
+        if ui_language != previous_language:
+            # When switching UI language, enable a matching dictionary if installed.
+            available = list_available_spell_languages()
+            language_code = ui_language.split('_', 1)[0]
+            for tag in available:
+                if (
+                    tag == ui_language
+                    or tag == language_code
+                    or tag.startswith(f'{language_code}_')
+                ):
+                    if tag not in spell_languages:
+                        spell_languages.append(tag)
+                    if tag in disabled:
+                        disabled = [item for item in disabled if item != tag]
+                    break
+        self.settings_manager.save_setting('spell_languages', spell_languages)
+        self.settings_manager.save_setting('spell_languages_disabled', disabled)
         self.settings_manager.save_custom_themes(settings['custom_themes'])
         self.settings_manager.save_ui_theme(settings['ui_theme'])
         self.settings_manager.save_theme(settings['theme'])

@@ -37,6 +37,7 @@ class SettingsManager:
             "enable_animations": True,
             "spell_check": True,
             "spell_languages": ["en_US"],
+            "spell_languages_disabled": [],
             "autosave_enabled": False,
             "autosave_interval_seconds": 30,
             "markdown_scroll_sync": True,

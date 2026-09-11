@@ -11,7 +11,12 @@ from jottr.font_dialog import FontSelectionDialog
 from jottr.icon_manager import apply_dialog_window_icon, themed_symbolic_icon
 from jottr.plugin_manager import PluginManager, REMOTE_WARNING
 from jottr.theme_manager import ThemeManager
-from jottr.editor.spellcheck import list_available_spell_languages, normalize_spell_languages
+from jottr.editor.spellcheck import (
+    language_scripts,
+    list_available_spell_languages,
+    normalize_spell_languages,
+    resolve_spell_languages,
+)
 from jottr.translation_manager import (
     _,
     format_language_label,
@@ -300,7 +305,9 @@ class SettingsDialog(QDialog):
         spell_langs_label = QLabel(_("Active dictionaries:"))
         spell_langs_hint = QLabel(
             _("A word is valid if any checked dictionary accepts it. "
-              "Install system packages (for example hunspell-en-us) to add languages.")
+              "Installed dictionaries for other scripts "
+              "(for example myspell-fa for Persian) are enabled automatically. "
+              "Uncheck a language here to turn it off.")
         )
         spell_langs_hint.setWordWrap(True)
         self.spell_language_list = QListWidget()
@@ -642,10 +649,7 @@ class SettingsDialog(QDialog):
     def load_spell_languages(self):
         """Populate checkable list of installed Enchant dictionaries."""
         available = list_available_spell_languages()
-        active = set(normalize_spell_languages(
-            self.settings_manager.get_setting("spell_languages", ["en_US"]),
-            available
-        ))
+        active = set(resolve_spell_languages(self.settings_manager))
         self.spell_language_list.clear()
         for language in available:
             item = QListWidgetItem(format_language_label(language))
@@ -665,6 +669,19 @@ class SettingsDialog(QDialog):
                 language = item.data(Qt.ItemDataRole.UserRole) or item.text()
                 selected.append(language)
         return normalize_spell_languages(selected, list_available_spell_languages())
+
+    def get_spell_languages_disabled(self):
+        """Non-Latin dictionaries the user unchecked so auto-enable leaves them off."""
+        disabled = []
+        for index in range(self.spell_language_list.count()):
+            item = self.spell_language_list.item(index)
+            if item.checkState() == Qt.CheckState.Checked:
+                continue
+            language = item.data(Qt.ItemDataRole.UserRole) or item.text()
+            tag = str(language).replace("-", "_")
+            if language_scripts(tag) - {"latin"}:
+                disabled.append(tag)
+        return disabled
 
     def add_search_site(self):
         """Add new search site"""
@@ -709,6 +726,7 @@ class SettingsDialog(QDialog):
             'user_dictionary': self.get_user_dictionary(),
             'spell_check': self.spell_check_enabled.isChecked(),
             'spell_languages': self.get_spell_languages(),
+            'spell_languages_disabled': self.get_spell_languages_disabled(),
             'ui_theme': self.ui_theme_combo.currentText(),
             'theme': self.editor_theme_combo.currentText(),
             'custom_themes': self.get_custom_themes(),
