@@ -7,6 +7,7 @@ class ThemeManager:
     """Theme schema and stylesheet generation for Jottr."""
 
     DEFAULT_THEME_NAME = "Light"
+    UI_THEME_NAMES = ("Light", "Dark")
 
     BASE_APP = {
         "background": "#f4f6f8",
@@ -418,6 +419,23 @@ class ThemeManager:
     def get_theme(theme_name, custom_themes=None):
         themes = ThemeManager.get_themes(custom_themes)
         return themes.get(theme_name) or themes[ThemeManager.DEFAULT_THEME_NAME]
+
+    @staticmethod
+    def normalize_ui_theme(theme_name):
+        """Map a saved UI theme to Light or Dark only (never custom themes)."""
+        name = str(theme_name or ThemeManager.DEFAULT_THEME_NAME).strip()
+        if name == "default":
+            return ThemeManager.DEFAULT_THEME_NAME
+        if name in ThemeManager.UI_THEME_NAMES:
+            return name
+        # Migrate legacy UI picks (Sepia, Dracula, …) to Light/Dark chrome.
+        theme = ThemeManager.get_theme(name)
+        return "Dark" if ThemeManager.theme_is_dark(theme) else ThemeManager.DEFAULT_THEME_NAME
+
+    @staticmethod
+    def get_ui_theme(theme_name):
+        """Return the Light or Dark theme dict used for app chrome."""
+        return ThemeManager.get_theme(ThemeManager.normalize_ui_theme(theme_name))
 
     @staticmethod
     def theme_is_dark(theme):

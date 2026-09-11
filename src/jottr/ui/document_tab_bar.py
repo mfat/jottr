@@ -38,9 +38,8 @@ class LeftAlignedDocumentTabBar(QTabBar):
         settings_manager = getattr(window, "settings_manager", None)
         if settings_manager is None:
             return self.palette().windowText().color()
-        theme = ThemeManager.get_theme(
-            settings_manager.get_ui_theme(),
-            settings_manager.get_custom_themes()
+        theme = ThemeManager.get_ui_theme(
+            settings_manager.get_ui_theme()
         )
         return QColor(theme["app"]["text" if selected else "muted"])
 

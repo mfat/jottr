@@ -109,13 +109,16 @@ class SettingsDialog(QDialog):
         
         ui_theme_label = QLabel(_("Main UI Theme:"))
         self.ui_theme_combo = QComboBox()
-        self.refresh_theme_combo(self.ui_theme_combo)
+        self.ui_theme_combo.addItems(list(ThemeManager.UI_THEME_NAMES))
         self.ui_theme_combo.setCurrentText(self.settings_manager.get_ui_theme())
+        self.ui_theme_combo.setToolTip(
+            _("Light or Dark chrome only. Editor themes are chosen separately.")
+        )
         general_layout.addRow(ui_theme_label, self.ui_theme_combo)
 
         editor_theme_label = QLabel(_("Editor Theme:"))
         self.editor_theme_combo = QComboBox()
-        self.refresh_theme_combo(self.editor_theme_combo)
+        self.refresh_editor_theme_combo()
         self.editor_theme_combo.setCurrentText(self.settings_manager.get_theme())
         general_layout.addRow(editor_theme_label, self.editor_theme_combo)
 
@@ -129,7 +132,7 @@ class SettingsDialog(QDialog):
               "desktop styles, and plugins). "
               "System keeps the platform default. "
               "Adwaita and HighContrast pick the light or dark plugin "
-              "to match the Main UI Theme.")
+              "to match the Main UI Theme (Light or Dark).")
         )
         general_layout.addRow(qt_style_label, self.qt_style_combo)
 
@@ -155,10 +158,11 @@ class SettingsDialog(QDialog):
         general_layout.addRow(font_label, self.ui_font_button)
         appearance_layout.addWidget(general_box)
 
-        theme_box = QGroupBox(_("Custom App Themes"))
+        theme_box = QGroupBox(_("Custom Editor Themes"))
         theme_box_layout = QVBoxLayout(theme_box)
         standard_label = QLabel(
-            _("Themes control app chrome, editor colors, panels, menus, and selection states.")
+            _("Custom themes set editor and syntax colors only. "
+              "Main UI Theme stays Light or Dark.")
         )
         standard_label.setWordWrap(True)
         theme_box_layout.addWidget(standard_label)
@@ -422,9 +426,8 @@ class SettingsDialog(QDialog):
 
     def apply_dialog_style(self):
         # Palette + QStyle only — no dialog QSS so Widget Style stays visible.
-        theme = ThemeManager.get_theme(
-            self.ui_theme_combo.currentText() if hasattr(self, "ui_theme_combo") else self.settings_manager.get_ui_theme(),
-            self.settings_manager.get_custom_themes()
+        theme = ThemeManager.get_ui_theme(
+            self.ui_theme_combo.currentText() if hasattr(self, "ui_theme_combo") else self.settings_manager.get_ui_theme()
         )
         ThemeManager.apply_app_palette(self, theme)
         self.setStyleSheet("")
@@ -440,14 +443,11 @@ class SettingsDialog(QDialog):
             contrast = self.settings_manager.get_setting("icon_contrast", "auto")
         color = None
         if contrast and contrast != "auto":
-            # Resolve against the dialog's current theme palette selection.
-            from jottr.theme_manager import ThemeManager
-
-            theme = ThemeManager.get_theme(
+            # Resolve against Light/Dark UI chrome only.
+            theme = ThemeManager.get_ui_theme(
                 self.ui_theme_combo.currentText()
                 if hasattr(self, "ui_theme_combo")
-                else self.settings_manager.get_ui_theme(),
-                self.settings_manager.get_custom_themes(),
+                else self.settings_manager.get_ui_theme()
             )
             app = theme["app"]
             if contrast == "light":
@@ -546,18 +546,16 @@ class SettingsDialog(QDialog):
         if current_index >= 0:
             self.language_combo.setCurrentIndex(current_index)
 
-    def refresh_theme_combo(self, combo):
-        current = combo.currentText()
-        combo.clear()
-        combo.addItems(ThemeManager.get_themes(self.get_custom_themes()).keys())
+    def refresh_editor_theme_combo(self):
+        current = self.editor_theme_combo.currentText() if hasattr(self, "editor_theme_combo") else ""
+        self.editor_theme_combo.clear()
+        self.editor_theme_combo.addItems(ThemeManager.get_themes(self.get_custom_themes()).keys())
         if current:
-            combo.setCurrentText(current)
+            self.editor_theme_combo.setCurrentText(current)
 
     def refresh_theme_combos(self):
-        if hasattr(self, "ui_theme_combo"):
-            self.refresh_theme_combo(self.ui_theme_combo)
         if hasattr(self, "editor_theme_combo"):
-            self.refresh_theme_combo(self.editor_theme_combo)
+            self.refresh_editor_theme_combo()
         self.load_custom_theme_list()
 
     def load_custom_theme_list(self):
@@ -600,21 +598,17 @@ class SettingsDialog(QDialog):
         name = self.get_selected_custom_theme_name()
         themes = self.get_custom_themes()
         if name in themes:
-            ui_was_selected = self.ui_theme_combo.currentText() == name
             was_selected = self.editor_theme_combo.currentText() == name
             del themes[name]
             self.set_custom_themes(themes)
             self.refresh_theme_combos()
             self.theme_json_edit.clear()
-            if ui_was_selected:
-                self.ui_theme_combo.setCurrentText("Light")
             if was_selected:
                 self.editor_theme_combo.setCurrentText("Light")
 
     def use_selected_custom_theme(self):
         current = self.custom_theme_list.currentItem()
         if current:
-            self.ui_theme_combo.setCurrentText(current.text())
             self.editor_theme_combo.setCurrentText(current.text())
 
     def get_selected_custom_theme_name(self):

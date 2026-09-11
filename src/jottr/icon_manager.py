@@ -119,10 +119,7 @@ def resolve_icon_color(settings_manager=None) -> str:
         return theme["app"]["text"]
 
     mode = settings_manager.get_setting("icon_contrast", "auto")
-    theme = ThemeManager.get_theme(
-        settings_manager.get_ui_theme(),
-        settings_manager.get_custom_themes(),
-    )
+    theme = ThemeManager.get_ui_theme(settings_manager.get_ui_theme())
     app = theme["app"]
     if mode == "light":
         return "#f8f8f2"
@@ -164,10 +161,7 @@ def themed_symbolic_icon(
         # callers do not pass a palette (toolbar stays Normal-only).
         from jottr.theme_manager import ThemeManager
 
-        theme = ThemeManager.get_theme(
-            settings_manager.get_ui_theme(),
-            settings_manager.get_custom_themes(),
-        )
+        theme = ThemeManager.get_ui_theme(settings_manager.get_ui_theme())
         accent = QColor(theme["app"]["accent"])
         selected_color = "#1a1a1a" if accent.lightnessF() >= 0.55 else "#ffffff"
         disabled_color = theme["app"]["muted"]

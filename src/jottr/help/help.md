@@ -1,13 +1,11 @@
 # Jottr Help
 
 ## Themes
-Jottr supports app-wide themes that can be changed from the Theme toolbar button or in Settings > Appearance:
-- Light theme: Default light color scheme
-- Dark theme: Dark color scheme for low-light environments
-- Sepia theme: Warm, paper-like theme for comfortable reading
-- Dracula theme: Dark app-wide theme based on the Dracula specification
-- Darkly theme: Dark theme based on [Darkly](https://github.com/Bali10050/Darkly) (pairs with the Darkly widget style when installed)
-- Custom themes: User-defined app, editor, and syntax colors
+Jottr separates chrome and editor colors:
+
+- **Main UI Theme** (Settings > Appearance): **Light** or **Dark** only. This colors the toolbar, tabs, panels, and menus, and picks the matching Adwaita/HighContrast widget-style variant.
+- **Editor Theme**: Light, Dark, Sepia, Dracula, Monokai, Monaspace, Tokyo Night, Matcha, Darkly, or a custom theme — applied to the writing surface and syntax colors only.
+- **Custom Editor Themes**: User-defined editor and syntax colors (they do not change Main UI Theme).
 
 ## Widget styles
 In Settings > Appearance, **Widget Style** lists every Qt style available on your system, including:
@@ -17,17 +15,17 @@ In Settings > Appearance, **Widget Style** lists every Qt style available on you
 - Bundled [Adwaita](https://github.com/FedoraQt/adwaita-qt) styles on Linux packages and AppImage/Flatpak builds (`Adwaita`, `Adwaita-Dark`, HighContrast variants)
 - Desktop or plugin styles installed on your system (for example Breeze, Oxygen, or [Darkly](https://github.com/Bali10050/Darkly))
 
-The dropdown is filled from Qt's style factory, so everything your Qt build can create is offered. Theme colors are applied through the Qt palette so the selected widget style can draw buttons, combos, scrollbars, menu bar titles, and menus. Jottr still styles its own chrome (toolbar, tabs, workspace) with stylesheets. Choosing `Adwaita` or `Adwaita-Dark` (or the HighContrast pair) automatically uses the light or dark plugin that matches the Main UI Theme, so controls stay readable.
+The dropdown is filled from Qt's style factory, so everything your Qt build can create is offered. Light/Dark UI theme colors are applied through the Qt palette so the selected widget style can draw buttons, combos, scrollbars, menu bar titles, and menus. Jottr still styles its own chrome (toolbar, tabs, workspace) with stylesheets. Choosing `Adwaita` or `Adwaita-Dark` (or the HighContrast pair) automatically uses the light or dark plugin that matches Main UI Theme.
 
 From a source checkout, build the bundled Adwaita plugin with `./scripts/build-adwaita-qt.sh` (cmake + Qt6 development packages).
 
-To create a custom theme:
+To create a custom editor theme:
 1. Open Settings > Appearance
-2. Edit the theme JSON
+2. Edit the theme JSON under Custom Editor Themes
 3. Put the theme name in the top-level `name` field
-4. Save the theme
+4. Save the theme, then choose it as **Editor Theme**
 
-Theme standard:
+Theme standard (editor themes may still include an `app` block for compatibility; Main UI Theme ignores it and stays Light or Dark):
 ```json
 {
   "name": "My Theme",

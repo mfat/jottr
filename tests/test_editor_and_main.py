@@ -1088,7 +1088,8 @@ class EditorAndMainTests(unittest.TestCase):
             self.assertGreaterEqual(window.tab_widget.count(), 1)
             self.assertIsInstance(window.tab_widget.tabBar(), main_module.LeftAlignedDocumentTabBar)
             window.settings_manager.save_ui_theme("Dracula")
-            dark_app = main_module.ThemeManager.get_theme("Dracula", window.settings_manager.get_custom_themes())["app"]
+            self.assertEqual(window.settings_manager.get_ui_theme(), "Dark")
+            dark_app = main_module.ThemeManager.get_ui_theme("Dark")["app"]
             tab_bar = window.tab_widget.tabBar()
             self.assertEqual(tab_bar.tab_text_color(True).name(), QColor(dark_app["text"]).name())
             self.assertEqual(tab_bar.tab_text_color(False).name(), QColor(dark_app["muted"]).name())

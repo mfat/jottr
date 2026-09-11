@@ -188,13 +188,15 @@ class SettingsManager:
         self.save_settings()
 
     def get_ui_theme(self):
+        from jottr.theme_manager import ThemeManager
+
         theme = self.settings.get("ui_theme", self.settings.get("theme", "Light"))
-        if theme == "default":
-            return "Light"
-        return theme
+        return ThemeManager.normalize_ui_theme(theme)
 
     def save_ui_theme(self, theme):
-        self.settings["ui_theme"] = theme
+        from jottr.theme_manager import ThemeManager
+
+        self.settings["ui_theme"] = ThemeManager.normalize_ui_theme(theme)
         self.save_settings()
 
     def get_qt_style(self):

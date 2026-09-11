@@ -164,11 +164,8 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
         self.setup_shortcuts()  # Add this line after setup_toolbar()
 
     def apply_app_style(self, font=None):
-        """Apply the quiet writing-focused application chrome."""
-        theme = ThemeManager.get_theme(
-            self.settings_manager.get_ui_theme(),
-            self.settings_manager.get_custom_themes()
-        )
+        """Apply widget style, UI font, and Light/Dark chrome colors."""
+        theme = ThemeManager.get_ui_theme(self.settings_manager.get_ui_theme())
         app_font = QFont(font) if font is not None else self.settings_manager.get_font("ui")
         application = QApplication.instance()
         # Drop stylesheets before setStyle so the widget style can take effect.

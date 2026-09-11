@@ -155,6 +155,11 @@ class SettingsAndSnippetTests(unittest.TestCase):
         self.assertEqual(forest["editor"]["selection"], "#355e3b")
         self.assertNotIn("Broken", reloaded.get_custom_themes())
 
+        manager.save_ui_theme("Dracula")
+        self.assertEqual(manager.get_ui_theme(), "Dark")
+        manager.save_ui_theme("Sepia")
+        self.assertEqual(manager.get_ui_theme(), "Light")
+
     def test_settings_manager_persists_qt_style(self):
         from PyQt6.QtWidgets import QStyleFactory
 
@@ -273,6 +278,10 @@ class SettingsAndSnippetTests(unittest.TestCase):
         self.assertTrue(ThemeManager.theme_is_dark(ThemeManager.get_theme("Dracula")))
         self.assertFalse(ThemeManager.theme_is_dark(ThemeManager.get_theme("Light")))
         self.assertFalse(ThemeManager.theme_is_dark(ThemeManager.get_theme("Sepia")))
+        self.assertEqual(ThemeManager.normalize_ui_theme("Dracula"), "Dark")
+        self.assertEqual(ThemeManager.normalize_ui_theme("Sepia"), "Light")
+        self.assertEqual(ThemeManager.normalize_ui_theme("Darkly"), "Dark")
+        self.assertEqual(ThemeManager.UI_THEME_NAMES, ("Light", "Dark"))
         self.assertIn(
             "Forest",
             ThemeManager.get_themes({

@@ -110,6 +110,18 @@ class DialogAndRssTests(unittest.TestCase):
         dialog.homepage_edit.setText("https://home.example")
         dialog.ui_theme_combo.setCurrentText("Dark")
         dialog.editor_theme_combo.setCurrentText("Forest")
+        self.assertEqual(
+            [dialog.ui_theme_combo.itemText(i) for i in range(dialog.ui_theme_combo.count())],
+            ["Light", "Dark"],
+        )
+        self.assertIn("Forest", [
+            dialog.editor_theme_combo.itemText(i)
+            for i in range(dialog.editor_theme_combo.count())
+        ])
+        self.assertIn("Dracula", [
+            dialog.editor_theme_combo.itemText(i)
+            for i in range(dialog.editor_theme_combo.count())
+        ])
         fusion = next(
             (name for name in (
                 dialog.qt_style_combo.itemText(i)
