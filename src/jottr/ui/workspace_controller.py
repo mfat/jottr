@@ -1,10 +1,12 @@
 """Workspace explorer setup and session persistence for TextEditorApp."""
 import os
+import shutil
 
-from PyQt6.QtCore import Qt, QDir
+from PyQt6.QtCore import Qt, QDir, QUrl
+from PyQt6.QtGui import QDesktopServices
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QLabel, QMenu,
-    QMessageBox, QInputDialog,
+    QMessageBox, QInputDialog, QApplication,
 )
 
 from jottr.translation_manager import _
@@ -79,6 +81,7 @@ class WorkspaceControllerMixin:
         workspace_layout.addWidget(self.workspace_tree)
         self.workspace_widget.hide()
         self.ui_animations = {}
+
     def restore_workspace(self):
         """Restore the last workspace and open workspace files."""
         path = self.settings_manager.get_setting("workspace_path", "")
@@ -105,6 +108,7 @@ class WorkspaceControllerMixin:
             self.settings_manager.save_setting("workspace_path", path)
             self.add_recent_workspace(path)
             self.save_workspace_markdown_files()
+        self.update_workspace_actions()
         self.statusBar.showMessage(_("Workspace: {path}").format(path=path))
         return True
 
@@ -115,32 +119,114 @@ class WorkspaceControllerMixin:
         if directory:
             self.switch_workspace(directory)
 
+    def close_workspace(self):
+        """Save the session, close workspace tabs, and hide the explorer."""
+        if not self.workspace_path:
+            return True
+        self.save_current_workspace_session()
+        if not self.close_current_workspace_tabs():
+            return False
+
+        self.workspace_path = ""
+        self.workspace_title.setText(_("Workspace"))
+        self.workspace_title.setToolTip(_("Switch workspace"))
+        self.workspace_path_label.setText(_("No folder open"))
+        self.workspace_path_label.setToolTip("")
+        self.animate_widget_visibility(self.workspace_widget, False)
+        self.settings_manager.save_setting("workspace_path", "")
+        self.settings_manager.save_setting("workspace_open_files", [])
+        self.settings_manager.save_setting("workspace_markdown_files", [])
+        self.update_workspace_actions()
+        self.statusBar.showMessage(_("Workspace closed"))
+        if self.tab_widget.count() == 0:
+            self.new_editor_tab()
+        return True
+
+    def update_workspace_actions(self):
+        """Enable workspace-dependent menubar actions."""
+        has_workspace = bool(getattr(self, "workspace_path", ""))
+        if hasattr(self, "close_workspace_action"):
+            self.close_workspace_action.setEnabled(has_workspace)
+        if hasattr(self, "new_workspace_folder_action"):
+            self.new_workspace_folder_action.setEnabled(has_workspace)
+
+    def workspace_display_label(self, path, candidates):
+        """Prefer basename; disambiguate when multiple entries share it."""
+        base = os.path.basename(path) or path
+        collisions = [
+            candidate for candidate in candidates
+            if (os.path.basename(candidate) or candidate) == base
+        ]
+        if len(collisions) > 1:
+            parent = os.path.dirname(path)
+            if parent:
+                return f"{base} — {parent}"
+        return base
+
+    def populate_recent_workspace_actions(self, menu):
+        """Add current + recent workspace switcher actions to a menu."""
+        recent = self.get_recent_workspaces()
+        candidates = list(recent)
+        if self.workspace_path and self.workspace_path not in candidates:
+            candidates.insert(0, self.workspace_path)
+
+        if self.workspace_path:
+            current_action = menu.addAction(
+                self.workspace_display_label(self.workspace_path, candidates)
+            )
+            current_action.setEnabled(False)
+            current_action.setToolTip(self.workspace_path)
+            menu.addSeparator()
+
+        added = False
+        for workspace in recent:
+            if workspace == self.workspace_path:
+                continue
+            action = menu.addAction(self.workspace_display_label(workspace, candidates))
+            action.setToolTip(workspace)
+            action.setEnabled(os.path.isdir(workspace))
+            action.triggered.connect(
+                lambda checked=False, path=workspace: self.switch_workspace(path)
+            )
+            added = True
+        return added
+
     def show_workspace_navigator(self):
         """Show recent workspace switcher under the workspace title."""
         menu = QMenu(self)
-        recent_workspaces = self.get_recent_workspaces()
-        if self.workspace_path:
-            current_action = menu.addAction(os.path.basename(self.workspace_path) or self.workspace_path)
-            current_action.setEnabled(False)
-            menu.addSeparator()
-
-        for workspace in recent_workspaces:
-            if workspace == self.workspace_path:
-                continue
-            label = os.path.basename(workspace) or workspace
-            action = menu.addAction(label)
-            action.setToolTip(workspace)
-            action.setEnabled(os.path.isdir(workspace))
-            action.triggered.connect(lambda checked=False, path=workspace: self.switch_workspace(path))
-
-        if recent_workspaces:
+        added = self.populate_recent_workspace_actions(menu)
+        if added or self.workspace_path:
             menu.addSeparator()
         menu.addAction(_("Open Workspace..."), self.open_workspace_dialog)
         menu.addAction(_("Clear Missing Workspaces"), self.clear_missing_workspaces)
+        if self.workspace_path:
+            menu.addAction(_("Close Workspace"), self.close_workspace)
         menu.exec(self.workspace_title.mapToGlobal(self.workspace_title.rect().bottomLeft()))
 
+    def refresh_workspace_menu(self):
+        """Rebuild the Workspace menubar with current recent entries."""
+        menu = getattr(self, "workspace_menu", None)
+        if menu is None:
+            return
+
+        menu.clear()
+        menu.addAction(self.open_workspace_action)
+
+        recent = self.get_recent_workspaces()
+        if self.workspace_path or recent:
+            menu.addSeparator()
+            self.populate_recent_workspace_actions(menu)
+
+        menu.addSeparator()
+        menu.addAction(self.new_workspace_file_action)
+        menu.addAction(self.new_workspace_folder_action)
+        menu.addSeparator()
+        menu.addAction(self.close_workspace_action)
+        menu.addAction(self.clear_missing_workspaces_action)
+        self.update_workspace_actions()
+
     def get_recent_workspaces(self):
-        """Return existing recent workspaces, preserving order."""
+        """Return recent workspaces, preserving order and deduplicating."""
         workspaces = self.settings_manager.get_setting("recent_workspaces", [])
         if not isinstance(workspaces, list):
             return []
@@ -160,10 +246,16 @@ class WorkspaceControllerMixin:
 
     def clear_missing_workspaces(self):
         """Remove recent workspaces that no longer exist."""
-        self.settings_manager.save_setting(
-            "recent_workspaces",
-            [path for path in self.get_recent_workspaces() if os.path.isdir(path)]
-        )
+        recent = self.get_recent_workspaces()
+        existing = [path for path in recent if os.path.isdir(path)]
+        removed = len(recent) - len(existing)
+        self.settings_manager.save_setting("recent_workspaces", existing)
+        if removed:
+            self.statusBar.showMessage(
+                _("Removed {count} missing workspace(s)").format(count=removed)
+            )
+        else:
+            self.statusBar.showMessage(_("No missing workspaces"))
 
     def get_workspace_sessions(self):
         """Return stored per-workspace sessions."""
@@ -293,6 +385,48 @@ class WorkspaceControllerMixin:
         except ValueError:
             return False
 
+    def path_is_within(self, path, root):
+        """Return True when path is root or nested under root."""
+        if not path or not root:
+            return False
+        path = os.path.abspath(path)
+        root = os.path.abspath(root)
+        try:
+            return os.path.commonpath([path, root]) == root
+        except ValueError:
+            return False
+
+    def remap_open_tabs_for_path_change(self, old_path, new_path=None):
+        """Update or close tabs after a workspace rename or delete."""
+        old_path = os.path.abspath(old_path)
+        index = self.tab_widget.count() - 1
+        while index >= 0:
+            tab = self.tab_widget.widget(index)
+            current = getattr(tab, "current_file", None)
+            if not current:
+                index -= 1
+                continue
+            current = os.path.abspath(current)
+            if not self.path_is_within(current, old_path):
+                index -= 1
+                continue
+            if new_path is None:
+                self.tab_widget.removeTab(index)
+                tab.deleteLater()
+            else:
+                if current == old_path:
+                    tab.current_file = os.path.abspath(new_path)
+                else:
+                    relative = os.path.relpath(current, old_path)
+                    tab.current_file = os.path.abspath(os.path.join(new_path, relative))
+                tab_index = self.tab_widget.indexOf(tab)
+                if tab_index >= 0:
+                    title = os.path.basename(tab.current_file)
+                    if hasattr(tab, "editor") and tab.editor.document().isModified():
+                        title += "*"
+                    self.tab_widget.setTabText(tab_index, title)
+            index -= 1
+
     def save_workspace_open_files(self):
         """Persist open files that are inside the active workspace."""
         if not self.workspace_path:
@@ -364,12 +498,29 @@ class WorkspaceControllerMixin:
         if not self.workspace_path:
             return
         menu = QMenu(self)
+        index = self.workspace_tree.indexAt(position)
+        path = ""
+        if index.isValid():
+            path = self.workspace_model.filePath(index)
+            if os.path.isfile(path):
+                menu.addAction(_("Open"), lambda: self.open_workspace_index(index))
+                menu.addSeparator()
+
         menu.addAction(_("New File"), self.create_workspace_file)
         menu.addAction(_("New Folder"), self.create_workspace_folder)
-        menu.addSeparator()
-        index = self.workspace_tree.indexAt(position)
-        if index.isValid() and os.path.isfile(self.workspace_model.filePath(index)):
-            menu.addAction(_("Open"), lambda: self.open_workspace_index(index))
+
+        if path and (os.path.isfile(path) or os.path.isdir(path)):
+            is_root = os.path.abspath(path) == os.path.abspath(self.workspace_path)
+            if not is_root:
+                menu.addSeparator()
+                menu.addAction(_("Rename..."), lambda checked=False, p=path: self.rename_workspace_item(p))
+                menu.addAction(_("Delete..."), lambda checked=False, p=path: self.delete_workspace_item(p))
+            menu.addSeparator()
+            menu.addAction(_("Copy Path"), lambda checked=False, p=path: self.copy_workspace_path(p))
+            menu.addAction(
+                _("Reveal in File Manager"),
+                lambda checked=False, p=path: self.reveal_workspace_item(p),
+            )
         menu.exec(self.workspace_tree.mapToGlobal(position))
 
     def create_workspace_file(self):
@@ -402,7 +553,9 @@ class WorkspaceControllerMixin:
     def create_workspace_folder(self):
         """Create a folder inside the active workspace."""
         if not self.workspace_path:
-            return
+            self.open_workspace_dialog()
+            if not self.workspace_path:
+                return
         directory = self.selected_workspace_directory()
         name, ok = QInputDialog.getText(self, _("New Folder"), _("Folder name:"))
         if not ok or not name.strip():
@@ -417,3 +570,88 @@ class WorkspaceControllerMixin:
             QMessageBox.critical(self, _("Workspace"), _("Could not create folder: {error}").format(error=exc))
             return
         self.save_workspace_markdown_files()
+
+    def rename_workspace_item(self, path):
+        """Rename a file or folder inside the workspace."""
+        path = os.path.abspath(path)
+        if not self.workspace_path or not self.is_path_in_workspace(path):
+            return
+        if path == os.path.abspath(self.workspace_path):
+            return
+        name, ok = QInputDialog.getText(
+            self,
+            _("Rename"),
+            _("New name:"),
+            text=os.path.basename(path),
+        )
+        if not ok or not name.strip():
+            return
+        target = os.path.abspath(os.path.join(os.path.dirname(path), name.strip()))
+        if target == path:
+            return
+        if not self.is_path_in_workspace(target):
+            QMessageBox.warning(self, _("Workspace"), _("Item must stay inside the workspace."))
+            return
+        if os.path.exists(target):
+            QMessageBox.warning(self, _("Workspace"), _("A file or folder with that name already exists."))
+            return
+        try:
+            os.rename(path, target)
+        except OSError as exc:
+            QMessageBox.critical(self, _("Workspace"), _("Could not rename: {error}").format(error=exc))
+            return
+        self.remap_open_tabs_for_path_change(path, target)
+        self.save_workspace_markdown_files()
+        self.save_workspace_open_files()
+
+    def delete_workspace_item(self, path):
+        """Delete a file or folder inside the workspace."""
+        path = os.path.abspath(path)
+        if not self.workspace_path or not self.is_path_in_workspace(path):
+            return
+        if path == os.path.abspath(self.workspace_path):
+            return
+        label = os.path.basename(path) or path
+        if os.path.isdir(path):
+            message = _("Delete folder '{name}' and all of its contents?").format(name=label)
+        else:
+            message = _("Delete '{name}'?").format(name=label)
+        reply = ask_themed_question(
+            self,
+            _("Delete"),
+            message,
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No,
+            getattr(self, "settings_manager", None),
+        )
+        if reply != QMessageBox.StandardButton.Yes:
+            return
+        try:
+            if os.path.isdir(path):
+                shutil.rmtree(path)
+            else:
+                os.remove(path)
+        except OSError as exc:
+            QMessageBox.critical(self, _("Workspace"), _("Could not delete: {error}").format(error=exc))
+            return
+        self.remap_open_tabs_for_path_change(path, None)
+        self.save_workspace_markdown_files()
+        self.save_workspace_open_files()
+        if self.tab_widget.count() == 0:
+            self.new_editor_tab()
+
+    def copy_workspace_path(self, path):
+        """Copy an absolute path to the clipboard."""
+        clipboard = QApplication.clipboard()
+        if clipboard is None:
+            return
+        clipboard.setText(os.path.abspath(path))
+        self.statusBar.showMessage(_("Copied path"))
+
+    def reveal_workspace_item(self, path):
+        """Open the item's folder in the system file manager."""
+        path = os.path.abspath(path)
+        target = path if os.path.isdir(path) else os.path.dirname(path)
+        if not target or not os.path.isdir(target):
+            return
+        QDesktopServices.openUrl(QUrl.fromLocalFile(target))

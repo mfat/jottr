@@ -16,7 +16,7 @@ sys.path.insert(0, str(SRC_ROOT))
 
 from PyQt6.QtCore import QPoint, QRect, Qt, QEvent
 from PyQt6.QtGui import QColor, QFont, QKeyEvent, QTextCharFormat, QTextCursor, QTextDocument
-from PyQt6.QtWidgets import QApplication, QDialog, QTabBar, QTextEdit, QWidget
+from PyQt6.QtWidgets import QApplication, QDialog, QMessageBox, QTabBar, QTextEdit, QWidget
 
 from jottr.editor_tab import EditorTab, SpellCheckHighlighter
 import jottr.editor.markdown as editor_markdown_module
@@ -2009,6 +2009,200 @@ class EditorAndMainTests(unittest.TestCase):
             target = workspace / "draft.txt"
             self.assertTrue(target.is_file())
             self.assertEqual(window.tab_widget.currentWidget().current_file, str(target))
+
+    def test_workspace_menu_lists_recent_and_close_actions(self):
+        class FakeEditorTab(QWidget):
+            def __init__(self, snippet_manager, settings_manager):
+                super().__init__()
+                self.editor = QTextEdit(self)
+                self.current_file = None
+                self.markdown_preview_visible = False
+
+            def set_main_window(self, main_window):
+                self.main_window = main_window
+
+            def is_markdown_file(self, file_path=None):
+                return str(file_path or self.current_file or "").lower().endswith(".md")
+
+            def set_markdown_preview_visible(self, visible):
+                self.markdown_preview_visible = visible
+
+        workspace = Path(self.temp_dir.name) / "notes"
+        other = Path(self.temp_dir.name) / "archive"
+        workspace.mkdir()
+        other.mkdir()
+        self.settings.save_setting("recent_workspaces", [str(other)])
+
+        with patch.object(window_module, "EditorTab", FakeEditorTab):
+            window = TextEditorApp()
+            self.addCleanup(window.close)
+            self.addCleanup(window.deleteLater)
+            window.set_workspace_path(str(workspace))
+            window.refresh_workspace_menu()
+
+            labels = [
+                action.text().replace("&", "")
+                for action in window.workspace_menu.actions()
+                if not action.isSeparator()
+            ]
+            self.assertEqual(labels[0], "Open Workspace...")
+            self.assertIn("notes", labels)
+            self.assertIn("archive", labels)
+            self.assertIn("New File...", labels)
+            self.assertIn("New Folder...", labels)
+            self.assertIn("Close Workspace", labels)
+            self.assertIn("Clear Missing Workspaces", labels)
+            self.assertTrue(window.close_workspace_action.isEnabled())
+            self.assertTrue(window.new_workspace_folder_action.isEnabled())
+
+    def test_close_workspace_hides_explorer_and_clears_path(self):
+        class FakeEditorTab(QWidget):
+            def __init__(self, snippet_manager, settings_manager):
+                super().__init__()
+                self.editor = QTextEdit(self)
+                self.current_file = None
+                self.markdown_preview_visible = False
+
+            def set_main_window(self, main_window):
+                self.main_window = main_window
+
+            def is_markdown_file(self, file_path=None):
+                return str(file_path or self.current_file or "").lower().endswith(".md")
+
+            def set_markdown_preview_visible(self, visible):
+                self.markdown_preview_visible = visible
+
+            def save_file(self):
+                self.editor.document().setModified(False)
+                return True
+
+        workspace = Path(self.temp_dir.name) / "workspace"
+        workspace.mkdir()
+        note = workspace / "note.md"
+        note.write_text("# Note", encoding="utf-8")
+
+        with patch.object(window_module, "EditorTab", FakeEditorTab):
+            window = TextEditorApp()
+            self.addCleanup(window.close)
+            self.addCleanup(window.deleteLater)
+            window.set_workspace_path(str(workspace))
+            window.open_file(str(note))
+
+            self.assertTrue(window.close_workspace())
+            self.assertEqual(window.workspace_path, "")
+            self.assertTrue(window.workspace_widget.isHidden())
+            self.assertEqual(window.settings_manager.get_setting("workspace_path"), "")
+            self.assertFalse(window.close_workspace_action.isEnabled())
+            open_files = [
+                window.tab_widget.widget(index).current_file
+                for index in range(window.tab_widget.count())
+                if getattr(window.tab_widget.widget(index), "current_file", None)
+            ]
+            self.assertEqual(open_files, [])
+
+    def test_workspace_rename_updates_open_tab_path(self):
+        class FakeEditorTab(QWidget):
+            def __init__(self, snippet_manager, settings_manager):
+                super().__init__()
+                self.editor = QTextEdit(self)
+                self.current_file = None
+                self.markdown_preview_visible = False
+
+            def set_main_window(self, main_window):
+                self.main_window = main_window
+
+            def is_markdown_file(self, file_path=None):
+                return str(file_path or self.current_file or "").lower().endswith(".md")
+
+            def set_markdown_preview_visible(self, visible):
+                self.markdown_preview_visible = visible
+
+        workspace = Path(self.temp_dir.name) / "workspace"
+        workspace.mkdir()
+        note = workspace / "old.md"
+        note.write_text("# Old", encoding="utf-8")
+
+        with patch.object(window_module, "EditorTab", FakeEditorTab):
+            window = TextEditorApp()
+            self.addCleanup(window.close)
+            self.addCleanup(window.deleteLater)
+            window.set_workspace_path(str(workspace))
+            window.open_file(str(note))
+
+            with patch("jottr.ui.workspace_controller.QInputDialog.getText", return_value=("new.md", True)):
+                window.rename_workspace_item(str(note))
+
+            renamed = workspace / "new.md"
+            self.assertTrue(renamed.is_file())
+            self.assertFalse(note.exists())
+            self.assertEqual(window.tab_widget.currentWidget().current_file, str(renamed))
+
+    def test_workspace_delete_closes_open_tab(self):
+        class FakeEditorTab(QWidget):
+            def __init__(self, snippet_manager, settings_manager):
+                super().__init__()
+                self.editor = QTextEdit(self)
+                self.current_file = None
+                self.markdown_preview_visible = False
+
+            def set_main_window(self, main_window):
+                self.main_window = main_window
+
+            def is_markdown_file(self, file_path=None):
+                return str(file_path or self.current_file or "").lower().endswith(".md")
+
+            def set_markdown_preview_visible(self, visible):
+                self.markdown_preview_visible = visible
+
+        workspace = Path(self.temp_dir.name) / "workspace"
+        workspace.mkdir()
+        note = workspace / "delete-me.md"
+        note.write_text("# Delete", encoding="utf-8")
+
+        with patch.object(window_module, "EditorTab", FakeEditorTab):
+            window = TextEditorApp()
+            self.addCleanup(window.close)
+            self.addCleanup(window.deleteLater)
+            window.set_workspace_path(str(workspace))
+            window.open_file(str(note))
+
+            with patch(
+                "jottr.ui.workspace_controller.ask_themed_question",
+                return_value=QMessageBox.StandardButton.Yes,
+            ):
+                window.delete_workspace_item(str(note))
+
+            self.assertFalse(note.exists())
+            open_files = [
+                window.tab_widget.widget(index).current_file
+                for index in range(window.tab_widget.count())
+                if getattr(window.tab_widget.widget(index), "current_file", None)
+            ]
+            self.assertEqual(open_files, [])
+
+    def test_workspace_display_label_disambiguates_shared_basenames(self):
+        class FakeEditorTab(QWidget):
+            def __init__(self, snippet_manager, settings_manager):
+                super().__init__()
+                self.editor = QTextEdit(self)
+                self.current_file = None
+
+            def set_main_window(self, main_window):
+                self.main_window = main_window
+
+        with patch.object(window_module, "EditorTab", FakeEditorTab):
+            window = TextEditorApp()
+            self.addCleanup(window.close)
+            self.addCleanup(window.deleteLater)
+
+            first = str(Path(self.temp_dir.name) / "projects" / "notes")
+            second = str(Path(self.temp_dir.name) / "archive" / "notes")
+            candidates = [first, second]
+            self.assertEqual(
+                window.workspace_display_label(first, candidates),
+                f"notes — {Path(first).parent}",
+            )
+            self.assertEqual(window.workspace_display_label(first, [first]), "notes")
 
 
 if __name__ == "__main__":

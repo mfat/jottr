@@ -82,7 +82,8 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
 
         # Logical name -> Qt resource path for the selected bundled icon theme
         self.icons = load_bundled_icon_paths(self.settings_manager.get_icon_theme())
-        
+        self.workspace_path = ""
+
         # Shared QActions power both toolbar and menubar (one action, many surfaces).
         self.setup_toolbar()
         self.create_menu_bar()
@@ -122,7 +123,6 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
         # Create tab widget
         self.main_splitter = QSplitter(Qt.Orientation.Horizontal)
         self.main_splitter.setObjectName("mainSplitter")
-        self.workspace_path = ""
         self.setup_workspace_explorer()
 
         self.tab_widget = QTabWidget()
@@ -535,10 +535,26 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
             tooltip="Open Workspace",
         )
         self.new_workspace_file_action = self._make_action(
-            "New Workspace File...",
+            "New File...",
             self.create_workspace_file,
             tooltip="New File in Workspace",
         )
+        self.new_workspace_folder_action = self._make_action(
+            "New Folder...",
+            self.create_workspace_folder,
+            tooltip="New Folder in Workspace",
+        )
+        self.close_workspace_action = self._make_action(
+            "Close Workspace",
+            self.close_workspace,
+            tooltip="Close Workspace",
+        )
+        self.clear_missing_workspaces_action = self._make_action(
+            "Clear Missing Workspaces",
+            self.clear_missing_workspaces,
+            tooltip="Remove missing folders from recent workspaces",
+        )
+        self.update_workspace_actions()
         self.help_action = self._make_action(
             "Help",
             self.show_help,
@@ -827,10 +843,10 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
         tools_menu.addSeparator()
         tools_menu.addAction(self.settings_action)
 
-        # Workspace menu
-        workspace_menu = add_menu("&Workspace")
-        workspace_menu.addAction(self.open_workspace_action)
-        workspace_menu.addAction(self.new_workspace_file_action)
+        # Workspace menu (recent entries rebuilt on aboutToShow)
+        self.workspace_menu = add_menu("&Workspace")
+        self.workspace_menu.aboutToShow.connect(self.refresh_workspace_menu)
+        self.refresh_workspace_menu()
 
         # Plugins menu
         if (
