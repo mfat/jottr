@@ -965,13 +965,11 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
             )
 
         if configured == DOCUMENT_LANGUAGE_AUTO:
-            if effective == DOCUMENT_LANGUAGE_AUTO or matched is None and confidence is False:
-                from jottr.editor.spellcheck import USE_LANGDETECT
-                if not USE_LANGDETECT:
-                    label = _("Auto (langdetect missing)")
-                    matched = None
-                else:
-                    label = _("Auto (type more text…)")
+            from jottr.editor.spellcheck import USE_LANGDETECT
+            if not USE_LANGDETECT:
+                label = _("Auto (langdetect missing)")
+            elif effective == DOCUMENT_LANGUAGE_AUTO:
+                label = _("Auto")
             else:
                 label = _("Auto → {language}").format(
                     language=format_language_label(effective)
@@ -988,16 +986,22 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
             self.document_language_status.setText(
                 _("Dict: {dictionary}").format(dictionary=matched)
             )
-            self.document_language_status.setToolTip(
-                _("Document language: {language}\nUsing dictionary {dictionary}").format(
-                    language=label,
-                    dictionary=matched,
+            if configured == DOCUMENT_LANGUAGE_AUTO and confidence is False:
+                self.document_language_status.setToolTip(
+                    _(
+                        "Using {language} until the document language is detected.\n"
+                        "Dictionary: {dictionary}"
+                    ).format(language=label, dictionary=matched)
                 )
-            )
+            else:
+                self.document_language_status.setToolTip(
+                    _("Document language: {language}\nUsing dictionary {dictionary}").format(
+                        language=label,
+                        dictionary=matched,
+                    )
+                )
             self.document_language_status.setStyleSheet("")
-        elif configured == DOCUMENT_LANGUAGE_AUTO and (
-            effective == DOCUMENT_LANGUAGE_AUTO or confidence is False
-        ):
+        elif configured == DOCUMENT_LANGUAGE_AUTO and effective == DOCUMENT_LANGUAGE_AUTO:
             self.document_language_status.setText(label)
             self.document_language_status.setToolTip(
                 _("Auto-detect needs a bit more text, then loads a matching dictionary.")

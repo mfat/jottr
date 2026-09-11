@@ -355,8 +355,9 @@ def resolve_document_language(settings_manager, text=""):
     Returns
     -------
     (effective_language, dictionary_tag_or_None, detection_confidence_or_None)
-    confidence is None for explicit languages; for Auto it may be a float, or
-    False when detection could not run yet (for example not enough text).
+    confidence is None for explicit languages; for Auto it may be a float when
+    detection succeeds, or False while falling back to the UI language until
+    there is enough text to detect.
     """
     available = list_available_spell_languages()
     configured = get_document_language(settings_manager)
@@ -366,9 +367,15 @@ def resolve_document_language(settings_manager, text=""):
 
     detected_code, confidence = detect_language_code(text)
     if not detected_code:
-        # Keep Auto unresolved instead of silently pretending the UI language
-        # was detected — that looked like "Farsi isn't detected".
-        return DOCUMENT_LANGUAGE_AUTO, None, False if confidence is None else confidence
+        # Until detection has enough text, provisionally use the UI language
+        # (confidence stays False so the status bar can show it isn't detected yet).
+        provisional = normalize_language_tag(
+            settings_manager.get_setting("language", "en_US")
+        )
+        if provisional == DOCUMENT_LANGUAGE_AUTO:
+            provisional = "en_US"
+        matched = match_dictionary_for_language(provisional, available)
+        return provisional, matched, False if confidence is None else confidence
 
     preferred = preferred_locale_for_iso(detected_code) or detected_code
     matched = match_dictionary_for_language(preferred, available)

@@ -645,17 +645,17 @@ class EditorAndMainTests(unittest.TestCase):
         self.assertEqual(matched, "fr_FR")
         self.assertEqual(confidence, 0.99)
 
-    def test_spell_check_auto_detect_waits_for_text_instead_of_english_fallback(self):
+    def test_spell_check_auto_detect_uses_ui_language_until_detected(self):
         from jottr.editor.spellcheck import DOCUMENT_LANGUAGE_AUTO, resolve_document_language
 
         self.settings.save_setting("document_language", DOCUMENT_LANGUAGE_AUTO)
-        self.settings.save_setting("language", "en_US")
+        self.settings.save_setting("language", "fa_IR")
         with patch("jottr.editor.spellcheck.list_available_spell_languages",
                    return_value=["en_US", "fa_IR"]), \
              patch("jottr.editor.spellcheck.detect_language_code", return_value=(None, None)):
             language, matched, confidence = resolve_document_language(self.settings, text="hi")
-        self.assertEqual(language, DOCUMENT_LANGUAGE_AUTO)
-        self.assertIsNone(matched)
+        self.assertEqual(language, "fa_IR")
+        self.assertEqual(matched, "fa_IR")
         self.assertIs(confidence, False)
 
     def test_spell_check_detects_short_persian_phrase(self):
