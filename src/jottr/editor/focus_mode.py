@@ -1,9 +1,25 @@
 """Focus mode UI for EditorTab."""
-from PyQt6.QtCore import Qt, QTimer
+from PyQt6.QtCore import QEvent, QObject, Qt, QTimer
 from PyQt6.QtWidgets import QPushButton
-from PyQt6.QtGui import QShortcut, QKeySequence
 
 from jottr.translation_manager import _
+
+# Readable writing column width in focus mode (centered in the window).
+FOCUS_COLUMN_MAX_WIDTH = 900
+_EDITOR_PANE_DEFAULT_MARGINS = (12, 0, 12, 10)
+
+
+class _FocusPaneResizeFilter(QObject):
+    """Keep the focus column centered when the editor pane resizes."""
+
+    def __init__(self, on_resize):
+        super().__init__()
+        self._on_resize = on_resize
+
+    def eventFilter(self, obj, event):
+        if event.type() == QEvent.Type.Resize:
+            self._on_resize()
+        return False
 
 
 class FocusModeMixin:
@@ -40,10 +56,12 @@ class FocusModeMixin:
         window.toolbar.hide()
         window.tab_widget.tabBar().hide()
         
-        # Hide panes
+        # Hide panes and let the editor pane fill the window so we can center
+        # a readable writing column inside it (max-width alone left-aligns).
         self.snippet_widget.hide()
         self.browser_widget.hide()
-        self.editor_pane.setMaximumWidth(900)
+        self.editor_pane.setMaximumWidth(16777215)
+        self.splitter.setSizes([1, 0, 0])
         self.editor_pane.setStyleSheet("""
             QWidget#editorPane {
                 background: #eef3f8;
@@ -75,11 +93,18 @@ class FocusModeMixin:
                 border-color: #9fc8f7;
             }
         """)
-        self.update_exit_button_position()
         self.exit_focus_btn.show()
+
+        if not hasattr(self, '_focus_pane_resize_filter'):
+            self._focus_pane_resize_filter = _FocusPaneResizeFilter(
+                self._sync_focus_mode_chrome
+            )
+            self._focus_pane_resize_filter.setParent(self)
+        self.editor_pane.installEventFilter(self._focus_pane_resize_filter)
         
-        # Set fullscreen
+        # Set fullscreen, then center column once geometry has updated
         window.setWindowState(window.windowState() | Qt.WindowState.WindowFullScreen)
+        QTimer.singleShot(0, self._sync_focus_mode_chrome)
 
     def disable_focus_mode(self):
         """Disable focus mode"""
@@ -101,6 +126,9 @@ class FocusModeMixin:
         window.toolbar.show()
         window.tab_widget.tabBar().show()
         self.editor_pane.setMaximumWidth(16777215)
+        if hasattr(self, '_focus_pane_resize_filter'):
+            self.editor_pane.removeEventFilter(self._focus_pane_resize_filter)
+        self._restore_editor_pane_margins()
         self.editor_pane.setStyleSheet("")
         self.apply_workspace_style()
         
@@ -132,6 +160,20 @@ class FocusModeMixin:
             else:
                 self.splitter.setSizes(self.pre_focus_states['sizes'])
 
+    def update_focus_column_layout(self):
+        """Center a readable writing column within the full-width editor pane."""
+        layout = self.editor_pane.layout()
+        if layout is None:
+            return
+        available = max(self.editor_pane.width(), 1)
+        side = max(0, (available - FOCUS_COLUMN_MAX_WIDTH) // 2)
+        layout.setContentsMargins(side, 0, side, 10)
+
+    def _restore_editor_pane_margins(self):
+        layout = self.editor_pane.layout()
+        if layout is not None:
+            layout.setContentsMargins(*_EDITOR_PANE_DEFAULT_MARGINS)
+
     def update_exit_button_position(self):
         """Update exit button position based on current window size"""
         if hasattr(self, 'exit_focus_btn'):
@@ -141,11 +183,18 @@ class FocusModeMixin:
                 self.height() - self.exit_focus_btn.height() - margin
             )
 
+    def _sync_focus_mode_chrome(self):
+        """Reposition focus-mode overlays after geometry changes."""
+        if not getattr(self, 'focus_mode', False):
+            return
+        self.update_focus_column_layout()
+        self.update_exit_button_position()
+
     def resizeEvent(self, event):
-        """Handle resize events to keep exit button positioned correctly"""
+        """Handle resize events to keep focus-mode layout centered."""
         super().resizeEvent(event)
-        if hasattr(self, 'focus_mode') and self.focus_mode:
-            self.update_exit_button_position()
+        if getattr(self, 'focus_mode', False):
+            self._sync_focus_mode_chrome()
 
     def handle_escape(self):
         """Handle ESC key press"""
@@ -171,4 +220,3 @@ class FocusModeMixin:
                         ):
                             action.setChecked(False)
                             break
-
