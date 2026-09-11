@@ -109,9 +109,17 @@ def _load_resource_icon_paths() -> dict[str, str]:
         name = filename[:-4]
         icons[name] = f":/icons/symbolic/{filename}"
 
-    # Filesystem-era alias if the .qrc tab-close alias is missing.
+    # Filesystem-era aliases if the .qrc aliases are missing.
     if "tab-close" not in icons and "cross-large-square-outline-symbolic" in icons:
         icons["tab-close"] = icons["cross-large-square-outline-symbolic"]
+    if "snippets" not in icons and "star-large-symbolic" in icons:
+        icons["snippets"] = icons["star-large-symbolic"]
+    if "markdown" not in icons and "eye-outline-filled-symbolic" in icons:
+        icons["markdown"] = icons["eye-outline-filled-symbolic"]
+    if "eye" not in icons and "eye-outline-filled-symbolic" in icons:
+        icons["eye"] = icons["eye-outline-filled-symbolic"]
+    if "font" not in icons and "large-text-symbolic" in icons:
+        icons["font"] = icons["large-text-symbolic"]
 
     return icons
 
@@ -131,6 +139,13 @@ def _load_filesystem_icon_paths() -> dict[str, str]:
 
     if "cross-large-square-outline-symbolic" in icons:
         icons["tab-close"] = icons["cross-large-square-outline-symbolic"]
+    if "star-large-symbolic" in icons:
+        icons["snippets"] = icons["star-large-symbolic"]
+    if "eye-outline-filled-symbolic" in icons:
+        icons["markdown"] = icons["eye-outline-filled-symbolic"]
+        icons["eye"] = icons["eye-outline-filled-symbolic"]
+    if "large-text-symbolic" in icons:
+        icons["font"] = icons["large-text-symbolic"]
 
     return icons
 

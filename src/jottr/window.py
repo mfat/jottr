@@ -219,7 +219,7 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
         if getattr(tab, "is_settings_tab", False):
             return "settings"
         if isinstance(tab, EditorTab) or hasattr(tab, "current_file"):
-            return "snippets"
+            return "document"
         return ""
 
     def update_tab_icon(self, index):
@@ -491,7 +491,7 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
         set_action_tooltip(snippets_action, "Toggle Snippets (Ctrl+Shift+N)")
         self.toolbar.addAction(snippets_action)
 
-        markdown_action = create_action("insert-text", "Markdown", self.toggle_markdown_preview)
+        markdown_action = create_action("markdown", "Markdown", self.toggle_markdown_preview)
         markdown_action.setShortcut(QKeySequence("Ctrl+Shift+M"))
         set_action_tooltip(markdown_action, "Toggle Markdown Preview (Ctrl+Shift+M)")
         self.toolbar.addAction(markdown_action)
@@ -616,7 +616,7 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
         editor_tab = EditorTab(self.snippet_manager)
         self.tab_widget.addTab(
             editor_tab,
-            self.build_themed_icon("snippets"),
+            self.build_themed_icon("document"),
             _("Document {number}").format(number=self.tab_widget.count() + 1)
         )
         self.tab_widget.setCurrentWidget(editor_tab)
@@ -873,7 +873,7 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
         # Add tab with default title
         self.tab_widget.addTab(
             editor_tab,
-            self.build_themed_icon("snippets"),
+            self.build_themed_icon("document"),
             _("Document {number}").format(number=self.tab_widget.count() + 1)
         )
         self.tab_widget.setCurrentWidget(editor_tab)
@@ -1578,7 +1578,7 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
         if editor_tab is None:
             editor_tab = EditorTab(self.snippet_manager, self.settings_manager)
             editor_tab.set_main_window(self)
-            self.tab_widget.addTab(editor_tab, self.build_themed_icon("snippets"), os.path.basename(file_path))
+            self.tab_widget.addTab(editor_tab, self.build_themed_icon("document"), os.path.basename(file_path))
         else:
             current_index = self.tab_widget.indexOf(editor_tab)
             self.tab_widget.setTabText(current_index, os.path.basename(file_path))
