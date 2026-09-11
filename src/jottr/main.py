@@ -21,7 +21,7 @@ from PyQt6.QtGui import QFont
 from PyQt6.QtOpenGLWidgets import QOpenGLWidget
 
 from jottr.font_dialog import FontSelectionDialog
-from jottr.qt_style import capture_platform_qt_style
+from jottr.qt_style import capture_platform_qt_style, register_bundled_qt_plugins
 from jottr.theme_manager import ThemeManager
 from jottr.ui import LeftAlignedDocumentTabBar, WorkspaceFileSystemModel, WorkspaceTreeView
 from jottr.window import (
@@ -58,6 +58,9 @@ def warmup_opengl(parent):
 def main():
     # Share GL contexts for Qt WebEngine (must be set before QApplication).
     QApplication.setAttribute(Qt.ApplicationAttribute.AA_ShareOpenGLContexts)
+
+    # Register bundled Qt style plugins (Adwaita) before any style lookup.
+    register_bundled_qt_plugins()
 
     # Create application instance
     app = QApplication(sys.argv)

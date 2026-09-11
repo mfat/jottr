@@ -27,15 +27,20 @@ jobs:
             dh-python \
             python3-all \
             python3-setuptools \
-            python3-pyqt5 \
-            python3-pyqt5.qtwebengine \
+            python3-pyqt6 \
+            python3-pyqt6.qtwebengine \
             python3-feedparser \
             python3-enchant \
-            python3-pyqt5.qtsvg \
+            python3-pyqt6.qtsvg \
             python3-pip \
             unzip \
             git \
-            build-essential
+            build-essential \
+            cmake \
+            g++ \
+            ninja-build \
+            patchelf \
+            qt6-base-dev
 
       # Add step to download pyspellchecker
       - name: Download pyspellchecker

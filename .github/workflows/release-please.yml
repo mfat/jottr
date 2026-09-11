@@ -230,12 +230,19 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y \
+            cmake \
             desktop-file-utils \
             file \
+            g++ \
             libfuse2 \
+            ninja-build \
             patchelf \
             python3-venv \
+            qt6-base-dev \
             wget
+
+      - name: Build bundled Adwaita-Qt style plugin
+        run: scripts/build-adwaita-qt.sh
 
       - name: Build Linux PyInstaller bundle
         run: |
@@ -273,6 +280,7 @@ jobs:
             --hidden-import jottr.resources.rc_symbolic_icons \
             --hidden-import jottr.paths \
             --hidden-import jottr.plugin_manager \
+            --hidden-import jottr.qt_style \
             --hidden-import jottr.rss_reader \
             --hidden-import jottr.rss_tab \
             --hidden-import jottr.settings_dialog \
@@ -286,6 +294,7 @@ jobs:
             --hidden-import spellchecker \
             --add-data "src/jottr/help:jottr/help" \
             --add-data "src/jottr/icons:jottr/icons" \
+            --add-data "src/jottr/qt_plugins:jottr/qt_plugins" \
             --add-data "icons:icons" \
             --add-data "translations:translations" \
             src/jottr/__main__.py

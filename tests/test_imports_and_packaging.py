@@ -91,9 +91,29 @@ class ImportAndPackagingTests(unittest.TestCase):
             "packaging/debian/jottr/",
             "/deb_dist",
             "src/jottr/jottr.spec",
+            "src/jottr/qt_plugins/",
+            "vendor/adwaita-qt/build/",
         ):
             with self.subTest(pattern=pattern):
                 self.assertIn(pattern, gitignore)
+
+    def test_vendored_adwaita_qt_is_present(self):
+        vendor = PROJECT_ROOT / "vendor" / "adwaita-qt"
+        self.assertTrue((vendor / "CMakeLists.txt").is_file())
+        self.assertTrue((vendor / "ATTRIBUTION.md").is_file())
+        self.assertTrue((PROJECT_ROOT / "scripts" / "build-adwaita-qt.sh").is_file())
+        pyproject = (PROJECT_ROOT / "pyproject.toml").read_text(encoding="utf-8")
+        self.assertIn("qt_plugins/**/*", pyproject)
+        flatpak = (PROJECT_ROOT / "io.github.mfat.jottr.yml").read_text(encoding="utf-8")
+        self.assertIn("adwaita-qt", flatpak)
+        self.assertIn("vendor/adwaita-qt", flatpak)
+
+    def test_register_bundled_qt_plugins_is_noop_without_tree(self):
+        from jottr.qt_style import register_bundled_qt_plugins
+
+        # Missing styles/ directories are ignored; must not raise.
+        registered = register_bundled_qt_plugins()
+        self.assertIsInstance(registered, list)
 
     def test_release_pyinstaller_bundles_package_modules(self):
         workflow = (PROJECT_ROOT / ".github" / "workflows" / "release-please.yml").read_text(
@@ -121,6 +141,7 @@ class ImportAndPackagingTests(unittest.TestCase):
             "jottr.resources.rc_symbolic_icons",
             "jottr.paths",
             "jottr.plugin_manager",
+            "jottr.qt_style",
             "jottr.rss_reader",
             "jottr.rss_tab",
             "jottr.settings_dialog",
@@ -151,6 +172,10 @@ class ImportAndPackagingTests(unittest.TestCase):
         self.assertIn('--add-data "icons:icons"', appimage_script)
         self.assertIn('--add-data "translations:translations"', workflow)
         self.assertIn('--add-data "translations:translations"', appimage_script)
+        self.assertIn('--add-data "src/jottr/qt_plugins:jottr/qt_plugins"', workflow)
+        self.assertIn('--add-data "src/jottr/qt_plugins:jottr/qt_plugins"', appimage_script)
+        self.assertIn("build-adwaita-qt.sh", workflow)
+        self.assertIn("build-adwaita-qt.sh", appimage_script)
 
     def test_symbolic_icons_use_qt_resources(self):
         from PyQt6.QtWidgets import QApplication

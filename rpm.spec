@@ -9,8 +9,12 @@ License:        GPLv3
 URL:            https://github.com/mfat/jottr
 Source0:        %{name}-%{version}.tar.gz
 
-BuildArch:      noarch
 BuildRequires:  python3-devel
+BuildRequires:  cmake
+BuildRequires:  gcc-c++
+BuildRequires:  ninja-build
+BuildRequires:  qt6-qtbase-devel
+BuildRequires:  patchelf
 
 Requires:       python3
 Requires:       python3-pyqt6
@@ -28,8 +32,12 @@ and researchers.
 %prep
 %autosetup
 
+%build
+# Bundle Adwaita-Qt style plugin (no runtime dependency on adwaita-qt6).
+%{__bash} scripts/build-adwaita-qt.sh
+
 %install
-# Install the importable package
+# Install the importable package (includes qt_plugins/)
 mkdir -p %{buildroot}%{python3_sitelib}
 cp -a src/jottr %{buildroot}%{python3_sitelib}/jottr
 rm -f %{buildroot}%{python3_sitelib}/jottr/jottr-mac.spec \

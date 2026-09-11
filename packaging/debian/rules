@@ -5,12 +5,14 @@
 
 override_dh_auto_clean:
 	# Skip Python build cleaning
+	rm -rf src/jottr/qt_plugins vendor/adwaita-qt/build
 
 override_dh_auto_configure:
 	# Skip Python configure
 
 override_dh_auto_build:
-	# Skip Python build
+	# Bundle Adwaita-Qt style plugin into src/jottr/qt_plugins/
+	./scripts/build-adwaita-qt.sh
 
 override_dh_auto_test:
 	# Skip Python tests
@@ -21,8 +23,13 @@ override_dh_installdocs:
 override_dh_installchangelogs:
 	# Skip changelogs
 
+override_dh_shlibdeps:
+	# Plugin links Qt privately via PyQt6; ignore unresolved Qt SONAMEs from
+	# the style plugin when scanning with system tools.
+	dh_shlibdeps -- -xlibqt6core6t64 -xlibqt6gui6 -xlibqt6widgets6 || dh_shlibdeps --dpkg-shlibdeps-params=--ignore-missing-info
+
 override_dh_auto_install:
-	# Install the importable package
+	# Install the importable package (includes bundled qt_plugins/)
 	mkdir -p debian/jottr/usr/lib/python3/dist-packages
 	cp -a src/jottr debian/jottr/usr/lib/python3/dist-packages/jottr
 	# Drop bundler specs / macOS assets from the Linux package tree

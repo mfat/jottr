@@ -1,5 +1,10 @@
 """Helpers for selecting built-in Qt widget styles (Fusion, Windows, Darkly, …)."""
 
+from __future__ import annotations
+
+from pathlib import Path
+
+from PyQt6.QtCore import QCoreApplication
 from PyQt6.QtWidgets import QApplication, QStyleFactory
 
 SYSTEM_QT_STYLE = "System"
@@ -20,9 +25,78 @@ KNOWN_QT_STYLE_KEYS = (
     "GTK+",
     "kvantum",
     "qt5ct-style",
+    # Bundled FedoraQt/adwaita-qt (vendor/adwaita-qt)
+    "Adwaita",
+    "Adwaita-Dark",
+    "Adwaita-HighContrast",
+    "Adwaita-HighContrastInverse",
+    "HighContrast",
+    "HighContrastInverse",
 )
 
 _platform_style_key = None
+_bundled_plugins_registered = False
+
+
+def bundled_qt_plugin_roots() -> list[Path]:
+    """Candidate directories that may contain styles/ for bundled Qt plugins."""
+    from jottr.paths import data_roots, package_dir
+
+    roots: list[Path] = []
+    for base in (package_dir(), *data_roots()):
+        roots.append(base / "qt_plugins")
+        # Flatpak cmake install layout: …/plugins with styles/ underneath.
+        roots.append(base / "plugins")
+        roots.append(base)
+
+    # Common Flatpak / prefix installs of the style plugin.
+    for extra in (
+        Path("/app/lib/plugins"),
+        Path("/app/lib/qt6/plugins"),
+        Path("/app/lib64/qt6/plugins"),
+    ):
+        roots.append(extra)
+
+    ordered: list[Path] = []
+    seen: set[Path] = set()
+    for root in roots:
+        try:
+            resolved = root.resolve()
+        except OSError:
+            continue
+        if resolved in seen:
+            continue
+        seen.add(resolved)
+        ordered.append(resolved)
+    return ordered
+
+
+def register_bundled_qt_plugins() -> list[str]:
+    """Register package-local Qt plugin paths (Adwaita style, etc.).
+
+    Safe to call before or after QApplication; missing trees are ignored.
+    """
+    global _bundled_plugins_registered
+    registered: list[str] = []
+    existing = {Path(p) for p in QCoreApplication.libraryPaths()}
+    for root in bundled_qt_plugin_roots():
+        styles_dir = root / "styles"
+        if not styles_dir.is_dir():
+            continue
+        try:
+            if not any(styles_dir.iterdir()):
+                continue
+        except OSError:
+            continue
+        path = str(root)
+        if Path(path) in existing:
+            registered.append(path)
+            continue
+        QCoreApplication.addLibraryPath(path)
+        existing.add(Path(path))
+        registered.append(path)
+    _bundled_plugins_registered = True
+    return registered
 
 
 def capture_platform_qt_style(application=None):
@@ -30,6 +104,8 @@ def capture_platform_qt_style(application=None):
     global _platform_style_key
     if _platform_style_key is not None:
         return _platform_style_key
+
+    register_bundled_qt_plugins()
 
     app = application or QApplication.instance()
     if app is None or app.style() is None:

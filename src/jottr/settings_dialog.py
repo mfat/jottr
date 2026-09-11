@@ -132,7 +132,8 @@ class SettingsDialog(QDialog):
         self.qt_style_combo.setCurrentText(self.settings_manager.get_qt_style())
         self.qt_style_combo.setToolTip(
             _("Lists every Qt widget style available on this system "
-              "(Fusion, Windows, Darkly, desktop styles, and plugins). "
+              "(Fusion, Windows, bundled Adwaita on Linux, Darkly, "
+              "desktop styles, and plugins). "
               "System keeps the platform default.")
         )
         general_layout.addRow(qt_style_label, self.qt_style_combo)

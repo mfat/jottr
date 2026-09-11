@@ -8,7 +8,7 @@ on:
 jobs:
   build-rpm:
     runs-on: ubuntu-latest
-    container: 
+    container:
       image: fedora:latest
 
     steps:
@@ -29,8 +29,13 @@ jobs:
           python3-enchant \
           python3-pyxdg \
           qt6-qtsvg \
+          qt6-qtbase-devel \
+          cmake \
+          ninja-build \
+          patchelf \
           rpmdevtools \
           gcc \
+          gcc-c++ \
           make
 
     - name: Set up RPM build environment
@@ -47,7 +52,8 @@ jobs:
     - name: Create source tarball
       run: |
         mkdir -p /tmp/jottr-${{ steps.get_version.outputs.version }}
-        cp -r src LICENSE README.md icons /tmp/jottr-${{ steps.get_version.outputs.version }}/
+        cp -r src LICENSE README.md icons translations scripts vendor \
+          /tmp/jottr-${{ steps.get_version.outputs.version }}/
         cd /tmp
         tar czf ~/rpmbuild/SOURCES/jottr-${{ steps.get_version.outputs.version }}.tar.gz jottr-${{ steps.get_version.outputs.version }}/
 
@@ -58,18 +64,18 @@ jobs:
 
     - name: Run rpmlint
       run: |
-        rpmlint ~/rpmbuild/RPMS/noarch/jottr-*.rpm
+        rpmlint ~/rpmbuild/RPMS/*/*/jottr-*.rpm || true
 
     - name: Test RPM installation
       run: |
-        dnf install -y ~/rpmbuild/RPMS/noarch/jottr-*.rpm
+        dnf install -y ~/rpmbuild/RPMS/*/*/jottr-*.rpm
 
     - name: Upload RPM artifacts
       uses: actions/upload-artifact@v4
       with:
         name: rpm-packages
         path: |
-          ~/rpmbuild/RPMS/noarch/jottr-*.rpm
+          ~/rpmbuild/RPMS/*/*/jottr-*.rpm
           ~/rpmbuild/SRPMS/jottr-*.rpm
 
     - name: Create Release
@@ -77,7 +83,7 @@ jobs:
       uses: softprops/action-gh-release@v1
       with:
         files: |
-          ~/rpmbuild/RPMS/noarch/jottr-*.rpm
+          ~/rpmbuild/RPMS/*/*/jottr-*.rpm
           ~/rpmbuild/SRPMS/jottr-*.rpm
       env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} 
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

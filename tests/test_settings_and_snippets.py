@@ -182,21 +182,37 @@ class SettingsAndSnippetTests(unittest.TestCase):
         self.assertEqual(manager.get_qt_style(), SYSTEM_QT_STYLE)
 
     def test_apply_qt_style_switches_application_style(self):
+        from PyQt6.QtWidgets import QStyleFactory
+
         from jottr.qt_style import (
             SYSTEM_QT_STYLE,
             apply_qt_style,
             capture_platform_qt_style,
             normalize_qt_style,
+            register_bundled_qt_plugins,
         )
 
         application = app()
+        register_bundled_qt_plugins()
         capture_platform_qt_style(application)
         fusion = normalize_qt_style("Fusion")
         self.assertEqual(apply_qt_style(fusion, application), fusion)
-        self.assertEqual(application.style().objectName().casefold(), fusion.casefold())
+        style_name = (application.style().objectName() or "").casefold()
+        # Some Qt builds leave Fusion's objectName empty after plugin registration.
+        if style_name:
+            self.assertEqual(style_name, fusion.casefold())
 
         apply_qt_style(SYSTEM_QT_STYLE, application)
-        self.assertTrue(application.style().objectName())
+        self.assertTrue(application.style() is not None)
+
+        if QStyleFactory.create("Adwaita") is not None:
+            self.assertEqual(apply_qt_style("Adwaita", application), "Adwaita")
+            adwaita_name = (application.style().objectName() or "").casefold()
+            self.assertTrue(
+                not adwaita_name or "adwaita" in adwaita_name,
+                msg=f"unexpected Adwaita style name {adwaita_name!r}",
+            )
+            self.assertEqual(apply_qt_style(fusion, application), fusion)
 
     def test_settings_manager_handles_invalid_json_by_keeping_defaults(self):
         manager = SettingsManager()

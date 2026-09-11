@@ -98,12 +98,15 @@ need_command mkdir
 need_command readlink
 need_command sha256sum
 need_command desktop-file-validate
+need_command cmake
 
 need_file "$repo_root/requirements.txt"
 need_file "$repo_root/pyproject.toml"
 need_file "$repo_root/src/jottr/__main__.py"
 need_file "$repo_root/icons/jottr.png"
 need_file "$repo_root/io.github.mfat.jottr.desktop"
+need_file "$repo_root/scripts/build-adwaita-qt.sh"
+need_file "$repo_root/vendor/adwaita-qt/CMakeLists.txt"
 
 if [ "$clean" = true ]; then
   echo "==> Cleaning local AppImage build output"
@@ -132,6 +135,13 @@ if [ "$skip_pip_install" = false ]; then
     "$venv_dir/bin/python" -m pip install -e ".[build]"
   )
 fi
+
+echo "==> Building bundled Adwaita-Qt style plugin"
+(
+  cd "$repo_root"
+  "$script_dir/build-adwaita-qt.sh"
+)
+need_file "$repo_root/src/jottr/qt_plugins/styles/adwaita.so"
 
 echo "==> Building PyInstaller bundle"
 (
@@ -166,6 +176,7 @@ echo "==> Building PyInstaller bundle"
     --hidden-import jottr.resources.rc_symbolic_icons \
     --hidden-import jottr.paths \
     --hidden-import jottr.plugin_manager \
+    --hidden-import jottr.qt_style \
     --hidden-import jottr.rss_reader \
     --hidden-import jottr.rss_tab \
     --hidden-import jottr.settings_dialog \
@@ -179,6 +190,7 @@ echo "==> Building PyInstaller bundle"
     --hidden-import spellchecker \
     --add-data "src/jottr/help:jottr/help" \
     --add-data "src/jottr/icons:jottr/icons" \
+    --add-data "src/jottr/qt_plugins:jottr/qt_plugins" \
     --add-data "icons:icons" \
     --add-data "translations:translations" \
     src/jottr/__main__.py

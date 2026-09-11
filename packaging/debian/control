@@ -2,11 +2,17 @@ Source: jottr
 Section: editors
 Priority: optional
 Maintainer: mFat <newmfat@gmail.com>
-Build-Depends: debhelper-compat (= 13)
+Build-Depends: debhelper-compat (= 13),
+               cmake,
+               g++,
+               ninja-build,
+               patchelf,
+               qt6-base-dev
 
 Package: jottr
-Architecture: all
+Architecture: any
 Depends: ${misc:Depends},
+         ${shlibs:Depends},
          python3,
          python3-pyqt6,
          python3-pyqt6.qtwebengine,
@@ -18,3 +24,6 @@ Description: Modern text editor for writers and journalists
  Jottr is a feature-rich text editor designed specifically
  for writers and journalists, with features like smart
  completion, snippets, and integrated web browsing.
+ .
+ Linux builds bundle the Adwaita Qt widget style so it works
+ without a system adwaita-qt6 package.

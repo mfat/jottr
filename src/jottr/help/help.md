@@ -14,9 +14,12 @@ In Settings > Appearance, **Widget Style** lists every Qt style available on you
 - System: Keep the platform default style
 - Built-in styles such as Fusion and Windows
 - Platform styles such as WindowsVista, windows11, or macos when provided by Qt
+- Bundled [Adwaita](https://github.com/FedoraQt/adwaita-qt) styles on Linux packages and AppImage/Flatpak builds (`Adwaita`, `Adwaita-Dark`, HighContrast variants)
 - Desktop or plugin styles installed on your system (for example Breeze, Oxygen, or [Darkly](https://github.com/Bali10050/Darkly))
 
 The dropdown is filled from Qt's style factory, so everything your Qt build can create is offered. Theme colors are applied through the Qt palette so the selected widget style can draw buttons, combos, scrollbars, and menus. Jottr still styles its own chrome (toolbar, tabs, workspace) with stylesheets.
+
+From a source checkout, build the bundled Adwaita plugin with `./scripts/build-adwaita-qt.sh` (cmake + Qt6 development packages).
 
 To create a custom theme:
 1. Open Settings > Appearance
