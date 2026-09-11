@@ -1560,6 +1560,31 @@ class EditorAndMainTests(unittest.TestCase):
 
         translation_manager.set_language("en_US")
 
+    def test_font_dialog_preview_tracks_face_size_and_style(self):
+        dialog = FontSelectionDialog(QFont("Serif", 12))
+        self.addCleanup(dialog.deleteLater)
+
+        dialog.size_combo.setCurrentText("24")
+        dialog.style_combo.setCurrentIndex(3)  # Bold Italic
+        dialog.update_preview()
+
+        preview_font = dialog.preview_text.font()
+        self.assertEqual(preview_font.pointSize(), 24)
+        self.assertTrue(preview_font.bold())
+        self.assertTrue(preview_font.italic())
+        self.assertIn("font-size: 24pt", dialog.styleSheet())
+        self.assertIn("font-weight: bold", dialog.styleSheet())
+        self.assertIn("font-style: italic", dialog.styleSheet())
+        # Form labels must not pick up the preview face/size from the stylesheet.
+        label_block = dialog.styleSheet().split("QLabel#fontPreview")[0]
+        self.assertNotIn("font-family:", label_block)
+        self.assertNotIn("font-size:", label_block)
+
+        dialog.size_combo.setCurrentText("18")
+        dialog.update_preview()
+        self.assertIn("font-size: 18pt", dialog.styleSheet())
+        self.assertEqual(dialog.preview_text.font().pointSize(), 18)
+
     def test_main_window_retranslates_toolbar_menu_actions(self):
         class FakeEditorTab(QWidget):
             def __init__(self, snippet_manager, settings_manager):

@@ -132,4 +132,10 @@ class FontSelectionDialog(QDialog):
         return font
 
     def update_preview(self, *_args):
-        self.preview_text.setFont(self.selectedFont())
+        font = self.selectedFont()
+        self.preview_text.setFont(font)
+        # Stylesheet font on #fontPreview wins over setFont; refresh it so
+        # face/size/style changes show up in the preview.
+        self.setStyleSheet(
+            ThemeManager.build_font_dialog_stylesheet(self.active_theme(), font)
+        )

@@ -921,16 +921,22 @@ class ThemeManager:
     def build_font_dialog_stylesheet(theme, font=None):
         app = theme["app"]
         editor = theme["editor"]
-        font_style = ThemeManager.build_font_stylesheet(font)
+        # Apply the chosen face/size only to the preview. Form labels must keep
+        # the normal UI font — stylesheet fonts override QWidget::setFont and
+        # would both enlarge the labels and freeze the preview.
+        preview_font_style = ThemeManager.build_font_stylesheet(font)
+        if font is not None:
+            preview_font_style += f"""
+                font-weight: {"bold" if font.bold() else "normal"};
+                font-style: {"italic" if font.italic() else "normal"};
+            """
         return f"""
             QDialog#fontSelectionDialog {{
                 background: {app['background']};
                 color: {app['text']};
-                {font_style}
             }}
             QLabel {{
                 color: {app['text']};
-                {font_style}
             }}
             QLabel#fontPreview {{
                 background: {editor['background']};
@@ -938,6 +944,7 @@ class ThemeManager:
                 border: 1px solid {editor['border']};
                 border-radius: 0px;
                 padding: 12px;
+                {preview_font_style}
             }}
         """
 
