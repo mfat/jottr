@@ -405,6 +405,29 @@ class EditorAndMainTests(unittest.TestCase):
         editor.set_line_numbers_visible(True)
         self.assertTrue(editor.editor.line_numbers_visible)
 
+    def test_suggestion_tooltip_stays_below_typed_text(self):
+        from jottr.theme_manager import ThemeManager
+
+        editor = self.make_editor()
+        editor.set_line_numbers_visible(True)
+        ThemeManager.apply_theme(editor.editor, "Light")
+        editor.snippet_manager.add_snippet("SOUNDBITE (Farsi)", "soundbite text")
+        editor.editor.setPlainText("sb")
+        editor.editor.moveCursor(QTextCursor.MoveOperation.End)
+        editor.show()
+        QApplication.processEvents()
+
+        cursor = editor.editor.textCursor()
+        editor.show_suggestion_tooltip([("snippet", "SOUNDBITE (Farsi)")], cursor)
+        QApplication.processEvents()
+
+        self.assertIsNotNone(editor.suggestion_tooltip)
+        self.assertTrue(editor.suggestion_tooltip.isVisible())
+        cursor_bottom = editor.editor.viewport().mapToGlobal(
+            editor.editor.cursorRect(cursor).bottomLeft()
+        ).y()
+        self.assertGreaterEqual(editor.suggestion_tooltip.y(), cursor_bottom)
+
     def test_editor_scroll_ratio_tracks_scrollbar_progress(self):
         editor = self.make_editor()
         scroll_bar = editor.editor.verticalScrollBar()

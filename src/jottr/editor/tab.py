@@ -1210,16 +1210,13 @@ class EditorTab(
             
             layout.addWidget(container)
         
-        # Position tooltip below the cursor
-        rect = self.editor.cursorRect(cursor)
-        pos = self.editor.mapToGlobal(rect.bottomLeft())
-        pos.setY(pos.y() + 5)  # Add a small offset
-        self.suggestion_tooltip.move(pos)
-        
-        # Calculate and set fixed size
+        # Position below the cursor. cursorRect is in viewport coordinates, and
+        # the editor stylesheet applies padding, so map via the viewport.
         self.suggestion_tooltip.adjustSize()
-        
-        # Show tooltip
+        rect = self.editor.cursorRect(cursor)
+        pos = self.editor.viewport().mapToGlobal(rect.bottomLeft())
+        pos.setY(pos.y() + 5)
+        self.suggestion_tooltip.move(pos)
         self.suggestion_tooltip.show()
         self.suggestion_tooltip.raise_()
 
