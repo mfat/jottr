@@ -1234,10 +1234,12 @@ class EditorAndMainTests(unittest.TestCase):
             self.assertEqual(edit_actions[:3], ["Undo", "Redo", "Cut"])
             self.assertIn("Find/Replace", edit_actions)
             self.assertNotIn("Settings", edit_actions)
-            self.assertIn("QMenuBar#appMenuBar", QApplication.instance().styleSheet())
-            self.assertIn("QMenu::indicator:checked", QApplication.instance().styleSheet())
-            self.assertIn("jottr-menu-check-", QApplication.instance().styleSheet())
-            self.assertNotIn("data:image/svg+xml", QApplication.instance().styleSheet())
+            # Menu bar titles and popup menus are drawn by the active QStyle
+            # (via palette), not by chrome stylesheets.
+            stylesheet = QApplication.instance().styleSheet()
+            self.assertNotIn("QMenuBar#appMenuBar", stylesheet)
+            self.assertNotIn("QMenu::item", stylesheet)
+            self.assertNotIn("data:image/svg+xml", stylesheet)
 
             tools_menu = menubar.actions()[3].menu()
             spelling_action = next(
