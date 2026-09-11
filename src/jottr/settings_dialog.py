@@ -382,7 +382,7 @@ class SettingsDialog(QDialog):
         item = QListWidgetItem(title)
         if icon_name:
             item.setData(Qt.ItemDataRole.UserRole, icon_name)
-            item.setIcon(themed_symbolic_icon(icon_name, self.settings_manager))
+            item.setIcon(self.settings_nav_icon(icon_name))
         self.settings_nav.addItem(item)
         self.settings_stack.addWidget(widget)
 
@@ -431,6 +431,39 @@ class SettingsDialog(QDialog):
         apply_dialog_window_icon(self, "settings", self.settings_manager)
         self.refresh_settings_nav_icons()
 
+    def settings_nav_icon(self, icon_name):
+        """Symbolic nav glyph tinted from the dialog palette (flat Selected mode)."""
+        # Prefer Icon Contrast when not auto, so the setting still applies.
+        if hasattr(self, "icon_contrast_combo"):
+            contrast = self.icon_contrast_combo.currentText()
+        else:
+            contrast = self.settings_manager.get_setting("icon_contrast", "auto")
+        color = None
+        if contrast and contrast != "auto":
+            # Resolve against the dialog's current theme palette selection.
+            from jottr.theme_manager import ThemeManager
+
+            theme = ThemeManager.get_theme(
+                self.ui_theme_combo.currentText()
+                if hasattr(self, "ui_theme_combo")
+                else self.settings_manager.get_ui_theme(),
+                self.settings_manager.get_custom_themes(),
+            )
+            app = theme["app"]
+            if contrast == "light":
+                color = "#f8f8f2"
+            elif contrast == "dark":
+                color = "#17202a"
+            elif contrast == "accent":
+                color = app["accent"]
+        return themed_symbolic_icon(
+            icon_name,
+            self.settings_manager,
+            color=color,
+            size=16,
+            palette=self.palette(),
+        )
+
     def refresh_settings_nav_icons(self):
         if not hasattr(self, "settings_nav"):
             return
@@ -438,7 +471,7 @@ class SettingsDialog(QDialog):
             item = self.settings_nav.item(index)
             icon_name = item.data(Qt.ItemDataRole.UserRole)
             if icon_name:
-                item.setIcon(themed_symbolic_icon(icon_name, self.settings_manager))
+                item.setIcon(self.settings_nav_icon(icon_name))
 
     def create_scrollable_tab(self, content):
         scroll_area = QScrollArea()

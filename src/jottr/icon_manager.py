@@ -15,7 +15,7 @@ from __future__ import annotations
 import os
 
 from PyQt6.QtCore import QByteArray, QDir, QFile, QRectF, QSize, Qt
-from PyQt6.QtGui import QColor, QGuiApplication, QIcon, QPainter, QPixmap
+from PyQt6.QtGui import QColor, QGuiApplication, QIcon, QPainter, QPalette, QPixmap
 from PyQt6.QtSvg import QSvgRenderer
 from PyQt6.QtWidgets import QMessageBox
 
@@ -138,11 +138,47 @@ def themed_symbolic_icon(
     settings_manager=None,
     color: str | None = None,
     size: int | None = None,
+    palette=None,
 ) -> QIcon:
-    """Build a tinted symbolic icon by logical name for windows and dialogs."""
+    """Build a tinted symbolic icon by logical name for windows and dialogs.
+
+    When *palette* is given, Selected/Disabled modes use HighlightedText and
+    disabled WindowText so list/menu styles do not invent multi-tone pixmaps.
+    """
     if color is None:
-        color = resolve_icon_color(settings_manager)
-    return build_themed_icon(bundled_icon_paths().get(name, ""), color, size)
+        if palette is not None:
+            color = palette.color(QPalette.ColorRole.WindowText).name()
+        else:
+            color = resolve_icon_color(settings_manager)
+
+    selected_color = None
+    disabled_color = None
+    if palette is not None:
+        selected_color = palette.color(QPalette.ColorRole.HighlightedText).name()
+        disabled_color = palette.color(
+            QPalette.ColorGroup.Disabled,
+            QPalette.ColorRole.WindowText,
+        ).name()
+    elif settings_manager is not None:
+        # Keep Selected flat white/black for contrast on accent chips even when
+        # callers do not pass a palette (toolbar stays Normal-only).
+        from jottr.theme_manager import ThemeManager
+
+        theme = ThemeManager.get_theme(
+            settings_manager.get_ui_theme(),
+            settings_manager.get_custom_themes(),
+        )
+        accent = QColor(theme["app"]["accent"])
+        selected_color = "#1a1a1a" if accent.lightnessF() >= 0.55 else "#ffffff"
+        disabled_color = theme["app"]["muted"]
+
+    return build_themed_icon(
+        bundled_icon_paths().get(name, ""),
+        color,
+        size,
+        selected_color=selected_color,
+        disabled_color=disabled_color,
+    )
 
 
 def settings_manager_from(widget) -> object | None:
@@ -281,12 +317,23 @@ def _render_tinted_pixmap(
     return pixmap
 
 
-def build_themed_icon(icon_path: str, color: str, size: int | None = None) -> QIcon:
+def build_themed_icon(
+    icon_path: str,
+    color: str,
+    size: int | None = None,
+    *,
+    selected_color: str | None = None,
+    disabled_color: str | None = None,
+) -> QIcon:
     """Render a monochrome symbolic SVG tinted to ``color``.
 
     Pixmaps are generated at the UI's logical sizes (and HiDPI DPR) so Qt does
     not soft-scale a single oversized bitmap. Works with ``:/`` resource paths
     and filesystem paths.
+
+    When *selected_color* / *disabled_color* are set, explicit Selected and
+    Disabled mode pixmaps are added so styles do not synthesize multi-tone
+    icons from the Normal pixmap.
     """
     svg_data = _read_svg_bytes(icon_path)
     if svg_data is None:
@@ -301,9 +348,18 @@ def build_themed_icon(icon_path: str, color: str, size: int | None = None) -> QI
 
     icon = QIcon()
     for logical_size in sizes:
-        icon.addPixmap(
-            _render_tinted_pixmap(renderer, logical_size, color, dpr),
-            QIcon.Mode.Normal,
-            QIcon.State.Off,
-        )
+        normal = _render_tinted_pixmap(renderer, logical_size, color, dpr)
+        icon.addPixmap(normal, QIcon.Mode.Normal, QIcon.State.Off)
+        icon.addPixmap(normal, QIcon.Mode.Active, QIcon.State.Off)
+        if selected_color:
+            selected = _render_tinted_pixmap(
+                renderer, logical_size, selected_color, dpr
+            )
+            icon.addPixmap(selected, QIcon.Mode.Selected, QIcon.State.Off)
+            icon.addPixmap(selected, QIcon.Mode.Selected, QIcon.State.On)
+        if disabled_color:
+            disabled = _render_tinted_pixmap(
+                renderer, logical_size, disabled_color, dpr
+            )
+            icon.addPixmap(disabled, QIcon.Mode.Disabled, QIcon.State.Off)
     return icon

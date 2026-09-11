@@ -162,6 +162,19 @@ class DialogAndRssTests(unittest.TestCase):
         self.assertNotIn("editor_font", data)
         self.assertNotIn("preview_font", data)
         self.assertTrue(dialog.findChildren(QScrollArea))
+        # Settings nav icons are flat symbolic glyphs with an explicit Selected mode.
+        from PyQt6.QtGui import QIcon
+
+        appearance = dialog.settings_nav.item(0)
+        self.assertFalse(appearance.icon().isNull())
+        normal = appearance.icon().pixmap(16, QIcon.Mode.Normal)
+        selected = appearance.icon().pixmap(16, QIcon.Mode.Selected)
+        self.assertFalse(normal.isNull())
+        self.assertFalse(selected.isNull())
+        self.assertNotEqual(
+            normal.toImage().pixelColor(8, 8).name(),
+            selected.toImage().pixelColor(8, 8).name(),
+        )
         self.assertFalse(data["markdown_scroll_sync"])
         self.assertFalse(data["editor_line_numbers"])
         self.assertFalse(data["double_click_empty_tab_bar_new_tab"])

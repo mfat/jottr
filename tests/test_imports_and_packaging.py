@@ -197,6 +197,17 @@ class ImportAndPackagingTests(unittest.TestCase):
 
         tinted = build_themed_icon(icons["save"], "#f8f8f2", size=16)
         self.assertFalse(tinted.isNull())
+        selected = build_themed_icon(
+            icons["save"],
+            "#17202a",
+            size=16,
+            selected_color="#ffffff",
+            disabled_color="#566273",
+        )
+        from PyQt6.QtGui import QIcon
+
+        self.assertFalse(selected.pixmap(16, QIcon.Mode.Selected).isNull())
+        self.assertFalse(selected.pixmap(16, QIcon.Mode.Disabled).isNull())
         self.assertTrue((PROJECT_ROOT / "icons" / "symbolic.qrc").is_file())
         self.assertTrue(
             (PACKAGE_DIR / "resources" / "rc_symbolic_icons.py").is_file()

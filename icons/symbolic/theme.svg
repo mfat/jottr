@@ -53,11 +53,5 @@
        style="marker:none"
        overflow="visible"
        id="path3" />
-    <path
-       d="M 6.934,12 A 2.9339231,2.9339231 0 0 1 4.0000769,14.933923 2.9339231,2.9339231 0 0 1 1.067,12 2.9339231,2.9339231 0 0 1 4.0000769,9.0660769 2.9339231,2.9339231 0 0 1 6.934,12 Z"
-       style="stroke-width:0.999996;marker:none"
-       overflow="visible"
-       opacity="0.5"
-       id="path4" />
   </g>
 </svg>
