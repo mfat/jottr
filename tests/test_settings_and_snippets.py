@@ -155,6 +155,49 @@ class SettingsAndSnippetTests(unittest.TestCase):
         self.assertEqual(forest["editor"]["selection"], "#355e3b")
         self.assertNotIn("Broken", reloaded.get_custom_themes())
 
+    def test_settings_manager_persists_qt_style(self):
+        from PyQt6.QtWidgets import QStyleFactory
+
+        from jottr.qt_style import SYSTEM_QT_STYLE, available_qt_styles, normalize_qt_style
+
+        styles = available_qt_styles()
+        self.assertEqual(styles[0], SYSTEM_QT_STYLE)
+        for key in QStyleFactory.keys():
+            self.assertTrue(
+                any(name.casefold() == key.casefold() for name in styles),
+                msg=f"missing style {key!r} in {styles}",
+            )
+        self.assertTrue(any(name.casefold() == "fusion" for name in styles))
+        self.assertTrue(any(name.casefold() == "windows" for name in styles))
+
+        manager = SettingsManager()
+        self.assertEqual(manager.get_qt_style(), SYSTEM_QT_STYLE)
+
+        fusion = normalize_qt_style("fusion")
+        manager.save_qt_style("fusion")
+        reloaded = SettingsManager()
+        self.assertEqual(reloaded.get_qt_style(), fusion)
+
+        manager.save_qt_style("NotARealStyle")
+        self.assertEqual(manager.get_qt_style(), SYSTEM_QT_STYLE)
+
+    def test_apply_qt_style_switches_application_style(self):
+        from jottr.qt_style import (
+            SYSTEM_QT_STYLE,
+            apply_qt_style,
+            capture_platform_qt_style,
+            normalize_qt_style,
+        )
+
+        application = app()
+        capture_platform_qt_style(application)
+        fusion = normalize_qt_style("Fusion")
+        self.assertEqual(apply_qt_style(fusion, application), fusion)
+        self.assertEqual(application.style().objectName().casefold(), fusion.casefold())
+
+        apply_qt_style(SYSTEM_QT_STYLE, application)
+        self.assertTrue(application.style().objectName())
+
     def test_settings_manager_handles_invalid_json_by_keeping_defaults(self):
         manager = SettingsManager()
         Path(manager.settings_file).write_text("{not json", encoding="utf-8")
@@ -196,6 +239,10 @@ class SettingsAndSnippetTests(unittest.TestCase):
         self.assertIn("Monaspace", themes)
         self.assertIn("Tokyo Night", themes)
         self.assertIn("Matcha", themes)
+        self.assertIn("Darkly", themes)
+        darkly = ThemeManager.get_theme("Darkly")
+        self.assertEqual(darkly["app"]["accent"], "#3478da")
+        self.assertEqual(darkly["editor"]["background"], "#2c2c2c")
         self.assertIn(
             "Forest",
             ThemeManager.get_themes({
@@ -235,18 +282,22 @@ class SettingsAndSnippetTests(unittest.TestCase):
         app_style = ThemeManager.build_app_stylesheet(dracula, QFont("Liberation Serif", 15))
         self.assertIn('font-family: "Liberation Serif"', app_style)
         self.assertIn("font-size: 15pt", app_style)
-        self.assertIn("QToolTip", app_style)
+        self.assertNotIn("QScrollBar:vertical", app_style)
+        self.assertNotIn("QComboBox {", app_style)
+        self.assertNotIn("QToolTip", app_style)
+        from PyQt6.QtGui import QPalette
+        palette = ThemeManager.build_app_palette(dracula)
+        self.assertEqual(palette.color(QPalette.ColorRole.Window).name(), "#282a36")
         dialog_style = ThemeManager.build_dialog_stylesheet(dracula, QFont("Liberation Serif", 15))
-        self.assertIn("QComboBox QAbstractItemView", dialog_style)
-        self.assertIn("QFontComboBox", dialog_style)
+        self.assertNotIn("QComboBox QAbstractItemView", dialog_style)
+        self.assertNotIn("QPushButton {", dialog_style)
         self.assertIn("QLabel#fontPreview", dialog_style)
-        self.assertIn("selection-color", dialog_style)
         self.assertIn("#f8f8f2", dialog_style)
         self.assertIn('font-family: "Liberation Serif"', dialog_style)
         font_dialog_style = ThemeManager.build_font_dialog_stylesheet(dracula, QFont("Liberation Serif", 15))
-        self.assertIn("QFontComboBox::drop-down", font_dialog_style)
-        self.assertIn("QFontComboBox::down-arrow", font_dialog_style)
-        self.assertIn("border-top: 6px solid #bd93f9", font_dialog_style)
+        self.assertNotIn("QFontComboBox::drop-down", font_dialog_style)
+        self.assertNotIn("QPushButton {", font_dialog_style)
+        self.assertIn("QLabel#fontPreview", font_dialog_style)
         self.assertIn("#f8f8f2", font_dialog_style)
         self.assertIn("#282a36", font_dialog_style)
         self.assertIn('font-family: "Liberation Serif"', font_dialog_style)

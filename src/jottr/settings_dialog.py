@@ -10,6 +10,7 @@ import os
 from jottr.font_dialog import FontSelectionDialog
 from jottr.icon_manager import apply_dialog_window_icon, themed_symbolic_icon
 from jottr.plugin_manager import PluginManager, REMOTE_WARNING
+from jottr.qt_style import available_qt_styles
 from jottr.theme_manager import ThemeManager
 from jottr.editor.spellcheck import (
     DOCUMENT_LANGUAGE_AUTO,
@@ -124,6 +125,17 @@ class SettingsDialog(QDialog):
         self.refresh_theme_combo(self.editor_theme_combo)
         self.editor_theme_combo.setCurrentText(self.settings_manager.get_theme())
         general_layout.addRow(editor_theme_label, self.editor_theme_combo)
+
+        qt_style_label = QLabel(_("Widget Style:"))
+        self.qt_style_combo = QComboBox()
+        self.qt_style_combo.addItems(available_qt_styles())
+        self.qt_style_combo.setCurrentText(self.settings_manager.get_qt_style())
+        self.qt_style_combo.setToolTip(
+            _("Lists every Qt widget style available on this system "
+              "(Fusion, Windows, Darkly, desktop styles, and plugins). "
+              "System keeps the platform default.")
+        )
+        general_layout.addRow(qt_style_label, self.qt_style_combo)
 
         icon_label = QLabel(_("Icon Contrast:"))
         self.icon_contrast_combo = QComboBox()
@@ -422,6 +434,7 @@ class SettingsDialog(QDialog):
         selected_bg = self.theme_rgba(app["accent"], 0.18)
         divider_color = self.theme_rgba(app["border"], 0.75)
         item_divider_color = self.theme_rgba(app["border"], 0.65)
+        ThemeManager.apply_app_palette(self, theme)
         self.setStyleSheet(ThemeManager.build_dialog_stylesheet(theme, self.ui_font) + f"""
             QListWidget#settingsNavList {{
                 border: none;
@@ -761,6 +774,7 @@ class SettingsDialog(QDialog):
             'spell_languages': self._spell_languages_for_document(),
             'ui_theme': self.ui_theme_combo.currentText(),
             'theme': self.editor_theme_combo.currentText(),
+            'qt_style': self.qt_style_combo.currentText(),
             'custom_themes': self.get_custom_themes(),
             'language': self.language_combo.currentData() or self.language_combo.currentText(),
             'icon_contrast': self.icon_contrast_combo.currentText(),

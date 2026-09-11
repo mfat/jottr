@@ -24,6 +24,7 @@ It has cool features including:
 * Two methods to quickly inserting frequently used text blocks: add words to your dictionary or create text snippets and insert with custom keywords
 * Smart, intuitive autocompletion with tab key
 * Themes: choose between, light, dark and Sepia (paper-like) themes for the editor
+* Widget styles: pick built-in Qt styles such as Fusion or Windows, or installed styles like Darkly
 * Familiar, intuitive keyboard shortcuts (ctrl+= to make text bigger, for example)
 
 [Video overview](https://www.youtube.com/watch?v=P2nyr5V01SU)

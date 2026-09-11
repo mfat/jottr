@@ -110,6 +110,27 @@ class DialogAndRssTests(unittest.TestCase):
         dialog.homepage_edit.setText("https://home.example")
         dialog.ui_theme_combo.setCurrentText("Dark")
         dialog.editor_theme_combo.setCurrentText("Forest")
+        fusion = next(
+            (name for name in (
+                dialog.qt_style_combo.itemText(i)
+                for i in range(dialog.qt_style_combo.count())
+            ) if name.casefold() == "fusion"),
+            None,
+        )
+        self.assertIsNotNone(fusion)
+        from PyQt6.QtWidgets import QStyleFactory
+
+        combo_styles = {
+            dialog.qt_style_combo.itemText(i)
+            for i in range(dialog.qt_style_combo.count())
+        }
+        self.assertIn("System", combo_styles)
+        for key in QStyleFactory.keys():
+            self.assertTrue(
+                any(name.casefold() == key.casefold() for name in combo_styles),
+                msg=f"settings combo missing style {key!r}",
+            )
+        dialog.qt_style_combo.setCurrentText(fusion)
         dialog.icon_contrast_combo.setCurrentText("light")
         dialog.markdown_scroll_sync_check.setChecked(False)
         dialog.editor_line_numbers_check.setChecked(False)
@@ -129,10 +150,11 @@ class DialogAndRssTests(unittest.TestCase):
         self.assertEqual(data["search_sites"], {"News": "site:news.example"})
         self.assertEqual(data["user_dictionary"], ["jottr"])
         self.assertFalse(data["spell_check"])
-        self.assertEqual(data["document_language"], "en_US")
-        self.assertIn("en_US", data["spell_languages"])
+        self.assertEqual(data["document_language"], "auto")
+        self.assertEqual(data["spell_languages"], [])
         self.assertEqual(data["ui_theme"], "Dark")
         self.assertEqual(data["theme"], "Forest")
+        self.assertEqual(data["qt_style"], fusion)
         self.assertEqual(data["custom_themes"]["Forest"]["editor"]["background"], "#102018")
         self.assertEqual(data["icon_contrast"], "light")
         self.assertFalse(data["enable_animations"])

@@ -31,6 +31,7 @@ class SettingsManager:
             "font_italic": False,
             "ui_theme": "default",
             "theme": "default",
+            "qt_style": "System",
             "custom_themes": {},
             "language": "en_US",
             "icon_contrast": "auto",
@@ -194,6 +195,17 @@ class SettingsManager:
 
     def save_ui_theme(self, theme):
         self.settings["ui_theme"] = theme
+        self.save_settings()
+
+    def get_qt_style(self):
+        from jottr.qt_style import normalize_qt_style
+
+        return normalize_qt_style(self.settings.get("qt_style", "System"))
+
+    def save_qt_style(self, style_name):
+        from jottr.qt_style import normalize_qt_style
+
+        self.settings["qt_style"] = normalize_qt_style(style_name)
         self.save_settings()
 
     def get_custom_themes(self):

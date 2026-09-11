@@ -276,6 +276,40 @@ class ThemeManager:
                 "constant": "#b36b24",
                 "error": "#b42318"
             }
+        },
+        # Colors from https://github.com/Bali10050/Darkly
+        "Darkly": {
+            "app": {
+                "background": "#222222",
+                "surface": "#323232",
+                "surface_alt": "#363636",
+                "surface_hover": "#4d4d4d",
+                "surface_active": "#1b91d5",
+                "text": "#f1f1f1",
+                "muted": "#c7c7c7",
+                "border": "#4d4d4d",
+                "border_active": "#00a1ec",
+                "accent": "#3478da",
+                "accent_text": "#f1f1f1",
+                "danger": "#da4453"
+            },
+            "editor": {
+                "background": "#2c2c2c",
+                "foreground": "#f1f1f1",
+                "selection": "#1b91d5",
+                "current_line": "#363636",
+                "border": "#4d4d4d"
+            },
+            "syntax": {
+                "comment": "#c7c7c7",
+                "keyword": "#3daee9",
+                "string": "#24ad59",
+                "number": "#f67400",
+                "function": "#3478da",
+                "type": "#73739e",
+                "constant": "#f67400",
+                "error": "#da4453"
+            }
         }
     }
 
@@ -453,10 +487,79 @@ class ThemeManager:
         return f'url("{ThemeManager.menu_check_indicator_path(color)}")'
 
     @staticmethod
+    def build_app_palette(theme, base_palette=None):
+        """Build a QPalette from theme colors so QStyle-drawn widgets stay themed."""
+        app = theme["app"]
+        palette = QPalette(base_palette) if base_palette is not None else QPalette()
+        background = QColor(app["background"])
+        surface = QColor(app["surface"])
+        surface_alt = QColor(app["surface_alt"])
+        text = QColor(app["text"])
+        muted = QColor(app["muted"])
+        accent = QColor(app["accent"])
+        accent_text = QColor(app["accent_text"])
+        border = QColor(app["border"])
+        highlight = QColor(app["surface_active"])
+
+        roles = {
+            QPalette.ColorRole.Window: background,
+            QPalette.ColorRole.WindowText: text,
+            QPalette.ColorRole.Base: surface,
+            QPalette.ColorRole.AlternateBase: surface_alt,
+            QPalette.ColorRole.Text: text,
+            QPalette.ColorRole.Button: surface,
+            QPalette.ColorRole.ButtonText: text,
+            QPalette.ColorRole.BrightText: accent,
+            QPalette.ColorRole.ToolTipBase: surface,
+            QPalette.ColorRole.ToolTipText: text,
+            QPalette.ColorRole.PlaceholderText: muted,
+            QPalette.ColorRole.Highlight: highlight,
+            QPalette.ColorRole.HighlightedText: accent_text,
+            QPalette.ColorRole.Link: accent,
+            QPalette.ColorRole.LinkVisited: accent,
+            QPalette.ColorRole.Light: surface,
+            QPalette.ColorRole.Midlight: surface_alt,
+            QPalette.ColorRole.Mid: border,
+            QPalette.ColorRole.Dark: muted,
+            QPalette.ColorRole.Shadow: border,
+        }
+        for group in (
+            QPalette.ColorGroup.Active,
+            QPalette.ColorGroup.Inactive,
+            QPalette.ColorGroup.Disabled,
+        ):
+            for role, color in roles.items():
+                value = color
+                if group == QPalette.ColorGroup.Disabled and role in (
+                    QPalette.ColorRole.WindowText,
+                    QPalette.ColorRole.Text,
+                    QPalette.ColorRole.ButtonText,
+                    QPalette.ColorRole.HighlightedText,
+                ):
+                    value = muted
+                palette.setColor(group, role, value)
+        return palette
+
+    @staticmethod
+    def apply_app_palette(target, theme):
+        """Apply theme colors via QPalette so built-in Qt styles remain visible."""
+        from PyQt6.QtWidgets import QApplication
+
+        application = QApplication.instance()
+        base = None
+        if application is not None and application.style() is not None:
+            base = application.style().standardPalette()
+        palette = ThemeManager.build_app_palette(theme, base)
+        target.setPalette(palette)
+        if application is not None and target is application:
+            application.setPalette(palette)
+        return palette
+
+    @staticmethod
     def build_app_stylesheet(theme, font=None):
         app = theme["app"]
         font_style = ThemeManager.build_font_stylesheet(font)
-        menu_check = ThemeManager.menu_check_indicator_image(app["accent"])
+        # Only style Jottr chrome by object name. Global control QSS hides widget styles.
         return f"""
             QMainWindow, QWidget#mainSurface {{
                 background: {app['background']};
@@ -688,116 +791,6 @@ class ThemeManager:
                 color: {app['muted']};
                 padding: 3px 10px;
             }}
-            QMenu {{
-                background: {app['surface']};
-                border: 1px solid {app['border']};
-                border-radius: 0px;
-                padding: 7px;
-                color: {app['text']};
-                {font_style}
-            }}
-            QMenu::item {{
-                color: {app['text']};
-                padding: 8px 30px 8px 28px;
-                border: 1px solid transparent;
-                border-radius: 0px;
-                {font_style}
-            }}
-            QMenu::item:selected {{
-                background: {app['surface_hover']};
-                border-color: {app['border_active']};
-                color: {app['text']};
-            }}
-            QMenu::item:checked {{
-                /* Keep Kate-like ticks; don't paint a persistent selected chip. */
-                color: {app['text']};
-            }}
-            QMenu::item:disabled {{
-                color: {app['muted']};
-            }}
-            QMenu::separator {{
-                background: {app['border']};
-                height: 1px;
-                margin: 6px 8px;
-            }}
-            QMenu::indicator {{
-                width: 14px;
-                height: 14px;
-                subcontrol-position: center left;
-                margin-left: 8px;
-            }}
-            QMenu::indicator:checked,
-            QMenu::indicator:non-exclusive:checked,
-            QMenu::indicator:exclusive:checked {{
-                image: {menu_check};
-            }}
-            QMenu::icon {{
-                padding-left: 6px;
-            }}
-            QComboBox {{
-                background: {app['surface']};
-                color: {app['text']};
-                border: 1px solid {app['border']};
-                border-radius: 0px;
-                padding: 5px 28px 5px 9px;
-                selection-background-color: {app['surface_active']};
-                selection-color: {app['text']};
-                {font_style}
-            }}
-            QComboBox:hover {{
-                background: {app['surface_hover']};
-                border-color: {app['border_active']};
-            }}
-            QComboBox:focus {{
-                border-color: {app['border_active']};
-            }}
-            QComboBox::drop-down {{
-                border: none;
-                width: 24px;
-            }}
-            QComboBox QAbstractItemView,
-            QAbstractItemView {{
-                background: {app['surface']};
-                color: {app['text']};
-                border: 1px solid {app['border']};
-                selection-background-color: {app['surface_active']};
-                selection-color: {app['text']};
-                outline: 0px;
-                {font_style}
-            }}
-            QToolTip {{
-                background: {app['surface']};
-                color: {app['text']};
-                border: 1px solid {app['border']};
-                padding: 5px 8px;
-                {font_style}
-            }}
-            QScrollBar:vertical {{
-                background: {app['surface_alt']};
-                width: 12px;
-                margin: 0px;
-            }}
-            QScrollBar::handle:vertical {{
-                background: {app['muted']};
-                min-height: 32px;
-            }}
-            QScrollBar::add-line:vertical,
-            QScrollBar::sub-line:vertical {{
-                height: 0px;
-            }}
-            QScrollBar:horizontal {{
-                background: {app['surface_alt']};
-                height: 12px;
-                margin: 0px;
-            }}
-            QScrollBar::handle:horizontal {{
-                background: {app['muted']};
-                min-width: 32px;
-            }}
-            QScrollBar::add-line:horizontal,
-            QScrollBar::sub-line:horizontal {{
-                width: 0px;
-            }}
         """
 
     @staticmethod
@@ -867,32 +860,6 @@ class ThemeManager:
                 background: {app['background']};
                 border-bottom: 1px solid {app['border']};
             }}
-            QWidget#findToolbar QLineEdit,
-            QWidget#browserToolbar QLineEdit {{
-                background: {app['surface']};
-                color: {app['text']};
-                border: 1px solid {app['border']};
-                border-radius: 0px;
-                padding: 5px 9px;
-                selection-background-color: {editor['selection']};
-            }}
-            QWidget#findToolbar QLineEdit:focus,
-            QWidget#browserToolbar QLineEdit:focus {{
-                border-color: {app['border_active']};
-            }}
-            QWidget#findToolbar QPushButton,
-            QWidget#browserToolbar QPushButton {{
-                background: transparent;
-                border: 1px solid transparent;
-                border-radius: 0px;
-                padding: 5px 8px;
-                color: {app['text']};
-            }}
-            QWidget#findToolbar QPushButton:hover,
-            QWidget#browserToolbar QPushButton:hover {{
-                background: {app['surface_hover']};
-                border-color: {app['border_active']};
-            }}
         """
 
     @staticmethod
@@ -900,30 +867,12 @@ class ThemeManager:
         app = theme["app"]
         editor = theme["editor"]
         font_style = ThemeManager.build_font_stylesheet(font)
+        # Keep dialog chrome themed; leave buttons/inputs/scrollbars to QStyle.
         return f"""
             QDialog {{
                 background: {app['background']};
                 color: {app['text']};
                 {font_style}
-            }}
-            QTabWidget::pane {{
-                background: {app['surface']};
-                border: 1px solid {app['border']};
-                border-radius: 0px;
-                top: 0px;
-            }}
-            QTabBar::tab {{
-                background: transparent;
-                color: {app['muted']};
-                border: none;
-                border-bottom: 2px solid transparent;
-                padding: 8px 16px;
-                margin: 0px;
-            }}
-            QTabBar::tab:selected {{
-                background: {app['surface']};
-                color: {app['text']};
-                border-bottom: 2px solid {app['accent']};
             }}
             QScrollArea {{
                 background: {app['background']};
@@ -932,75 +881,9 @@ class ThemeManager:
             QScrollArea > QWidget > QWidget {{
                 background: {app['background']};
             }}
-            QGroupBox {{
-                background: {app['surface']};
-                border: 1px solid {app['border']};
-                border-radius: 0px;
-                margin-top: 12px;
-                padding: 14px 10px 10px 10px;
-                font-weight: 700;
-            }}
-            QGroupBox::title {{
-                subcontrol-origin: margin;
-                left: 12px;
-                padding: 0 6px;
+            QLabel {{
                 color: {app['text']};
-            }}
-            QLineEdit,
-            QPlainTextEdit,
-            QFontComboBox,
-            QComboBox,
-            QSpinBox,
-            QListWidget {{
-                background: {app['surface']};
-                color: {app['text']};
-                border: 1px solid {app['border']};
-                border-radius: 0px;
-                padding: 6px 9px;
-                selection-background-color: {editor['selection']};
-                selection-color: {app['text']};
                 {font_style}
-            }}
-            QLineEdit:focus,
-            QPlainTextEdit:focus,
-            QFontComboBox:focus,
-            QComboBox:focus,
-            QSpinBox:focus,
-            QListWidget:focus {{
-                border-color: {app['border_active']};
-            }}
-            QFontComboBox,
-            QComboBox {{
-                padding-right: 28px;
-            }}
-            QFontComboBox:hover,
-            QComboBox:hover {{
-                background: {app['surface_hover']};
-                border-color: {app['border_active']};
-            }}
-            QFontComboBox::drop-down,
-            QComboBox::drop-down {{
-                border: none;
-                width: 24px;
-            }}
-            QFontComboBox QAbstractItemView,
-            QComboBox QAbstractItemView,
-            QAbstractItemView {{
-                background: {app['surface']};
-                color: {app['text']};
-                border: 1px solid {app['border']};
-                selection-background-color: {app['surface_active']};
-                selection-color: {app['text']};
-                outline: 0px;
-                {font_style}
-            }}
-            QListWidget::item {{
-                border-radius: 0px;
-                padding: 7px 8px;
-            }}
-            QListWidget::item:selected {{
-                background: {app['surface_active']};
-                color: {app['text']};
             }}
             QLabel#fontPreview {{
                 background: {editor['background']};
@@ -1009,33 +892,8 @@ class ThemeManager:
                 border-radius: 0px;
                 padding: 10px;
             }}
-            QPushButton {{
-                background: {app['surface']};
-                border: 1px solid {app['border']};
-                border-radius: 0px;
-                padding: 7px 12px;
-                color: {app['text']};
-                {font_style}
-            }}
-            QPushButton:hover {{
-                background: {app['surface_hover']};
-                border-color: {app['border_active']};
-            }}
-            QPushButton:pressed {{
-                background: {app['surface_active']};
-                border-color: {app['border_active']};
-            }}
             QPushButton#fontSettingButton {{
                 text-align: left;
-            }}
-            QCheckBox {{
-                spacing: 8px;
-                color: {app['text']};
-                {font_style}
-            }}
-            QLabel {{
-                color: {app['text']};
-                {font_style}
             }}
         """
 
@@ -1044,7 +902,6 @@ class ThemeManager:
         app = theme["app"]
         editor = theme["editor"]
         font_style = ThemeManager.build_font_stylesheet(font)
-        indicator_color = app["accent"]
         return f"""
             QDialog#fontSelectionDialog {{
                 background: {app['background']};
@@ -1055,82 +912,12 @@ class ThemeManager:
                 color: {app['text']};
                 {font_style}
             }}
-            QFontComboBox,
-            QComboBox {{
-                background: {app['surface_alt']};
-                color: {app['text']};
-                border: 1px solid {app['border']};
-                border-radius: 0px;
-                min-height: 30px;
-                padding: 5px 36px 5px 10px;
-                selection-background-color: {app['surface_active']};
-                selection-color: {app['text']};
-            }}
-            QFontComboBox:hover,
-            QComboBox:hover {{
-                background: {app['surface_hover']};
-                border-color: {app['border_active']};
-            }}
-            QFontComboBox:focus,
-            QComboBox:focus {{
-                border-color: {app['accent']};
-            }}
-            QFontComboBox::drop-down,
-            QComboBox::drop-down {{
-                subcontrol-origin: padding;
-                subcontrol-position: top right;
-                background: {app['surface']};
-                border-left: 1px solid {app['border']};
-                border-top-right-radius: 0px;
-                border-bottom-right-radius: 0px;
-                width: 30px;
-            }}
-            QFontComboBox::down-arrow,
-            QComboBox::down-arrow {{
-                image: none;
-                width: 0px;
-                height: 0px;
-                border-left: 5px solid transparent;
-                border-right: 5px solid transparent;
-                border-top: 6px solid {indicator_color};
-                margin-right: 9px;
-            }}
-            QFontComboBox QAbstractItemView,
-            QComboBox QAbstractItemView,
-            QAbstractItemView {{
-                background: {app['surface']};
-                color: {app['text']};
-                border: 1px solid {app['border_active']};
-                selection-background-color: {app['surface_active']};
-                selection-color: {app['text']};
-                outline: 0px;
-            }}
-            QAbstractItemView::item {{
-                min-height: 28px;
-                padding: 4px 8px;
-            }}
             QLabel#fontPreview {{
                 background: {editor['background']};
                 color: {editor['foreground']};
                 border: 1px solid {editor['border']};
                 border-radius: 0px;
                 padding: 12px;
-            }}
-            QPushButton {{
-                background: {app['surface']};
-                color: {app['text']};
-                border: 1px solid {app['border']};
-                border-radius: 0px;
-                min-width: 76px;
-                padding: 7px 14px;
-                {font_style}
-            }}
-            QPushButton:hover {{
-                background: {app['surface_hover']};
-                border-color: {app['border_active']};
-            }}
-            QPushButton:pressed {{
-                background: {app['surface_active']};
             }}
         """
 

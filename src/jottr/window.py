@@ -22,6 +22,7 @@ from jottr.editor_tab import EditorTab
 from jottr.snippet_manager import SnippetManager
 from jottr.rss_tab import RSSTab
 from jottr.theme_manager import ThemeManager
+from jottr.qt_style import apply_qt_style, refresh_styled_widgets
 from jottr.settings_manager import SettingsManager
 from jottr.settings_dialog import SettingsDialog
 from jottr.translation_manager import _, format_language_label, is_rtl_language, set_language
@@ -170,13 +171,22 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
         )
         app_font = QFont(font) if font is not None else self.settings_manager.get_font("ui")
         application = QApplication.instance()
+        # Drop stylesheets before setStyle so the widget style can take effect.
         if application:
+            application.setStyleSheet("")
+        self.setStyleSheet("")
+        if application:
+            apply_qt_style(self.settings_manager.get_qt_style(), application)
+            ThemeManager.apply_app_palette(application, theme)
             application.setFont(app_font)
+        ThemeManager.apply_app_palette(self, theme)
         self.setFont(app_font)
         stylesheet = ThemeManager.build_app_stylesheet(theme, app_font)
         if application:
             application.setStyleSheet(stylesheet)
         self.setStyleSheet(stylesheet)
+        if application:
+            refresh_styled_widgets(application)
         self.update_action_icons()
         self.refresh_tab_icons()
 
@@ -1280,6 +1290,7 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
         self.settings_manager.save_custom_themes(settings['custom_themes'])
         self.settings_manager.save_ui_theme(settings['ui_theme'])
         self.settings_manager.save_theme(settings['theme'])
+        self.settings_manager.save_qt_style(settings['qt_style'])
         self.settings_manager.save_setting('language', settings['language'])
         set_language(settings['language'])
         self.apply_layout_direction(settings['language'])

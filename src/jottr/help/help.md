@@ -6,7 +6,17 @@ Jottr supports app-wide themes that can be changed from the Theme toolbar button
 - Dark theme: Dark color scheme for low-light environments
 - Sepia theme: Warm, paper-like theme for comfortable reading
 - Dracula theme: Dark app-wide theme based on the Dracula specification
+- Darkly theme: Dark theme based on [Darkly](https://github.com/Bali10050/Darkly) (pairs with the Darkly widget style when installed)
 - Custom themes: User-defined app, editor, and syntax colors
+
+## Widget styles
+In Settings > Appearance, **Widget Style** lists every Qt style available on your system, including:
+- System: Keep the platform default style
+- Built-in styles such as Fusion and Windows
+- Platform styles such as WindowsVista, windows11, or macos when provided by Qt
+- Desktop or plugin styles installed on your system (for example Breeze, Oxygen, or [Darkly](https://github.com/Bali10050/Darkly))
+
+The dropdown is filled from Qt's style factory, so everything your Qt build can create is offered. Theme colors are applied through the Qt palette so the selected widget style can draw buttons, combos, scrollbars, and menus. Jottr still styles its own chrome (toolbar, tabs, workspace) with stylesheets.
 
 To create a custom theme:
 1. Open Settings > Appearance

@@ -7,7 +7,7 @@ from PyQt6.QtWidgets import (
     QLabel,
     QVBoxLayout,
 )
-from PyQt6.QtGui import QColor, QFont, QPalette
+from PyQt6.QtGui import QFont
 
 from jottr.icon_manager import apply_dialog_window_icon
 from jottr.theme_manager import ThemeManager
@@ -101,25 +101,12 @@ class FontSelectionDialog(QDialog):
 
     def apply_style(self, font):
         theme = self.active_theme()
+        ThemeManager.apply_app_palette(self, theme)
         self.setStyleSheet(ThemeManager.build_font_dialog_stylesheet(theme, font))
-        app = theme["app"]
-        palette = self.palette()
-        palette.setColor(QPalette.ColorRole.Window, QColor(app["background"]))
-        palette.setColor(QPalette.ColorRole.WindowText, QColor(app["text"]))
-        palette.setColor(QPalette.ColorRole.Base, QColor(app["surface"]))
-        palette.setColor(QPalette.ColorRole.Text, QColor(app["text"]))
-        palette.setColor(QPalette.ColorRole.Button, QColor(app["surface"]))
-        palette.setColor(QPalette.ColorRole.ButtonText, QColor(app["text"]))
-        palette.setColor(QPalette.ColorRole.Highlight, QColor(app["surface_active"]))
-        palette.setColor(QPalette.ColorRole.HighlightedText, QColor(app["text"]))
-        self.setPalette(palette)
-        for combo in (self.font_combo, self.style_combo):
-            combo.setPalette(palette)
-            if combo.view():
-                combo.view().setPalette(palette)
-        self.size_combo.setPalette(palette)
-        if self.size_combo.view():
-            self.size_combo.view().setPalette(palette)
+        for combo in (self.font_combo, self.style_combo, self.size_combo):
+            combo.setPalette(self.palette())
+            if hasattr(combo, "view") and combo.view():
+                combo.view().setPalette(self.palette())
 
     def initial_style_index(self, font):
         if font.bold() and font.italic():

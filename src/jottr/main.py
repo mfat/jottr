@@ -21,6 +21,7 @@ from PyQt6.QtGui import QFont
 from PyQt6.QtOpenGLWidgets import QOpenGLWidget
 
 from jottr.font_dialog import FontSelectionDialog
+from jottr.qt_style import capture_platform_qt_style
 from jottr.theme_manager import ThemeManager
 from jottr.ui import LeftAlignedDocumentTabBar, WorkspaceFileSystemModel, WorkspaceTreeView
 from jottr.window import (
@@ -60,6 +61,8 @@ def main():
 
     # Create application instance
     app = QApplication(sys.argv)
+    # Remember the platform style before any user override is applied.
+    capture_platform_qt_style(app)
     
     # Set application metadata
     app.setApplicationName("Jottr")
