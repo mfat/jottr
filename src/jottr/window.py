@@ -1290,13 +1290,34 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
 
     def apply_settings_from_view(self, settings_view):
         settings = settings_view.get_data()
-        self.settings_manager.save_setting('homepage', settings['homepage'])
-        self.settings_manager.save_setting('search_sites', settings['search_sites'])
-        self.settings_manager.save_setting('user_dictionary', settings['user_dictionary'])
-        self.settings_manager.save_setting('spell_check', settings['spell_check'])
+        sm = self.settings_manager
+
+        previous_language = sm.get_setting('language')
+        previous_icon_theme = sm.get_icon_theme()
+        previous_icon_contrast = sm.get_setting('icon_contrast')
+        previous_ui_theme = sm.get_ui_theme()
+        previous_theme = sm.get_theme()
+        previous_qt_style = sm.get_qt_style()
+        previous_custom_themes = sm.get_custom_themes()
+        previous_ui_font = sm.get_font("ui")
+        previous_spell_check = sm.get_setting('spell_check')
+        previous_document_language = sm.get_setting('document_language')
+        previous_spell_languages = list(sm.get_setting('spell_languages') or [])
+        previous_user_dictionary = list(sm.get_setting('user_dictionary') or [])
+        previous_line_numbers = sm.get_setting('editor_line_numbers')
+        previous_autosave_enabled = sm.get_setting('autosave_enabled')
+        previous_autosave_interval = sm.get_setting('autosave_interval_seconds')
+        previous_enable_animations = sm.get_setting('enable_animations')
+        previous_plugins = (
+            sm.get_setting('plugins_directory'),
+            sm.get_setting('plugin_channels', []),
+            sm.get_setting('plugin_channel_filter', 'all'),
+            sm.get_setting('plugin_state', {}),
+        )
+
         document_language = str(
             settings.get('document_language')
-            or get_document_language(self.settings_manager)
+            or get_document_language(sm)
         ).replace('-', '_')
         if document_language.lower() == DOCUMENT_LANGUAGE_AUTO:
             document_language = DOCUMENT_LANGUAGE_AUTO
@@ -1304,54 +1325,115 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
         else:
             matched = match_dictionary_for_language(document_language)
             spell_languages = [matched] if matched else []
-        self.settings_manager.save_setting('document_language', document_language)
-        self.settings_manager.save_setting('spell_languages', spell_languages)
-        self.settings_manager.save_custom_themes(settings['custom_themes'])
-        self.settings_manager.save_ui_theme(settings['ui_theme'])
-        self.settings_manager.save_theme(settings['theme'])
-        self.settings_manager.save_qt_style(settings['qt_style'])
-        self.settings_manager.save_setting('language', settings['language'])
-        set_language(settings['language'])
-        self.apply_layout_direction(settings['language'])
-        self.apply_language_direction_to_tabs()
-        self.retranslate_actions()
-        self.settings_manager.save_icon_theme(settings['icon_theme'])
-        self.settings_manager.save_setting('icon_contrast', settings['icon_contrast'])
-        self.settings_manager.save_setting('enable_animations', settings['enable_animations'])
-        self.settings_manager.save_font(settings['ui_font'], "ui")
-        self.settings_manager.save_setting('markdown_scroll_sync', settings['markdown_scroll_sync'])
-        self.settings_manager.save_setting('editor_line_numbers', settings['editor_line_numbers'])
-        self.settings_manager.save_setting(
-            'double_click_empty_tab_bar_new_tab',
-            settings['double_click_empty_tab_bar_new_tab']
-        )
-        self.settings_manager.save_setting(
-            'double_click_tab_closes_tab',
-            settings['double_click_tab_closes_tab']
-        )
-        self.settings_manager.save_setting('autosave_enabled', settings['autosave_enabled'])
-        self.settings_manager.save_setting('autosave_interval_seconds', settings['autosave_interval_seconds'])
-        self.settings_manager.save_setting('plugins_directory', settings['plugins_directory'])
-        self.settings_manager.save_setting('plugin_registry_url', settings['plugin_registry_url'])
-        self.settings_manager.save_setting('plugin_registry_checksum_url', settings['plugin_registry_checksum_url'])
-        self.settings_manager.save_setting('plugin_channels', settings.get('plugin_channels', []))
-        self.settings_manager.save_setting('plugin_channel_filter', settings.get('plugin_channel_filter', 'all'))
-        self.settings_manager.save_setting('plugin_state', settings['plugin_state'])
-        self.plugin_manager = PluginManager(self.settings_manager)
-        self.plugin_manager.refresh()
-        self.plugin_manager.activate_enabled_plugins()
-        self.icons = load_bundled_icon_paths(self.settings_manager.get_icon_theme())
-        self.removeToolBar(self.toolbar)
-        self.toolbar.deleteLater()
-        self.setup_toolbar()
-        self.apply_app_style()
-        self.create_menu_bar()
-        self.apply_editor_theme_to_tabs(settings['theme'])
-        self.apply_spell_check_to_tabs()
-        self.sync_spell_check_ui(settings['spell_check'])
-        self.apply_editor_line_numbers(settings['editor_line_numbers'])
-        self.apply_autosave_settings()
-        self.statusBar.showMessage(_("Settings applied"), 3000)
+
+        QApplication.setOverrideCursor(Qt.CursorShape.WaitCursor)
+        try:
+            with sm.defer_saves():
+                sm.save_setting('homepage', settings['homepage'])
+                sm.save_setting('search_sites', settings['search_sites'])
+                sm.save_setting('user_dictionary', settings['user_dictionary'])
+                sm.save_setting('spell_check', settings['spell_check'])
+                sm.save_setting('document_language', document_language)
+                sm.save_setting('spell_languages', spell_languages)
+                sm.save_custom_themes(settings['custom_themes'])
+                sm.save_ui_theme(settings['ui_theme'])
+                sm.save_theme(settings['theme'])
+                sm.save_qt_style(settings['qt_style'])
+                sm.save_setting('language', settings['language'])
+                sm.save_icon_theme(settings['icon_theme'])
+                sm.save_setting('icon_contrast', settings['icon_contrast'])
+                sm.save_setting('enable_animations', settings['enable_animations'])
+                sm.save_font(settings['ui_font'], "ui")
+                sm.save_setting('markdown_scroll_sync', settings['markdown_scroll_sync'])
+                sm.save_setting('editor_line_numbers', settings['editor_line_numbers'])
+                sm.save_setting(
+                    'double_click_empty_tab_bar_new_tab',
+                    settings['double_click_empty_tab_bar_new_tab']
+                )
+                sm.save_setting(
+                    'double_click_tab_closes_tab',
+                    settings['double_click_tab_closes_tab']
+                )
+                sm.save_setting('autosave_enabled', settings['autosave_enabled'])
+                sm.save_setting('autosave_interval_seconds', settings['autosave_interval_seconds'])
+                sm.save_setting('plugins_directory', settings['plugins_directory'])
+                # plugin_registry_* edits are "add channel" inputs, not persisted URLs.
+                sm.save_setting('plugin_channels', settings.get('plugin_channels', []))
+                sm.save_setting('plugin_channel_filter', settings.get('plugin_channel_filter', 'all'))
+                sm.save_setting('plugin_state', settings['plugin_state'])
+
+            QApplication.processEvents()
+
+            language_changed = previous_language != settings['language']
+            if language_changed:
+                set_language(settings['language'])
+                self.apply_layout_direction(settings['language'])
+                self.apply_language_direction_to_tabs()
+                self.retranslate_actions()
+
+            plugins_changed = previous_plugins != (
+                settings['plugins_directory'],
+                settings.get('plugin_channels', []),
+                settings.get('plugin_channel_filter', 'all'),
+                settings['plugin_state'],
+            )
+            if plugins_changed:
+                self.plugin_manager = PluginManager(sm)
+                self.plugin_manager.refresh()
+                self.plugin_manager.activate_enabled_plugins()
+                QApplication.processEvents()
+
+            icons_changed = (
+                previous_icon_theme != settings['icon_theme']
+                or previous_icon_contrast != settings['icon_contrast']
+            )
+            chrome_changed = language_changed or icons_changed or plugins_changed
+            if chrome_changed:
+                self.icons = load_bundled_icon_paths(sm.get_icon_theme())
+                self.removeToolBar(self.toolbar)
+                self.toolbar.deleteLater()
+                self.setup_toolbar()
+                self.create_menu_bar()
+                QApplication.processEvents()
+
+            style_changed = (
+                previous_ui_theme != settings['ui_theme']
+                or previous_qt_style != settings['qt_style']
+                or previous_enable_animations != settings['enable_animations']
+                or previous_ui_font != settings['ui_font']
+                or chrome_changed
+            )
+            if style_changed:
+                self.apply_app_style()
+
+            if (
+                previous_theme != settings['theme']
+                or previous_custom_themes != settings['custom_themes']
+            ):
+                self.apply_editor_theme_to_tabs(settings['theme'])
+
+            spell_changed = (
+                previous_spell_check != settings['spell_check']
+                or previous_document_language != document_language
+                or previous_spell_languages != spell_languages
+                or previous_user_dictionary != list(settings['user_dictionary'] or [])
+            )
+            if spell_changed:
+                self.apply_spell_check_to_tabs()
+                self.sync_spell_check_ui(settings['spell_check'])
+
+            if previous_line_numbers != settings['editor_line_numbers']:
+                self.apply_editor_line_numbers(settings['editor_line_numbers'])
+
+            if (
+                previous_autosave_enabled != settings['autosave_enabled']
+                or previous_autosave_interval != settings['autosave_interval_seconds']
+            ):
+                self.apply_autosave_settings()
+
+            self.statusBar.showMessage(_("Settings applied"), 3000)
+        finally:
+            QApplication.restoreOverrideCursor()
 
     def close_settings_tab(self, settings_view):
         index = self.tab_widget.indexOf(settings_view)

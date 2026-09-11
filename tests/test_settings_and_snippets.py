@@ -115,6 +115,31 @@ class SettingsAndSnippetTests(unittest.TestCase):
         self.assertEqual(reloaded.get_font().pointSize(), 15)
         self.assertTrue(reloaded.get_font().italic())
 
+    def test_settings_manager_defer_saves_writes_once(self):
+        manager = SettingsManager()
+        write_count = {"n": 0}
+        original_write = manager._write_settings
+
+        def counting_write():
+            write_count["n"] += 1
+            original_write()
+
+        manager._write_settings = counting_write
+        with manager.defer_saves():
+            manager.save_setting("homepage", "https://batch.test")
+            manager.save_setting("spell_check", False)
+            manager.save_theme("Dark")
+            manager.save_ui_theme("System")
+            manager.save_setting("autosave_enabled", True)
+            self.assertEqual(write_count["n"], 0)
+
+        self.assertEqual(write_count["n"], 1)
+        reloaded = SettingsManager()
+        self.assertEqual(reloaded.get_setting("homepage"), "https://batch.test")
+        self.assertFalse(reloaded.get_setting("spell_check"))
+        self.assertEqual(reloaded.get_theme(), "Dark")
+        self.assertTrue(reloaded.get_setting("autosave_enabled"))
+
     def test_settings_manager_persists_separate_ui_and_editor_fonts(self):
         manager = SettingsManager()
 

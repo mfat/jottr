@@ -1,5 +1,6 @@
 import json
 import os
+from contextlib import contextmanager
 from PyQt6.QtGui import QFont
 import time
 import sys
@@ -134,6 +135,9 @@ class SettingsManager:
         #     except:
         #         pass
 
+        self._save_depth = 0
+        self._save_pending = False
+
     def load_settings(self):
         """Load settings from file"""
         settings_path = os.path.join(self.config_dir, 'settings.json')
@@ -146,7 +150,25 @@ class SettingsManager:
             except Exception as e:
                 print(f"Error loading settings: {str(e)}")
 
+    @contextmanager
+    def defer_saves(self):
+        """Coalesce nested save_setting/save_* calls into one disk write."""
+        self._save_depth += 1
+        try:
+            yield
+        finally:
+            self._save_depth -= 1
+            if self._save_depth == 0 and self._save_pending:
+                self._save_pending = False
+                self._write_settings()
+
     def save_settings(self):
+        if self._save_depth > 0:
+            self._save_pending = True
+            return
+        self._write_settings()
+
+    def _write_settings(self):
         with open(self.settings_file, 'w') as f:
             json.dump(self.settings, f)
 
@@ -393,8 +415,7 @@ class SettingsManager:
         """Save a single setting"""
         try:
             self.settings[key] = value
-            with open(self.settings_file, 'w') as f:
-                json.dump(self.settings, f)
+            self.save_settings()
         except Exception as e:
             print(f"Failed to save setting {key}: {str(e)}")
 
