@@ -1093,7 +1093,9 @@ class EditorAndMainTests(unittest.TestCase):
             self.assertIn("Find/Replace", edit_actions)
             self.assertNotIn("Settings", edit_actions)
             self.assertIn("QMenuBar#appMenuBar", QApplication.instance().styleSheet())
-            self.assertIn("QMenu::indicator:non-exclusive:checked", QApplication.instance().styleSheet())
+            self.assertIn("QMenu::indicator:checked", QApplication.instance().styleSheet())
+            self.assertIn("jottr-menu-check-", QApplication.instance().styleSheet())
+            self.assertNotIn("data:image/svg+xml", QApplication.instance().styleSheet())
 
             tools_menu = menubar.actions()[3].menu()
             spelling_action = next(

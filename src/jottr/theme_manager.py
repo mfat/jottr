@@ -1,5 +1,7 @@
 from copy import deepcopy
-from urllib.parse import quote
+from hashlib import sha1
+from pathlib import Path
+from tempfile import gettempdir
 
 from PyQt6.QtGui import QColor, QPalette
 
@@ -423,14 +425,32 @@ class ThemeManager:
         """
 
     @staticmethod
-    def menu_check_indicator_image(color):
-        """SVG checkmark for styled QMenu indicators (Kate-style menu ticks)."""
-        svg = (
+    def menu_check_indicator_svg(color):
+        return (
             '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16">'
             f'<path fill="{color}" d="M6.2 11.6 2.6 8l1.2-1.2 2.4 2.4 5.8-5.8L13.2 4.6z"/>'
             "</svg>"
         )
-        return f'url("data:image/svg+xml,{quote(svg)}")'
+
+    @staticmethod
+    def menu_check_indicator_path(color):
+        """Write a themed check SVG to a cache file.
+
+        Qt stylesheets do not reliably load data: URLs for QMenu::indicator, so
+        the checkmark must be a real file path (Kate-style menu ticks).
+        """
+        digest = sha1(str(color).encode("utf-8")).hexdigest()[:10]
+        path = Path(gettempdir()) / f"jottr-menu-check-{digest}.svg"
+        svg = ThemeManager.menu_check_indicator_svg(color)
+        if not path.exists() or path.read_text(encoding="utf-8") != svg:
+            path.write_text(svg, encoding="utf-8")
+        # Qt Style Sheets expect forward slashes even on Windows.
+        return path.as_posix()
+
+    @staticmethod
+    def menu_check_indicator_image(color):
+        """SVG checkmark URL for styled QMenu indicators."""
+        return f'url("{ThemeManager.menu_check_indicator_path(color)}")'
 
     @staticmethod
     def build_app_stylesheet(theme, font=None):
@@ -689,9 +709,8 @@ class ThemeManager:
                 color: {app['text']};
             }}
             QMenu::item:checked {{
-                background: {app['surface_active']};
-                color: {app['accent_text']};
-                border-color: {app['accent']};
+                /* Keep Kate-like ticks; don't paint a persistent selected chip. */
+                color: {app['text']};
             }}
             QMenu::item:disabled {{
                 color: {app['muted']};
@@ -704,8 +723,10 @@ class ThemeManager:
             QMenu::indicator {{
                 width: 14px;
                 height: 14px;
+                subcontrol-position: center left;
                 margin-left: 8px;
             }}
+            QMenu::indicator:checked,
             QMenu::indicator:non-exclusive:checked,
             QMenu::indicator:exclusive:checked {{
                 image: {menu_check};
