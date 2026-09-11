@@ -432,10 +432,6 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
         open_action.setShortcut(QKeySequence.StandardKey.Open)
         set_action_tooltip(open_action, "Open (Ctrl+O)")
         self.toolbar.addAction(open_action)
-
-        workspace_toolbar_action = create_action("document-open", "Workspace", self.open_workspace_dialog)
-        set_action_tooltip(workspace_toolbar_action, "Open Workspace")
-        self.toolbar.addAction(workspace_toolbar_action)
         
         save_action = create_action("save", "Save", self.save_file)
         save_action.setShortcut(QKeySequence.StandardKey.Save)
