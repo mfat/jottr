@@ -12,10 +12,11 @@ from jottr.icon_manager import apply_dialog_window_icon, themed_symbolic_icon
 from jottr.plugin_manager import PluginManager, REMOTE_WARNING
 from jottr.theme_manager import ThemeManager
 from jottr.editor.spellcheck import (
-    language_scripts,
-    list_available_spell_languages,
-    normalize_spell_languages,
-    resolve_spell_languages,
+    DOCUMENT_LANGUAGE_AUTO,
+    get_document_language,
+    list_document_language_choices,
+    match_dictionary_for_language,
+    missing_dictionary_message,
 )
 from jottr.translation_manager import (
     _,
@@ -302,20 +303,26 @@ class SettingsDialog(QDialog):
         )
         spell_form.addRow(self.spell_check_enabled)
 
-        spell_langs_label = QLabel(_("Active dictionaries:"))
+        self.document_language_combo = QComboBox()
+        self.document_language_combo.setMinimumContentsLength(28)
+        self.load_document_languages()
+        self.document_language_combo.currentIndexChanged.connect(
+            self.update_document_language_status
+        )
+        spell_form.addRow(_("Document language:"), self.document_language_combo)
+
+        self.document_language_status = QLabel()
+        self.document_language_status.setWordWrap(True)
+        spell_form.addRow(self.document_language_status)
+        self.update_document_language_status()
+
         spell_langs_hint = QLabel(
-            _("A word is valid if any checked dictionary accepts it. "
-              "Installed dictionaries for other scripts "
-              "(for example myspell-fa for Persian) are enabled automatically. "
-              "Uncheck a language here to turn it off.")
+            _("Choose a language, or Auto-detect from the text. "
+              "Jottr loads a matching installed dictionary and warns if none is available. "
+              "Also available from Tools → Spelling → Document Language and the status bar.")
         )
         spell_langs_hint.setWordWrap(True)
-        self.spell_language_list = QListWidget()
-        self.spell_language_list.setMinimumHeight(120)
-        self.load_spell_languages()
-        spell_form.addRow(spell_langs_label)
         spell_form.addRow(spell_langs_hint)
-        spell_form.addRow(self.spell_language_list)
         dict_layout.addWidget(spell_box)
         
         dict_label = QLabel(_("User Dictionary:"))
@@ -646,42 +653,67 @@ class SettingsDialog(QDialog):
         words = self.settings_manager.get_setting('user_dictionary', [])
         self.dict_list.addItems(words)
 
-    def load_spell_languages(self):
-        """Populate checkable list of installed Enchant dictionaries."""
-        available = list_available_spell_languages()
-        active = set(resolve_spell_languages(self.settings_manager))
-        self.spell_language_list.clear()
-        for language in available:
-            item = QListWidgetItem(format_language_label(language))
-            item.setData(Qt.ItemDataRole.UserRole, language)
-            item.setFlags(item.flags() | Qt.ItemFlag.ItemIsUserCheckable)
-            item.setCheckState(
-                Qt.CheckState.Checked if language in active else Qt.CheckState.Unchecked
+    def load_document_languages(self):
+        """Populate the document-language combo, including languages without dictionaries."""
+        current = get_document_language(self.settings_manager)
+        self.document_language_combo.blockSignals(True)
+        self.document_language_combo.clear()
+        for language in list_document_language_choices(extra=[current]):
+            self.document_language_combo.addItem(format_language_label(language), language)
+        index = self.document_language_combo.findData(current)
+        if index < 0:
+            self.document_language_combo.addItem(format_language_label(current), current)
+            index = self.document_language_combo.findData(current)
+        self.document_language_combo.setCurrentIndex(max(0, index))
+        self.document_language_combo.blockSignals(False)
+
+    def update_document_language_status(self):
+        """Show whether a dictionary is installed for the selected document language."""
+        from jottr.editor.spellcheck import USE_LANGDETECT
+
+        language = (
+            self.document_language_combo.currentData()
+            or self.document_language_combo.currentText()
+            or get_document_language(self.settings_manager)
+        )
+        if language == DOCUMENT_LANGUAGE_AUTO:
+            if USE_LANGDETECT:
+                self.document_language_status.setText(
+                    _("Auto-detects language from the document, then loads a matching "
+                      "installed dictionary. Short text may be unreliable.")
+                )
+                self.document_language_status.setStyleSheet("")
+            else:
+                self.document_language_status.setText(
+                    _("Auto-detect requires the langdetect package.")
+                )
+                self.document_language_status.setStyleSheet("color: #c0392b;")
+            return
+
+        matched = match_dictionary_for_language(language)
+        if matched:
+            self.document_language_status.setText(
+                _("Dictionary ready: {dictionary}").format(dictionary=matched)
             )
-            self.spell_language_list.addItem(item)
+            self.document_language_status.setStyleSheet("")
+        else:
+            self.document_language_status.setText(missing_dictionary_message(language))
+            self.document_language_status.setStyleSheet("color: #c0392b;")
 
-    def get_spell_languages(self):
-        """Return checked spell dictionary tags."""
-        selected = []
-        for index in range(self.spell_language_list.count()):
-            item = self.spell_language_list.item(index)
-            if item.checkState() == Qt.CheckState.Checked:
-                language = item.data(Qt.ItemDataRole.UserRole) or item.text()
-                selected.append(language)
-        return normalize_spell_languages(selected, list_available_spell_languages())
+    def get_document_language(self):
+        """Return the selected document language tag."""
+        return (
+            self.document_language_combo.currentData()
+            or self.document_language_combo.currentText()
+            or "en_US"
+        )
 
-    def get_spell_languages_disabled(self):
-        """Non-Latin dictionaries the user unchecked so auto-enable leaves them off."""
-        disabled = []
-        for index in range(self.spell_language_list.count()):
-            item = self.spell_language_list.item(index)
-            if item.checkState() == Qt.CheckState.Checked:
-                continue
-            language = item.data(Qt.ItemDataRole.UserRole) or item.text()
-            tag = str(language).replace("-", "_")
-            if language_scripts(tag) - {"latin"}:
-                disabled.append(tag)
-        return disabled
+    def _spell_languages_for_document(self):
+        language = self.get_document_language()
+        if language == DOCUMENT_LANGUAGE_AUTO:
+            return []
+        matched = match_dictionary_for_language(language)
+        return [matched] if matched else []
 
     def add_search_site(self):
         """Add new search site"""
@@ -725,8 +757,8 @@ class SettingsDialog(QDialog):
             'search_sites': self.get_search_sites(),
             'user_dictionary': self.get_user_dictionary(),
             'spell_check': self.spell_check_enabled.isChecked(),
-            'spell_languages': self.get_spell_languages(),
-            'spell_languages_disabled': self.get_spell_languages_disabled(),
+            'document_language': self.get_document_language(),
+            'spell_languages': self._spell_languages_for_document(),
             'ui_theme': self.ui_theme_combo.currentText(),
             'theme': self.editor_theme_combo.currentText(),
             'custom_themes': self.get_custom_themes(),

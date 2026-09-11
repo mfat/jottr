@@ -11,6 +11,15 @@ try:
 except (ImportError, ModuleNotFoundError):
     SpellChecker = None
 
+try:
+    from langdetect import DetectorFactory, LangDetectException, detect_langs
+    DetectorFactory.seed = 0
+    USE_LANGDETECT = True
+except (ImportError, ModuleNotFoundError):
+    detect_langs = None
+    LangDetectException = Exception
+    USE_LANGDETECT = False
+
 # Words may include internal apostrophes (shouldn't / don’t) and Arabic-script
 # joiners (ZWNJ/ZWJ) used in Persian orthography (می‌روم, کتاب‌ها).
 _WORD_CHARS = r"[\w\u200c\u200d]"
@@ -19,6 +28,43 @@ _WORD_PATTERN = re.compile(
     re.UNICODE,
 )
 _LOCALE_TAG = re.compile(r"^[a-z]{2}(?:_[A-Z]{2})?$")
+DOCUMENT_LANGUAGE_AUTO = "auto"
+# Non-Latin scripts pack more meaning per character; keep this low.
+MIN_LANGUAGE_DETECT_CHARS = 12
+LANGUAGE_DETECT_MIN_CONFIDENCE = 0.50
+_AUTO_LANGUAGE_ALIASES = {
+    "auto",
+    "auto_detect",
+    "autodetect",
+    "automatic",
+}
+
+# Preferred locale when langdetect returns a bare ISO-639-1 code.
+ISO_DEFAULT_LOCALES = {
+    "en": "en_US",
+    "fa": "fa_IR",
+    "ar": "ar_SA",
+    "de": "de_DE",
+    "fr": "fr_FR",
+    "es": "es_ES",
+    "it": "it_IT",
+    "pt": "pt_BR",
+    "ru": "ru_RU",
+    "tr": "tr_TR",
+    "zh-cn": "zh_CN",
+    "zh-tw": "zh_TW",
+    "ja": "ja_JP",
+    "ko": "ko_KR",
+    "he": "he_IL",
+    "hi": "hi_IN",
+    "nl": "nl_NL",
+    "pl": "pl_PL",
+    "uk": "uk_UA",
+    "sv": "sv_SE",
+    "cs": "cs_CZ",
+    "ro": "ro_RO",
+    "id": "id_ID",
+}
 
 _ARABIC_SCRIPT_RE = re.compile(
     r"[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFF]"
@@ -102,44 +148,6 @@ def dictionaries_cover_word(word, languages):
     return bool(scripts & covered)
 
 
-def _preferred_dictionary_tags(available):
-    """One locale tag per language code, preferring xx_YY over bare xx."""
-    preferred = {}
-    for tag in sorted(available):
-        code = tag.split("_", 1)[0]
-        current = preferred.get(code)
-        if current is None:
-            preferred[code] = tag
-        elif "_" not in current and "_" in tag:
-            preferred[code] = tag
-    return [preferred[code] for code in sorted(preferred)]
-
-
-def ensure_script_dictionaries(languages, available, disabled=None):
-    """Add installed non-Latin dictionaries for scripts not yet covered.
-
-    Installing myspell-fa should enable Persian checking without a manual
-    settings visit. Tags listed in ``disabled`` stay off.
-    """
-    available = list(available or [])
-    disabled = {str(tag).replace("-", "_") for tag in (disabled or [])}
-    result = list(languages or [])
-    covered = set()
-    for language in result:
-        covered |= language_scripts(language)
-
-    for tag in _preferred_dictionary_tags(available):
-        if tag in disabled or tag in result:
-            continue
-        scripts = language_scripts(tag)
-        missing_non_latin = (scripts - covered) - {"latin"}
-        if not missing_non_latin:
-            continue
-        result.append(tag)
-        covered |= scripts
-    return result
-
-
 class FallbackSpellChecker:
     def __init__(self):
         self.word_frequency = self
@@ -186,6 +194,189 @@ def list_available_spell_languages():
     return sorted(languages) if languages else ["en_US"]
 
 
+# Common document languages offered even when their dictionary is not installed yet.
+COMMON_DOCUMENT_LANGUAGES = [
+    "en_US", "en_GB", "fa_IR", "ar_SA", "de_DE", "fr_FR", "es_ES", "it_IT",
+    "pt_BR", "pt_PT", "ru_RU", "tr_TR", "zh_CN", "ja_JP", "ko_KR", "he_IL",
+    "hi_IN", "nl_NL", "pl_PL", "uk_UA", "sv_SE", "cs_CZ", "ro_RO", "id_ID",
+]
+
+
+def normalize_language_tag(language):
+    tag = str(language or "en_US").replace("-", "_").strip()
+    collapsed = tag.lower().replace(" ", "_")
+    if collapsed in _AUTO_LANGUAGE_ALIASES or collapsed.startswith("auto_"):
+        return DOCUMENT_LANGUAGE_AUTO
+    return tag.replace("-", "_") if "-" in tag else tag
+
+
+def detect_language_code(text):
+    """Detect ISO language code from text, or None if unreliable."""
+    sample = " ".join((text or "").split())
+    if not USE_LANGDETECT or detect_langs is None:
+        return None, None
+    letter_count = sum(1 for ch in sample if ch.isalpha())
+    if letter_count < MIN_LANGUAGE_DETECT_CHARS and len(sample) < MIN_LANGUAGE_DETECT_CHARS:
+        return None, None
+    try:
+        ranked = detect_langs(sample[:8000])
+    except LangDetectException:
+        return None, None
+    if not ranked:
+        return None, None
+    best = ranked[0]
+    code = str(getattr(best, "lang", "") or "").lower()
+    confidence = float(getattr(best, "prob", 0.0) or 0.0)
+    if not code or confidence < LANGUAGE_DETECT_MIN_CONFIDENCE:
+        return None, confidence
+    return code, confidence
+
+
+def preferred_locale_for_iso(code):
+    """Map langdetect ISO codes to a preferred locale tag."""
+    if not code:
+        return None
+    normalized = str(code).replace("_", "-").lower()
+    if normalized in ISO_DEFAULT_LOCALES:
+        return ISO_DEFAULT_LOCALES[normalized]
+    base = normalized.split("-", 1)[0]
+    if base in ISO_DEFAULT_LOCALES:
+        return ISO_DEFAULT_LOCALES[base]
+    return base
+
+
+def match_dictionary_for_language(language, available=None):
+    """Return an installed Enchant tag for language, or None if missing."""
+    if available is None:
+        available = list_available_spell_languages()
+    available = list(available)
+    tag = normalize_language_tag(language)
+    if tag == DOCUMENT_LANGUAGE_AUTO:
+        return None
+    if tag in available:
+        return tag
+
+    code = tag.split("_", 1)[0]
+    country = tag.split("_", 1)[1] if "_" in tag else None
+    candidates = [item for item in available if item == code or item.startswith(f"{code}_")]
+    if not candidates:
+        return None
+    if country:
+        for item in candidates:
+            if item.endswith(f"_{country}"):
+                return item
+    with_country = [item for item in candidates if "_" in item]
+    return sorted(with_country or candidates)[0]
+
+
+def dictionary_install_hint(language):
+    """Short package hint for installing a dictionary for language."""
+    code = normalize_language_tag(language).split("_", 1)[0].lower()
+    if code == DOCUMENT_LANGUAGE_AUTO:
+        return "a hunspell/myspell dictionary for the detected language"
+    hints = {
+        "fa": "myspell-fa (Debian/Ubuntu) or hunspell-fa (Fedora)",
+        "en": "hunspell-en-us",
+        "ar": "hunspell-ar",
+        "de": "hunspell-de-de",
+        "fr": "hunspell-fr",
+        "es": "hunspell-es",
+        "ru": "hunspell-ru",
+        "tr": "hunspell-tr",
+        "he": "hunspell-he",
+        "pt": "hunspell-pt-br",
+        "it": "hunspell-it",
+        "nl": "hunspell-nl",
+        "pl": "hunspell-pl",
+        "uk": "hunspell-uk",
+        "cs": "hunspell-cs",
+        "sv": "hunspell-sv",
+        "ro": "hunspell-ro",
+        "hi": "hunspell-hi",
+        "id": "hunspell-id",
+        "ko": "hunspell-ko",
+        "ja": "hunspell-ja",
+        "zh": "hunspell-zh",
+    }
+    return hints.get(code, f"a hunspell/myspell dictionary for {code}")
+
+
+def missing_dictionary_message(language):
+    """User-facing warning when no dictionary is installed for language."""
+    tag = normalize_language_tag(language)
+    try:
+        from jottr.translation_manager import _, format_language_label
+        label = format_language_label(tag)
+        return _(
+            "No spell dictionary is installed for {language}. "
+            "Install {package}, then restart Jottr."
+        ).format(language=label, package=dictionary_install_hint(tag))
+    except Exception:
+        return (
+            f"No spell dictionary is installed for {tag}. "
+            f"Install {dictionary_install_hint(tag)}, then restart Jottr."
+        )
+
+
+def list_document_language_choices(extra=None):
+    """Languages shown in the document-language picker (Auto first)."""
+    choices = set(COMMON_DOCUMENT_LANGUAGES)
+    choices.update(list_available_spell_languages())
+    try:
+        from jottr.translation_manager import get_available_languages
+        choices.update(get_available_languages())
+    except Exception:
+        pass
+    for item in extra or ():
+        if item:
+            tag = normalize_language_tag(item)
+            if tag != DOCUMENT_LANGUAGE_AUTO:
+                choices.add(tag)
+    ordered = sorted(tag for tag in choices if tag != DOCUMENT_LANGUAGE_AUTO)
+    return [DOCUMENT_LANGUAGE_AUTO] + ordered
+
+
+def get_document_language(settings_manager):
+    """Configured document language (`auto` or a locale tag)."""
+    configured = settings_manager.get_setting("document_language", None)
+    if configured:
+        return normalize_language_tag(configured)
+
+    legacy = settings_manager.get_setting("spell_languages", None)
+    if legacy:
+        return normalize_language_tag(legacy[0])
+
+    return normalize_language_tag(settings_manager.get_setting("language", "en_US"))
+
+
+def resolve_document_language(settings_manager, text=""):
+    """Resolve effective document language and installed dictionary tag.
+
+    Returns
+    -------
+    (effective_language, dictionary_tag_or_None, detection_confidence_or_None)
+    confidence is None for explicit languages; for Auto it may be a float, or
+    False when detection could not run yet (for example not enough text).
+    """
+    available = list_available_spell_languages()
+    configured = get_document_language(settings_manager)
+    if configured != DOCUMENT_LANGUAGE_AUTO:
+        matched = match_dictionary_for_language(configured, available)
+        return configured, matched, None
+
+    detected_code, confidence = detect_language_code(text)
+    if not detected_code:
+        # Keep Auto unresolved instead of silently pretending the UI language
+        # was detected — that looked like "Farsi isn't detected".
+        return DOCUMENT_LANGUAGE_AUTO, None, False if confidence is None else confidence
+
+    preferred = preferred_locale_for_iso(detected_code) or detected_code
+    matched = match_dictionary_for_language(preferred, available)
+    if matched is None:
+        matched = match_dictionary_for_language(detected_code, available)
+    return preferred, matched, confidence
+
+
 def normalize_spell_languages(languages, available=None):
     """Deduplicate and keep only usable language tags."""
     if available is None:
@@ -195,39 +386,21 @@ def normalize_spell_languages(languages, available=None):
 
     normalized = []
     for language in languages or []:
-        tag = str(language).replace("-", "_")
+        tag = normalize_language_tag(language)
         if tag in available and tag not in normalized:
             normalized.append(tag)
-    return normalized or (["en_US"] if "en_US" in available else sorted(available)[:1] or ["en_US"])
+    return normalized
 
 
-def resolve_spell_languages(settings_manager):
-    """Active spell languages from settings, falling back to UI language.
+def resolve_spell_languages(settings_manager, text=""):
+    """Dictionary tags for the document language, if installed."""
+    _, matched, _ = resolve_document_language(settings_manager, text=text)
+    return [matched] if matched else []
 
-    Also enables installed dictionaries for scripts not covered by the
-    current selection (for example Persian after installing myspell-fa),
-    unless the user explicitly disabled them.
-    """
-    available = list_available_spell_languages()
-    configured = settings_manager.get_setting("spell_languages", None)
-    disabled = settings_manager.get_setting("spell_languages_disabled", []) or []
 
-    if configured:
-        languages = normalize_spell_languages(configured, available)
-    else:
-        languages = []
-        ui_language = str(settings_manager.get_setting("language", "en_US")).replace("-", "_")
-        if ui_language in available:
-            languages = [ui_language]
-        else:
-            language_code = ui_language.split("_", 1)[0]
-            for tag in available:
-                if tag == language_code or tag.startswith(f"{language_code}_"):
-                    languages = [tag]
-                    break
-        languages = normalize_spell_languages(languages or ["en_US"], available)
-
-    return ensure_script_dictionaries(languages, available, disabled=disabled)
+def document_language_has_dictionary(settings_manager, text=""):
+    """True when an Enchant dictionary exists for the effective document language."""
+    return bool(resolve_spell_languages(settings_manager, text=text))
 
 
 def _build_enchant_dicts(languages):
@@ -248,6 +421,8 @@ class SpellCheckHighlighter(QSyntaxHighlighter):
         self.USE_ENCHANT = USE_ENCHANT
         self.spells = []
         self.spell_languages = []
+        self.resolved_document_language = None
+        self.detection_confidence = None
         self.markdown_formats = {}
         self.set_theme(
             self.settings_manager.get_theme(),
@@ -298,22 +473,40 @@ class SpellCheckHighlighter(QSyntaxHighlighter):
             "rule": make_format(syntax["comment"])
         }
 
+    def document_text(self):
+        document = self.document()
+        return document.toPlainText() if document is not None else ""
+
     def apply_spell_settings(self, rehighlight=True):
-        """Reload enable flag and active dictionaries from settings."""
+        """Reload enable flag and active dictionaries from settings/document text."""
         self.spell_check_enabled = bool(self.settings_manager.get_setting("spell_check", True))
-        resolved = resolve_spell_languages(self.settings_manager)
-        configured = self.settings_manager.get_setting("spell_languages", []) or []
-        if list(resolved) != list(configured):
-            # Persist auto-enabled script dictionaries (e.g. fa_IR after install).
-            self.settings_manager.save_setting("spell_languages", resolved)
-        self.spell_languages = resolved
+        effective, matched, confidence = resolve_document_language(
+            self.settings_manager,
+            text=self.document_text(),
+        )
+        self.resolved_document_language = effective
+        self.detection_confidence = confidence
+        self.spell_languages = [matched] if matched else []
         self._rebuild_spell_backends()
         if rehighlight:
             self.rehighlight()
 
+    def refresh_detected_language(self, rehighlight=True):
+        """Re-run auto language detection from the current document text."""
+        if get_document_language(self.settings_manager) != DOCUMENT_LANGUAGE_AUTO:
+            return False
+        previous = (self.resolved_document_language, tuple(self.spell_languages))
+        self.apply_spell_settings(rehighlight=False)
+        changed = previous != (self.resolved_document_language, tuple(self.spell_languages))
+        if changed and rehighlight:
+            self.rehighlight()
+        return changed
+
     def set_spell_languages(self, languages, rehighlight=True):
         """Replace active dictionaries and optionally rehighlight."""
         self.spell_languages = normalize_spell_languages(languages)
+        self.resolved_document_language = self.spell_languages[0] if self.spell_languages else None
+        self.detection_confidence = None
         self._rebuild_spell_backends()
         if rehighlight:
             self.rehighlight()
@@ -321,6 +514,12 @@ class SpellCheckHighlighter(QSyntaxHighlighter):
     def _rebuild_spell_backends(self):
         self.spells = []
         self.USE_ENCHANT = USE_ENCHANT
+        if not self.spell_languages:
+            # Document language has no installed dictionary; do not fall back
+            # to an unrelated English pyspellchecker backend.
+            self.USE_ENCHANT = False
+            return
+
         if self.USE_ENCHANT:
             self.spells = _build_enchant_dicts(self.spell_languages)
             if self.spells:
@@ -355,7 +554,7 @@ class SpellCheckHighlighter(QSyntaxHighlighter):
             spell for spell in self.spells
             if dictionaries_cover_word(word, [self._dictionary_tag(spell)])
         ]
-        return matched or list(self.spells)
+        return matched
 
     def check_word(self, word):
         """Return True if the word is accepted by the user dict or any active dictionary."""
@@ -363,11 +562,15 @@ class SpellCheckHighlighter(QSyntaxHighlighter):
             return True
         if self.word_in_user_dictionary(word):
             return True
-        # Don't flag Persian/Arabic/etc. against Latin-only dictionaries.
+        if not self.spells:
+            return True
+        # Don't flag other-script words against the document dictionary.
         if not dictionaries_cover_word(word, self.spell_languages):
             return True
 
         spells = self._spells_for_word(word)
+        if not spells:
+            return True
         if self.USE_ENCHANT:
             return any(spell.check(word) for spell in spells)
 
@@ -379,7 +582,7 @@ class SpellCheckHighlighter(QSyntaxHighlighter):
         """Get suggestions for a word from the user dictionary and matching dictionaries."""
         if not self.spell_check_enabled:
             return []
-        if not dictionaries_cover_word(word, self.spell_languages):
+        if not self.spells or not dictionaries_cover_word(word, self.spell_languages):
             return [
                 dict_word for dict_word in self.user_dictionary_words()
                 if dict_word.lower().startswith(word.lower())

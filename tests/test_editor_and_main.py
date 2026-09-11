@@ -513,9 +513,10 @@ class EditorAndMainTests(unittest.TestCase):
 
     def test_spell_check_keeps_contractions_intact(self):
         document = QTextDocument()
+        self.settings.save_setting("document_language", "en_US")
         highlighter = SpellCheckHighlighter(document, self.settings)
         document.setPlainText("This shouldn't and shouldn’t be wrong. xyzzyq is wrong.")
-        highlighter.rehighlight()
+        highlighter.apply_spell_settings(rehighlight=True)
 
         block = document.firstBlock()
         underlined = []
@@ -546,6 +547,7 @@ class EditorAndMainTests(unittest.TestCase):
                 return None
 
         highlighter.USE_ENCHANT = True
+        highlighter.spell_languages = ["en_US", "fr_FR"]
         highlighter.spells = [AcceptOnly("bonjour"), AcceptOnly("hello")]
         highlighter.spell_check_enabled = True
 
@@ -606,57 +608,76 @@ class EditorAndMainTests(unittest.TestCase):
         start, end = find_word_bounds(text, text.index("\u200c"))
         self.assertEqual(text[start:end], "می‌روم")
 
-    def test_spell_check_skips_persian_when_no_arabic_dictionary_available(self):
+    def test_spell_check_uses_explicit_document_language_dictionary(self):
+        from jottr.editor.spellcheck import resolve_document_language
+
+        self.settings.save_setting("document_language", "fa_IR")
+        with patch("jottr.editor.spellcheck.list_available_spell_languages",
+                   return_value=["en_US", "fa_IR"]):
+            language, matched, confidence = resolve_document_language(self.settings, text="")
+        self.assertEqual(language, "fa_IR")
+        self.assertEqual(matched, "fa_IR")
+        self.assertIsNone(confidence)
+
+    def test_spell_check_reports_missing_dictionary_for_document_language(self):
+        from jottr.editor.spellcheck import missing_dictionary_message, resolve_document_language
+
+        self.settings.save_setting("document_language", "de_DE")
+        with patch("jottr.editor.spellcheck.list_available_spell_languages", return_value=["en_US"]):
+            language, matched, _confidence = resolve_document_language(self.settings)
+        self.assertEqual(language, "de_DE")
+        self.assertIsNone(matched)
+        self.assertIn("de_DE", missing_dictionary_message("de_DE"))
+
+    def test_spell_check_auto_detect_maps_to_installed_dictionary(self):
+        from jottr.editor.spellcheck import DOCUMENT_LANGUAGE_AUTO, resolve_document_language
+
+        self.settings.save_setting("document_language", DOCUMENT_LANGUAGE_AUTO)
+        french = (
+            "Bonjour le monde, ceci est un exemple de texte francais assez long "
+            "pour permettre une detection fiable de la langue du document."
+        )
+        with patch("jottr.editor.spellcheck.list_available_spell_languages",
+                   return_value=["en_US", "fr_FR"]), \
+             patch("jottr.editor.spellcheck.detect_language_code", return_value=("fr", 0.99)):
+            language, matched, confidence = resolve_document_language(self.settings, text=french)
+        self.assertEqual(language, "fr_FR")
+        self.assertEqual(matched, "fr_FR")
+        self.assertEqual(confidence, 0.99)
+
+    def test_spell_check_auto_detect_waits_for_text_instead_of_english_fallback(self):
+        from jottr.editor.spellcheck import DOCUMENT_LANGUAGE_AUTO, resolve_document_language
+
+        self.settings.save_setting("document_language", DOCUMENT_LANGUAGE_AUTO)
+        self.settings.save_setting("language", "en_US")
+        with patch("jottr.editor.spellcheck.list_available_spell_languages",
+                   return_value=["en_US", "fa_IR"]), \
+             patch("jottr.editor.spellcheck.detect_language_code", return_value=(None, None)):
+            language, matched, confidence = resolve_document_language(self.settings, text="hi")
+        self.assertEqual(language, DOCUMENT_LANGUAGE_AUTO)
+        self.assertIsNone(matched)
+        self.assertIs(confidence, False)
+
+    def test_spell_check_detects_short_persian_phrase(self):
+        from jottr.editor.spellcheck import detect_language_code
+
+        code, confidence = detect_language_code("سلام این متن فارسی است")
+        if code is None:
+            self.skipTest("langdetect unavailable in this environment")
+        self.assertEqual(code, "fa")
+        self.assertGreater(confidence, 0.5)
+
+    def test_spell_check_skips_other_script_words_for_document_dictionary(self):
         document = QTextDocument()
         self.settings.save_setting("spell_check", True)
-        self.settings.save_setting("spell_languages", ["en_US"])
-        self.settings.save_setting("spell_languages_disabled", [])
+        self.settings.save_setting("document_language", "en_US")
         highlighter = SpellCheckHighlighter(document, self.settings)
+        highlighter.spell_languages = ["en_US"]
+        highlighter.spell_check_enabled = True
+        highlighter.USE_ENCHANT = True
+        highlighter.spells = []
 
-        with patch("jottr.editor.spellcheck.list_available_spell_languages", return_value=["en_US"]), \
-             patch("jottr.editor.spellcheck.USE_ENCHANT", True), \
-             patch("jottr.editor.spellcheck._build_enchant_dicts", return_value=[]):
-            highlighter.apply_spell_settings(rehighlight=False)
-            highlighter.USE_ENCHANT = True
-            highlighter.spells = []
-            highlighter.spell_languages = ["en_US"]
-            highlighter.spell_check_enabled = True
-
-            # Without an Arabic-script dictionary, Farsi must not be flagged.
-            self.assertTrue(highlighter.check_word("سلام"))
-            self.assertTrue(highlighter.check_word("می‌روم"))
-
-            document.setPlainText("سلام xyzzyq")
-            highlighter.rehighlight()
-            block = document.firstBlock()
-            underlined = [
-                block.text()[item.start:item.start + item.length]
-                for item in block.layout().formats()
-                if item.format.underlineStyle() == QTextCharFormat.UnderlineStyle.SpellCheckUnderline
-            ]
-            self.assertNotIn("سلام", underlined)
-
-    def test_spell_check_auto_enables_installed_persian_dictionary(self):
-        from jottr.editor.spellcheck import resolve_spell_languages
-
-        self.settings.save_setting("spell_languages", ["en_US"])
-        self.settings.save_setting("spell_languages_disabled", [])
-        with patch("jottr.editor.spellcheck.list_available_spell_languages",
-                   return_value=["en_US", "fa", "fa_IR"]):
-            resolved = resolve_spell_languages(self.settings)
-        self.assertIn("en_US", resolved)
-        self.assertIn("fa_IR", resolved)
-        self.assertNotIn("fa", resolved)
-
-    def test_spell_check_respects_disabled_persian_dictionary(self):
-        from jottr.editor.spellcheck import resolve_spell_languages
-
-        self.settings.save_setting("spell_languages", ["en_US"])
-        self.settings.save_setting("spell_languages_disabled", ["fa", "fa_IR"])
-        with patch("jottr.editor.spellcheck.list_available_spell_languages",
-                   return_value=["en_US", "fa", "fa_IR"]):
-            resolved = resolve_spell_languages(self.settings)
-        self.assertEqual(resolved, ["en_US"])
+        self.assertTrue(highlighter.check_word("سلام"))
 
     def test_spell_check_checks_persian_against_persian_dictionary(self):
         document = QTextDocument()
@@ -704,7 +725,7 @@ class EditorAndMainTests(unittest.TestCase):
                 return None
 
         highlighter.USE_ENCHANT = True
-        highlighter.spell_languages = ["en_US", "fa_IR"]
+        highlighter.spell_languages = ["fa_IR"]
         highlighter.spells = [
             TaggedDict("en_US", ["W", "Y", "w"]),
             TaggedDict("fa_IR", ["غلط کلمه", "غلطنامه"]),

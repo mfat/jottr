@@ -6,7 +6,7 @@ from PyQt6.QtWidgets import (
     QMainWindow, QTabWidget, QWidget, QVBoxLayout, QSplitter,
     QMenu, QToolBar, QMessageBox, QLabel, QDialog, QSizePolicy,
     QDialogButtonBox, QFileDialog, QToolButton, QTabBar,
-    QGraphicsOpacityEffect, QApplication,
+    QGraphicsOpacityEffect, QApplication, QComboBox,
 )
 from PyQt6.QtCore import (
     Qt, QUrl, QTimer, QEvent, QPropertyAnimation,
@@ -14,7 +14,7 @@ from PyQt6.QtCore import (
 )
 from PyQt6.QtWebEngineWidgets import QWebEngineView
 from PyQt6.QtGui import (
-    QAction, QShortcut, QIcon, QDesktopServices,
+    QAction, QActionGroup, QShortcut, QIcon, QDesktopServices,
     QKeySequence, QFont,
 )
 
@@ -24,10 +24,17 @@ from jottr.rss_tab import RSSTab
 from jottr.theme_manager import ThemeManager
 from jottr.settings_manager import SettingsManager
 from jottr.settings_dialog import SettingsDialog
-from jottr.translation_manager import _, is_rtl_language, set_language
+from jottr.translation_manager import _, format_language_label, is_rtl_language, set_language
 from jottr.font_dialog import FontSelectionDialog
 from jottr.plugin_manager import PluginManager
-from jottr.editor.spellcheck import list_available_spell_languages
+from jottr.editor.spellcheck import (
+    DOCUMENT_LANGUAGE_AUTO,
+    get_document_language,
+    list_document_language_choices,
+    match_dictionary_for_language,
+    missing_dictionary_message,
+    resolve_document_language,
+)
 from jottr.icon_manager import (
     apply_dialog_window_icon,
     ask_themed_question,
@@ -87,6 +94,23 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
         # Set initial status message
         self.statusBar.showMessage(_("Words: 0 | Characters: 0"))
         self.statusBar.setObjectName("statusBar")
+        self.document_language_combo = QComboBox()
+        self.document_language_combo.setObjectName("documentLanguageCombo")
+        self.document_language_combo.setToolTip(_("Document language for spell checking"))
+        self.document_language_combo.setMinimumContentsLength(18)
+        self.document_language_combo.setSizeAdjustPolicy(
+            QComboBox.SizeAdjustPolicy.AdjustToContents
+        )
+        self._populate_document_language_combo(self.document_language_combo)
+        self.document_language_combo.currentIndexChanged.connect(
+            self._on_status_document_language_changed
+        )
+        self.statusBar.addPermanentWidget(QLabel(_("Language:")))
+        self.statusBar.addPermanentWidget(self.document_language_combo)
+        self.document_language_status = QLabel()
+        self.document_language_status.setObjectName("documentLanguageStatus")
+        self.statusBar.addPermanentWidget(self.document_language_status)
+        self.update_document_language_status()
         
         # Create main widget and layout
         main_widget = QWidget()
@@ -112,6 +136,7 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
         self.tab_widget.setIconSize(QSize(16, 16))
         self.tab_widget.tabBar().setExpanding(False)
         self.tab_widget.tabCloseRequested.connect(self.close_tab)
+        self.tab_widget.currentChanged.connect(self.update_document_language_status)
         self.tab_widget.tabBar().tabs_changed.connect(self.refresh_tab_close_buttons)
         
         # Install event filters on both the tab bar and its containing tab strip.
@@ -727,6 +752,33 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
             bool(self.settings_manager.get_setting("spell_check", True))
         )
         self.spell_check_action.setIconVisibleInMenu(False)
+        document_language_menu = spelling_menu.addMenu(_("Document Language"))
+        document_language_menu.setAccessibleName(
+            _("{title} menu").format(title=_("Document Language"))
+        )
+        document_language_menu.menuAction().setProperty("text_key", "Document Language")
+        self.translatable_actions.append(document_language_menu.menuAction())
+        self.translatable_menus.append((document_language_menu, "Document Language"))
+        self.document_language_actions = QActionGroup(self)
+        self.document_language_actions.setExclusive(True)
+        current_document_language = get_document_language(self.settings_manager)
+        for language in list_document_language_choices(extra=[current_document_language]):
+            if language == DOCUMENT_LANGUAGE_AUTO:
+                label = _("Auto-detect")
+            else:
+                matched = match_dictionary_for_language(language)
+                label = format_language_label(language)
+                if not matched:
+                    label = _("{language} (dictionary not installed)").format(language=label)
+            action = QAction(label, self)
+            action.setCheckable(True)
+            action.setData(language)
+            action.setChecked(language == current_document_language)
+            action.triggered.connect(
+                lambda checked=False, tag=language: self.set_document_language(tag)
+            )
+            self.document_language_actions.addAction(action)
+            document_language_menu.addAction(action)
 
         # Workspace menu
         workspace_menu = add_menu("Workspace")
@@ -844,6 +896,139 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
             tab = self.tab_widget.widget(index)
             if isinstance(tab, EditorTab) and hasattr(tab, "highlighter"):
                 tab.highlighter.apply_spell_settings()
+        self.update_document_language_status()
+
+    def _populate_document_language_combo(self, combo):
+        """Fill a document-language combo without emitting change signals."""
+        current = get_document_language(self.settings_manager)
+        combo.blockSignals(True)
+        combo.clear()
+        for language in list_document_language_choices(extra=[current]):
+            if language == DOCUMENT_LANGUAGE_AUTO:
+                label = _("Auto-detect")
+            else:
+                label = format_language_label(language)
+                if not match_dictionary_for_language(language):
+                    label = _("{language} (no dictionary)").format(language=label)
+            combo.addItem(label, language)
+        index = combo.findData(current)
+        if index < 0:
+            combo.addItem(format_language_label(current), current)
+            index = combo.findData(current)
+        combo.setCurrentIndex(max(0, index))
+        combo.blockSignals(False)
+
+    def _on_status_document_language_changed(self, _index=None):
+        language = self.document_language_combo.currentData()
+        if language:
+            self.set_document_language(language)
+
+    def update_document_language_status(self):
+        """Show document language and missing-dictionary warnings in the status bar."""
+        if not hasattr(self, "document_language_status"):
+            return
+
+        configured = get_document_language(self.settings_manager)
+        if hasattr(self, "document_language_combo"):
+            self._populate_document_language_combo(self.document_language_combo)
+
+        current_tab = self.tab_widget.currentWidget() if hasattr(self, "tab_widget") else None
+        highlighter = getattr(current_tab, "highlighter", None) if current_tab else None
+        text = ""
+        if current_tab is not None and hasattr(current_tab, "editor"):
+            text = current_tab.editor.toPlainText()
+
+        confidence = None
+        if highlighter is not None and highlighter.resolved_document_language is not None:
+            effective = highlighter.resolved_document_language
+            matched = highlighter.spell_languages[0] if highlighter.spell_languages else None
+            confidence = highlighter.detection_confidence
+        else:
+            effective, matched, confidence = resolve_document_language(
+                self.settings_manager,
+                text=text,
+            )
+
+        if configured == DOCUMENT_LANGUAGE_AUTO:
+            if effective == DOCUMENT_LANGUAGE_AUTO or matched is None and confidence is False:
+                from jottr.editor.spellcheck import USE_LANGDETECT
+                if not USE_LANGDETECT:
+                    label = _("Auto (langdetect missing)")
+                    matched = None
+                else:
+                    label = _("Auto (type more text…)")
+            else:
+                label = _("Auto → {language}").format(
+                    language=format_language_label(effective)
+                )
+                if isinstance(confidence, float):
+                    label = _("{label} ({confidence:.0%})").format(
+                        label=label,
+                        confidence=confidence,
+                    )
+        else:
+            label = format_language_label(configured)
+
+        if matched:
+            self.document_language_status.setText(
+                _("Dict: {dictionary}").format(dictionary=matched)
+            )
+            self.document_language_status.setToolTip(
+                _("Document language: {language}\nUsing dictionary {dictionary}").format(
+                    language=label,
+                    dictionary=matched,
+                )
+            )
+            self.document_language_status.setStyleSheet("")
+        elif configured == DOCUMENT_LANGUAGE_AUTO and (
+            effective == DOCUMENT_LANGUAGE_AUTO or confidence is False
+        ):
+            self.document_language_status.setText(label)
+            self.document_language_status.setToolTip(
+                _("Auto-detect needs a bit more text, then loads a matching dictionary.")
+            )
+            self.document_language_status.setStyleSheet("")
+        else:
+            warning = missing_dictionary_message(effective)
+            self.document_language_status.setText(_("No dictionary"))
+            self.document_language_status.setToolTip(
+                _("Document language: {language}\n{warning}").format(
+                    language=label,
+                    warning=warning,
+                )
+            )
+            self.document_language_status.setStyleSheet("color: #c0392b;")
+            if bool(self.settings_manager.get_setting("spell_check", True)):
+                self.statusBar.showMessage(warning, 8000)
+
+    def set_document_language(self, language):
+        """Set the document language used for spell checking (`auto` or a locale)."""
+        language = str(language).replace("-", "_")
+        if language.lower() == DOCUMENT_LANGUAGE_AUTO:
+            language = DOCUMENT_LANGUAGE_AUTO
+        self.settings_manager.save_setting("document_language", language)
+        if language == DOCUMENT_LANGUAGE_AUTO:
+            self.settings_manager.save_setting("spell_languages", [])
+        else:
+            matched = match_dictionary_for_language(language)
+            self.settings_manager.save_setting(
+                "spell_languages",
+                [matched] if matched else []
+            )
+        if hasattr(self, "document_language_actions"):
+            for action in self.document_language_actions.actions():
+                action.blockSignals(True)
+                action.setChecked(action.data() == language)
+                action.blockSignals(False)
+        if hasattr(self, "document_language_combo"):
+            self._populate_document_language_combo(self.document_language_combo)
+        self.apply_spell_check_to_tabs()
+        if language != DOCUMENT_LANGUAGE_AUTO and not match_dictionary_for_language(language):
+            QMessageBox.warning(
+                self,
+                _("Dictionary Not Installed"),
+                missing_dictionary_message(language),
+            )
 
     def sync_spell_check_ui(self, enabled):
         """Keep the Tools menu action and open Settings tabs in sync."""
@@ -859,6 +1044,7 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
                 checkbox.blockSignals(True)
                 checkbox.setChecked(enabled)
                 checkbox.blockSignals(False)
+        self.update_document_language_status()
 
     def toggle_spell_check(self, checked=None):
         """Toggle automatic spell checking from Tools > Spelling."""
@@ -1079,29 +1265,18 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
         self.settings_manager.save_setting('search_sites', settings['search_sites'])
         self.settings_manager.save_setting('user_dictionary', settings['user_dictionary'])
         self.settings_manager.save_setting('spell_check', settings['spell_check'])
-        spell_languages = list(settings['spell_languages'])
-        disabled = list(settings.get('spell_languages_disabled', []) or [])
-        ui_language = str(settings['language']).replace('-', '_')
-        previous_language = str(
-            self.settings_manager.get_setting('language', 'en_US')
+        document_language = str(
+            settings.get('document_language')
+            or get_document_language(self.settings_manager)
         ).replace('-', '_')
-        if ui_language != previous_language:
-            # When switching UI language, enable a matching dictionary if installed.
-            available = list_available_spell_languages()
-            language_code = ui_language.split('_', 1)[0]
-            for tag in available:
-                if (
-                    tag == ui_language
-                    or tag == language_code
-                    or tag.startswith(f'{language_code}_')
-                ):
-                    if tag not in spell_languages:
-                        spell_languages.append(tag)
-                    if tag in disabled:
-                        disabled = [item for item in disabled if item != tag]
-                    break
+        if document_language.lower() == DOCUMENT_LANGUAGE_AUTO:
+            document_language = DOCUMENT_LANGUAGE_AUTO
+            spell_languages = []
+        else:
+            matched = match_dictionary_for_language(document_language)
+            spell_languages = [matched] if matched else []
+        self.settings_manager.save_setting('document_language', document_language)
         self.settings_manager.save_setting('spell_languages', spell_languages)
-        self.settings_manager.save_setting('spell_languages_disabled', disabled)
         self.settings_manager.save_custom_themes(settings['custom_themes'])
         self.settings_manager.save_ui_theme(settings['ui_theme'])
         self.settings_manager.save_theme(settings['theme'])

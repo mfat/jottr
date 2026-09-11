@@ -13,3 +13,4 @@ feedparser>=6.0.0
 requests>=2.31.0
 Markdown>=3.6
 pyspellchecker>=0.7.2
+langdetect>=1.0.9

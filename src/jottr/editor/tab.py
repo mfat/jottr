@@ -123,8 +123,13 @@ class EditorTab(
         self.editor.textChanged.connect(self.handle_text_changed)
         self.editor.textChanged.connect(self.mark_autosave_pending)
         self.editor.textChanged.connect(self.schedule_markdown_preview_update)
+        self.editor.textChanged.connect(self.schedule_document_language_refresh)
         self.editor.cursorPositionChanged.connect(self.schedule_markdown_cursor_sync)
         self.editor.verticalScrollBar().valueChanged.connect(self.schedule_markdown_scroll_sync)
+        self._document_language_timer = QTimer(self)
+        self._document_language_timer.setSingleShot(True)
+        self._document_language_timer.setInterval(400)
+        self._document_language_timer.timeout.connect(self.refresh_document_language_detection)
 
     def setup_ui(self):
         """Setup the UI components"""
@@ -1023,6 +1028,21 @@ class EditorTab(
         
         # Update status bar
         self.main_window.statusBar.showMessage(_("Words: {words} | Characters: {chars}").format(words=words, chars=chars))
+
+    def schedule_document_language_refresh(self):
+        """Debounce auto language detection while typing."""
+        timer = getattr(self, "_document_language_timer", None)
+        if timer is not None:
+            timer.start()
+
+    def refresh_document_language_detection(self):
+        """Refresh Auto-detect dictionaries from the current document text."""
+        highlighter = getattr(self, "highlighter", None)
+        if highlighter is None:
+            return
+        highlighter.refresh_detected_language(rehighlight=True)
+        if self.main_window and hasattr(self.main_window, "update_document_language_status"):
+            self.main_window.update_document_language_status()
 
     def create_context_menu(self, position):
         """Create context menu for editor"""

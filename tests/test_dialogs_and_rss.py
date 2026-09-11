@@ -129,6 +129,7 @@ class DialogAndRssTests(unittest.TestCase):
         self.assertEqual(data["search_sites"], {"News": "site:news.example"})
         self.assertEqual(data["user_dictionary"], ["jottr"])
         self.assertFalse(data["spell_check"])
+        self.assertEqual(data["document_language"], "en_US")
         self.assertIn("en_US", data["spell_languages"])
         self.assertEqual(data["ui_theme"], "Dark")
         self.assertEqual(data["theme"], "Forest")

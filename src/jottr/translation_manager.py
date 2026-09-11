@@ -34,6 +34,8 @@ def get_available_languages():
 
 
 def format_language_label(language):
+    if str(language).replace("-", "_").lower() == "auto":
+        return "Auto-detect"
     language_names = {
         "en": "English",
         "fa": "Persian",
@@ -46,7 +48,17 @@ def format_language_label(language):
         "tr": "Turkish",
         "zh": "Chinese",
         "ja": "Japanese",
-        "ko": "Korean"
+        "ko": "Korean",
+        "ar": "Arabic",
+        "he": "Hebrew",
+        "hi": "Hindi",
+        "nl": "Dutch",
+        "pl": "Polish",
+        "uk": "Ukrainian",
+        "sv": "Swedish",
+        "cs": "Czech",
+        "ro": "Romanian",
+        "id": "Indonesian",
     }
     country_names = {
         "US": "United States",

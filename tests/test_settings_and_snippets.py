@@ -47,6 +47,7 @@ class SettingsAndSnippetTests(unittest.TestCase):
         self.assertEqual(manager.get_setting("font_size"), 12)
         self.assertTrue(manager.get_setting("spell_check"))
         self.assertEqual(manager.get_setting("spell_languages"), ["en_US"])
+        self.assertEqual(manager.get_setting("document_language"), "auto")
         self.assertEqual(manager.get_setting("icon_contrast"), "auto")
         self.assertEqual(manager.get_setting("language"), "en_US")
         self.assertFalse(manager.get_setting("autosave_enabled"))
