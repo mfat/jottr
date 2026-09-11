@@ -58,6 +58,10 @@ Or:
 
 `python3 -m jottr`
 
+Or without installing:
+
+`python3 src/jottr/main.py`
+
 ### How to run tests:
 
 `python3 -m pip install -e .`

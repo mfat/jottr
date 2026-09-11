@@ -3,6 +3,14 @@ if sys.version_info < (3, 10):
     print("Error: Python 3.10 or higher is required")
     sys.exit(1)
 
+# Support `python src/jottr/main.py` without an editable install.
+if __package__ is None:
+    from pathlib import Path
+
+    _src_root = Path(__file__).resolve().parents[1]
+    if str(_src_root) not in sys.path:
+        sys.path.insert(0, str(_src_root))
+
 import os
 import json
 import hashlib
