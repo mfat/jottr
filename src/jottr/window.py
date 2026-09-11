@@ -808,6 +808,48 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
         view_menu.addAction(self.zoom_in_action)
         view_menu.addAction(self.zoom_out_action)
         view_menu.addAction(self.zoom_reset_action)
+        view_menu.addSeparator()
+
+        color_scheme_menu = view_menu.addMenu(_("Color Scheme"))
+        color_scheme_menu.setAccessibleName(
+            _("{title} menu").format(title=_("Color Scheme"))
+        )
+        color_scheme_menu.menuAction().setProperty("text_key", "Color Scheme")
+        self.translatable_actions.append(color_scheme_menu.menuAction())
+        self.translatable_menus.append((color_scheme_menu, "Color Scheme"))
+        self.color_scheme_menu = color_scheme_menu
+        self.color_scheme_actions = QActionGroup(self)
+        self.color_scheme_actions.setExclusive(True)
+        current_scheme = self.settings_manager.get_ui_theme()
+        for scheme_id, label_key in (
+            ("System", "Follow system"),
+            ("Light", "Light"),
+            ("Dark", "Dark"),
+        ):
+            action = QAction(_(label_key), self)
+            action.setCheckable(True)
+            action.setData(scheme_id)
+            action.setProperty("text_key", label_key)
+            action.setChecked(scheme_id == current_scheme)
+            action.triggered.connect(
+                lambda checked=False, tag=scheme_id: self.set_ui_color_scheme(tag)
+            )
+            self.color_scheme_actions.addAction(action)
+            self.translatable_actions.append(action)
+            color_scheme_menu.addAction(action)
+
+        editor_theme_menu = view_menu.addMenu(_("Editor Theme"))
+        editor_theme_menu.setAccessibleName(
+            _("{title} menu").format(title=_("Editor Theme"))
+        )
+        editor_theme_menu.menuAction().setProperty("text_key", "Editor Theme")
+        self.translatable_actions.append(editor_theme_menu.menuAction())
+        self.translatable_menus.append((editor_theme_menu, "Editor Theme"))
+        self.editor_theme_menu = editor_theme_menu
+        self.editor_theme_actions = QActionGroup(self)
+        self.editor_theme_actions.setExclusive(True)
+        editor_theme_menu.aboutToShow.connect(self.refresh_editor_theme_menu)
+        self.refresh_editor_theme_menu()
 
         # Tools menu
         tools_menu = add_menu("&Tools")
@@ -942,6 +984,83 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
             tab = self.tab_widget.widget(index)
             if isinstance(tab, EditorTab):
                 tab.apply_theme(theme_name)
+
+    def refresh_editor_theme_menu(self):
+        """Rebuild View → Editor Theme entries with color tiles."""
+        if not hasattr(self, "editor_theme_menu") or self.editor_theme_menu is None:
+            return
+        if not hasattr(self, "editor_theme_actions") or self.editor_theme_actions is None:
+            self.editor_theme_actions = QActionGroup(self)
+            self.editor_theme_actions.setExclusive(True)
+
+        menu = self.editor_theme_menu
+        menu.clear()
+        for action in list(self.editor_theme_actions.actions()):
+            self.editor_theme_actions.removeAction(action)
+            action.deleteLater()
+
+        themes = ThemeManager.get_themes(self.settings_manager.get_custom_themes())
+        current = self.settings_manager.get_theme()
+        if current not in themes and themes:
+            current = next(iter(themes))
+
+        for name, theme in themes.items():
+            action = QAction(ThemeManager.build_theme_tile_icon(theme), name, self)
+            action.setCheckable(True)
+            action.setData(name)
+            action.setIconVisibleInMenu(True)
+            action.setChecked(name == current)
+            action.triggered.connect(
+                lambda checked=False, tag=name: self.set_editor_theme(tag)
+            )
+            self.editor_theme_actions.addAction(action)
+            menu.addAction(action)
+
+    def sync_editor_theme_menu(self):
+        """Mark the active Editor Theme entry without rebuilding tiles."""
+        if not hasattr(self, "editor_theme_actions") or self.editor_theme_actions is None:
+            return
+        current = self.settings_manager.get_theme()
+        known = {action.data() for action in self.editor_theme_actions.actions()}
+        if current not in known:
+            self.refresh_editor_theme_menu()
+            return
+        for action in self.editor_theme_actions.actions():
+            action.blockSignals(True)
+            action.setChecked(action.data() == current)
+            action.blockSignals(False)
+
+    def sync_color_scheme_menu(self):
+        """Mark the active Color Scheme entry in View → Color Scheme."""
+        if not hasattr(self, "color_scheme_actions") or self.color_scheme_actions is None:
+            return
+        current = self.settings_manager.get_ui_theme()
+        for action in self.color_scheme_actions.actions():
+            action.blockSignals(True)
+            action.setChecked(action.data() == current)
+            action.blockSignals(False)
+
+    def set_ui_color_scheme(self, scheme):
+        """Persist Color Scheme from the View menu and restyle the app."""
+        scheme = ThemeManager.normalize_ui_theme(scheme)
+        if scheme == self.settings_manager.get_ui_theme():
+            self.sync_color_scheme_menu()
+            return
+        self.settings_manager.save_ui_theme(scheme)
+        self.apply_app_style()
+        self.sync_color_scheme_menu()
+
+    def set_editor_theme(self, theme_name):
+        """Persist Editor Theme from the View menu and apply it to open tabs."""
+        themes = ThemeManager.get_themes(self.settings_manager.get_custom_themes())
+        if theme_name not in themes:
+            theme_name = ThemeManager.DEFAULT_THEME_NAME
+        if theme_name == self.settings_manager.get_theme():
+            self.sync_editor_theme_menu()
+            return
+        self.settings_manager.save_theme(theme_name)
+        self.apply_editor_theme_to_tabs(theme_name)
+        self.sync_editor_theme_menu()
 
     def apply_spell_check_to_tabs(self):
         """Reload spell dictionaries and rehighlight all open editor tabs."""
@@ -1440,12 +1559,14 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
             )
             if style_changed:
                 self.apply_app_style()
+                self.sync_color_scheme_menu()
 
             if (
                 previous_theme != settings['theme']
                 or previous_custom_themes != settings['custom_themes']
             ):
                 self.apply_editor_theme_to_tabs(settings['theme'])
+                self.refresh_editor_theme_menu()
 
             spell_changed = (
                 previous_spell_check != settings['spell_check']

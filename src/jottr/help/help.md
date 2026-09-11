@@ -3,8 +3,8 @@
 ## Themes
 Jottr separates chrome and editor colors:
 
-- **Color Scheme** (Settings > Appearance): **Follow system**, **Light**, or **Dark**. This sets Qt's [`ColorScheme`](https://doc.qt.io/qt-6/qt.html#ColorScheme-enum) via `QStyleHints` (`Unknown` follows the platform appearance).
-- **Editor Theme**: Light, Dark, Sepia, Dracula, Monokai, Monaspace, Tokyo Night, Matcha, Darkly, or a custom theme — applied to the writing surface and syntax colors only.
+- **Color Scheme** (View → Color Scheme, or Settings → Appearance): **Follow system**, **Light**, or **Dark**. This sets Qt's [`ColorScheme`](https://doc.qt.io/qt-6/qt.html#ColorScheme-enum) via `QStyleHints` (`Unknown` follows the platform appearance).
+- **Editor Theme** (View → Editor Theme, or Settings → Appearance): Light, Dark, Sepia, Dracula, Monokai, Monaspace, Tokyo Night, Matcha, Darkly, or a custom theme — applied to the writing surface and syntax colors only. The View menu shows a color tile for each theme.
 - **Custom Editor Themes**: User-defined editor and syntax colors (they do not change Color Scheme).
 
 ## Widget styles
@@ -64,9 +64,13 @@ Theme standard (editor themes may still include an `app` block for compatibility
 ```
 
 To change the editor theme:
-1. Click the Theme button in the toolbar or open Settings > Appearance
+1. Open View → Editor Theme (color tiles) or Settings → Appearance
 2. Select your preferred theme
 3. Changes are applied immediately
+
+To change the color scheme:
+1. Open View → Color Scheme or Settings → Appearance
+2. Choose Follow system, Light, or Dark
 
 ## Font Customization
 Customize the editor font to your preference:

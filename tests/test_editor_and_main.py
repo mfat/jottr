@@ -1391,6 +1391,31 @@ class EditorAndMainTests(unittest.TestCase):
                 window.focus_mode_action,
                 [a for a in menubar.actions()[2].menu().actions() if not a.isSeparator()],
             )
+            view_menu = menubar.actions()[2].menu()
+            view_items = {
+                action.text(): action
+                for action in view_menu.actions()
+                if not action.isSeparator()
+            }
+            self.assertIn("Color Scheme", view_items)
+            self.assertIn("Editor Theme", view_items)
+            color_scheme_menu = view_items["Color Scheme"].menu()
+            editor_theme_menu = view_items["Editor Theme"].menu()
+            self.assertIsNotNone(color_scheme_menu)
+            self.assertIsNotNone(editor_theme_menu)
+            scheme_labels = [
+                action.text() for action in color_scheme_menu.actions() if not action.isSeparator()
+            ]
+            self.assertEqual(scheme_labels, ["Follow system", "Light", "Dark"])
+            self.assertTrue(
+                any(action.isChecked() and action.data() == "System" for action in color_scheme_menu.actions())
+            )
+            theme_actions = [
+                action for action in editor_theme_menu.actions() if not action.isSeparator()
+            ]
+            self.assertGreaterEqual(len(theme_actions), 5)
+            self.assertTrue(all(not action.icon().isNull() for action in theme_actions))
+            self.assertTrue(all(action.isIconVisibleInMenu() for action in theme_actions))
             # In-window menubar is chrome-styled to match the toolbar. Do not
             # style QMainWindow (cascades hide titles under Breeze dark) or
             # popup QMenu items (left to QStyle + palette).
@@ -1434,6 +1459,38 @@ class EditorAndMainTests(unittest.TestCase):
             spell_action.trigger()
             self.assertTrue(window.settings_manager.get_setting("spell_check"))
             self.assertTrue(spell_action.isChecked())
+
+    def test_view_menu_color_scheme_and_editor_theme(self):
+        window = TextEditorApp()
+        self.addCleanup(window.close)
+        self.addCleanup(window.deleteLater)
+        self.addCleanup(lambda: QApplication.instance().setStyleSheet(""))
+
+        window.set_ui_color_scheme("Dark")
+        self.assertEqual(window.settings_manager.get_ui_theme(), "Dark")
+        self.assertTrue(
+            any(
+                action.isChecked() and action.data() == "Dark"
+                for action in window.color_scheme_actions.actions()
+            )
+        )
+
+        window.set_editor_theme("Dracula")
+        self.assertEqual(window.settings_manager.get_theme(), "Dracula")
+        editor_tab = window.tab_widget.widget(0)
+        self.assertEqual(editor_tab.current_theme, "Dracula")
+        self.assertTrue(
+            any(
+                action.isChecked() and action.data() == "Dracula"
+                for action in window.editor_theme_actions.actions()
+            )
+        )
+        self.assertTrue(
+            all(
+                not action.icon().isNull()
+                for action in window.editor_theme_actions.actions()
+            )
+        )
 
     def test_plugin_menu_deduplicates_sidebar_items_that_open_existing_panels(self):
         class FakeEditorTab(QWidget):

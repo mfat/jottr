@@ -371,6 +371,9 @@ class SettingsAndSnippetTests(unittest.TestCase):
             ThemeManager.ui_theme_color_scheme("Dark"),
             Qt.ColorScheme.Dark,
         )
+        tile = ThemeManager.build_theme_tile_icon(ThemeManager.get_theme("Dracula"))
+        self.assertFalse(tile.isNull())
+        self.assertFalse(tile.pixmap(16, 16).isNull())
         self.assertIn(
             "Forest",
             ThemeManager.get_themes({

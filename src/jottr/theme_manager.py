@@ -981,6 +981,74 @@ class ThemeManager:
         """
 
     @staticmethod
+    def build_theme_tile_icon(theme, size=16):
+        """Build a menu icon tile from editor and syntax colors."""
+        from PyQt6.QtCore import Qt
+        from PyQt6.QtGui import QBrush, QGuiApplication, QIcon, QPainter, QPen, QPixmap
+
+        if not isinstance(theme, dict):
+            theme = ThemeManager.get_theme(ThemeManager.DEFAULT_THEME_NAME)
+        else:
+            theme = ThemeManager.normalize_theme(theme) or ThemeManager.get_theme(
+                ThemeManager.DEFAULT_THEME_NAME
+            )
+
+        editor = theme["editor"]
+        syntax = theme.get("syntax") or {}
+        app = QGuiApplication.instance()
+        dpr = float(app.devicePixelRatio()) if app is not None else 1.0
+        dpr = dpr if dpr > 0 else 1.0
+        pixel = max(1, int(round(size * dpr)))
+
+        pixmap = QPixmap(pixel, pixel)
+        pixmap.setDevicePixelRatio(dpr)
+        pixmap.fill(Qt.GlobalColor.transparent)
+
+        painter = QPainter(pixmap)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing, False)
+        scale = dpr
+
+        def fill_rect(x, y, w, h, color):
+            brush = QBrush(QColor(color))
+            if brush.color().isValid():
+                painter.fillRect(
+                    int(round(x * scale)),
+                    int(round(y * scale)),
+                    max(1, int(round(w * scale))),
+                    max(1, int(round(h * scale))),
+                    brush,
+                )
+
+        fill_rect(0, 0, size, size, editor.get("background", "#ffffff"))
+
+        # Vertical syntax strips across the right half of the tile.
+        strip_keys = ("keyword", "string", "function", "type")
+        strip_colors = [
+            syntax.get(key)
+            for key in strip_keys
+            if ThemeManager.is_valid_color(syntax.get(key))
+        ]
+        if strip_colors:
+            strip_x = size * 0.45
+            strip_w = (size - strip_x) / len(strip_colors)
+            for index, color in enumerate(strip_colors):
+                fill_rect(strip_x + index * strip_w, 0, strip_w, size, color)
+
+        # Foreground sample bar along the bottom-left.
+        fg = editor.get("foreground", "#000000")
+        if ThemeManager.is_valid_color(fg):
+            fill_rect(1, size - 4, max(3, size * 0.35), 2, fg)
+
+        border = editor.get("border") or editor.get("foreground") or "#888888"
+        if ThemeManager.is_valid_color(border):
+            painter.setPen(QPen(QColor(border), max(1, int(round(scale)))))
+            painter.setBrush(Qt.BrushStyle.NoBrush)
+            painter.drawRect(0, 0, pixel - 1, pixel - 1)
+
+        painter.end()
+        return QIcon(pixmap)
+
+    @staticmethod
     def apply_theme(editor, theme_name, custom_themes=None, font=None):
         theme = ThemeManager.get_theme(theme_name, custom_themes)
         editor_theme = theme["editor"]
