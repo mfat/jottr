@@ -748,15 +748,11 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
         add_action(view_menu, "Zoom Out", self.zoom_out, "zoom-out", QKeySequence("Ctrl+-"), "Zoom Out")
         add_action(view_menu, "Reset Zoom", self.zoom_reset, "zoom-reset", QKeySequence("Ctrl+0"), "Reset Zoom")
 
-        # Tools menu (Kate-style Spelling submenu)
+        # Tools menu: checkable action + default Document Language submenu
+        # (same pattern as the former Spelling menu — avoids a lone short submenu row)
         tools_menu = add_menu("Tools")
-        spelling_menu = tools_menu.addMenu(_("Spelling"))
-        spelling_menu.setAccessibleName(_("{title} menu").format(title=_("Spelling")))
-        spelling_menu.menuAction().setProperty("text_key", "Spelling")
-        self.translatable_actions.append(spelling_menu.menuAction())
-        self.translatable_menus.append((spelling_menu, "Spelling"))
         self.spell_check_action = add_action(
-            spelling_menu,
+            tools_menu,
             "Automatic Spell Checking",
             self.toggle_spell_check,
             None,
@@ -768,7 +764,7 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
             bool(self.settings_manager.get_setting("spell_check", True))
         )
         self.spell_check_action.setIconVisibleInMenu(False)
-        document_language_menu = spelling_menu.addMenu(_("Document Language"))
+        document_language_menu = tools_menu.addMenu(_("Document Language"))
         document_language_menu.setAccessibleName(
             _("{title} menu").format(title=_("Document Language"))
         )
@@ -1074,7 +1070,7 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
         self.update_document_language_status()
 
     def toggle_spell_check(self, checked=None):
-        """Toggle automatic spell checking from Tools > Spelling."""
+        """Toggle automatic spell checking from Tools."""
         if checked is None:
             checked = not bool(self.settings_manager.get_setting("spell_check", True))
         enabled = bool(checked)

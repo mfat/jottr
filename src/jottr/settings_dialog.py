@@ -336,7 +336,7 @@ class SettingsDialog(QDialog):
         spell_langs_hint = QLabel(
             _("Choose a language, or Auto-detect from the text. "
               "Jottr loads a matching installed dictionary and warns if none is available. "
-              "Also available from Tools → Spelling → Document Language and the status bar.")
+              "Also available from Tools → Document Language and the status bar.")
         )
         spell_langs_hint.setWordWrap(True)
         spell_form.addRow(spell_langs_hint)

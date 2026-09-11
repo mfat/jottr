@@ -88,8 +88,8 @@ Enter distraction-free writing mode:
 ## Spell Checking
 Jottr underlines misspelled words while you type:
 
-- Toggle from Tools > Spelling > Automatic Spell Checking (Ctrl+Shift+O), or in Settings > Dictionary
-- Set the document language under Tools > Spelling > Document Language, or in Settings > Dictionary
+- Toggle from Tools > Automatic Spell Checking (Ctrl+Shift+O), or in Settings > Dictionary
+- Set the document language under Tools > Document Language, or in Settings > Dictionary
 - Choose a specific language, or Auto-detect (uses `langdetect` on the document text)
 - Jottr loads the matching installed Enchant/hunspell dictionary; if none is installed it shows a warning instead of guessing
 - For Persian/Farsi, install `myspell-fa` (Debian/Ubuntu) or `hunspell-fa` (Fedora)

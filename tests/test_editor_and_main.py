@@ -1247,17 +1247,15 @@ class EditorAndMainTests(unittest.TestCase):
             self.assertNotIn("data:image/svg+xml", stylesheet)
 
             tools_menu = menubar.actions()[3].menu()
-            spelling_action = next(
-                action for action in tools_menu.actions()
-                if action.text() == "Spelling"
-            )
-            spelling_items = {
+            tools_items = {
                 action.text(): action
-                for action in spelling_action.menu().actions()
+                for action in tools_menu.actions()
                 if not action.isSeparator()
             }
-            self.assertIn("Automatic Spell Checking", spelling_items)
-            spell_action = spelling_items["Automatic Spell Checking"]
+            self.assertIn("Automatic Spell Checking", tools_items)
+            self.assertIn("Document Language", tools_items)
+            self.assertIsNotNone(tools_items["Document Language"].menu())
+            spell_action = tools_items["Automatic Spell Checking"]
             self.assertTrue(spell_action.isCheckable())
             self.assertTrue(spell_action.isChecked())
             self.assertTrue(spell_action.icon().isNull())
