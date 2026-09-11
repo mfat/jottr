@@ -1185,20 +1185,26 @@ class EditorAndMainTests(unittest.TestCase):
             self.assertIn("margin-bottom: 2px", QApplication.instance().styleSheet())
             self.assertIn("text-align: center", QApplication.instance().styleSheet())
             self.assertIn("height: 38px", QApplication.instance().styleSheet())
-            dropdown_tooltips = {
+            file_menu = next(
+                action.menu()
+                for action in window.menuBar().actions()
+                if action.text().replace("&", "") == "File"
+            )
+            file_tooltips = {
                 action.text(): action.toolTip()
-                for action in window.menu_dropdown.actions()
+                for action in file_menu.actions()
                 if not action.isSeparator() and action.text()
             }
-            self.assertEqual(dropdown_tooltips["Export PDF"], "Export current file as PDF")
+            self.assertEqual(file_tooltips["Export as PDF..."], "Export current file as PDF")
             self.assertTrue(
                 all(
-                    action.icon().isNull()
-                    for action in window.menu_dropdown.actions()
+                    action.icon().isNull() or not action.isIconVisibleInMenu()
+                    for action in file_menu.actions()
                     if not action.isSeparator()
                 ),
-                "toolbar overflow menu should be text-only",
+                "menubar should hide icons on shared toolbar actions",
             )
+            self.assertIs(window.new_action, file_menu.actions()[0])
             self.assertNotEqual(window.icons["snippets"], window.icons["menu"])
 
     def test_settings_opens_as_reusable_workspace_tab(self):
@@ -1298,12 +1304,13 @@ class EditorAndMainTests(unittest.TestCase):
 
             menubar = window.menuBar()
             self.assertEqual(menubar.objectName(), "appMenuBar")
-            self.assertFalse(menubar.isNativeMenuBar())
+            self.assertEqual(menubar.isNativeMenuBar(), sys.platform == "darwin")
             self.assertEqual(menubar.focusPolicy(), Qt.FocusPolicy.StrongFocus)
             self.assertEqual(menubar.accessibleName(), "Application menu")
 
-            menu_titles = [action.text() for action in menubar.actions()]
+            menu_titles = [action.text().replace("&", "") for action in menubar.actions()]
             self.assertEqual(menu_titles, ["File", "Edit", "View", "Tools", "Workspace", "Help"])
+            self.assertTrue(all("&" in action.text() for action in menubar.actions()))
 
             file_actions = [
                 action for action in menubar.actions()[0].menu().actions()
@@ -1311,9 +1318,13 @@ class EditorAndMainTests(unittest.TestCase):
             ]
             self.assertEqual(file_actions[0].text(), "New Editor Tab")
             self.assertEqual(file_actions[0].toolTip(), "Create a new editor tab")
+            self.assertIs(file_actions[0], window.new_action)
             self.assertTrue(
-                all(action.icon().isNull() for action in file_actions),
-                "menubar actions should be text-only",
+                all(
+                    action.icon().isNull() or not action.isIconVisibleInMenu()
+                    for action in file_actions
+                ),
+                "menubar should hide icons on shared toolbar actions",
             )
             self.assertNotIn("Settings", [action.text() for action in file_actions])
 
@@ -1322,8 +1333,15 @@ class EditorAndMainTests(unittest.TestCase):
                 if not action.isSeparator()
             ]
             self.assertEqual(edit_actions[:3], ["Undo", "Redo", "Cut"])
+            self.assertIn("Select All", edit_actions)
             self.assertIn("Find/Replace", edit_actions)
             self.assertNotIn("Settings", edit_actions)
+            self.assertIn(window.undo_action, window.toolbar.actions())
+            self.assertIn(window.focus_mode_action, window.toolbar.actions())
+            self.assertIn(
+                window.focus_mode_action,
+                [a for a in menubar.actions()[2].menu().actions() if not a.isSeparator()],
+            )
             # In-window menubar is chrome-styled to match the toolbar. Do not
             # style QMainWindow (cascades hide titles under Breeze dark) or
             # popup QMenu items (left to QStyle + palette).
@@ -1333,7 +1351,7 @@ class EditorAndMainTests(unittest.TestCase):
             self.assertNotIn("QMenu::item", stylesheet)
             self.assertNotIn("data:image/svg+xml", stylesheet)
             self.assertNotIn("QMainWindow", stylesheet)
-            self.assertFalse(menubar.isNativeMenuBar())
+            self.assertEqual(menubar.isNativeMenuBar(), sys.platform == "darwin")
 
             tools_menu = menubar.actions()[3].menu()
             tools_items = {
@@ -1350,6 +1368,7 @@ class EditorAndMainTests(unittest.TestCase):
             )
             self.assertIsNotNone(tools_items["Document Language"].menu())
             spell_action = tools_items["Automatic Spell Checking"]
+            self.assertIs(spell_action, window.spell_check_action)
             self.assertTrue(spell_action.isCheckable())
             self.assertTrue(spell_action.isChecked())
             self.assertTrue(spell_action.icon().isNull())
@@ -1405,7 +1424,11 @@ class EditorAndMainTests(unittest.TestCase):
             self.addCleanup(window.close)
             self.addCleanup(window.deleteLater)
 
-            plugins_menu = next(action.menu() for action in window.menuBar().actions() if action.text() == "Plugins")
+            plugins_menu = next(
+                action.menu()
+                for action in window.menuBar().actions()
+                if action.text().replace("&", "") == "Plugins"
+            )
             plugin_actions = [action.text() for action in plugins_menu.actions() if not action.isSeparator()]
             self.assertEqual(plugin_actions, ["Browser"])
 
@@ -1674,14 +1697,20 @@ class EditorAndMainTests(unittest.TestCase):
                 for action in window.toolbar.actions()
                 if not action.isSeparator() and action.text()
             }
+            tools_menu = next(
+                action.menu()
+                for action in window.menuBar().actions()
+                if action.text().replace("&", "") == "Tools"
+            )
             menu_actions = {
                 action.text(): action.toolTip()
-                for action in window.menu_dropdown.actions()
+                for action in tools_menu.actions()
                 if not action.isSeparator() and action.text()
             }
 
             self.assertNotIn("Translated Menu", toolbar_tooltips)
             self.assertEqual(menu_actions["Translated Settings"], "Translated Open Settings")
+            self.assertIs(window.settings_action, tools_menu.actions()[-1])
 
         translation_manager.set_language("en_US")
 
