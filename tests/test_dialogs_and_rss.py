@@ -10,19 +10,19 @@ from unittest.mock import Mock, patch
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
-SRC_DIR = PROJECT_ROOT / "src" / "jottr"
-sys.path.insert(0, str(SRC_DIR))
+SRC_ROOT = PROJECT_ROOT / "src"
+sys.path.insert(0, str(SRC_ROOT))
 
 from PyQt6.QtCore import Qt
 from PyQt6.QtWidgets import QApplication, QLabel, QMessageBox, QScrollArea, QWidget
 
-from feed_manager_dialog import FeedManagerDialog
-from rss_reader import RSSReader
-from settings_dialog import SearchSiteDialog, SettingsDialog
-from plugin_manager import PluginManager
-from settings_manager import SettingsManager
-from snippet_editor_dialog import SnippetEditorDialog
-import translation_manager
+from jottr.feed_manager_dialog import FeedManagerDialog
+from jottr.rss_reader import RSSReader
+from jottr.settings_dialog import SearchSiteDialog, SettingsDialog
+from jottr.plugin_manager import PluginManager
+from jottr.settings_manager import SettingsManager
+from jottr.snippet_editor_dialog import SnippetEditorDialog
+import jottr.translation_manager as translation_manager
 
 
 _APP = None
@@ -343,8 +343,8 @@ class DialogAndRssTests(unittest.TestCase):
         response.raise_for_status.return_value = None
         feed = SimpleNamespace(entries=[SimpleNamespace(title="Item")])
 
-        with patch("feed_manager_dialog.requests.get", return_value=response) as get, \
-                patch("feed_manager_dialog.feedparser.parse", return_value=feed):
+        with patch("jottr.feed_manager_dialog.requests.get", return_value=response) as get, \
+                patch("jottr.feed_manager_dialog.feedparser.parse", return_value=feed):
             self.assertTrue(dialog.test_feed_url("https://example.test/rss"))
 
         get.assert_called_once_with("https://example.test/rss", timeout=10)
@@ -355,9 +355,9 @@ class DialogAndRssTests(unittest.TestCase):
         response.raise_for_status.return_value = None
         feed = SimpleNamespace(entries=[])
 
-        with patch("feed_manager_dialog.requests.get", return_value=response), \
-                patch("feed_manager_dialog.feedparser.parse", return_value=feed), \
-                patch("feed_manager_dialog.QMessageBox.warning") as warning:
+        with patch("jottr.feed_manager_dialog.requests.get", return_value=response), \
+                patch("jottr.feed_manager_dialog.feedparser.parse", return_value=feed), \
+                patch("jottr.feed_manager_dialog.QMessageBox.warning") as warning:
             self.assertFalse(dialog.test_feed_url("https://example.test/rss"))
 
         warning.assert_called_once()
@@ -396,8 +396,8 @@ class DialogAndRssTests(unittest.TestCase):
                     link="https://example.test/story",
                 )
                 feed = SimpleNamespace(entries=[entry])
-                with patch("rss_reader.requests.get", return_value=response), \
-                        patch("rss_reader.feedparser.parse", return_value=feed):
+                with patch("jottr.rss_reader.requests.get", return_value=response), \
+                        patch("jottr.rss_reader.feedparser.parse", return_value=feed):
                     reader.refresh_current_feed()
                     reader.entries_list.setCurrentRow(0)
             finally:
@@ -415,7 +415,7 @@ class DialogAndRssTests(unittest.TestCase):
                 reader.feeds = {"Local": "https://local.example/rss"}
                 reader.update_feed_selector()
                 with patch(
-                    "rss_reader.QMessageBox.question",
+                    "jottr.rss_reader.QMessageBox.question",
                     return_value=QMessageBox.StandardButton.Yes,
                 ):
                     reader.remove_feed()

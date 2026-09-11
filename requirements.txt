@@ -1,18 +1,15 @@
-# System dependencies:
-# macOS: 
-#   brew install hunspell
-#   brew install hunspell-en
-# Ubuntu/Debian: 
-#   sudo apt-get install hunspell hunspell-en-us hunspell-en-gb
-# Fedora: 
-#   sudo dnf install hunspell hunspell-en
+# Runtime dependencies (mirrored in pyproject.toml).
+# Prefer: pip install -e ".[build]"
+#
+# System packages may still be required:
+#   macOS: brew install enchant
+#   Ubuntu/Debian: sudo apt-get install hunspell hunspell-en-us
+#   Fedora: sudo dnf install hunspell hunspell-en
 
 PyQt6>=6.6.0
 PyQt6-WebEngine>=6.6.0
 pyenchant>=3.2.0
 feedparser>=6.0.0
-requests==2.31.0
-pyinstaller>=4.5.1
-dmgbuild>=1.4.2
-pyspellchecker>=0.7.2
+requests>=2.31.0
 Markdown>=3.6
+pyspellchecker>=0.7.2

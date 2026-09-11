@@ -1,0 +1,68 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "jottr"
+dynamic = ["version"]
+description = "Modern text editor for writers and journalists"
+readme = "README.md"
+license = "GPL-3.0-or-later"
+authors = [
+  { name = "mFat", email = "newmfat@gmail.com" },
+]
+requires-python = ">=3.10"
+keywords = ["editor", "writing", "qt", "pyqt6"]
+classifiers = [
+  "Development Status :: 5 - Production/Stable",
+  "Environment :: X11 Applications :: Qt",
+  "Intended Audience :: End Users/Desktop",
+  "Operating System :: MacOS",
+  "Operating System :: Microsoft :: Windows",
+  "Operating System :: POSIX :: Linux",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3 :: Only",
+  "Topic :: Text Editors",
+]
+dependencies = [
+  "PyQt6>=6.6.0",
+  "PyQt6-WebEngine>=6.6.0",
+  "pyenchant>=3.2.0",
+  "feedparser>=6.0.0",
+  "requests>=2.31.0",
+  "Markdown>=3.6",
+  "pyspellchecker>=0.7.2",
+]
+
+[project.urls]
+Homepage = "https://github.com/mfat/jottr"
+Repository = "https://github.com/mfat/jottr"
+Issues = "https://github.com/mfat/jottr/issues"
+
+[project.optional-dependencies]
+build = [
+  "pyinstaller>=4.5.1",
+  "dmgbuild>=1.4.2",
+]
+dev = [
+  "jottr[build]",
+]
+
+[project.gui-scripts]
+jottr = "jottr.main:main"
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+include-package-data = true
+
+[tool.setuptools.dynamic]
+version = {attr = "jottr.__version__"}
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+jottr = [
+  "help/**/*",
+  "icons/**/*",
+]

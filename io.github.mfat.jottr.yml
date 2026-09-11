@@ -7,7 +7,7 @@ base-version: '6.10'
 command: jottr
 separate-locales: false
 cleanup-commands:
-  - /app/cleanup-BaseApp.sh
+    - /app/cleanup-BaseApp.sh
 finish-args:
   - --share=network
   - --share=ipc
@@ -35,23 +35,21 @@ modules:
   - name: jottr
     buildsystem: simple
     build-commands:
-      - mkdir -p /app/share/jottr
-      - cp -r src/jottr/* /app/share/jottr/
-      - cp -r icons /app/share/jottr/icons
-      - install -D -m755 jottr.sh /app/bin/jottr
-      - install -D -m644 io.github.mfat.jottr.desktop -t /app/share/applications/
-      - install -D icons/jottr_icon_16x16.png /app/share/icons/hicolor/16x16/apps/io.github.mfat.jottr.png
-      - install -D icons/jottr_icon_32x32.png /app/share/icons/hicolor/32x32/apps/io.github.mfat.jottr.png
-      - install -D icons/jottr_icon_48x48.png /app/share/icons/hicolor/48x48/apps/io.github.mfat.jottr.png
-      - install -D icons/jottr_icon_64x64.png /app/share/icons/hicolor/64x64/apps/io.github.mfat.jottr.png
-      - install -D icons/jottr_icon_128x128.png /app/share/icons/hicolor/128x128/apps/io.github.mfat.jottr.png
-      - install -D icons/jottr_icon_256x256.png /app/share/icons/hicolor/256x256/apps/io.github.mfat.jottr.png
-      - install -D icons/jottr_icon_512x512.png /app/share/icons/hicolor/512x512/apps/io.github.mfat.jottr.png
-      - install -D -m644 io.github.mfat.jottr.metainfo.xml -t /app/share/metainfo/
+      - pip3 install --verbose --prefix=${FLATPAK_DEST} --no-deps --no-build-isolation .
+      - mkdir -p ${FLATPAK_DEST}/share/jottr
+      - cp -r icons ${FLATPAK_DEST}/share/jottr/icons
+      - cp -r translations ${FLATPAK_DEST}/share/jottr/translations
+      - install -D -m644 io.github.mfat.jottr.desktop -t ${FLATPAK_DEST}/share/applications/
+      - install -D icons/jottr_icon_16x16.png ${FLATPAK_DEST}/share/icons/hicolor/16x16/apps/io.github.mfat.jottr.png
+      - install -D icons/jottr_icon_32x32.png ${FLATPAK_DEST}/share/icons/hicolor/32x32/apps/io.github.mfat.jottr.png
+      - install -D icons/jottr_icon_48x48.png ${FLATPAK_DEST}/share/icons/hicolor/48x48/apps/io.github.mfat.jottr.png
+      - install -D icons/jottr_icon_64x64.png ${FLATPAK_DEST}/share/icons/hicolor/64x64/apps/io.github.mfat.jottr.png
+      - install -D icons/jottr_icon_128x128.png ${FLATPAK_DEST}/share/icons/hicolor/128x128/apps/io.github.mfat.jottr.png
+      - install -D icons/jottr_icon_256x256.png ${FLATPAK_DEST}/share/icons/hicolor/256x256/apps/io.github.mfat.jottr.png
+      - install -D icons/jottr_icon_512x512.png ${FLATPAK_DEST}/share/icons/hicolor/512x512/apps/io.github.mfat.jottr.png
+      - install -D -m644 io.github.mfat.jottr.metainfo.xml -t ${FLATPAK_DEST}/share/metainfo/
     sources:
       - type: git
         url: "https://github.com/mfat/jottr.git"
         tag: v1.4.3
         commit: ae78bb0d7f35e8ed49ad3e3d510cb569d86c16e2
-      - type: file
-        path: jottr.sh

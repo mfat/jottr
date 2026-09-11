@@ -18,11 +18,11 @@ Release PRs update:
 
 - `CHANGELOG.md`
 - `.release-please-manifest.json`
-- `setup.py`
-- `src/jottr/__init__.py`
-- `src/jottr/main.py`
+- `src/jottr/__init__.py` (package version)
 - `rpm.spec`
 - `io.github.mfat.jottr.metainfo.xml`
+
+`setup.py` is a thin setuptools shim; project metadata lives in `pyproject.toml` with the version sourced from `jottr.__version__`.
 
 `packaging/debian/changelog` is kept as Debian packaging history. Update it manually when preparing Debian packages, because its required date/signature format does not match release-please's generic version updater.
 

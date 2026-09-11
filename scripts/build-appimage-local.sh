@@ -100,13 +100,17 @@ need_command sha256sum
 need_command desktop-file-validate
 
 need_file "$repo_root/requirements.txt"
-need_file "$repo_root/src/jottr/main.py"
+need_file "$repo_root/pyproject.toml"
+need_file "$repo_root/src/jottr/__main__.py"
 need_file "$repo_root/icons/jottr.png"
 need_file "$repo_root/io.github.mfat.jottr.desktop"
 
 if [ "$clean" = true ]; then
   echo "==> Cleaning local AppImage build output"
   rm -rf \
+    "$repo_root/build" \
+    "$repo_root/dist" \
+    "$repo_root/jottr.spec" \
     "$repo_root/src/jottr/build" \
     "$repo_root/src/jottr/dist" \
     "$repo_root/src/jottr/jottr.spec" \
@@ -121,51 +125,51 @@ fi
 
 if [ "$skip_pip_install" = false ]; then
   echo "==> Installing Python build dependencies"
-  "$venv_dir/bin/python" -m pip install --upgrade pip
-  "$venv_dir/bin/python" -m pip install -r "$repo_root/requirements.txt"
+  (
+    cd "$repo_root"
+    "$venv_dir/bin/python" -m pip install --upgrade pip
+    "$venv_dir/bin/python" -m pip install -r requirements.txt
+    "$venv_dir/bin/python" -m pip install -e ".[build]"
+  )
 fi
 
 echo "==> Building PyInstaller bundle"
 (
-  cd "$repo_root/src/jottr"
+  cd "$repo_root"
   "$pyinstaller" \
     --noconfirm \
     --windowed \
     --name jottr \
-    --paths "." \
+    --paths src \
+    --collect-submodules jottr \
     --hidden-import ctypes \
     --hidden-import ctypes.util \
-    --hidden-import editor_tab \
-    --hidden-import feed_manager_dialog \
-    --hidden-import font_dialog \
-    --hidden-import rss_reader \
-    --hidden-import rss_tab \
-    --hidden-import settings_dialog \
-    --hidden-import settings_manager \
-    --hidden-import snippet_editor_dialog \
-    --hidden-import snippet_manager \
-    --hidden-import theme_manager \
-    --hidden-import translation_manager \
+    --hidden-import jottr \
+    --hidden-import jottr.editor_tab \
+    --hidden-import jottr.feed_manager_dialog \
+    --hidden-import jottr.font_dialog \
+    --hidden-import jottr.icon_manager \
+    --hidden-import jottr.paths \
+    --hidden-import jottr.plugin_manager \
+    --hidden-import jottr.rss_reader \
+    --hidden-import jottr.rss_tab \
+    --hidden-import jottr.settings_dialog \
+    --hidden-import jottr.settings_manager \
+    --hidden-import jottr.snippet_editor_dialog \
+    --hidden-import jottr.snippet_manager \
+    --hidden-import jottr.theme_manager \
+    --hidden-import jottr.translation_manager \
     --hidden-import pyenchant \
     --hidden-import pyspellchecker \
     --hidden-import spellchecker \
-    --add-data "editor_tab.py:." \
-    --add-data "feed_manager_dialog.py:." \
-    --add-data "font_dialog.py:." \
-    --add-data "rss_reader.py:." \
-    --add-data "rss_tab.py:." \
-    --add-data "settings_dialog.py:." \
-    --add-data "settings_manager.py:." \
-    --add-data "snippet_editor_dialog.py:." \
-    --add-data "snippet_manager.py:." \
-    --add-data "theme_manager.py:." \
-    --add-data "translation_manager.py:." \
+    --add-data "src/jottr/help:jottr/help" \
+    --add-data "src/jottr/icons:jottr/icons" \
     --add-data "icons:icons" \
-    --add-data "help:help" \
-    main.py
+    --add-data "translations:translations" \
+    src/jottr/__main__.py
 )
 
-bundle_exe="$repo_root/src/jottr/dist/jottr/jottr"
+bundle_exe="$repo_root/dist/jottr/jottr"
 need_file "$bundle_exe"
 
 if [ "$run_bundle" = true ]; then
@@ -181,7 +185,7 @@ mkdir -p \
   "$app_dir/usr/share/applications" \
   "$app_dir/usr/share/icons/hicolor/256x256/apps"
 
-cp -r "$repo_root/src/jottr/dist/jottr/." "$app_dir/usr/share/jottr/"
+cp -r "$repo_root/dist/jottr/." "$app_dir/usr/share/jottr/"
 cp "$repo_root/icons/jottr.png" "$app_dir/usr/share/icons/hicolor/256x256/apps/jottr.png"
 cp "$repo_root/icons/jottr.png" "$app_dir/jottr.png"
 cp "$repo_root/io.github.mfat.jottr.desktop" "$app_dir/usr/share/applications/jottr.desktop"

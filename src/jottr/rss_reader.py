@@ -6,8 +6,8 @@ import feedparser
 import json
 import os
 import requests
-from feed_manager_dialog import FeedManagerDialog
-from translation_manager import _
+from jottr.feed_manager_dialog import FeedManagerDialog
+from jottr.translation_manager import _
 
 class RSSReader(QWidget):
     def __init__(self, parent=None):

@@ -1,6 +1,6 @@
 from PyQt6.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QLineEdit, 
                             QTextEdit, QPushButton, QLabel)
-from translation_manager import _
+from jottr.translation_manager import _
 
 class SnippetEditorDialog(QDialog):
     def __init__(self, title="", content="", parent=None):

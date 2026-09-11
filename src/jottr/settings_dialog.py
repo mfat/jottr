@@ -7,10 +7,10 @@ from PyQt6.QtCore import Qt, QSize
 from PyQt6.QtGui import QFont, QColor
 import json
 import os
-from font_dialog import FontSelectionDialog
-from plugin_manager import PluginManager, REMOTE_WARNING
-from theme_manager import ThemeManager
-from translation_manager import (
+from jottr.font_dialog import FontSelectionDialog
+from jottr.plugin_manager import PluginManager, REMOTE_WARNING
+from jottr.theme_manager import ThemeManager
+from jottr.translation_manager import (
     _,
     format_language_label,
     get_available_languages,

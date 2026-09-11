@@ -20,11 +20,11 @@ from PyQt6.QtGui import (QAction, QShortcut, QTextCharFormat, QSyntaxHighlighter
 from PyQt6.QtWebEngineWidgets import QWebEngineView
 from PyQt6.QtWebEngineCore import QWebEnginePage, QWebEngineSettings
 from urllib.parse import quote
-from snippet_editor_dialog import SnippetEditorDialog
-from rss_reader import RSSReader
+from jottr.snippet_editor_dialog import SnippetEditorDialog
+from jottr.rss_reader import RSSReader
 import time
-from theme_manager import ThemeManager
-from translation_manager import _, is_rtl_language, localize_digits
+from jottr.theme_manager import ThemeManager
+from jottr.translation_manager import _, is_rtl_language, localize_digits
 import html
 import json
 import re

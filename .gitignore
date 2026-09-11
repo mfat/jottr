@@ -1,6 +1,7 @@
-# Build directories
-dist/
-build/
+/dist/
+/build/
+jottr.spec
+Jottr.spec
 __pycache__/
 *.pyc
 *.egg-info/

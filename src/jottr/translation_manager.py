@@ -1,6 +1,8 @@
 import ast
 from pathlib import Path
 
+from jottr.paths import find_data_dir
+
 
 DEFAULT_LANGUAGE = "en_US"
 RTL_LANGUAGES = {
@@ -13,6 +15,9 @@ _messages = {}
 
 
 def get_translations_dir():
+    found = find_data_dir("translations")
+    if found is not None:
+        return found
     return Path(__file__).resolve().parents[2] / "translations"
 
 

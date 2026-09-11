@@ -12,7 +12,7 @@
       "extra-files": [
         {
           "type": "generic",
-          "path": "src/jottr/main.py"
+          "path": "src/jottr/__init__.py"
         },
         {
           "type": "generic",

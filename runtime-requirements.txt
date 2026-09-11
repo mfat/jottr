@@ -1,13 +1,8 @@
-# System dependencies:
-# macOS: 
-#   brew install hunspell
-#   brew install hunspell-en
-# Ubuntu/Debian: 
-#   sudo apt-get install hunspell hunspell-en-us hunspell-en-gb
-# Fedora: 
-#   sudo dnf install hunspell hunspell-en
+# Runtime deps for Flatpak (system/BaseApp provides PyQt6).
+# Generated tooling may still pin wheels in pypi-dependencies.yaml.
 
 pyenchant>=3.2.0
 feedparser>=6.0.0
-requests==2.31.0
+requests>=2.31.0
 Markdown>=3.6
+pyspellchecker>=0.7.2

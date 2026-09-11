@@ -1,13 +1,6 @@
-from setuptools import find_packages, setup
+#!/usr/bin/env python3
+"""Backward-compatible setuptools entry for older packaging tooling."""
 
-setup(
-    name="jottr",
-    version="2.2.1",
-    description="Modern text editor for writers and journalists",
-    author="mFat",
-    author_email="newmfat@gmail.com",
-    url="https://github.com/mfat/jottr",
-    package_dir={"": "src"},
-    packages=find_packages(where="src"),
-    include_package_data=True,
-) 
+from setuptools import setup
+
+setup()

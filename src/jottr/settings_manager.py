@@ -195,14 +195,14 @@ class SettingsManager:
         self.save_settings()
 
     def get_custom_themes(self):
-        from theme_manager import ThemeManager
+        from jottr.theme_manager import ThemeManager
 
         return ThemeManager.normalize_custom_themes(
             self.settings.get("custom_themes", {})
         )
 
     def save_custom_themes(self, custom_themes):
-        from theme_manager import ThemeManager
+        from jottr.theme_manager import ThemeManager
 
         self.settings["custom_themes"] = ThemeManager.normalize_custom_themes(custom_themes)
         self.save_settings()

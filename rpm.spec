@@ -29,31 +29,36 @@ and researchers.
 %autosetup
 
 %install
-# Install application files
-mkdir -p %{buildroot}%{_datadir}/%{name}
-cp -r src/jottr/* %{buildroot}%{_datadir}/%{name}/
-cp -r icons %{buildroot}%{_datadir}/%{name}/icons
+# Install the importable package
+mkdir -p %{buildroot}%{python3_sitelib}
+cp -a src/jottr %{buildroot}%{python3_sitelib}/jottr
+rm -f %{buildroot}%{python3_sitelib}/jottr/jottr-mac.spec \
+      %{buildroot}%{python3_sitelib}/jottr/jottr-windows.spec \
+      %{buildroot}%{python3_sitelib}/jottr/jottr_icon.icns
+find %{buildroot}%{python3_sitelib}/jottr -type d -name '__pycache__' -exec rm -rf {} + 2>/dev/null || true
 
-# Create executable script
+# Shared data looked up via jottr.paths
+mkdir -p %{buildroot}%{_datadir}/%{name}
+cp -a icons %{buildroot}%{_datadir}/%{name}/icons
+cp -a translations %{buildroot}%{_datadir}/%{name}/translations
+
+# Launcher
 mkdir -p %{buildroot}%{_bindir}
-cat > %{buildroot}%{_bindir}/%{name} << EOF
+cat > %{buildroot}%{_bindir}/%{name} << 'EOF'
 #!/bin/bash
-# Get the absolute path of any file arguments
 args=()
-for arg in "\$@"; do
-    if [ -f "\$arg" ]; then
-        args+=("\$(readlink -f "\$arg")")
+for arg in "$@"; do
+    if [ -f "$arg" ]; then
+        args+=("$(readlink -f "$arg")")
     else
-        args+=("\$arg")
+        args+=("$arg")
     fi
 done
-
-# Pass command-line arguments to the application
-exec python3 %{_datadir}/%{name}/main.py "\${args[@]}"
+exec python3 -m jottr "${args[@]}"
 EOF
 chmod 755 %{buildroot}%{_bindir}/%{name}
 
-# Create desktop entry
+# Desktop entry
 mkdir -p %{buildroot}%{_datadir}/applications
 cat > %{buildroot}%{_datadir}/applications/%{name}.desktop << EOF
 [Desktop Entry]
@@ -68,13 +73,14 @@ MimeType=text/plain;text/markdown;text/x-markdown;
 StartupNotify=true
 EOF
 
-# Add icons
+# App icon
 mkdir -p %{buildroot}%{_datadir}/icons/hicolor/256x256/apps/
 install -p -m 644 icons/jottr.png %{buildroot}%{_datadir}/icons/hicolor/256x256/apps/%{name}.png
 
 %files
 %license LICENSE
 %doc README.md
+%{python3_sitelib}/jottr
 %{_datadir}/%{name}
 %{_bindir}/%{name}
 %{_datadir}/applications/%{name}.desktop

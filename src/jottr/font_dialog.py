@@ -9,8 +9,8 @@ from PyQt6.QtWidgets import (
 )
 from PyQt6.QtGui import QColor, QFont, QPalette
 
-from theme_manager import ThemeManager
-from translation_manager import _
+from jottr.theme_manager import ThemeManager
+from jottr.translation_manager import _
 
 
 class FontSelectionDialog(QDialog):

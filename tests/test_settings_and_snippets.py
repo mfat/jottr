@@ -9,16 +9,16 @@ from unittest.mock import patch
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
-SRC_DIR = PROJECT_ROOT / "src" / "jottr"
-sys.path.insert(0, str(SRC_DIR))
+SRC_ROOT = PROJECT_ROOT / "src"
+sys.path.insert(0, str(SRC_ROOT))
 
 from PyQt6.QtGui import QFont
 from PyQt6.QtWidgets import QApplication
 
-from settings_manager import SettingsManager
-from snippet_manager import SnippetManager
-from theme_manager import ThemeManager
-import translation_manager
+from jottr.settings_manager import SettingsManager
+from jottr.snippet_manager import SnippetManager
+from jottr.theme_manager import ThemeManager
+import jottr.translation_manager as translation_manager
 
 
 _APP = None

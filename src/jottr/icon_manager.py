@@ -7,11 +7,12 @@ set). Runtime lookup uses only those files — never the host icon theme.
 from __future__ import annotations
 
 import os
-import sys
 
 from PyQt6.QtCore import QByteArray, QRectF, Qt
 from PyQt6.QtGui import QColor, QGuiApplication, QIcon, QPainter, QPixmap
 from PyQt6.QtSvg import QSvgRenderer
+
+from jottr.paths import data_roots, find_data_dir
 
 # Logical sizes used by the UI (tabs 16, toolbar 22, menus ~16–24).
 _ICON_SIZES = (16, 22, 24, 32)
@@ -19,25 +20,12 @@ _ICON_SIZES = (16, 22, 24, 32)
 
 def resolve_icons_dir() -> str:
     """Return the directory that contains bundled UI icons."""
-    candidates = []
-
-    if getattr(sys, "frozen", False) and hasattr(sys, "_MEIPASS"):
-        candidates.append(os.path.join(sys._MEIPASS, "icons"))
-
-    here = os.path.dirname(os.path.abspath(__file__))
-    candidates.extend(
-        [
-            os.path.join(here, "icons"),
-            os.path.join(here, "..", "..", "icons"),
-            os.path.join(os.getcwd(), "icons"),
-        ]
-    )
-
-    for path in candidates:
-        symbolic = os.path.join(os.path.abspath(path), "symbolic")
-        if os.path.isdir(symbolic):
-            return os.path.abspath(path)
-    return os.path.abspath(candidates[-1])
+    for root in data_roots():
+        candidate = root / "icons"
+        if (candidate / "symbolic").is_dir():
+            return str(candidate)
+    found = find_data_dir("icons")
+    return str(found) if found is not None else os.path.join(os.getcwd(), "icons")
 
 
 def load_bundled_icon_paths() -> dict[str, str]:

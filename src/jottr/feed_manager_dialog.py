@@ -3,7 +3,7 @@ from PyQt6.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QPushButton,
                             QMessageBox, QHeaderView)
 import requests
 import feedparser
-from translation_manager import _
+from jottr.translation_manager import _
 
 class FeedManagerDialog(QDialog):
     def __init__(self, feeds, parent=None):

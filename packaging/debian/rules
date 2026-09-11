@@ -3,7 +3,6 @@
 %:
 	dh $@
 
-# Override all Python-related build steps
 override_dh_auto_clean:
 	# Skip Python build cleaning
 
@@ -23,27 +22,31 @@ override_dh_installchangelogs:
 	# Skip changelogs
 
 override_dh_auto_install:
-	# Create directories
-	mkdir -p debian/jottr/usr/bin
-	mkdir -p debian/jottr/usr/share/applications
+	# Install the importable package
+	mkdir -p debian/jottr/usr/lib/python3/dist-packages
+	cp -a src/jottr debian/jottr/usr/lib/python3/dist-packages/jottr
+	# Drop bundler specs / macOS assets from the Linux package tree
+	rm -f debian/jottr/usr/lib/python3/dist-packages/jottr/jottr-mac.spec \
+		debian/jottr/usr/lib/python3/dist-packages/jottr/jottr-windows.spec \
+		debian/jottr/usr/lib/python3/dist-packages/jottr/jottr_icon.icns
+	find debian/jottr/usr/lib/python3/dist-packages/jottr -type d -name '__pycache__' -exec rm -rf {} + 2>/dev/null || true
+
+	# Shared data (icons / translations) looked up via jottr.paths
 	mkdir -p debian/jottr/usr/share/jottr
+	cp -a icons debian/jottr/usr/share/jottr/icons
+	cp -a translations debian/jottr/usr/share/jottr/translations
+
+	# Desktop entry + app icon
+	mkdir -p debian/jottr/usr/share/applications
 	mkdir -p debian/jottr/usr/share/icons/hicolor/128x128/apps
-
-	# Install program files
-	cp -r src/jottr/* debian/jottr/usr/share/jottr/
-	cp -r icons debian/jottr/usr/share/jottr/icons
-
-	# Install desktop file
 	cp packaging/debian/jottr.desktop debian/jottr/usr/share/applications/
-
-	# Install icon (if it exists)
 	if [ -f icons/jottr.png ]; then \
 		cp icons/jottr.png debian/jottr/usr/share/icons/hicolor/128x128/apps/; \
 	elif [ -f src/jottr/icons/jottr.png ]; then \
 		cp src/jottr/icons/jottr.png debian/jottr/usr/share/icons/hicolor/128x128/apps/; \
 	fi
 
-	# Create launcher script
-	echo '#!/bin/sh' > debian/jottr/usr/bin/jottr
-	echo 'PYTHONPATH=/usr/share/jottr exec python3 /usr/share/jottr/main.py "$$@"' >> debian/jottr/usr/bin/jottr
+	# Launcher
+	mkdir -p debian/jottr/usr/bin
+	printf '%s\n' '#!/bin/sh' 'exec python3 -m jottr "$$@"' > debian/jottr/usr/bin/jottr
 	chmod +x debian/jottr/usr/bin/jottr

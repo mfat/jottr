@@ -1,5 +1,5 @@
 from PyQt6.QtWidgets import QWidget, QVBoxLayout
-from rss_reader import RSSReader
+from jottr.rss_reader import RSSReader
 
 class RSSTab(QWidget):
     def __init__(self, parent=None):

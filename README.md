@@ -50,13 +50,17 @@ To run Jottr on Mac you need to install  echant through [homebrew](https://brew.
 
 `cd jottr`
 
-`pip3 install -r requirements.txt`
+`python3 -m pip install -e ".[build]"`
 
-`cd src/jottr`
+`jottr`
 
-`python3 main.py`
+Or:
+
+`python3 -m jottr`
 
 ### How to run tests:
+
+`python3 -m pip install -e .`
 
 `python3 -m unittest discover -s tests -v`
 

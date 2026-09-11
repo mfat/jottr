@@ -11,13 +11,13 @@ os.environ.setdefault("QTWEBENGINE_DISABLE_SANDBOX", "1")
 os.environ.setdefault("QTWEBENGINE_CHROMIUM_FLAGS", "--no-sandbox --disable-gpu")
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
-SRC_DIR = PROJECT_ROOT / "src" / "jottr"
-sys.path.insert(0, str(SRC_DIR))
+SRC_ROOT = PROJECT_ROOT / "src"
+sys.path.insert(0, str(SRC_ROOT))
 
 from PyQt6.QtWidgets import QApplication, QLabel
 
-from plugin_manager import PluginManager
-from settings_manager import SettingsManager
+from jottr.plugin_manager import PluginManager
+from jottr.settings_manager import SettingsManager
 
 
 _APP = None

@@ -242,48 +242,44 @@ jobs:
           python3 -m venv build-venv
           build-venv/bin/python -m pip install --upgrade pip
           build-venv/bin/python -m pip install -r requirements.txt
-          cd src/jottr
-          ../../build-venv/bin/pyinstaller \
+          build-venv/bin/python -m pip install -e ".[build]"
+          build-venv/bin/pyinstaller \
             --noconfirm \
             --windowed \
             --name jottr \
-            --paths "." \
+            --paths src \
+            --collect-submodules jottr \
             --hidden-import ctypes \
             --hidden-import ctypes.util \
-            --hidden-import editor_tab \
-            --hidden-import feed_manager_dialog \
-            --hidden-import font_dialog \
-            --hidden-import rss_reader \
-            --hidden-import rss_tab \
-            --hidden-import settings_dialog \
-            --hidden-import settings_manager \
-            --hidden-import snippet_editor_dialog \
-            --hidden-import snippet_manager \
-            --hidden-import theme_manager \
-            --hidden-import translation_manager \
+            --hidden-import jottr \
+            --hidden-import jottr.editor_tab \
+            --hidden-import jottr.feed_manager_dialog \
+            --hidden-import jottr.font_dialog \
+            --hidden-import jottr.icon_manager \
+            --hidden-import jottr.paths \
+            --hidden-import jottr.plugin_manager \
+            --hidden-import jottr.rss_reader \
+            --hidden-import jottr.rss_tab \
+            --hidden-import jottr.settings_dialog \
+            --hidden-import jottr.settings_manager \
+            --hidden-import jottr.snippet_editor_dialog \
+            --hidden-import jottr.snippet_manager \
+            --hidden-import jottr.theme_manager \
+            --hidden-import jottr.translation_manager \
             --hidden-import pyenchant \
             --hidden-import pyspellchecker \
             --hidden-import spellchecker \
-            --add-data "editor_tab.py:." \
-            --add-data "feed_manager_dialog.py:." \
-            --add-data "font_dialog.py:." \
-            --add-data "rss_reader.py:." \
-            --add-data "rss_tab.py:." \
-            --add-data "settings_dialog.py:." \
-            --add-data "settings_manager.py:." \
-            --add-data "snippet_editor_dialog.py:." \
-            --add-data "snippet_manager.py:." \
-            --add-data "theme_manager.py:." \
-            --add-data "translation_manager.py:." \
+            --add-data "src/jottr/help:jottr/help" \
+            --add-data "src/jottr/icons:jottr/icons" \
             --add-data "icons:icons" \
-            --add-data "help:help" \
-            main.py
+            --add-data "translations:translations" \
+            src/jottr/__main__.py
 
       - name: Build AppDir
         run: |
           version="${{ needs.release-please.outputs.tag_name }}"
           mkdir -p AppDir/usr/bin AppDir/usr/share/jottr AppDir/usr/share/applications AppDir/usr/share/icons/hicolor/256x256/apps
-          cp -r src/jottr/dist/jottr/* AppDir/usr/share/jottr/
+          cp -r dist/jottr/* AppDir/usr/share/jottr/
           cp icons/jottr.png AppDir/usr/share/icons/hicolor/256x256/apps/jottr.png
           cp icons/jottr.png AppDir/jottr.png
           cp io.github.mfat.jottr.desktop AppDir/usr/share/applications/jottr.desktop
@@ -360,48 +356,44 @@ jobs:
 
       - name: Build unsigned macOS app
         run: |
-          cd src/jottr
+          python -m pip install -e ".[build]"
           pyinstaller \
             --noconfirm \
             --windowed \
             --name Jottr \
-            --icon jottr_icon.icns \
-            --paths "." \
+            --icon src/jottr/jottr_icon.icns \
+            --paths src \
+            --collect-submodules jottr \
             --hidden-import ctypes \
             --hidden-import ctypes.util \
-            --hidden-import editor_tab \
-            --hidden-import feed_manager_dialog \
-            --hidden-import font_dialog \
-            --hidden-import rss_reader \
-            --hidden-import rss_tab \
-            --hidden-import settings_dialog \
-            --hidden-import settings_manager \
-            --hidden-import snippet_editor_dialog \
-            --hidden-import snippet_manager \
-            --hidden-import theme_manager \
-            --hidden-import translation_manager \
+            --hidden-import jottr \
+            --hidden-import jottr.editor_tab \
+            --hidden-import jottr.feed_manager_dialog \
+            --hidden-import jottr.font_dialog \
+            --hidden-import jottr.icon_manager \
+            --hidden-import jottr.paths \
+            --hidden-import jottr.plugin_manager \
+            --hidden-import jottr.rss_reader \
+            --hidden-import jottr.rss_tab \
+            --hidden-import jottr.settings_dialog \
+            --hidden-import jottr.settings_manager \
+            --hidden-import jottr.snippet_editor_dialog \
+            --hidden-import jottr.snippet_manager \
+            --hidden-import jottr.theme_manager \
+            --hidden-import jottr.translation_manager \
             --hidden-import pyenchant \
             --hidden-import pyspellchecker \
             --hidden-import spellchecker \
-            --add-data "editor_tab.py:." \
-            --add-data "feed_manager_dialog.py:." \
-            --add-data "font_dialog.py:." \
-            --add-data "translation_manager.py:." \
-            --add-data "snippet_manager.py:." \
-            --add-data "rss_tab.py:." \
-            --add-data "theme_manager.py:." \
-            --add-data "settings_manager.py:." \
-            --add-data "settings_dialog.py:." \
-            --add-data "snippet_editor_dialog.py:." \
-            --add-data "rss_reader.py:." \
+            --add-data "src/jottr/help:jottr/help" \
+            --add-data "src/jottr/icons:jottr/icons" \
             --add-data "icons:icons" \
-            --add-data "help:help" \
-            main.py
+            --add-data "translations:translations" \
+            src/jottr/__main__.py
 
       - name: Create unsigned DMG
         run: |
           mkdir -p release-assets dmg-root
-          cp -R src/jottr/dist/Jottr.app dmg-root/
+          cp -R dist/Jottr.app dmg-root/
           ln -s /Applications dmg-root/Applications
           hdiutil create \
             -volname "Jottr" \

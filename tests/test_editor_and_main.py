@@ -11,20 +11,20 @@ os.environ.setdefault("QTWEBENGINE_DISABLE_SANDBOX", "1")
 os.environ.setdefault("QTWEBENGINE_CHROMIUM_FLAGS", "--no-sandbox --disable-gpu")
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
-SRC_DIR = PROJECT_ROOT / "src" / "jottr"
-sys.path.insert(0, str(SRC_DIR))
+SRC_ROOT = PROJECT_ROOT / "src"
+sys.path.insert(0, str(SRC_ROOT))
 
 from PyQt6.QtCore import QPoint, QRect, Qt, QEvent
 from PyQt6.QtGui import QColor, QFont, QKeyEvent, QTextCursor, QTextDocument
 from PyQt6.QtWidgets import QApplication, QDialog, QTextEdit, QWidget
 
-from editor_tab import EditorTab, SpellCheckHighlighter
-import editor_tab as editor_tab_module
-import main as main_module
-import translation_manager
-from main import APP_NAME, FontSelectionDialog, TextEditorApp, WorkspaceFileSystemModel, WorkspaceTreeView
-from settings_manager import SettingsManager
-from snippet_manager import SnippetManager
+from jottr.editor_tab import EditorTab, SpellCheckHighlighter
+import jottr.editor_tab as editor_tab_module
+import jottr.main as main_module
+import jottr.translation_manager as translation_manager
+from jottr.main import APP_NAME, FontSelectionDialog, TextEditorApp, WorkspaceFileSystemModel, WorkspaceTreeView
+from jottr.settings_manager import SettingsManager
+from jottr.snippet_manager import SnippetManager
 
 
 _APP = None
@@ -497,7 +497,7 @@ class EditorAndMainTests(unittest.TestCase):
         editor.editor.setPlainText("alpha beta alpha")
         editor.find_input.setText("alpha")
         editor.replace_input.setText("omega")
-        with patch("editor_tab.QMessageBox.information"):
+        with patch("jottr.editor_tab.QMessageBox.information"):
             editor.replace_all()
         self.assertEqual(editor.editor.toPlainText(), "omega beta omega")
 
@@ -1495,7 +1495,7 @@ class EditorAndMainTests(unittest.TestCase):
             self.addCleanup(window.deleteLater)
             window.set_workspace_path(str(workspace))
 
-            with patch("main.QInputDialog.getText", return_value=("draft.txt", True)):
+            with patch("jottr.main.QInputDialog.getText", return_value=("draft.txt", True)):
                 window.create_workspace_file()
 
             target = workspace / "draft.txt"

@@ -19,20 +19,22 @@ from PyQt6.QtCore import (
 )
 from PyQt6.QtWebEngineWidgets import QWebEngineView
 from PyQt6.QtGui import QAction, QShortcut, QFileSystemModel, QPen
-from editor_tab import EditorTab
-from snippet_manager import SnippetManager
-from rss_tab import RSSTab
+from jottr.editor_tab import EditorTab
+from jottr.snippet_manager import SnippetManager
+from jottr.rss_tab import RSSTab
 import feedparser
 from PyQt6.QtGui import QIcon, QDesktopServices, QKeySequence, QColor
-from theme_manager import ThemeManager
-from settings_manager import SettingsManager
-from settings_dialog import SettingsDialog
-from translation_manager import _, is_rtl_language, set_language
+from jottr.theme_manager import ThemeManager
+from jottr.settings_manager import SettingsManager
+from jottr.settings_dialog import SettingsDialog
+from jottr.translation_manager import _, is_rtl_language, set_language
 from PyQt6.QtGui import QFont
 from PyQt6.QtCore import QSize
-from font_dialog import FontSelectionDialog
-from plugin_manager import PluginManager
-from icon_manager import build_themed_icon as render_bundled_icon, load_bundled_icon_paths
+from jottr.font_dialog import FontSelectionDialog
+from jottr.plugin_manager import PluginManager
+from jottr.icon_manager import build_themed_icon as render_bundled_icon, load_bundled_icon_paths
+from jottr.paths import find_data_file
+from jottr import __version__
 # Add vendor directory to path
 vendor_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'vendor')
 if os.path.exists(vendor_dir):
@@ -40,7 +42,7 @@ if os.path.exists(vendor_dir):
 
 # Application constants
 APP_NAME = "Jottr"
-APP_VERSION = "2.2.1"  # x-release-please-version
+APP_VERSION = __version__
 APP_HOMEPAGE = "https://github.com/mfat/jottr"
 
 class WorkspaceFileSystemModel(QFileSystemModel):
@@ -1376,9 +1378,12 @@ class TextEditorApp(QMainWindow):
         
         # Load help content
         try:
-            with open('help/help.md', 'r', encoding='utf-8') as f:
+            help_path = find_data_file("help", "help.md")
+            if help_path is None:
+                raise FileNotFoundError("help/help.md")
+            with open(help_path, 'r', encoding='utf-8') as f:
                 help_content = f.read()
-        except:
+        except Exception:
             help_content = _("Help documentation not found.")
         
         # Set content and make read-only

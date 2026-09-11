@@ -1,0 +1,10 @@
+include LICENSE README.md CHANGELOG.md
+include io.github.mfat.jottr.desktop
+include io.github.mfat.jottr.metainfo.xml
+recursive-include icons *
+recursive-include translations *.po
+recursive-include src/jottr/help *
+recursive-include src/jottr/icons *
+prune .venv
+prune .pybuild
+prune .codebase-memory
