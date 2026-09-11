@@ -138,6 +138,7 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
         self.tab_widget.tabBar().setExpanding(False)
         self.tab_widget.tabCloseRequested.connect(self.close_tab)
         self.tab_widget.currentChanged.connect(self.update_document_language_status)
+        self.tab_widget.currentChanged.connect(self.update_status_bar_visibility)
         self.tab_widget.tabBar().tabs_changed.connect(self.refresh_tab_close_buttons)
         
         # Install event filters on both the tab bar and its containing tab strip.
@@ -937,6 +938,13 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
         language = self.document_language_combo.currentData()
         if language:
             self.set_document_language(language)
+
+    def update_status_bar_visibility(self, _index=None):
+        """Hide the status bar while the Settings tab is active."""
+        if not hasattr(self, "statusBar") or not hasattr(self, "tab_widget"):
+            return
+        tab = self.tab_widget.currentWidget()
+        self.statusBar.setVisible(not getattr(tab, "is_settings_tab", False))
 
     def update_document_language_status(self):
         """Show document language and missing-dictionary warnings in the status bar."""

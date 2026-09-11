@@ -1179,6 +1179,7 @@ class EditorAndMainTests(unittest.TestCase):
             self.assertIs(window.tab_widget.currentWidget(), settings_tab)
             self.assertFalse(window.tab_widget.tabIcon(window.tab_widget.currentIndex()).isNull())
             self.assertTrue(getattr(settings_tab, "is_settings_tab", False))
+            self.assertTrue(window.statusBar.isHidden())
             self.assertGreaterEqual(settings_tab.settings_nav.count(), 3)
             self.assertEqual(settings_tab.settings_nav.item(0).text(), "Appearance")
 
@@ -1193,6 +1194,9 @@ class EditorAndMainTests(unittest.TestCase):
 
             self.assertIs(window.show_settings(), settings_tab)
             self.assertEqual(window.tab_widget.count(), initial_count + 1)
+
+            window.tab_widget.setCurrentIndex(0)
+            self.assertFalse(window.statusBar.isHidden())
 
     def test_main_window_builds_accessible_themed_menubar(self):
         class FakeEditorTab(QWidget):
