@@ -6,6 +6,7 @@
         <file alias="browser.svg">symbolic/browser.svg</file>
         <file alias="color-mode-invert-text.svg">symbolic/color-mode-invert-text.svg</file>
         <file alias="cross-large-square-outline-symbolic.svg">symbolic/cross-large-square-outline-symbolic.svg</file>
+        <file alias="dialog-question.svg">symbolic/dialog-question.svg</file>
         <file alias="document-open.svg">symbolic/document-open.svg</file>
         <file alias="find.svg">symbolic/find.svg</file>
         <file alias="focus-mode.svg">symbolic/focus-mode.svg</file>
@@ -30,7 +31,9 @@
         <file alias="snippets.svg">symbolic/snippets.svg</file>
         <file alias="theme.svg">symbolic/theme.svg</file>
         <file alias="undo.svg">symbolic/undo.svg</file>
+        <file alias="user-trash.svg">symbolic/user-trash.svg</file>
         <file alias="view-fullscreen-symbolic.svg">symbolic/view-fullscreen-symbolic.svg</file>
+        <file alias="window-close.svg">symbolic/window-close.svg</file>
         <file alias="zoom-in.svg">symbolic/zoom-in.svg</file>
         <file alias="zoom-out.svg">symbolic/zoom-out.svg</file>
         <file alias="zoom-reset.svg">symbolic/zoom-reset.svg</file>

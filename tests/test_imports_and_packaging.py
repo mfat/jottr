@@ -178,6 +178,42 @@ class ImportAndPackagingTests(unittest.TestCase):
         )
         self.assertIsNotNone(app)
 
+    def test_message_box_uses_bundled_button_icons(self):
+        from PyQt6.QtCore import QSize
+        from PyQt6.QtWidgets import QApplication, QMessageBox
+
+        from jottr.icon_manager import apply_message_box_icons, load_bundled_icon_paths
+
+        app = QApplication.instance()
+        if app is None:
+            app = QApplication(["jottr-tests"])
+
+        icons = load_bundled_icon_paths()
+        for name in ("dialog-question", "user-trash", "window-close", "save"):
+            self.assertIn(name, icons)
+            self.assertTrue(icons[name].startswith(":/icons/symbolic/"))
+
+        box = QMessageBox()
+        box.setIcon(QMessageBox.Icon.Question)
+        box.setStandardButtons(
+            QMessageBox.StandardButton.Save
+            | QMessageBox.StandardButton.Discard
+            | QMessageBox.StandardButton.Cancel
+        )
+        apply_message_box_icons(box)
+
+        self.assertFalse(box.iconPixmap().isNull())
+        self.assertEqual(box.iconPixmap().size(), QSize(48, 48))
+        for standard in (
+            QMessageBox.StandardButton.Save,
+            QMessageBox.StandardButton.Discard,
+            QMessageBox.StandardButton.Cancel,
+        ):
+            button = box.button(standard)
+            self.assertIsNotNone(button)
+            self.assertFalse(button.icon().isNull())
+        self.assertIsNotNone(app)
+
 
 if __name__ == "__main__":
     unittest.main()

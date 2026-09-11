@@ -14,9 +14,10 @@ from __future__ import annotations
 
 import os
 
-from PyQt6.QtCore import QByteArray, QDir, QFile, QRectF, Qt
+from PyQt6.QtCore import QByteArray, QDir, QFile, QRectF, QSize, Qt
 from PyQt6.QtGui import QColor, QGuiApplication, QIcon, QPainter, QPixmap
 from PyQt6.QtSvg import QSvgRenderer
+from PyQt6.QtWidgets import QMessageBox
 
 from jottr.paths import data_roots, find_data_dir
 
@@ -163,6 +164,71 @@ def apply_dialog_window_icon(dialog, icon_name: str, settings_manager=None) -> N
         return
     manager = settings_manager or settings_manager_from(dialog)
     setter(themed_symbolic_icon(icon_name, manager))
+
+
+# Standard-button → bundled symbolic name (avoids QStyle / host theme icons).
+_MESSAGE_BUTTON_ICONS = {
+    QMessageBox.StandardButton.Save: "save",
+    QMessageBox.StandardButton.Discard: "user-trash",
+    QMessageBox.StandardButton.Cancel: "window-close",
+    QMessageBox.StandardButton.Close: "window-close",
+    QMessageBox.StandardButton.Open: "open",
+}
+
+_MESSAGE_ROLE_ICONS = {
+    QMessageBox.Icon.Question: "dialog-question",
+    QMessageBox.Icon.Information: "help",
+    QMessageBox.Icon.Warning: "dialog-question",
+    QMessageBox.Icon.Critical: "dialog-question",
+}
+
+
+def apply_message_box_icons(
+    message_box: QMessageBox,
+    settings_manager=None,
+    *,
+    role_icon: str | None = None,
+    role_size: int = 48,
+    button_size: int = 16,
+) -> None:
+    """Replace Qt/style icons on a message box with bundled symbolic glyphs."""
+    manager = settings_manager or settings_manager_from(message_box)
+    icon_name = role_icon or _MESSAGE_ROLE_ICONS.get(
+        message_box.icon(), "dialog-question"
+    )
+    if icon_name:
+        role = themed_symbolic_icon(icon_name, manager, size=role_size)
+        message_box.setIconPixmap(role.pixmap(QSize(role_size, role_size)))
+
+    apply_dialog_window_icon(message_box, icon_name or "dialog-question", manager)
+
+    for standard, name in _MESSAGE_BUTTON_ICONS.items():
+        button = message_box.button(standard)
+        if button is not None:
+            button.setIcon(themed_symbolic_icon(name, manager, size=button_size))
+            button.setIconSize(QSize(button_size, button_size))
+
+
+def ask_themed_question(
+    parent,
+    title: str,
+    text: str,
+    buttons: QMessageBox.StandardButton,
+    default_button: QMessageBox.StandardButton | None = None,
+    settings_manager=None,
+) -> QMessageBox.StandardButton:
+    """Show a question dialog using bundled icons instead of Qt style icons."""
+    manager = settings_manager or settings_manager_from(parent)
+    box = QMessageBox(parent)
+    box.setWindowTitle(title)
+    box.setText(text)
+    box.setIcon(QMessageBox.Icon.Question)
+    box.setStandardButtons(buttons)
+    if default_button is not None:
+        box.setDefaultButton(default_button)
+    apply_message_box_icons(box, manager, role_icon="dialog-question")
+    result = box.exec()
+    return QMessageBox.StandardButton(result)
 
 
 def _device_pixel_ratio() -> float:

@@ -29,6 +29,7 @@ from jottr.font_dialog import FontSelectionDialog
 from jottr.plugin_manager import PluginManager
 from jottr.icon_manager import (
     apply_dialog_window_icon,
+    ask_themed_question,
     build_themed_icon as render_bundled_icon,
     load_bundled_icon_paths,
     resolve_icon_color,
@@ -570,13 +571,17 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
         tab = self.tab_widget.widget(index)
         
         if self.is_editor_tab_modified(tab):
-            reply = QMessageBox.question(
+            reply = ask_themed_question(
                 self,
                 _("Unsaved Changes"),
                 _("This document has unsaved changes. Do you want to save them?"),
-                QMessageBox.StandardButton.Save | QMessageBox.StandardButton.Discard | QMessageBox.StandardButton.Cancel
+                QMessageBox.StandardButton.Save
+                | QMessageBox.StandardButton.Discard
+                | QMessageBox.StandardButton.Cancel,
+                QMessageBox.StandardButton.Save,
+                self.settings_manager,
             )
-            
+
             if reply == QMessageBox.StandardButton.Save:
                 self.tab_widget.setCurrentIndex(index)
                 if not tab.save_file():  # If save is cancelled
@@ -1329,13 +1334,17 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
                 unsaved_tabs.append(i)
         
         if unsaved_tabs:
-            reply = QMessageBox.question(
+            reply = ask_themed_question(
                 self,
                 _("Unsaved Changes"),
                 _("You have unsaved changes. Do you want to save them before closing?"),
-                QMessageBox.StandardButton.Save | QMessageBox.StandardButton.Discard | QMessageBox.StandardButton.Cancel
+                QMessageBox.StandardButton.Save
+                | QMessageBox.StandardButton.Discard
+                | QMessageBox.StandardButton.Cancel,
+                QMessageBox.StandardButton.Save,
+                self.settings_manager,
             )
-            
+
             if reply == QMessageBox.StandardButton.Save:
                 for i in unsaved_tabs:
                     self.tab_widget.setCurrentIndex(i)

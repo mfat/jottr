@@ -8,6 +8,7 @@ from PyQt6.QtWidgets import (
 )
 
 from jottr.translation_manager import _
+from jottr.icon_manager import ask_themed_question
 from jottr.ui.workspace import WorkspaceFileSystemModel, WorkspaceTreeView
 
 
@@ -258,15 +259,17 @@ class WorkspaceControllerMixin:
                 and self.is_path_in_workspace(tab.current_file)
             ):
                 if tab.editor.document().isModified():
-                    reply = QMessageBox.question(
+                    reply = ask_themed_question(
                         self,
                         _("Unsaved Changes"),
                         _("{filename} has unsaved changes. Save before switching workspaces?").format(
                             filename=os.path.basename(tab.current_file)
                         ),
-                        QMessageBox.StandardButton.Save |
-                        QMessageBox.StandardButton.Discard |
-                        QMessageBox.StandardButton.Cancel
+                        QMessageBox.StandardButton.Save
+                        | QMessageBox.StandardButton.Discard
+                        | QMessageBox.StandardButton.Cancel,
+                        QMessageBox.StandardButton.Save,
+                        getattr(self, "settings_manager", None),
                     )
                     if reply == QMessageBox.StandardButton.Save and not tab.save_file():
                         return False
