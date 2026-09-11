@@ -127,7 +127,9 @@ class SettingsDialog(QDialog):
             _("Lists every Qt widget style available on this system "
               "(Fusion, Windows, bundled Adwaita on Linux, Darkly, "
               "desktop styles, and plugins). "
-              "System keeps the platform default.")
+              "System keeps the platform default. "
+              "Adwaita and HighContrast pick the light or dark plugin "
+              "to match the Main UI Theme.")
         )
         general_layout.addRow(qt_style_label, self.qt_style_combo)
 

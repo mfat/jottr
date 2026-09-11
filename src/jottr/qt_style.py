@@ -9,6 +9,14 @@ from PyQt6.QtWidgets import QApplication, QStyleFactory
 
 SYSTEM_QT_STYLE = "System"
 
+# Styles that ship paired light/dark plugins. UI themes must use the matching
+# variant or Adwaita paints light chrome with dark palette text (unreadable).
+STYLE_VARIANT_PAIRS = (
+    ("Adwaita", "Adwaita-Dark"),
+    ("Adwaita-HighContrast", "Adwaita-HighContrastInverse"),
+    ("HighContrast", "HighContrastInverse"),
+)
+
 # Documented Qt built-ins plus common plugin keys. Merged with QStyleFactory.keys()
 # so every creatable style is offered even if a platform omits one from keys().
 KNOWN_QT_STYLE_KEYS = (
@@ -169,19 +177,51 @@ def normalize_qt_style(style_name):
     return created or SYSTEM_QT_STYLE
 
 
-def apply_qt_style(style_name, application=None):
-    """Apply a Qt style by name. System restores the captured platform style."""
-    app = application or QApplication.instance()
-    if app is None:
-        return None
+def match_style_variant_to_theme(style_key, dark_theme):
+    """Map Adwaita/HighContrast style keys to the light or dark plugin for a theme."""
+    key = (style_key or "").strip()
+    if not key:
+        return key
 
-    capture_platform_qt_style(app)
+    available = {name.casefold(): name for name in creatable_qt_style_keys()}
+    for light_name, dark_name in STYLE_VARIANT_PAIRS:
+        light_key = available.get(light_name.casefold())
+        dark_key = available.get(dark_name.casefold())
+        if key.casefold() not in {light_name.casefold(), dark_name.casefold()}:
+            continue
+        preferred = dark_key if dark_theme else light_key
+        return preferred or light_key or dark_key or key
+    return key
+
+
+def resolve_qt_style_key(style_name, theme=None):
+    """Resolve System/user style, then pick light/dark variant for the UI theme."""
+    capture_platform_qt_style()
     resolved = normalize_qt_style(style_name)
     if resolved == SYSTEM_QT_STYLE:
         key = _platform_style_key or "Fusion"
     else:
         key = resolved
 
+    if theme is None:
+        return key
+
+    from jottr.theme_manager import ThemeManager
+
+    return match_style_variant_to_theme(key, ThemeManager.theme_is_dark(theme))
+
+
+def apply_qt_style(style_name, application=None, theme=None):
+    """Apply a Qt style by name. System restores the captured platform style.
+
+    When *theme* is provided, Adwaita/HighContrast styles switch to the light or
+    dark plugin so controls stay readable with the UI theme palette.
+    """
+    app = application or QApplication.instance()
+    if app is None:
+        return None
+
+    key = resolve_qt_style_key(style_name, theme=theme)
     style = QStyleFactory.create(key)
     if style is None:
         return None

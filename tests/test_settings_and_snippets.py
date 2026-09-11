@@ -212,6 +212,16 @@ class SettingsAndSnippetTests(unittest.TestCase):
                 not adwaita_name or "adwaita" in adwaita_name,
                 msg=f"unexpected Adwaita style name {adwaita_name!r}",
             )
+            dark = ThemeManager.get_theme("Dark")
+            if QStyleFactory.create("Adwaita-Dark") is not None:
+                self.assertEqual(
+                    apply_qt_style("Adwaita", application, theme=dark),
+                    "Adwaita-Dark",
+                )
+                self.assertEqual(
+                    apply_qt_style("Adwaita-Dark", application, theme=ThemeManager.get_theme("Light")),
+                    "Adwaita",
+                )
             self.assertEqual(apply_qt_style(fusion, application), fusion)
 
     def test_settings_manager_handles_invalid_json_by_keeping_defaults(self):
@@ -259,6 +269,10 @@ class SettingsAndSnippetTests(unittest.TestCase):
         darkly = ThemeManager.get_theme("Darkly")
         self.assertEqual(darkly["app"]["accent"], "#3478da")
         self.assertEqual(darkly["editor"]["background"], "#2c2c2c")
+        self.assertTrue(ThemeManager.theme_is_dark(ThemeManager.get_theme("Dark")))
+        self.assertTrue(ThemeManager.theme_is_dark(ThemeManager.get_theme("Dracula")))
+        self.assertFalse(ThemeManager.theme_is_dark(ThemeManager.get_theme("Light")))
+        self.assertFalse(ThemeManager.theme_is_dark(ThemeManager.get_theme("Sepia")))
         self.assertIn(
             "Forest",
             ThemeManager.get_themes({

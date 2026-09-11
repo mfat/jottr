@@ -420,6 +420,20 @@ class ThemeManager:
         return themes.get(theme_name) or themes[ThemeManager.DEFAULT_THEME_NAME]
 
     @staticmethod
+    def theme_is_dark(theme):
+        """True when chrome uses a dark background (needs a dark widget-style variant)."""
+        if not isinstance(theme, dict):
+            return False
+        app = theme.get("app")
+        if not isinstance(app, dict):
+            return False
+        background = QColor(app.get("background", ""))
+        if background.isValid():
+            return background.lightnessF() < 0.5
+        text = QColor(app.get("text", ""))
+        return text.isValid() and text.lightnessF() >= 0.5
+
+    @staticmethod
     def build_editor_stylesheet(editor, theme, font=None):
         editor_theme = theme["editor"]
         editor_font = font or editor.font()

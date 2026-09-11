@@ -176,7 +176,11 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
             application.setStyleSheet("")
         self.setStyleSheet("")
         if application:
-            apply_qt_style(self.settings_manager.get_qt_style(), application)
+            apply_qt_style(
+                self.settings_manager.get_qt_style(),
+                application,
+                theme=theme,
+            )
             ThemeManager.apply_app_palette(application, theme)
             application.setFont(app_font)
         ThemeManager.apply_app_palette(self, theme)
