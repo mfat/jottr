@@ -53,6 +53,7 @@ class FocusModeMixin:
         }
         
         # Hide UI elements
+        window.menuBar().hide()
         window.toolbar.hide()
         window.tab_widget.tabBar().hide()
         
@@ -123,6 +124,7 @@ class FocusModeMixin:
         window.setWindowState(new_state)
         
         # Show UI elements
+        window.menuBar().show()
         window.toolbar.show()
         window.tab_widget.tabBar().show()
         self.editor_pane.setMaximumWidth(16777215)
