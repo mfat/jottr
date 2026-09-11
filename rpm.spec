@@ -32,6 +32,7 @@ and researchers.
 # Install application files
 mkdir -p %{buildroot}%{_datadir}/%{name}
 cp -r src/jottr/* %{buildroot}%{_datadir}/%{name}/
+cp -r icons %{buildroot}%{_datadir}/%{name}/icons
 
 # Create executable script
 mkdir -p %{buildroot}%{_bindir}

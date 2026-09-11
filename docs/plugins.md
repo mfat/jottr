@@ -221,7 +221,9 @@ Toolbar actions appear in the main toolbar.
 }
 ```
 
-Use short labels because toolbar space is limited. If `icon` matches a built-in Jottr icon name, Jottr may use it.
+Use short labels because toolbar space is limited. If `icon` matches a bundled
+symbolic icon name under `icons/symbolic/` (for example `save`, `find`,
+`snippets`), Jottr may use it.
 
 ### Sidebar Items
 

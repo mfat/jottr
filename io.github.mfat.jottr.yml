@@ -37,6 +37,7 @@ modules:
     build-commands:
       - mkdir -p /app/share/jottr
       - cp -r src/jottr/* /app/share/jottr/
+      - cp -r icons /app/share/jottr/icons
       - install -D -m755 jottr.sh /app/bin/jottr
       - install -D -m644 io.github.mfat.jottr.desktop -t /app/share/applications/
       - install -D icons/jottr_icon_16x16.png /app/share/icons/hicolor/16x16/apps/io.github.mfat.jottr.png

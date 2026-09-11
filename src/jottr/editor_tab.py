@@ -330,8 +330,8 @@ class CustomTextEdit(QTextEdit):
         
         # Delete the partially typed word
         extra = len(completion) - len(self.completer.completionPrefix())
-        tc.movePosition(tc.Left)
-        tc.movePosition(tc.EndOfWord)
+        tc.movePosition(QTextCursor.MoveOperation.Left)
+        tc.movePosition(QTextCursor.MoveOperation.EndOfWord)
         tc.insertText(completion[-extra:])
         self.setTextCursor(tc)
         
@@ -340,7 +340,11 @@ class CustomTextEdit(QTextEdit):
             snippet_content = self.parent_tab.snippet_manager.get_snippet(completion)
             if snippet_content:
                 tc = self.textCursor()
-                tc.movePosition(tc.Left, tc.KeepAnchor, len(completion))
+                tc.movePosition(
+                    QTextCursor.MoveOperation.Left,
+                    QTextCursor.MoveMode.KeepAnchor,
+                    len(completion),
+                )
                 tc.insertText(snippet_content)
 
     def keyPressEvent(self, event):
@@ -562,9 +566,17 @@ class CompletingTextEdit(QTextEdit):
                 break
         
         # Replace the current word
-        cursor.movePosition(cursor.StartOfBlock)
-        cursor.movePosition(cursor.Right, cursor.MoveAnchor, start)
-        cursor.movePosition(cursor.Right, cursor.KeepAnchor, pos - start)
+        cursor.movePosition(QTextCursor.MoveOperation.StartOfBlock)
+        cursor.movePosition(
+            QTextCursor.MoveOperation.Right,
+            QTextCursor.MoveMode.MoveAnchor,
+            start,
+        )
+        cursor.movePosition(
+            QTextCursor.MoveOperation.Right,
+            QTextCursor.MoveMode.KeepAnchor,
+            pos - start,
+        )
         
         if is_snippet:
             # Get and insert snippet content
@@ -1511,7 +1523,11 @@ class EditorTab(QWidget):
         
         # Delete the partially typed word
         chars_to_delete = len(self.completer.completionPrefix())
-        cursor.movePosition(cursor.Left, cursor.KeepAnchor, chars_to_delete)
+        cursor.movePosition(
+            QTextCursor.MoveOperation.Left,
+            QTextCursor.MoveMode.KeepAnchor,
+            chars_to_delete,
+        )
         cursor.removeSelectedText()
         
         # Insert the snippet content
@@ -3816,9 +3832,17 @@ class EditorTab(QWidget):
                 break
         
         # Replace the current word
-        cursor.movePosition(cursor.StartOfBlock)
-        cursor.movePosition(cursor.Right, cursor.MoveAnchor, start)
-        cursor.movePosition(cursor.Right, cursor.KeepAnchor, pos - start)
+        cursor.movePosition(QTextCursor.MoveOperation.StartOfBlock)
+        cursor.movePosition(
+            QTextCursor.MoveOperation.Right,
+            QTextCursor.MoveMode.MoveAnchor,
+            start,
+        )
+        cursor.movePosition(
+            QTextCursor.MoveOperation.Right,
+            QTextCursor.MoveMode.KeepAnchor,
+            pos - start,
+        )
         
         if is_snippet:
             # Get and insert snippet content
@@ -3857,7 +3881,7 @@ class EditorTab(QWidget):
 
         # Select and replace the word
         cursor.setPosition(block.position() + start)
-        cursor.setPosition(block.position() + end, cursor.KeepAnchor)
+        cursor.setPosition(block.position() + end, QTextCursor.MoveMode.KeepAnchor)
         cursor.removeSelectedText()
         cursor.insertText(new_word)
 
