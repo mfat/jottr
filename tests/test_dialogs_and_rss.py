@@ -108,11 +108,11 @@ class DialogAndRssTests(unittest.TestCase):
                 msg=f"missing icon for {dialog.settings_nav.item(index).text()}",
             )
         dialog.homepage_edit.setText("https://home.example")
-        dialog.ui_theme_combo.setCurrentText("Dark")
+        dialog.ui_theme_combo.setCurrentIndex(dialog.ui_theme_combo.findData("Dark"))
         dialog.editor_theme_combo.setCurrentText("Forest")
         self.assertEqual(
-            [dialog.ui_theme_combo.itemText(i) for i in range(dialog.ui_theme_combo.count())],
-            ["Light", "Dark"],
+            [dialog.ui_theme_combo.itemData(i) for i in range(dialog.ui_theme_combo.count())],
+            ["System", "Light", "Dark"],
         )
         self.assertIn("Forest", [
             dialog.editor_theme_combo.itemText(i)
@@ -342,7 +342,7 @@ class DialogAndRssTests(unittest.TestCase):
         dialog.save_custom_theme()
 
         self.assertIn("Ink", dialog.get_data()["custom_themes"])
-        self.assertEqual(dialog.ui_theme_combo.currentText(), "Light")
+        self.assertEqual(dialog.ui_theme_combo.currentData(), "System")
         self.assertEqual(dialog.editor_theme_combo.currentText(), "Ink")
 
         dialog.custom_theme_list.setCurrentRow(0)

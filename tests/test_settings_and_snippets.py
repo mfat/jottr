@@ -159,6 +159,8 @@ class SettingsAndSnippetTests(unittest.TestCase):
         self.assertEqual(manager.get_ui_theme(), "Dark")
         manager.save_ui_theme("Sepia")
         self.assertEqual(manager.get_ui_theme(), "Light")
+        manager.save_ui_theme("default")
+        self.assertEqual(manager.get_ui_theme(), "System")
 
     def test_settings_manager_persists_qt_style(self):
         from PyQt6.QtWidgets import QStyleFactory
@@ -229,6 +231,28 @@ class SettingsAndSnippetTests(unittest.TestCase):
                 )
             self.assertEqual(apply_qt_style(fusion, application), fusion)
 
+    def test_apply_qt_color_scheme_sets_style_hints(self):
+        from PyQt6.QtCore import Qt
+
+        from jottr.qt_style import apply_qt_color_scheme
+
+        application = app()
+        if not hasattr(application.styleHints(), "setColorScheme"):
+            self.skipTest("QStyleHints.setColorScheme unavailable")
+
+        applied = apply_qt_color_scheme("Dark", application)
+        if applied == Qt.ColorScheme.Unknown:
+            self.skipTest("platform ignores ColorScheme (e.g. offscreen)")
+
+        self.assertEqual(applied, Qt.ColorScheme.Dark)
+        self.assertEqual(
+            apply_qt_color_scheme("Light", application),
+            Qt.ColorScheme.Light,
+        )
+        # Follow system → Unknown; colorScheme() then reports the resolved appearance.
+        resolved = apply_qt_color_scheme("System", application)
+        self.assertIn(resolved, (Qt.ColorScheme.Light, Qt.ColorScheme.Dark))
+
     def test_settings_manager_handles_invalid_json_by_keeping_defaults(self):
         manager = SettingsManager()
         Path(manager.settings_file).write_text("{not json", encoding="utf-8")
@@ -281,7 +305,23 @@ class SettingsAndSnippetTests(unittest.TestCase):
         self.assertEqual(ThemeManager.normalize_ui_theme("Dracula"), "Dark")
         self.assertEqual(ThemeManager.normalize_ui_theme("Sepia"), "Light")
         self.assertEqual(ThemeManager.normalize_ui_theme("Darkly"), "Dark")
-        self.assertEqual(ThemeManager.UI_THEME_NAMES, ("Light", "Dark"))
+        self.assertEqual(ThemeManager.normalize_ui_theme("default"), "System")
+        self.assertEqual(ThemeManager.normalize_ui_theme("System"), "System")
+        self.assertEqual(ThemeManager.UI_THEME_NAMES, ("System", "Light", "Dark"))
+        from PyQt6.QtCore import Qt
+
+        self.assertEqual(
+            ThemeManager.ui_theme_color_scheme("System"),
+            Qt.ColorScheme.Unknown,
+        )
+        self.assertEqual(
+            ThemeManager.ui_theme_color_scheme("Light"),
+            Qt.ColorScheme.Light,
+        )
+        self.assertEqual(
+            ThemeManager.ui_theme_color_scheme("Dark"),
+            Qt.ColorScheme.Dark,
+        )
         self.assertIn(
             "Forest",
             ThemeManager.get_themes({

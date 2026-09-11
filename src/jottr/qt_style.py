@@ -4,7 +4,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from PyQt6.QtCore import QCoreApplication
+from PyQt6.QtCore import QCoreApplication, Qt
+from PyQt6.QtGui import QGuiApplication
 from PyQt6.QtWidgets import QApplication, QStyleFactory
 
 SYSTEM_QT_STYLE = "System"
@@ -175,6 +176,27 @@ def normalize_qt_style(style_name):
             return key
     created = _canonical_style_key(name)
     return created or SYSTEM_QT_STYLE
+
+
+def apply_qt_color_scheme(scheme_name, application=None):
+    """Apply Qt::ColorScheme from a System/Light/Dark UI setting.
+
+    ``System`` maps to ``Qt.ColorScheme.Unknown``, which follows the platform
+    appearance (see QStyleHints::setColorScheme).
+    """
+    from jottr.theme_manager import ThemeManager
+
+    app = application or QGuiApplication.instance()
+    if app is None:
+        return None
+
+    hints = app.styleHints()
+    if not hasattr(hints, "setColorScheme"):
+        return None
+
+    scheme = ThemeManager.ui_theme_color_scheme(scheme_name)
+    hints.setColorScheme(scheme)
+    return hints.colorScheme()
 
 
 def match_style_variant_to_theme(style_key, dark_theme):

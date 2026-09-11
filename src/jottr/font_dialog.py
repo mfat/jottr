@@ -91,8 +91,13 @@ class FontSelectionDialog(QDialog):
         settings_manager = getattr(parent, "settings_manager", None)
         if settings_manager:
             theme_name = settings_manager.get_ui_theme()
-            if hasattr(parent, "ui_theme_combo"):
-                theme_name = parent.ui_theme_combo.currentText()
+            if hasattr(parent, "selected_ui_theme"):
+                theme_name = parent.selected_ui_theme()
+            elif hasattr(parent, "ui_theme_combo"):
+                theme_name = (
+                    parent.ui_theme_combo.currentData()
+                    or parent.ui_theme_combo.currentText()
+                )
             return ThemeManager.get_ui_theme(theme_name)
         return ThemeManager.get_ui_theme(ThemeManager.DEFAULT_THEME_NAME)
 

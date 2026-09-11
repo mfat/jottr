@@ -29,7 +29,7 @@ class SettingsManager:
             "font_size": 12,
             "font_weight": 50,
             "font_italic": False,
-            "ui_theme": "default",
+            "ui_theme": "System",
             "theme": "default",
             "qt_style": "System",
             "custom_themes": {},
@@ -190,7 +190,7 @@ class SettingsManager:
     def get_ui_theme(self):
         from jottr.theme_manager import ThemeManager
 
-        theme = self.settings.get("ui_theme", self.settings.get("theme", "Light"))
+        theme = self.settings.get("ui_theme", self.settings.get("theme", "System"))
         return ThemeManager.normalize_ui_theme(theme)
 
     def save_ui_theme(self, theme):

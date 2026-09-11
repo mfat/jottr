@@ -107,12 +107,18 @@ class SettingsDialog(QDialog):
         self.load_language_options()
         general_layout.addRow(language_label, self.language_combo)
         
-        ui_theme_label = QLabel(_("Main UI Theme:"))
+        ui_theme_label = QLabel(_("Color Scheme:"))
         self.ui_theme_combo = QComboBox()
-        self.ui_theme_combo.addItems(list(ThemeManager.UI_THEME_NAMES))
-        self.ui_theme_combo.setCurrentText(self.settings_manager.get_ui_theme())
+        self.ui_theme_combo.addItem(_("Follow system"), "System")
+        self.ui_theme_combo.addItem(_("Light"), "Light")
+        self.ui_theme_combo.addItem(_("Dark"), "Dark")
+        current_scheme = self.settings_manager.get_ui_theme()
+        scheme_index = self.ui_theme_combo.findData(current_scheme)
+        self.ui_theme_combo.setCurrentIndex(scheme_index if scheme_index >= 0 else 0)
         self.ui_theme_combo.setToolTip(
-            _("Light or Dark chrome only. Editor themes are chosen separately.")
+            _("Sets Qt's application color scheme "
+              "(Follow system, Light, or Dark). "
+              "Editor themes are chosen separately.")
         )
         general_layout.addRow(ui_theme_label, self.ui_theme_combo)
 
@@ -132,7 +138,7 @@ class SettingsDialog(QDialog):
               "desktop styles, and plugins). "
               "System keeps the platform default. "
               "Adwaita and HighContrast pick the light or dark plugin "
-              "to match the Main UI Theme (Light or Dark).")
+              "to match the Color Scheme.")
         )
         general_layout.addRow(qt_style_label, self.qt_style_combo)
 
@@ -162,7 +168,7 @@ class SettingsDialog(QDialog):
         theme_box_layout = QVBoxLayout(theme_box)
         standard_label = QLabel(
             _("Custom themes set editor and syntax colors only. "
-              "Main UI Theme stays Light or Dark.")
+              "Color Scheme stays Follow system, Light, or Dark.")
         )
         standard_label.setWordWrap(True)
         theme_box_layout.addWidget(standard_label)
@@ -424,11 +430,21 @@ class SettingsDialog(QDialog):
         if callable(self.close_callback):
             self.close_callback(self)
 
+    def selected_ui_theme(self):
+        if hasattr(self, "ui_theme_combo"):
+            return (
+                self.ui_theme_combo.currentData()
+                or self.settings_manager.get_ui_theme()
+            )
+        return self.settings_manager.get_ui_theme()
+
     def apply_dialog_style(self):
         # Palette + QStyle only — no dialog QSS so Widget Style stays visible.
-        theme = ThemeManager.get_ui_theme(
-            self.ui_theme_combo.currentText() if hasattr(self, "ui_theme_combo") else self.settings_manager.get_ui_theme()
-        )
+        from jottr.qt_style import apply_qt_color_scheme
+
+        scheme = self.selected_ui_theme()
+        apply_qt_color_scheme(scheme)
+        theme = ThemeManager.get_ui_theme(scheme)
         ThemeManager.apply_app_palette(self, theme)
         self.setStyleSheet("")
         apply_dialog_window_icon(self, "settings", self.settings_manager)
@@ -444,11 +460,7 @@ class SettingsDialog(QDialog):
         color = None
         if contrast and contrast != "auto":
             # Resolve against Light/Dark UI chrome only.
-            theme = ThemeManager.get_ui_theme(
-                self.ui_theme_combo.currentText()
-                if hasattr(self, "ui_theme_combo")
-                else self.settings_manager.get_ui_theme()
-            )
+            theme = ThemeManager.get_ui_theme(self.selected_ui_theme())
             app = theme["app"]
             if contrast == "light":
                 color = "#f8f8f2"
@@ -763,7 +775,7 @@ class SettingsDialog(QDialog):
             'spell_check': self.spell_check_enabled.isChecked(),
             'document_language': self.get_document_language(),
             'spell_languages': self._spell_languages_for_document(),
-            'ui_theme': self.ui_theme_combo.currentText(),
+            'ui_theme': self.selected_ui_theme(),
             'theme': self.editor_theme_combo.currentText(),
             'qt_style': self.qt_style_combo.currentText(),
             'custom_themes': self.get_custom_themes(),

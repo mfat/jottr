@@ -22,7 +22,7 @@ from jottr.editor_tab import EditorTab
 from jottr.snippet_manager import SnippetManager
 from jottr.rss_tab import RSSTab
 from jottr.theme_manager import ThemeManager
-from jottr.qt_style import apply_qt_style, refresh_styled_widgets
+from jottr.qt_style import apply_qt_color_scheme, apply_qt_style, refresh_styled_widgets
 from jottr.settings_manager import SettingsManager
 from jottr.settings_dialog import SettingsDialog
 from jottr.translation_manager import _, format_language_label, is_rtl_language, set_language
@@ -164,8 +164,8 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
         self.setup_shortcuts()  # Add this line after setup_toolbar()
 
     def apply_app_style(self, font=None):
-        """Apply widget style, UI font, and Light/Dark chrome colors."""
-        theme = ThemeManager.get_ui_theme(self.settings_manager.get_ui_theme())
+        """Apply widget style, Qt color scheme, UI font, and matching chrome."""
+        scheme_setting = self.settings_manager.get_ui_theme()
         app_font = QFont(font) if font is not None else self.settings_manager.get_font("ui")
         application = QApplication.instance()
         # Drop stylesheets before setStyle so the widget style can take effect.
@@ -173,6 +173,8 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
             application.setStyleSheet("")
         self.setStyleSheet("")
         if application:
+            apply_qt_color_scheme(scheme_setting, application)
+            theme = ThemeManager.get_ui_theme(scheme_setting, application)
             apply_qt_style(
                 self.settings_manager.get_qt_style(),
                 application,
@@ -180,6 +182,8 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
             )
             ThemeManager.apply_app_palette(application, theme)
             application.setFont(app_font)
+        else:
+            theme = ThemeManager.get_ui_theme(scheme_setting)
         ThemeManager.apply_app_palette(self, theme)
         self.setFont(app_font)
         stylesheet = ThemeManager.build_app_stylesheet(theme, app_font)

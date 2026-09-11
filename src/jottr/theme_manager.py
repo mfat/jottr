@@ -7,7 +7,9 @@ class ThemeManager:
     """Theme schema and stylesheet generation for Jottr."""
 
     DEFAULT_THEME_NAME = "Light"
-    UI_THEME_NAMES = ("Light", "Dark")
+    # Qt::ColorScheme mapping: System→Unknown, Light→Light, Dark→Dark
+    UI_THEME_NAMES = ("System", "Light", "Dark")
+    DEFAULT_UI_THEME = "System"
 
     BASE_APP = {
         "background": "#f4f6f8",
@@ -422,20 +424,61 @@ class ThemeManager:
 
     @staticmethod
     def normalize_ui_theme(theme_name):
-        """Map a saved UI theme to Light or Dark only (never custom themes)."""
-        name = str(theme_name or ThemeManager.DEFAULT_THEME_NAME).strip()
-        if name == "default":
-            return ThemeManager.DEFAULT_THEME_NAME
+        """Map a saved UI setting to System, Light, or Dark (never custom themes)."""
+        name = str(theme_name or ThemeManager.DEFAULT_UI_THEME).strip()
+        folded = name.casefold()
+        if folded in {
+            "default",
+            "system",
+            "auto",
+            "follow system",
+            "followsystem",
+            "unknown",
+        }:
+            return "System"
         if name in ThemeManager.UI_THEME_NAMES:
             return name
-        # Migrate legacy UI picks (Sepia, Dracula, …) to Light/Dark chrome.
+        # Migrate legacy UI picks (Sepia, Dracula, …) to Light/Dark.
         theme = ThemeManager.get_theme(name)
-        return "Dark" if ThemeManager.theme_is_dark(theme) else ThemeManager.DEFAULT_THEME_NAME
+        return "Dark" if ThemeManager.theme_is_dark(theme) else "Light"
 
     @staticmethod
-    def get_ui_theme(theme_name):
-        """Return the Light or Dark theme dict used for app chrome."""
-        return ThemeManager.get_theme(ThemeManager.normalize_ui_theme(theme_name))
+    def ui_theme_color_scheme(theme_name):
+        """Return Qt.ColorScheme for a System/Light/Dark UI setting."""
+        from PyQt6.QtCore import Qt
+
+        normalized = ThemeManager.normalize_ui_theme(theme_name)
+        if normalized == "System":
+            return Qt.ColorScheme.Unknown
+        if normalized == "Dark":
+            return Qt.ColorScheme.Dark
+        return Qt.ColorScheme.Light
+
+    @staticmethod
+    def effective_ui_theme_name(theme_name, application=None):
+        """Resolve System/Light/Dark to Light or Dark for chrome colors."""
+        from PyQt6.QtCore import Qt
+        from PyQt6.QtGui import QGuiApplication
+
+        normalized = ThemeManager.normalize_ui_theme(theme_name)
+        if normalized in {"Light", "Dark"}:
+            return normalized
+
+        app = application or QGuiApplication.instance()
+        if app is not None:
+            scheme = app.styleHints().colorScheme()
+            if scheme == Qt.ColorScheme.Dark:
+                return "Dark"
+            if scheme == Qt.ColorScheme.Light:
+                return "Light"
+        return ThemeManager.DEFAULT_THEME_NAME
+
+    @staticmethod
+    def get_ui_theme(theme_name, application=None):
+        """Return Light or Dark theme dict for chrome (from ColorScheme setting)."""
+        return ThemeManager.get_theme(
+            ThemeManager.effective_ui_theme_name(theme_name, application)
+        )
 
     @staticmethod
     def theme_is_dark(theme):
