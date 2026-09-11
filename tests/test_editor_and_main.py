@@ -1046,6 +1046,7 @@ class EditorAndMainTests(unittest.TestCase):
         )
         source = Path(main_module.__file__).read_text(encoding="utf-8")
         self.assertIn("AA_ShareOpenGLContexts", source)
+        self.assertIn("AA_DontShowIconsInMenus", source)
         self.assertIn("warmup_opengl(window)", source)
         self.assertNotIn("warmup_webengine", source)
         self.assertLess(
@@ -1186,6 +1187,14 @@ class EditorAndMainTests(unittest.TestCase):
                 if not action.isSeparator() and action.text()
             }
             self.assertEqual(dropdown_tooltips["Export PDF"], "Export current file as PDF")
+            self.assertTrue(
+                all(
+                    action.icon().isNull()
+                    for action in window.menu_dropdown.actions()
+                    if not action.isSeparator()
+                ),
+                "toolbar overflow menu should be text-only",
+            )
             self.assertNotEqual(window.icons["snippets"], window.icons["menu"])
 
     def test_settings_opens_as_reusable_workspace_tab(self):
@@ -1259,7 +1268,10 @@ class EditorAndMainTests(unittest.TestCase):
             ]
             self.assertEqual(file_actions[0].text(), "New Editor Tab")
             self.assertEqual(file_actions[0].toolTip(), "Create a new editor tab")
-            self.assertFalse(file_actions[0].icon().isNull())
+            self.assertTrue(
+                all(action.icon().isNull() for action in file_actions),
+                "menubar actions should be text-only",
+            )
             self.assertNotIn("Settings", [action.text() for action in file_actions])
 
             edit_actions = [

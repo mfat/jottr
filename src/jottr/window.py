@@ -364,7 +364,7 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
         self.icon_actions = []
         self.translatable_actions = []
 
-        # Helper function to create themed action
+        # Helper function to create themed toolbar action
         def create_action(icon_name, text, handler=None):
             translated_text = _(text)
             if icon_name in self.icons:
@@ -372,6 +372,19 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
                 self.icon_actions.append((action, icon_name))
             else:
                 action = QAction(translated_text, self)
+            action.setProperty("text_key", text)
+            action.setProperty("tooltip_key", text)
+            self.translatable_actions.append(action)
+            action.setToolTip(translated_text)
+            action.setStatusTip(translated_text)
+            if handler:
+                action.triggered.connect(handler)
+            return action
+
+        # Menus are text-only; toolbar keeps icons via create_action.
+        def create_menu_action(text, handler=None):
+            translated_text = _(text)
+            action = QAction(translated_text, self)
             action.setProperty("text_key", text)
             action.setProperty("tooltip_key", text)
             self.translatable_actions.append(action)
@@ -391,21 +404,21 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
         self.menu_dropdown = QMenu(self)
         
         # Add actions to dropdown menu
-        settings_action = create_action("settings", "Settings", self.show_settings)
+        settings_action = create_menu_action("Settings", self.show_settings)
         set_action_tooltip(settings_action, "Open Settings")
         self.menu_dropdown.addAction(settings_action)
         self.menu_dropdown.addSeparator()
-        workspace_action = create_action("document-open", "Open Workspace", self.open_workspace_dialog)
+        workspace_action = create_menu_action("Open Workspace", self.open_workspace_dialog)
         set_action_tooltip(workspace_action, "Open Workspace")
         self.menu_dropdown.addAction(workspace_action)
-        new_workspace_file_action = create_action("new", "New Workspace File", self.create_workspace_file)
+        new_workspace_file_action = create_menu_action("New Workspace File", self.create_workspace_file)
         set_action_tooltip(new_workspace_file_action, "New File in Workspace")
         self.menu_dropdown.addAction(new_workspace_file_action)
         self.menu_dropdown.addSeparator()
-        help_action = create_action("help", "Help", self.show_help)
+        help_action = create_menu_action("Help", self.show_help)
         set_action_tooltip(help_action, "Open Help")
         self.menu_dropdown.addAction(help_action)
-        about_action = create_action("about", "About", self.show_about)
+        about_action = create_menu_action("About", self.show_about)
         set_action_tooltip(about_action, "About Jottr")
         self.menu_dropdown.addAction(about_action)
 
@@ -429,11 +442,11 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
         set_action_tooltip(save_action, "Save (Ctrl+S)")
         self.toolbar.addAction(save_action)
         
-        save_as_action = create_action("save-as", "Save As", self.save_file_as)
+        save_as_action = create_menu_action("Save As", self.save_file_as)
         save_as_action.setShortcut(QKeySequence.StandardKey.SaveAs)
         set_action_tooltip(save_as_action, "Save As (Ctrl+Shift+S)")
         self.menu_dropdown.insertAction(self.menu_dropdown.actions()[0], save_as_action)
-        export_pdf_action = create_action("save-as", "Export PDF", self.export_pdf)
+        export_pdf_action = create_menu_action("Export PDF", self.export_pdf)
         set_action_tooltip(export_pdf_action, "Export current file as PDF")
         self.menu_dropdown.insertAction(self.menu_dropdown.actions()[1], export_pdf_action)
         self.menu_dropdown.insertSeparator(self.menu_dropdown.actions()[2])
@@ -663,8 +676,9 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
             self.translatable_menus.append((menu, title))
             return menu
 
-        def add_action(menu, text, handler, icon_name=None, shortcut=None, tooltip=None, checkable=False):
-            action = QAction(self.build_themed_icon(icon_name) if icon_name else QIcon(), _(text), self)
+        def add_action(menu, text, handler, shortcut=None, tooltip=None, checkable=False):
+            # Menus stay text-only; toolbar actions keep icons separately.
+            action = QAction(_(text), self)
             action.setProperty("text_key", text)
             action.setProperty("tooltip_key", tooltip or text)
             action.setProperty("accessibility_label", tooltip or text)
@@ -678,8 +692,6 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
                 action.triggered.connect(handler)
             menu.addAction(action)
             self.translatable_actions.append(action)
-            if icon_name:
-                self.icon_actions.append((action, icon_name))
             return action
 
         # File menu
@@ -689,47 +701,44 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
             file_menu,
             "New Editor Tab",
             self.new_editor_tab,
-            "new",
             QKeySequence.StandardKey.New,
             "Create a new editor tab"
         )
         file_menu.addSeparator()
-        add_action(file_menu, "Open...", self.open_file_dialog, "open", QKeySequence.StandardKey.Open, "Open a file")
-        add_action(file_menu, "Save", self.save_file, "save", QKeySequence.StandardKey.Save, "Save current file")
+        add_action(file_menu, "Open...", self.open_file_dialog, QKeySequence.StandardKey.Open, "Open a file")
+        add_action(file_menu, "Save", self.save_file, QKeySequence.StandardKey.Save, "Save current file")
         add_action(
             file_menu,
             "Save As...",
             self.save_file_as,
-            "save-as",
             QKeySequence.StandardKey.SaveAs,
             "Save current file with a new name"
         )
-        add_action(file_menu, "Export as PDF...", self.export_pdf, "save-as", tooltip="Export current file as PDF")
+        add_action(file_menu, "Export as PDF...", self.export_pdf, tooltip="Export current file as PDF")
         file_menu.addSeparator()
         add_action(file_menu, "Close Tab", self.close_current_tab, shortcut=QKeySequence.StandardKey.Close, tooltip="Close current tab")
         add_action(file_menu, "Exit", self.close, shortcut=QKeySequence.StandardKey.Quit, tooltip="Exit Jottr")
 
         # Edit menu
         edit_menu = add_menu("Edit")
-        add_action(edit_menu, "Undo", self.undo, "undo", QKeySequence.StandardKey.Undo, "Undo")
-        add_action(edit_menu, "Redo", self.redo, "redo", QKeySequence.StandardKey.Redo, "Redo")
+        add_action(edit_menu, "Undo", self.undo, QKeySequence.StandardKey.Undo, "Undo")
+        add_action(edit_menu, "Redo", self.redo, QKeySequence.StandardKey.Redo, "Redo")
         edit_menu.addSeparator()
         add_action(edit_menu, "Cut", self.cut, shortcut=QKeySequence.StandardKey.Cut, tooltip="Cut")
         add_action(edit_menu, "Copy", self.copy, shortcut=QKeySequence.StandardKey.Copy, tooltip="Copy")
         add_action(edit_menu, "Paste", self.paste, shortcut=QKeySequence.StandardKey.Paste, tooltip="Paste")
         edit_menu.addSeparator()
-        add_action(edit_menu, "Find/Replace", self.toggle_find, "find", QKeySequence.StandardKey.Find, "Find/Replace")
-        add_action(edit_menu, "Editor Font", self.show_editor_font_dialog, "font", tooltip="Choose Editor Font")
+        add_action(edit_menu, "Find/Replace", self.toggle_find, QKeySequence.StandardKey.Find, "Find/Replace")
+        add_action(edit_menu, "Editor Font", self.show_editor_font_dialog, tooltip="Choose Editor Font")
 
         # View menu
         view_menu = add_menu("View")
 
-        add_action(view_menu, "Toggle Snippets", self.toggle_snippets, "snippets", QKeySequence("Ctrl+Shift+N"), "Toggle Snippets")
+        add_action(view_menu, "Toggle Snippets", self.toggle_snippets, QKeySequence("Ctrl+Shift+N"), "Toggle Snippets")
         add_action(
             view_menu,
             "Toggle Markdown Preview",
             self.toggle_markdown_preview,
-            "insert-text",
             QKeySequence("Ctrl+Shift+M"),
             "Toggle Markdown Preview"
         )
@@ -737,16 +746,15 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
             view_menu,
             "Focus Mode",
             self.toggle_focus_mode,
-            "focus-mode",
             QKeySequence("Ctrl+Shift+D"),
             "Focus Mode",
             True
         )
         view_menu.addSeparator()
 
-        add_action(view_menu, "Zoom In", self.zoom_in, "zoom-in", QKeySequence("Ctrl+="), "Zoom In")
-        add_action(view_menu, "Zoom Out", self.zoom_out, "zoom-out", QKeySequence("Ctrl+-"), "Zoom Out")
-        add_action(view_menu, "Reset Zoom", self.zoom_reset, "zoom-reset", QKeySequence("Ctrl+0"), "Reset Zoom")
+        add_action(view_menu, "Zoom In", self.zoom_in, QKeySequence("Ctrl+="), "Zoom In")
+        add_action(view_menu, "Zoom Out", self.zoom_out, QKeySequence("Ctrl+-"), "Zoom Out")
+        add_action(view_menu, "Reset Zoom", self.zoom_reset, QKeySequence("Ctrl+0"), "Reset Zoom")
 
         # Tools menu: checkable action + default Document Language submenu
         # (same pattern as the former Spelling menu — avoids a lone short submenu row)
@@ -755,7 +763,6 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
             tools_menu,
             "Automatic Spell Checking",
             self.toggle_spell_check,
-            None,
             QKeySequence("Ctrl+Shift+O"),
             "Toggle automatic spell checking",
             True
@@ -763,7 +770,6 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
         self.spell_check_action.setChecked(
             bool(self.settings_manager.get_setting("spell_check", True))
         )
-        self.spell_check_action.setIconVisibleInMenu(False)
         document_language_menu = tools_menu.addMenu(_("Document Language"))
         document_language_menu.setAccessibleName(
             _("{title} menu").format(title=_("Document Language"))
@@ -793,12 +799,12 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
             document_language_menu.addAction(action)
 
         tools_menu.addSeparator()
-        add_action(tools_menu, "Settings", self.show_settings, "settings", tooltip="Open Settings")
+        add_action(tools_menu, "Settings", self.show_settings, tooltip="Open Settings")
 
         # Workspace menu
         workspace_menu = add_menu("Workspace")
-        add_action(workspace_menu, "Open Workspace...", self.open_workspace_dialog, "document-open", tooltip="Open Workspace")
-        add_action(workspace_menu, "New Workspace File...", self.create_workspace_file, "new", tooltip="New File in Workspace")
+        add_action(workspace_menu, "Open Workspace...", self.open_workspace_dialog, tooltip="Open Workspace")
+        add_action(workspace_menu, "New Workspace File...", self.create_workspace_file, tooltip="New File in Workspace")
 
         # Plugins menu
         if (
@@ -840,8 +846,8 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
 
         # Help menu
         help_menu = add_menu("Help")
-        add_action(help_menu, "Help", self.show_help, "help", QKeySequence.StandardKey.HelpContents, "Open Help")
-        add_action(help_menu, "About", self.show_about, "about", tooltip="About Jottr")
+        add_action(help_menu, "Help", self.show_help, QKeySequence.StandardKey.HelpContents, "Open Help")
+        add_action(help_menu, "About", self.show_about, tooltip="About Jottr")
 
     def close_current_tab(self):
         """Close the active document tab from the menubar or shortcut."""

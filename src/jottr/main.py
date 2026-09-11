@@ -65,6 +65,8 @@ def main():
 
     # Create application instance
     app = QApplication(sys.argv)
+    # Menus are text-only; toolbar/tabs keep icons.
+    app.setAttribute(Qt.ApplicationAttribute.AA_DontShowIconsInMenus, True)
     # Remember the platform style before any user override is applied.
     capture_platform_qt_style(app)
     
