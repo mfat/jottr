@@ -779,15 +779,16 @@ class EditorAndMainTests(unittest.TestCase):
         self.assertIsNone(editor.browser_widget.graphicsEffect())
         animation.stop()
 
-    def test_main_warms_webengine_before_show(self):
+    def test_main_warms_opengl_before_show(self):
         self.assertTrue(
-            callable(getattr(main_module, "warmup_webengine", None))
+            callable(getattr(main_module, "warmup_opengl", None))
         )
         source = Path(main_module.__file__).read_text(encoding="utf-8")
         self.assertIn("AA_ShareOpenGLContexts", source)
-        self.assertIn("warmup_webengine(window)", source)
+        self.assertIn("warmup_opengl(window)", source)
+        self.assertNotIn("warmup_webengine", source)
         self.assertLess(
-            source.index("warmup_webengine(window)"),
+            source.index("warmup_opengl(window)"),
             source.index("window.show()"),
         )
 

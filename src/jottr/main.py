@@ -18,7 +18,7 @@ import os
 from PyQt6.QtCore import Qt, QTimer
 from PyQt6.QtWidgets import QApplication, QFileDialog, QInputDialog, QMessageBox
 from PyQt6.QtGui import QFont
-from PyQt6.QtWebEngineWidgets import QWebEngineView
+from PyQt6.QtOpenGLWidgets import QOpenGLWidget
 
 from jottr.font_dialog import FontSelectionDialog
 from jottr.theme_manager import ThemeManager
@@ -31,25 +31,24 @@ from jottr.window import (
 )
 
 
-def warmup_webengine(parent):
-    """Force WebEngine/OpenGL init before the window is mapped.
+def warmup_opengl(parent):
+    """Switch the window into OpenGL compositing before it is mapped.
 
-    Qt6 switches the window into an OpenGL-compatible compositing path the first
-    time a QWebEngineView becomes visible. Doing that after show() briefly blanks
-    the whole UI (felt as a reload). Warming up off-screen avoids that flash on
-    the first browser search / markdown preview.
+    Qt6 blanks the whole UI the first time a visible QWebEngineView forces an
+    OpenGL compositor path. A tiny off-screen QOpenGLWidget does that switch
+    cheaply — without starting a second Chromium process at startup.
     """
-    warmup = QWebEngineView(parent)
+    warmup = QOpenGLWidget(parent)
     warmup.setAttribute(Qt.WidgetAttribute.WA_DontShowOnScreen, True)
     warmup.resize(1, 1)
     warmup.show()
-    parent._webengine_gl_warmup = warmup
+    parent._opengl_gl_warmup = warmup
 
     def cleanup():
-        view = getattr(parent, "_webengine_gl_warmup", None)
+        view = getattr(parent, "_opengl_gl_warmup", None)
         if view is None:
             return
-        parent._webengine_gl_warmup = None
+        parent._opengl_gl_warmup = None
         view.deleteLater()
 
     QTimer.singleShot(0, cleanup)
@@ -74,9 +73,9 @@ def main():
     if len(sys.argv) > 1:
         file_paths = [arg for arg in sys.argv[1:] if os.path.isfile(arg)]
     
-    # Create main window and warm WebEngine before mapping the window.
+    # Create main window and prime OpenGL compositing before mapping.
     window = TextEditorApp()
-    warmup_webengine(window)
+    warmup_opengl(window)
     window.show()
     
     # Open files from command line
@@ -86,4 +85,4 @@ def main():
     return app.exec()
 
 if __name__ == "__main__":
-    main() 
+    main()
