@@ -410,7 +410,7 @@ class EditorAndMainTests(unittest.TestCase):
 
         editor = self.make_editor()
         editor.set_line_numbers_visible(True)
-        ThemeManager.apply_theme(editor.editor, "Light")
+        ThemeManager.apply_theme(editor.editor, "White")
         editor.snippet_manager.add_snippet("SOUNDBITE (Farsi)", "soundbite text")
         editor.editor.setPlainText("sb")
         editor.editor.moveCursor(QTextCursor.MoveOperation.End)

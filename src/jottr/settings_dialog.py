@@ -646,7 +646,7 @@ class SettingsDialog(QDialog):
             self.refresh_theme_combos()
             self.theme_json_edit.clear()
             if was_selected:
-                self.editor_theme_combo.setCurrentText("Light")
+                self.editor_theme_combo.setCurrentText("White")
 
     def use_selected_custom_theme(self):
         current = self.custom_theme_list.currentItem()

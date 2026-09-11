@@ -6,10 +6,16 @@ from PyQt6.QtGui import QColor, QPalette
 class ThemeManager:
     """Theme schema and stylesheet generation for Jottr."""
 
-    DEFAULT_THEME_NAME = "Light"
+    DEFAULT_THEME_NAME = "White"
     # Qt::ColorScheme mapping: System→Unknown, Light→Light, Dark→Dark
     UI_THEME_NAMES = ("System", "Light", "Dark")
     DEFAULT_UI_THEME = "System"
+    # Legacy editor theme names → current built-in names.
+    EDITOR_THEME_ALIASES = {
+        "Light": "White",
+        "Dark": "Black",
+        "default": "White",
+    }
 
     BASE_APP = {
         "background": "#f4f6f8",
@@ -35,7 +41,7 @@ class ThemeManager:
     }
 
     DEFAULT_THEMES = {
-        "Light": {
+        "White": {
             "app": BASE_APP,
             "editor": BASE_EDITOR,
             "syntax": {
@@ -48,7 +54,7 @@ class ThemeManager:
                 "error": "#dc2626"
             }
         },
-        "Dark": {
+        "Black": {
             "app": {
                 "background": "#151922",
                 "surface": "#1f2530",
@@ -418,9 +424,16 @@ class ThemeManager:
         return themes
 
     @staticmethod
+    def normalize_editor_theme_name(theme_name):
+        """Map a saved editor theme name to a current built-in or custom name."""
+        name = str(theme_name or ThemeManager.DEFAULT_THEME_NAME).strip()
+        return ThemeManager.EDITOR_THEME_ALIASES.get(name, name) or ThemeManager.DEFAULT_THEME_NAME
+
+    @staticmethod
     def get_theme(theme_name, custom_themes=None):
         themes = ThemeManager.get_themes(custom_themes)
-        return themes.get(theme_name) or themes[ThemeManager.DEFAULT_THEME_NAME]
+        name = ThemeManager.normalize_editor_theme_name(theme_name)
+        return themes.get(name) or themes[ThemeManager.DEFAULT_THEME_NAME]
 
     @staticmethod
     def normalize_ui_theme(theme_name):
@@ -471,14 +484,14 @@ class ThemeManager:
                 return "Dark"
             if scheme == Qt.ColorScheme.Light:
                 return "Light"
-        return ThemeManager.DEFAULT_THEME_NAME
+        return "Light"
 
     @staticmethod
     def get_ui_theme(theme_name, application=None):
-        """Return Light or Dark theme dict for chrome (from ColorScheme setting)."""
-        return ThemeManager.get_theme(
-            ThemeManager.effective_ui_theme_name(theme_name, application)
-        )
+        """Return White or Black theme dict for chrome (from ColorScheme setting)."""
+        ui_name = ThemeManager.effective_ui_theme_name(theme_name, application)
+        editor_name = ThemeManager.normalize_editor_theme_name(ui_name)
+        return ThemeManager.get_theme(editor_name)
 
     @staticmethod
     def theme_is_dark(theme):

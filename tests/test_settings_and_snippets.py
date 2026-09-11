@@ -137,7 +137,7 @@ class SettingsAndSnippetTests(unittest.TestCase):
         reloaded = SettingsManager()
         self.assertEqual(reloaded.get_setting("homepage"), "https://batch.test")
         self.assertFalse(reloaded.get_setting("spell_check"))
-        self.assertEqual(reloaded.get_theme(), "Dark")
+        self.assertEqual(reloaded.get_theme(), "Black")
         self.assertTrue(reloaded.get_setting("autosave_enabled"))
 
     def test_settings_manager_persists_separate_ui_and_editor_fonts(self):
@@ -268,14 +268,14 @@ class SettingsAndSnippetTests(unittest.TestCase):
                 not adwaita_name or "adwaita" in adwaita_name,
                 msg=f"unexpected Adwaita style name {adwaita_name!r}",
             )
-            dark = ThemeManager.get_theme("Dark")
+            dark = ThemeManager.get_theme("Black")
             if QStyleFactory.create("Adwaita-Dark") is not None:
                 self.assertEqual(
                     apply_qt_style("Adwaita", application, theme=dark),
                     "Adwaita-Dark",
                 )
                 self.assertEqual(
-                    apply_qt_style("Adwaita-Dark", application, theme=ThemeManager.get_theme("Light")),
+                    apply_qt_style("Adwaita-Dark", application, theme=ThemeManager.get_theme("White")),
                     "Adwaita",
                 )
             self.assertEqual(apply_qt_style(fusion, application), fusion)
@@ -335,8 +335,10 @@ class SettingsAndSnippetTests(unittest.TestCase):
 
     def test_theme_manager_defines_and_applies_known_themes(self):
         themes = ThemeManager.get_themes()
-        self.assertIn("Light", themes)
-        self.assertIn("Dark", themes)
+        self.assertIn("White", themes)
+        self.assertIn("Black", themes)
+        self.assertNotIn("Light", themes)
+        self.assertNotIn("Dark", themes)
         self.assertIn("Sepia", themes)
         self.assertIn("Dracula", themes)
         self.assertIn("Monokai", themes)
@@ -347,16 +349,20 @@ class SettingsAndSnippetTests(unittest.TestCase):
         darkly = ThemeManager.get_theme("Darkly")
         self.assertEqual(darkly["app"]["accent"], "#3478da")
         self.assertEqual(darkly["editor"]["background"], "#2c2c2c")
-        self.assertTrue(ThemeManager.theme_is_dark(ThemeManager.get_theme("Dark")))
+        self.assertTrue(ThemeManager.theme_is_dark(ThemeManager.get_theme("Black")))
         self.assertTrue(ThemeManager.theme_is_dark(ThemeManager.get_theme("Dracula")))
-        self.assertFalse(ThemeManager.theme_is_dark(ThemeManager.get_theme("Light")))
+        self.assertFalse(ThemeManager.theme_is_dark(ThemeManager.get_theme("White")))
         self.assertFalse(ThemeManager.theme_is_dark(ThemeManager.get_theme("Sepia")))
+        self.assertEqual(ThemeManager.normalize_editor_theme_name("Light"), "White")
+        self.assertEqual(ThemeManager.normalize_editor_theme_name("Dark"), "Black")
+        self.assertEqual(ThemeManager.normalize_editor_theme_name("default"), "White")
         self.assertEqual(ThemeManager.normalize_ui_theme("Dracula"), "Dark")
         self.assertEqual(ThemeManager.normalize_ui_theme("Sepia"), "Light")
         self.assertEqual(ThemeManager.normalize_ui_theme("Darkly"), "Dark")
         self.assertEqual(ThemeManager.normalize_ui_theme("default"), "System")
         self.assertEqual(ThemeManager.normalize_ui_theme("System"), "System")
         self.assertEqual(ThemeManager.UI_THEME_NAMES, ("System", "Light", "Dark"))
+        self.assertEqual(ThemeManager.DEFAULT_THEME_NAME, "White")
         from PyQt6.QtCore import Qt
 
         self.assertEqual(
@@ -370,6 +376,15 @@ class SettingsAndSnippetTests(unittest.TestCase):
         self.assertEqual(
             ThemeManager.ui_theme_color_scheme("Dark"),
             Qt.ColorScheme.Dark,
+        )
+        # Color Scheme Light/Dark still resolve to White/Black chrome themes.
+        self.assertEqual(
+            ThemeManager.get_ui_theme("Light")["editor"]["background"],
+            ThemeManager.get_theme("White")["editor"]["background"],
+        )
+        self.assertEqual(
+            ThemeManager.get_ui_theme("Dark")["editor"]["background"],
+            ThemeManager.get_theme("Black")["editor"]["background"],
         )
         tile = ThemeManager.build_theme_tile_icon(ThemeManager.get_theme("Dracula"), size=16)
         self.assertFalse(tile.isNull())
@@ -395,7 +410,7 @@ class SettingsAndSnippetTests(unittest.TestCase):
 
         editor = QTextEdit()
         editor.setFont(QFont("Liberation Serif", 15))
-        ThemeManager.apply_theme(editor, "Dark")
+        ThemeManager.apply_theme(editor, "Black")
 
         style = editor.styleSheet()
         self.assertIn("#111827", style)

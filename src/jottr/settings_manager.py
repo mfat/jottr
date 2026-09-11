@@ -201,13 +201,15 @@ class SettingsManager:
         self.save_settings()
 
     def get_theme(self):
-        theme = self.settings.get("theme", "Light")
-        if theme == "default":
-            return "Light"
-        return theme
+        from jottr.theme_manager import ThemeManager
+
+        theme = self.settings.get("theme", ThemeManager.DEFAULT_THEME_NAME)
+        return ThemeManager.normalize_editor_theme_name(theme)
 
     def save_theme(self, theme):
-        self.settings["theme"] = theme
+        from jottr.theme_manager import ThemeManager
+
+        self.settings["theme"] = ThemeManager.normalize_editor_theme_name(theme)
         self.save_settings()
 
     def get_ui_theme(self):

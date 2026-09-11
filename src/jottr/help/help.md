@@ -4,7 +4,7 @@
 Jottr separates chrome and editor colors:
 
 - **Color Scheme** (View → Color Scheme, or Settings → Appearance): **Follow system**, **Light**, or **Dark**. This sets Qt's [`ColorScheme`](https://doc.qt.io/qt-6/qt.html#ColorScheme-enum) via `QStyleHints` (`Unknown` follows the platform appearance).
-- **Editor Theme** (View → Editor Theme, or Settings → Appearance): Light, Dark, Sepia, Dracula, Monokai, Monaspace, Tokyo Night, Matcha, Darkly, or a custom theme — applied to the writing surface and syntax colors only. The View menu shows a grid of two-color tiles for each theme.
+- **Editor Theme** (View → Editor Theme, or Settings → Appearance): White, Black, Sepia, Dracula, Monokai, Monaspace, Tokyo Night, Matcha, Darkly, or a custom theme — applied to the writing surface and syntax colors only. The View menu shows a grid of two-color tiles for each theme.
 - **Custom Editor Themes**: User-defined editor and syntax colors (they do not change Color Scheme).
 
 ## Widget styles
