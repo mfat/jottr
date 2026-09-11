@@ -606,9 +606,11 @@ class SpellCheckHighlighter(QSyntaxHighlighter):
                     spell_suggestions = spell.suggest(word) or []
                 else:
                     spell_suggestions = spell.candidates(word) or []
+                # Keep case-only corrections (iran → Iran); only drop an
+                # exact echo of the typed word that Enchant often returns.
                 suggestions.extend(
                     suggestion for suggestion in spell_suggestions
-                    if suggestion.lower() != word.lower()
+                    if suggestion != word
                 )
         except UnicodeEncodeError:
             pass

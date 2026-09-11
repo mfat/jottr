@@ -558,6 +558,36 @@ class EditorAndMainTests(unittest.TestCase):
         suggestions = highlighter.suggest("he")
         self.assertIn("hello", suggestions)
 
+    def test_spell_check_suggestions_keep_case_only_corrections(self):
+        """Proper-noun casing (iran → Iran) must stay in suggestions."""
+        document = QTextDocument()
+        highlighter = SpellCheckHighlighter(document, self.settings)
+
+        class ProperNounDict:
+            tag = "en_US"
+
+            def check(self, candidate):
+                return candidate == "Iran"
+
+            def suggest(self, candidate):
+                # Enchant often echoes the query; include it to verify we
+                # only drop the exact typed form, not case variants.
+                return [candidate, "Iran", "Oran", "Ira"]
+
+            def add(self, word):
+                return None
+
+        highlighter.USE_ENCHANT = True
+        highlighter.spell_languages = ["en_US"]
+        highlighter.spells = [ProperNounDict()]
+        highlighter.spell_check_enabled = True
+        self.settings.save_setting("user_dictionary", [])
+
+        suggestions = highlighter.suggest("iran")
+        self.assertIn("Iran", suggestions)
+        self.assertNotIn("iran", suggestions)
+        self.assertEqual(suggestions[0], "Iran")
+
     def test_spell_check_language_switch_reloads_dictionaries(self):
         document = QTextDocument()
         self.settings.save_setting("spell_check", True)
