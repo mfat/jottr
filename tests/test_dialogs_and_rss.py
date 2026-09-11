@@ -148,9 +148,9 @@ class DialogAndRssTests(unittest.TestCase):
                 dialog.icon_theme_combo.itemData(i)
                 for i in range(dialog.icon_theme_combo.count())
             ],
-            ["symbolic", "bootstrap"],
+            ["bootstrap", "symbolic"],
         )
-        self.assertEqual(dialog.icon_theme_combo.currentData(), "symbolic")
+        self.assertEqual(dialog.icon_theme_combo.currentData(), "bootstrap")
         dialog.icon_theme_combo.setCurrentIndex(
             dialog.icon_theme_combo.findData("bootstrap")
         )
@@ -195,9 +195,20 @@ class DialogAndRssTests(unittest.TestCase):
         selected = appearance.icon().pixmap(16, QIcon.Mode.Selected)
         self.assertFalse(normal.isNull())
         self.assertFalse(selected.isNull())
+        normal_image = normal.toImage()
+        selected_image = selected.toImage()
+        sample = None
+        for y in range(normal_image.height()):
+            for x in range(normal_image.width()):
+                if normal_image.pixelColor(x, y).alpha() > 200:
+                    sample = (x, y)
+                    break
+            if sample is not None:
+                break
+        self.assertIsNotNone(sample)
         self.assertNotEqual(
-            normal.toImage().pixelColor(8, 8).name(),
-            selected.toImage().pixelColor(8, 8).name(),
+            normal_image.pixelColor(*sample).name(),
+            selected_image.pixelColor(*sample).name(),
         )
         self.assertFalse(data["markdown_scroll_sync"])
         self.assertFalse(data["editor_line_numbers"])

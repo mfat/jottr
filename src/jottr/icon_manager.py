@@ -49,18 +49,18 @@ class BundledIconTheme(TypedDict):
 # Only packs listed here appear in Settings. Do not scan the host icon theme.
 BUNDLED_ICON_THEMES: tuple[BundledIconTheme, ...] = (
     {
-        "id": "symbolic",
-        "label": "Adwaita",
-        "subdir": "symbolic",
-        "resource_prefix": ":/icons/symbolic",
-        "resource_module": "jottr.resources.rc_symbolic_icons",
-    },
-    {
         "id": "bootstrap",
         "label": "Bootstrap",
         "subdir": "bootstrap",
         "resource_prefix": ":/icons/bootstrap",
         "resource_module": "jottr.resources.rc_bootstrap_icons",
+    },
+    {
+        "id": "symbolic",
+        "label": "Adwaita",
+        "subdir": "symbolic",
+        "resource_prefix": ":/icons/symbolic",
+        "resource_module": "jottr.resources.rc_symbolic_icons",
     },
 )
 DEFAULT_ICON_THEME = BUNDLED_ICON_THEMES[0]["id"]

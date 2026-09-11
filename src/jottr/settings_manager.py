@@ -34,7 +34,7 @@ class SettingsManager:
             "qt_style": "System",
             "custom_themes": {},
             "language": "en_US",
-            "icon_theme": "symbolic",
+            "icon_theme": "bootstrap",
             "icon_contrast": "auto",
             "enable_animations": True,
             "spell_check": True,
@@ -214,7 +214,7 @@ class SettingsManager:
     def get_icon_theme(self):
         from jottr.icon_manager import normalize_icon_theme
 
-        return normalize_icon_theme(self.settings.get("icon_theme", "symbolic"))
+        return normalize_icon_theme(self.settings.get("icon_theme", "bootstrap"))
 
     def save_icon_theme(self, theme_id):
         from jottr.icon_manager import normalize_icon_theme

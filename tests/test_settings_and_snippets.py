@@ -49,7 +49,7 @@ class SettingsAndSnippetTests(unittest.TestCase):
         self.assertEqual(manager.get_setting("spell_languages"), ["en_US"])
         self.assertEqual(manager.get_setting("document_language"), "auto")
         self.assertEqual(manager.get_setting("icon_contrast"), "auto")
-        self.assertEqual(manager.get_icon_theme(), "symbolic")
+        self.assertEqual(manager.get_icon_theme(), "bootstrap")
         self.assertEqual(manager.get_setting("language"), "en_US")
         self.assertFalse(manager.get_setting("autosave_enabled"))
         self.assertEqual(manager.get_setting("autosave_interval_seconds"), 30)
@@ -195,7 +195,7 @@ class SettingsAndSnippetTests(unittest.TestCase):
         themes = list_bundled_icon_themes()
         self.assertEqual(
             [theme["id"] for theme in themes],
-            ["symbolic", "bootstrap"],
+            ["bootstrap", "symbolic"],
         )
 
         manager = SettingsManager()

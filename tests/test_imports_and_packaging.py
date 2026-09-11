@@ -197,13 +197,14 @@ class ImportAndPackagingTests(unittest.TestCase):
         themes = list_bundled_icon_themes()
         self.assertEqual(
             [theme["id"] for theme in themes],
-            ["symbolic", "bootstrap"],
+            ["bootstrap", "symbolic"],
         )
-        self.assertEqual(themes[0]["label"], "Adwaita")
-        self.assertEqual(themes[1]["label"], "Bootstrap")
+        self.assertEqual(themes[0]["label"], "Bootstrap")
+        self.assertEqual(themes[1]["label"], "Adwaita")
         self.assertEqual(normalize_icon_theme("Adwaita"), "symbolic")
         self.assertEqual(normalize_icon_theme("Bootstrap"), "bootstrap")
         self.assertEqual(normalize_icon_theme("missing"), DEFAULT_ICON_THEME)
+        self.assertEqual(DEFAULT_ICON_THEME, "bootstrap")
 
         icons = load_bundled_icon_paths("symbolic")
 
@@ -305,7 +306,7 @@ class ImportAndPackagingTests(unittest.TestCase):
         icons = load_bundled_icon_paths()
         for name in ("dialog-question", "user-trash", "window-close", "save"):
             self.assertIn(name, icons)
-            self.assertTrue(icons[name].startswith(":/icons/symbolic/"))
+            self.assertTrue(icons[name].startswith(":/icons/bootstrap/"))
 
         box = QMessageBox()
         box.setIcon(QMessageBox.Icon.Question)
