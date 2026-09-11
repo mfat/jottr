@@ -15,8 +15,8 @@ sys.path.insert(0, str(SRC_ROOT))
 
 class ImportAndPackagingTests(unittest.TestCase):
     def test_source_files_compile(self):
-        for path in PACKAGE_DIR.glob("*.py"):
-            with self.subTest(path=path.name):
+        for path in PACKAGE_DIR.rglob("*.py"):
+            with self.subTest(path=str(path.relative_to(PACKAGE_DIR))):
                 py_compile.compile(str(path), doraise=True)
 
     def test_core_modules_import(self):
@@ -41,11 +41,11 @@ class ImportAndPackagingTests(unittest.TestCase):
 
     def test_no_qt5_compatibility_references_remain(self):
         offenders = []
-        for path in PACKAGE_DIR.glob("*.py"):
+        for path in PACKAGE_DIR.rglob("*.py"):
             text = path.read_text(encoding="utf-8")
             for marker in ("PyQt5", "qt_compat", "install_qt5_aliases"):
                 if marker in text:
-                    offenders.append(f"{path.name}: {marker}")
+                    offenders.append(f"{path.relative_to(PACKAGE_DIR)}: {marker}")
 
         self.assertEqual(offenders, [])
 
@@ -67,14 +67,14 @@ class ImportAndPackagingTests(unittest.TestCase):
             "translation_manager",
             "paths",
         )
-        for path in PACKAGE_DIR.glob("*.py"):
+        for path in PACKAGE_DIR.rglob("*.py"):
             for line_no, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
                 stripped = line.lstrip()
                 if stripped.startswith("#"):
                     continue
                 for module in flat_modules:
                     if stripped.startswith(f"from {module} import ") or stripped == f"import {module}":
-                        offenders.append(f"{path.name}:{line_no}: {stripped}")
+                        offenders.append(f"{path.relative_to(PACKAGE_DIR)}:{line_no}: {stripped}")
         self.assertEqual(offenders, [])
 
     def test_generated_artifacts_are_ignored(self):
@@ -105,6 +105,14 @@ class ImportAndPackagingTests(unittest.TestCase):
 
         package_modules = (
             "jottr",
+            "jottr.editor",
+            "jottr.editor.browser",
+            "jottr.editor.find_replace",
+            "jottr.editor.focus_mode",
+            "jottr.editor.markdown",
+            "jottr.editor.spellcheck",
+            "jottr.editor.tab",
+            "jottr.editor.text_edit",
             "jottr.editor_tab",
             "jottr.feed_manager_dialog",
             "jottr.font_dialog",
@@ -119,6 +127,10 @@ class ImportAndPackagingTests(unittest.TestCase):
             "jottr.snippet_manager",
             "jottr.theme_manager",
             "jottr.translation_manager",
+            "jottr.ui",
+            "jottr.ui.document_tab_bar",
+            "jottr.ui.workspace",
+            "jottr.window",
             "spellchecker",
         )
 

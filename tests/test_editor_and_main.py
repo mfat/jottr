@@ -19,9 +19,12 @@ from PyQt6.QtGui import QColor, QFont, QKeyEvent, QTextCharFormat, QTextCursor, 
 from PyQt6.QtWidgets import QApplication, QDialog, QTextEdit, QWidget
 
 from jottr.editor_tab import EditorTab, SpellCheckHighlighter
+import jottr.editor.markdown as editor_markdown_module
+import jottr.editor.tab as editor_tab_impl
 import jottr.editor_tab as editor_tab_module
 import jottr.main as main_module
 import jottr.translation_manager as translation_manager
+import jottr.window as window_module
 from jottr.main import APP_NAME, FontSelectionDialog, TextEditorApp, WorkspaceFileSystemModel, WorkspaceTreeView
 from jottr.settings_manager import SettingsManager
 from jottr.snippet_manager import SnippetManager
@@ -121,8 +124,8 @@ class EditorAndMainTests(unittest.TestCase):
         self.assertTrue(tree.allColumnsShowFocus())
 
     def make_editor(self):
-        web_view_patch = patch.object(editor_tab_module, "QWebEngineView", _FakeWebEngineView)
-        preview_page_patch = patch.object(editor_tab_module, "MarkdownPreviewPage", lambda parent=None: object())
+        web_view_patch = patch.object(editor_tab_impl, "QWebEngineView", _FakeWebEngineView)
+        preview_page_patch = patch.object(editor_tab_impl, "MarkdownPreviewPage", lambda parent=None: object())
         web_view_patch.start()
         preview_page_patch.start()
         self.addCleanup(web_view_patch.stop)
@@ -198,8 +201,8 @@ class EditorAndMainTests(unittest.TestCase):
                 self.pdfPrintingFinished.emit(path, True)
 
         output_path = str(Path(self.temp_dir.name) / "exported")
-        with patch.object(editor_tab_module, "QWebEnginePage", FakePdfPage):
-            with patch.object(editor_tab_module.QMessageBox, "information") as info:
+        with patch.object(editor_tab_impl, "QWebEnginePage", FakePdfPage):
+            with patch.object(editor_tab_impl.QMessageBox, "information") as info:
                 self.assertTrue(editor.export_pdf(output_path))
 
         self.assertEqual(len(exported_pages), 1)
@@ -252,7 +255,7 @@ class EditorAndMainTests(unittest.TestCase):
         editor.editor.setPlainText("hello world")
         editor.editor.moveCursor(QTextCursor.MoveOperation.Start)
 
-        with patch.object(editor_tab_module.QTimer, "singleShot") as single_shot:
+        with patch.object(editor_tab_impl.QTimer, "singleShot") as single_shot:
             editor.show_context_menu(editor.editor.cursorRect().center())
 
         self.assertEqual(editor.editor.textCursor().selectedText(), "hello")
@@ -419,7 +422,7 @@ class EditorAndMainTests(unittest.TestCase):
         editor.markdown_typing_active_until = 0
         editor.markdown_render_timer.start()
 
-        with patch.object(editor_tab_module.QTimer, "singleShot") as single_shot:
+        with patch.object(editor_markdown_module.QTimer, "singleShot") as single_shot:
             editor.schedule_markdown_scroll_sync()
 
         self.assertTrue(editor.preview_sync_after_load)
@@ -430,7 +433,7 @@ class EditorAndMainTests(unittest.TestCase):
         editor.markdown_preview_visible = True
         editor.markdown_typing_active_until = time.time() + 1.0
 
-        with patch.object(editor_tab_module.QTimer, "singleShot") as single_shot:
+        with patch.object(editor_markdown_module.QTimer, "singleShot") as single_shot:
             editor.schedule_markdown_scroll_sync()
 
         self.assertFalse(editor.preview_sync_after_load)
@@ -451,7 +454,7 @@ class EditorAndMainTests(unittest.TestCase):
         editor.markdown_preview_loading = True
         editor.preview_sync_after_load = True
 
-        with patch.object(editor_tab_module.QTimer, "singleShot") as single_shot:
+        with patch.object(editor_markdown_module.QTimer, "singleShot") as single_shot:
             editor.render_markdown_preview_scripts()
 
         self.assertFalse(editor.markdown_preview_loading)
@@ -524,7 +527,7 @@ class EditorAndMainTests(unittest.TestCase):
         editor.editor.setPlainText("alpha beta alpha")
         editor.find_input.setText("alpha")
         editor.replace_input.setText("omega")
-        with patch("jottr.editor_tab.QMessageBox.information"):
+        with patch("jottr.editor.tab.QMessageBox.information"):
             editor.replace_all()
         self.assertEqual(editor.editor.toPlainText(), "omega beta omega")
 
@@ -539,7 +542,7 @@ class EditorAndMainTests(unittest.TestCase):
         target = Path(self.temp_dir.name) / "save-dialog.md"
         editor.editor.setPlainText("dialog save")
 
-        with patch.object(editor_tab_module.QFileDialog, "getSaveFileName", return_value=(str(target), "")):
+        with patch.object(editor_tab_impl.QFileDialog, "getSaveFileName", return_value=(str(target), "")):
             self.assertTrue(editor.save_file(force_dialog=True))
 
         self.assertEqual(editor.current_file, str(target))
@@ -612,7 +615,7 @@ class EditorAndMainTests(unittest.TestCase):
             def selectedFiles(self):
                 return [target]
 
-        with patch.object(editor_tab_module, "QFileDialog", FakeFileDialog):
+        with patch.object(editor_tab_impl, "QFileDialog", FakeFileDialog):
             self.assertEqual(editor.prompt_pdf_export_path(), target)
 
         dialog = dialogs[0]
@@ -671,7 +674,7 @@ class EditorAndMainTests(unittest.TestCase):
             def clickedButton(self):
                 return self.default_button
 
-        with patch.object(editor_tab_module, "QMessageBox", FakeMessageBox):
+        with patch.object(editor_tab_impl, "QMessageBox", FakeMessageBox):
             self.assertTrue(editor.confirm_pdf_export_replace(str(target)))
 
         dialog = dialogs[0]
@@ -685,7 +688,7 @@ class EditorAndMainTests(unittest.TestCase):
         target = Path(self.temp_dir.name) / "open-dialog.txt"
         target.write_text("# Dialog Open", encoding="utf-8")
 
-        with patch.object(editor_tab_module.QFileDialog, "getOpenFileName", return_value=(str(target), "")):
+        with patch.object(editor_tab_impl.QFileDialog, "getOpenFileName", return_value=(str(target), "")):
             editor.open_file()
 
         self.assertEqual(editor.current_file, str(target))
@@ -790,7 +793,7 @@ class EditorAndMainTests(unittest.TestCase):
             def export_pdf(self):
                 self.pdf_exported = True
 
-        with patch.object(main_module, "EditorTab", FakeEditorTab):
+        with patch.object(window_module, "EditorTab", FakeEditorTab):
             window = TextEditorApp()
             self.addCleanup(window.close)
             self.addCleanup(window.deleteLater)
@@ -872,7 +875,7 @@ class EditorAndMainTests(unittest.TestCase):
             def set_main_window(self, main_window):
                 self.main_window = main_window
 
-        with patch.object(main_module, "EditorTab", FakeEditorTab):
+        with patch.object(window_module, "EditorTab", FakeEditorTab):
             window = TextEditorApp()
             self.addCleanup(window.close)
             self.addCleanup(window.deleteLater)
@@ -908,7 +911,7 @@ class EditorAndMainTests(unittest.TestCase):
             def set_main_window(self, main_window):
                 self.main_window = main_window
 
-        with patch.object(main_module, "EditorTab", FakeEditorTab):
+        with patch.object(window_module, "EditorTab", FakeEditorTab):
             window = TextEditorApp()
             self.addCleanup(window.close)
             self.addCleanup(window.deleteLater)
@@ -974,7 +977,7 @@ class EditorAndMainTests(unittest.TestCase):
             def activate_enabled_plugins(self):
                 return self.registry
 
-        with patch.object(main_module, "EditorTab", FakeEditorTab), patch.object(main_module, "PluginManager", FakePluginManager):
+        with patch.object(window_module, "EditorTab", FakeEditorTab), patch.object(window_module, "PluginManager", FakePluginManager):
             window = TextEditorApp()
             self.addCleanup(window.close)
             self.addCleanup(window.deleteLater)
@@ -1000,8 +1003,8 @@ class EditorAndMainTests(unittest.TestCase):
             pass
 
         with (
-            patch.object(main_module, "EditorTab", FakeEditorTab),
-            patch.object(main_module, "RSSTab", FakeRSSTab),
+            patch.object(window_module, "EditorTab", FakeEditorTab),
+            patch.object(window_module, "RSSTab", FakeRSSTab),
         ):
             window = TextEditorApp()
             self.addCleanup(window.close)
@@ -1025,7 +1028,7 @@ class EditorAndMainTests(unittest.TestCase):
             def set_main_window(self, main_window):
                 self.main_window = main_window
 
-        with patch.object(main_module, "EditorTab", FakeEditorTab):
+        with patch.object(window_module, "EditorTab", FakeEditorTab):
             window = TextEditorApp()
             self.addCleanup(window.close)
             self.addCleanup(window.deleteLater)
@@ -1055,7 +1058,7 @@ class EditorAndMainTests(unittest.TestCase):
             def pos(self):
                 return self._pos
 
-        with patch.object(main_module, "EditorTab", FakeEditorTab):
+        with patch.object(window_module, "EditorTab", FakeEditorTab):
             window = TextEditorApp()
             self.addCleanup(window.close)
             self.addCleanup(window.deleteLater)
@@ -1102,7 +1105,7 @@ class EditorAndMainTests(unittest.TestCase):
                 self.current_font = QFont(font)
                 self.editor.setFont(self.current_font)
 
-        with patch.object(main_module, "EditorTab", FakeEditorTab):
+        with patch.object(window_module, "EditorTab", FakeEditorTab):
             window = TextEditorApp()
             self.addCleanup(window.close)
             self.addCleanup(window.deleteLater)
@@ -1207,7 +1210,7 @@ class EditorAndMainTests(unittest.TestCase):
         )
 
         with (
-            patch.object(main_module, "EditorTab", FakeEditorTab),
+            patch.object(window_module, "EditorTab", FakeEditorTab),
             patch.object(translation_manager, "get_translations_dir", return_value=translations_dir),
         ):
             window = TextEditorApp()
@@ -1248,7 +1251,7 @@ class EditorAndMainTests(unittest.TestCase):
         self.addCleanup(lambda: QApplication.instance().setLayoutDirection(Qt.LayoutDirection.LeftToRight))
         self.addCleanup(lambda: translation_manager.set_language("en_US"))
 
-        with patch.object(main_module, "EditorTab", FakeEditorTab):
+        with patch.object(window_module, "EditorTab", FakeEditorTab):
             window = TextEditorApp()
             self.addCleanup(window.close)
             self.addCleanup(window.deleteLater)
@@ -1280,7 +1283,7 @@ class EditorAndMainTests(unittest.TestCase):
 
         target = Path(self.temp_dir.name) / "story.md"
         target.write_text("# Story", encoding="utf-8")
-        with patch.object(main_module, "EditorTab", FakeEditorTab):
+        with patch.object(window_module, "EditorTab", FakeEditorTab):
             window = TextEditorApp()
             self.addCleanup(window.close)
             self.addCleanup(window.deleteLater)
@@ -1312,8 +1315,8 @@ class EditorAndMainTests(unittest.TestCase):
         target = Path(self.temp_dir.name) / "dialog.md"
         target.write_text("# Dialog", encoding="utf-8")
 
-        with patch.object(main_module, "EditorTab", FakeEditorTab), \
-             patch.object(main_module.QFileDialog, "getOpenFileName", return_value=(str(target), "")):
+        with patch.object(window_module, "EditorTab", FakeEditorTab), \
+             patch.object(window_module.QFileDialog, "getOpenFileName", return_value=(str(target), "")):
             window = TextEditorApp()
             self.addCleanup(window.close)
             self.addCleanup(window.deleteLater)
@@ -1343,7 +1346,7 @@ class EditorAndMainTests(unittest.TestCase):
         first.write_text("# First", encoding="utf-8")
         second.write_text("# Second", encoding="utf-8")
 
-        with patch.object(main_module, "EditorTab", FakeEditorTab):
+        with patch.object(window_module, "EditorTab", FakeEditorTab):
             window = TextEditorApp()
             self.addCleanup(window.close)
             self.addCleanup(window.deleteLater)
@@ -1385,7 +1388,7 @@ class EditorAndMainTests(unittest.TestCase):
         text_file = workspace / "notes.txt"
         text_file.write_text("plain", encoding="utf-8")
 
-        with patch.object(main_module, "EditorTab", FakeEditorTab):
+        with patch.object(window_module, "EditorTab", FakeEditorTab):
             window = TextEditorApp()
             self.addCleanup(window.close)
             self.addCleanup(window.deleteLater)
@@ -1424,7 +1427,7 @@ class EditorAndMainTests(unittest.TestCase):
         self.settings.save_setting("workspace_path", str(workspace))
         self.settings.save_setting("workspace_open_files", [str(note)])
 
-        with patch.object(main_module, "EditorTab", FakeEditorTab):
+        with patch.object(window_module, "EditorTab", FakeEditorTab):
             window = TextEditorApp()
             self.addCleanup(window.close)
             self.addCleanup(window.deleteLater)
@@ -1474,7 +1477,7 @@ class EditorAndMainTests(unittest.TestCase):
             }
         })
 
-        with patch.object(main_module, "EditorTab", FakeEditorTab):
+        with patch.object(window_module, "EditorTab", FakeEditorTab):
             window = TextEditorApp()
             self.addCleanup(window.close)
             self.addCleanup(window.deleteLater)
@@ -1516,13 +1519,13 @@ class EditorAndMainTests(unittest.TestCase):
         workspace = Path(self.temp_dir.name) / "workspace"
         workspace.mkdir()
 
-        with patch.object(main_module, "EditorTab", FakeEditorTab):
+        with patch.object(window_module, "EditorTab", FakeEditorTab):
             window = TextEditorApp()
             self.addCleanup(window.close)
             self.addCleanup(window.deleteLater)
             window.set_workspace_path(str(workspace))
 
-            with patch("jottr.main.QInputDialog.getText", return_value=("draft.txt", True)):
+            with patch("jottr.window.QInputDialog.getText", return_value=("draft.txt", True)):
                 window.create_workspace_file()
 
             target = workspace / "draft.txt"
