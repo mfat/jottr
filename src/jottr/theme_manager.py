@@ -631,8 +631,7 @@ class ThemeManager:
         # Style Jottr chrome by object name only. Do not style QMainWindow:
         # cascading color/background onto QMenuBar breaks some widget styles
         # (e.g. Breeze) so menu titles go missing in dark mode. Style the
-        # in-window menubar (#appMenuBar) explicitly. Leave #mainToolBar to the
-        # active QStyle (no toolbar QSS).
+        # in-window menubar (#appMenuBar) explicitly so it matches the toolbar.
         # Do not put font rules on QMenu — Qt stylesheets claim the font
         # property without reliably applying it, which also blocks setFont.
         return f"""
@@ -670,6 +669,47 @@ class ThemeManager:
             }}
             QMenuBar#appMenuBar:focus {{
                 border-bottom: 2px solid {app['accent']};
+            }}
+            QToolBar#mainToolBar {{
+                background: {app['surface']};
+                border: none;
+                border-bottom: 1px solid {app['border']};
+                padding: 6px 10px;
+                spacing: 4px;
+            }}
+            QToolBar#mainToolBar QToolButton {{
+                background: transparent;
+                border: 1px solid transparent;
+                border-radius: 0px;
+                color: {app['text']};
+                margin: 0px 1px;
+                padding: 6px 7px;
+                min-width: 28px;
+                min-height: 28px;
+            }}
+            QToolBar#mainToolBar QToolButton:hover {{
+                background: {app['surface_hover']};
+                border-color: {app['border_active']};
+            }}
+            QToolBar#mainToolBar QToolButton:focus {{
+                background: {app['surface_hover']};
+                border-color: {app['accent']};
+            }}
+            QToolBar#mainToolBar QToolButton:pressed,
+            QToolBar#mainToolBar QToolButton:checked {{
+                background: {app['surface_active']};
+                border-color: {app['border_active']};
+                color: {app['text']};
+            }}
+            QToolBar#mainToolBar QToolButton:disabled {{
+                color: {app['muted']};
+                background: transparent;
+                border-color: transparent;
+            }}
+            QToolBar#mainToolBar::separator {{
+                background: {app['border']};
+                width: 1px;
+                margin: 6px 8px;
             }}
             QTabWidget#documentTabs {{
                 background: {app['surface']};
