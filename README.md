@@ -1,78 +1,22 @@
-
 # Jottr
 
-<a href='https://flathub.org/apps/io.github.mfat.jottr'>
-    <img width='240' alt='Get it on Flathub' src='https://flathub.org/api/badge?locale=en'/>
-  </a>
+A plain text and Markdown editor for writers, journalists, and researchers.
 
+![Main window](screenshots/main.png)
 
-https://github.com/user-attachments/assets/d478920b-1d99-41e9-b37a-7c63d7384781
+## What makes it different
 
+- **Simple, minimal interface** — a clean writing space without clutter
+- **Editor color themes** — including a paper-like Sepia theme
+- **Site-specific search** — select text and search it from the context menu in an integrated browser. Add your favorite sites; each one becomes a custom Google search scoped to that site.
+- **Focus Mode** — a clean writing column with menus and toolbars hidden
+- **Snippets & Tab completion** — save reusable text blocks and insert them as you type
+- **Markdown preview** — write and render side by side
 
+## Install
 
+[Flathub](https://flathub.org/apps/io.github.mfat.jottr) · [Releases](https://github.com/mfat/jottr/releases) (Linux, macOS, Windows)
 
+macOS needs Enchant: `brew install enchant`
 
-![image](https://github.com/user-attachments/assets/ee7b18fc-73cc-4f0b-a8bf-6508dd67defa)
-
-
- Jottr is a free, cross-platform, small and fast text editor released under GPL v3 license.
-
-It has cool features including:
-
-* An integrated web browser for quickly looking up selected text in various sources, including user-defined websites
-* A "Focus Mode", for distraction-free writing
-* Two methods to quickly inserting frequently used text blocks: add words to your dictionary or create text snippets and insert with custom keywords
-* Smart, intuitive autocompletion with tab key
-* Themes: choose between, light, dark and Sepia (paper-like) themes for the editor
-* Widget styles: pick built-in Qt styles such as Fusion or Windows, or installed styles like Darkly
-* Familiar, intuitive keyboard shortcuts (ctrl+= to make text bigger, for example)
-
-[Video overview](https://www.youtube.com/watch?v=P2nyr5V01SU)
-      
-### Download:    
-Downloads for Linux, Mac and Windows are available from the [Releases](https://github.com/mfat/jottr/releases) section.
-
-If you use linux, you gan get jottr from [Flathub](https://flathub.org/apps/io.github.mfat.jottr) using the button below, or install the DEB or RPM packages.
-
-<a href='https://flathub.org/apps/io.github.mfat.jottr'>
-    <img width='240' alt='Get it on Flathub' src='https://flathub.org/api/badge?locale=en'/></a>
-
-
-
-**Note for macOS users:** 
-To run Jottr on Mac you need to install  echant through [homebrew](https://brew.sh/). 
-
-`brew install enchant`
-
-
-### How to run Jottr from source:
-
-`git clone https://github.com/mfat/jottr`
-
-`cd jottr`
-
-`python3 -m pip install -e ".[build]"`
-
-`jottr`
-
-Or:
-
-`python3 -m jottr`
-
-Or without installing:
-
-`python3 src/jottr/main.py`
-
-### How to run tests:
-
-`python3 -m pip install -e .`
-
-`python3 -m unittest discover -s tests -v`
-
-### Releases:
-
-Automated release management is documented in [docs/releases.md](docs/releases.md).
-
-### Plugins:
-
-The plugin authoring and app integration standard is documented in [docs/plugins.md](docs/plugins.md).
+GPL-3.0
