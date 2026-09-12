@@ -1,5 +1,17 @@
 # Changelog
 
+## [2.3.3](https://github.com/mfat/jottr/compare/v2.3.2...v2.3.3) (2026-09-12)
+
+
+### Bug Fixes
+
+* match packaged desktop ID to GNOME dock app_id ([f035d78](https://github.com/mfat/jottr/commit/f035d7876002dfa9dc9e61eef9036ade808ab635))
+
+
+### Miscellaneous
+
+* point Flatpak at v2.3.2 with full runtime deps ([84f4f1f](https://github.com/mfat/jottr/commit/84f4f1fca92d835ed4ce52d05d56786dd932b984))
+
 ## [2.3.2](https://github.com/mfat/jottr/compare/v2.3.1...v2.3.2) (2026-09-12)
 
 
