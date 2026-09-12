@@ -1274,7 +1274,7 @@ class EditorTab(
         self.suggestion_tooltip.setStyleSheet("""
             QWidget {
                 background-color: palette(window);
-                border: 1px solid palette(mid);
+                border: 0.5px solid palette(mid);
                 border-radius: 0px;
             }
             QLabel {
