@@ -68,6 +68,8 @@ class SettingsDialog(
     # Saves run synchronously so SettingsManager is always fresh; host
     # rebuilds (restyle, rehighlight) are debounced per domain so scrolling
     # through a combo coalesces into one apply instead of one per item.
+    # Widget style follows Kate/KStyleManager: persist + apply immediately
+    # (see _commit_now) — QApplication.setStyle must not wait on the timer.
     _NOTIFY_DELAY_MS = 150
 
     def _commit(self, domain, save):
@@ -80,6 +82,17 @@ class SettingsDialog(
             return
         save()
         self._notify(domain)
+
+    def _commit_now(self, domain, save):
+        """Persist and notify the host immediately (no debounce).
+
+        Matches Kate's Application Style path: write config, then apply
+        QApplication.setStyle in the same turn.
+        """
+        if getattr(self, "_loading", False):
+            return
+        save()
+        self._notify_now(domain)
 
     def _flush_pending_domains(self):
         """Deliver coalesced domain notifications to the host window."""
@@ -114,6 +127,21 @@ class SettingsDialog(
             timer.timeout.connect(self._flush_pending_domains)
         if not timer.isActive():
             timer.start(self._NOTIFY_DELAY_MS)
+
+    def _notify_now(self, domain):
+        """Notify the host immediately, flushing any pending debounced domains."""
+        if getattr(self, "_loading", False):
+            return
+        if getattr(self, "host", None) is None:
+            return
+        pending = getattr(self, "_pending_domains", None)
+        if pending is None:
+            pending = self._pending_domains = set()
+        pending.add(domain)
+        timer = getattr(self, "_notify_timer", None)
+        if timer is not None and timer.isActive():
+            timer.stop()
+        self._flush_pending_domains()
 
     def reject(self):
         if self.embedded:

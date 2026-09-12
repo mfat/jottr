@@ -301,10 +301,16 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
         self.apply_app_style()
 
     def apply_app_style(self, font=None):
-        """Apply widget style, Qt color scheme, UI font, and matching chrome."""
+        """Apply widget style, Qt color scheme, UI font, and matching chrome.
+
+        Widget-style swaps follow Kate/KStyleManager: QApplication.setStyle
+        first. Qt already repolishes on setStyle, so we skip a second full
+        all-widgets refresh in that case.
+        """
         scheme_setting = self.settings_manager.get_ui_theme()
         app_font = QFont(font) if font is not None else self.settings_manager.get_font("ui")
         application = QApplication.instance()
+        style_swapped = False
         if application:
             # Only drop stylesheets when the widget style actually swaps;
             # the clears each force a full repolish, while palette/font/theme
@@ -321,11 +327,13 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
                 self.setStyleSheet("")
                 self._applied_app_stylesheet = None
             apply_qt_color_scheme(scheme_setting, application)
+            previous_key = application.property("_jottr_style_key")
             apply_qt_style(
                 self.settings_manager.get_qt_style(),
                 application,
                 theme=theme,
             )
+            style_swapped = previous_key != application.property("_jottr_style_key")
             ThemeManager.apply_app_palette(application, theme)
             application.setFont(app_font)
         else:
@@ -350,9 +358,63 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
         elif self.styleSheet() != stylesheet:
             self.setStyleSheet(stylesheet)
         if application:
-            refresh_styled_widgets(application)
+            # setStyle already unpolish/polish; only repolish for palette/font/
+            # QSS-only updates (Kate does nothing beyond setStyle).
+            if not style_swapped:
+                refresh_styled_widgets(application)
             self.apply_chrome_ui_font(app_font, application)
         # Rebuild icons so styles cannot keep synthesized Selected/Disabled tints.
+        self._themed_icon_cache = {}
+        self.update_action_icons()
+        self.refresh_tab_icons()
+
+    def apply_widget_style(self):
+        """Kate/KStyleManager path: QApplication.setStyle without stylesheet wrap.
+
+        An application QSS makes Qt wrap the style in QStyleSheetStyle, and
+        polish then dominates with a large widget tree. Kate has no app QSS,
+        so setStyle stays cheap. Clear QSS around setStyle, then restore
+        chrome styles on the next event-loop tick.
+        """
+        application = QApplication.instance()
+        if application is None:
+            return None
+        theme = ThemeManager.get_ui_theme(
+            self.settings_manager.get_ui_theme(), application
+        )
+        previous_key = application.property("_jottr_style_key")
+        saved_sheet = application.styleSheet()
+        if saved_sheet:
+            application.setStyleSheet("")
+            self._applied_app_stylesheet = None
+        key = apply_qt_style(
+            self.settings_manager.get_qt_style(),
+            application,
+            theme=theme,
+        )
+        swapped = previous_key != application.property("_jottr_style_key")
+        if saved_sheet:
+            # Restore after paint so setStyle is not wrapped in QStyleSheetStyle.
+            QTimer.singleShot(
+                0, lambda sheet=saved_sheet: self._restore_app_stylesheet(sheet)
+            )
+        if swapped:
+            QTimer.singleShot(0, self._refresh_icons_after_widget_style)
+        return key
+
+    def _restore_app_stylesheet(self, sheet):
+        """Re-apply chrome QSS after a Kate-like widget-style swap."""
+        application = QApplication.instance()
+        if application is None or not sheet:
+            return
+        if application.styleSheet() == sheet:
+            self._applied_app_stylesheet = sheet
+            return
+        application.setStyleSheet(sheet)
+        self._applied_app_stylesheet = sheet
+
+    def _refresh_icons_after_widget_style(self):
+        """Rebuild action/tab icons after a deferred widget-style swap."""
         self._themed_icon_cache = {}
         self.update_action_icons()
         self.refresh_tab_icons()
@@ -1209,6 +1271,19 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
             document_language_menu.addAction(action)
 
         tools_menu.addSeparator()
+        # Kate: Settings → Application Style (KStyleManager::createConfigureAction).
+        widget_style_menu = tools_menu.addMenu(_("Application Style"))
+        widget_style_menu.setAccessibleName(
+            _("{title} menu").format(title=_("Application Style"))
+        )
+        widget_style_menu.menuAction().setProperty("text_key", "Application Style")
+        self.translatable_actions.append(widget_style_menu.menuAction())
+        self.translatable_menus.append((widget_style_menu, "Application Style"))
+        self.widget_style_menu = widget_style_menu
+        self.widget_style_actions = QActionGroup(self)
+        self.widget_style_actions.setExclusive(True)
+        self.widget_style_actions.triggered.connect(self._on_widget_style_menu_triggered)
+        self.sync_widget_style_menu()
         tools_menu.addAction(self.settings_action)
 
         # Workspace menu (recent entries rebuilt on aboutToShow)
@@ -1415,6 +1490,45 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
             action.blockSignals(True)
             action.setChecked(action.data() == current)
             action.blockSignals(False)
+
+    def sync_widget_style_menu(self):
+        """Rebuild Tools → Application Style like KStyleManager's menu."""
+        from jottr.qt_style import SYSTEM_QT_STYLE, available_qt_styles
+
+        menu = getattr(self, "widget_style_menu", None)
+        group = getattr(self, "widget_style_actions", None)
+        if menu is None or group is None:
+            return
+        menu.clear()
+        for action in list(group.actions()):
+            group.removeAction(action)
+            action.deleteLater()
+        current = self.settings_manager.get_qt_style()
+        for style_name in available_qt_styles():
+            label = _("Default") if style_name == SYSTEM_QT_STYLE else style_name
+            action = QAction(label, self)
+            action.setCheckable(True)
+            action.setData(style_name)
+            action.setChecked(style_name == current)
+            group.addAction(action)
+            menu.addAction(action)
+
+    def _on_widget_style_menu_triggered(self, action):
+        style_name = action.data()
+        if not style_name:
+            return
+        self.settings_manager.save_qt_style(style_name)
+        self.apply_widget_style()
+        self.sync_widget_style_menu()
+        # Keep an open Settings → Appearance combo in sync when present.
+        for index in range(self.tab_widget.count()):
+            tab = self.tab_widget.widget(index)
+            combo = getattr(tab, "qt_style_combo", None)
+            if combo is None:
+                continue
+            combo.blockSignals(True)
+            combo.setCurrentText(self.settings_manager.get_qt_style())
+            combo.blockSignals(False)
 
     def set_toolbar_style(self, style_name):
         """Persist Toolbar Style and restyle chrome."""
@@ -1888,6 +2002,8 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
             self.apply_app_style()
             self.sync_color_scheme_menu()
             self.sync_toolbar_style_menu()
+        elif domain == "widget_style":
+            self.apply_widget_style()
         elif domain == "style":
             self.apply_app_style()
             self.sync_color_scheme_menu()

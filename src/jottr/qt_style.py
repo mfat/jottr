@@ -251,10 +251,12 @@ def apply_qt_style(style_name, application=None, theme=None):
     # so remember the key we applied on the application object itself.
     if app.property("_jottr_style_key") == key:
         return key
-    style = QStyleFactory.create(key)
-    if style is None:
+    # Prefer the QString overload like KStyleManager::initStyle
+    # (QApplication::setStyle(styleToUse)). Probe creatable first so we
+    # do not leave the app on a failed override.
+    if QStyleFactory.create(key) is None:
         return None
-    app.setStyle(style)
+    app.setStyle(key)
     app.setProperty("_jottr_style_key", key)
     return key
 

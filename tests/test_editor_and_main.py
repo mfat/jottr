@@ -1498,6 +1498,61 @@ class EditorAndMainTests(unittest.TestCase):
             self.assertIn("QToolBar#mainToolBar", sheet)
             self.assertIn("padding:", sheet)
 
+    def test_qt_style_combo_applies_immediately_like_kate(self):
+        """Widget Style must setStyle in the same turn (Kate/KStyleManager)."""
+        from PyQt6.QtWidgets import QStyleFactory
+
+        from jottr.qt_style import normalize_qt_style, resolve_qt_style_key
+        from jottr.theme_manager import ThemeManager
+
+        class FakeEditorTab(QWidget):
+            def __init__(self, snippet_manager, settings_manager):
+                super().__init__()
+                self.editor = QTextEdit(self)
+                self.current_file = None
+
+            def set_main_window(self, main_window):
+                self.main_window = main_window
+
+            def apply_theme(self, theme_name):
+                pass
+
+            def apply_autosave_settings(self):
+                pass
+
+            def apply_line_numbers(self, visible):
+                pass
+
+        with patch.object(window_module, "EditorTab", FakeEditorTab):
+            window = TextEditorApp()
+            self.addCleanup(window.close)
+            self.addCleanup(window.deleteLater)
+
+            styles = [normalize_qt_style(key) for key in QStyleFactory.keys()]
+            styles = [key for key in dict.fromkeys(styles) if key]
+            if len(styles) < 2:
+                self.skipTest("need at least two Qt styles to swap")
+
+            first, second = styles[0], styles[1]
+            window.settings_manager.save_qt_style(first)
+            window.apply_settings_domain("style")
+
+            settings_tab = window.show_settings()
+            # If widget style were still debounced, a huge delay would prevent apply.
+            settings_tab._NOTIFY_DELAY_MS = 60_000
+            settings_tab.qt_style_combo.setCurrentText(second)
+
+            self.assertEqual(window.settings_manager.get_qt_style(), second)
+            theme = ThemeManager.get_ui_theme(
+                window.settings_manager.get_ui_theme(), app()
+            )
+            expected = resolve_qt_style_key(second, theme=theme)
+            self.assertEqual(app().property("_jottr_style_key"), expected)
+            timer = getattr(settings_tab, "_notify_timer", None)
+            self.assertTrue(timer is None or not timer.isActive())
+            sheet = QApplication.instance().styleSheet()
+            self.assertIn("QToolBar#mainToolBar", sheet)
+
     def test_toolbar_style_comfy_and_default_toggle(self):
         from jottr.settings_manager import TOOLBAR_STYLE_COMFY, TOOLBAR_STYLE_DEFAULT
 

@@ -258,8 +258,10 @@ class AppearancePageMixin:
         )
 
     def _on_qt_style_changed(self):
-        self._commit(
-            "style",
+        # Kate/KStyleManager: write widgetStyle then QApplication.setStyle
+        # in the same turn — no QSS/icon/font rebuild on the hot path.
+        self._commit_now(
+            "widget_style",
             lambda: self.settings_manager.save_qt_style(self.qt_style_combo.currentText()),
         )
 
