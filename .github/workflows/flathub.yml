@@ -10,6 +10,15 @@ on:
         description: 'Release tag to publish (example: v2.3.2)'
         required: true
         type: string
+  workflow_call:
+    inputs:
+      release_tag:
+        description: 'Release tag to publish (example: v2.3.2)'
+        required: true
+        type: string
+    secrets:
+      FLATHUB_TOKEN:
+        required: true
 
 jobs:
   check-prerelease:
@@ -26,8 +35,9 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            TAG="${{ github.event.inputs.release_tag }}"
+          # workflow_call / workflow_dispatch pass release_tag; tag pushes use ref_name.
+          if [ -n "${{ inputs.release_tag }}" ]; then
+            TAG="${{ inputs.release_tag }}"
           else
             TAG="${{ github.ref_name }}"
           fi
@@ -41,7 +51,8 @@ jobs:
             sleep 3
           done
           if [ -z "$PRE" ]; then
-            if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            if [ -n "${{ inputs.release_tag }}" ]; then
+              # Explicit tag from Release Please or manual dispatch.
               PRE=false
             else
               # Fail closed: release-please creates the GitHub release with the

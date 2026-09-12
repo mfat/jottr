@@ -46,6 +46,9 @@ No extra secret is required for the default setup. If branch protection rules pr
 4. Merge the release PR when ready.
 5. Let the next `main` workflow run create the Git tag and GitHub release.
 6. Let each release packaging job build from the release tag and attach its own package assets to the GitHub release.
+7. Let the `update-flathub` job open a packaging PR on `flathub/io.github.mfat.jottr` for that tag.
+
+Release Please creates the tag with `GITHUB_TOKEN`, which does not start other `on: push: tags` workflows. The Release Please workflow therefore calls `.github/workflows/flathub.yml` directly when `release_created` is true. Manual Flathub updates remain available via **Actions → Update Flathub Manifest**.
 
 ## Release packages
 

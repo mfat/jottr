@@ -23,6 +23,17 @@ jobs:
           config-file: release-please-config.json
           manifest-file: .release-please-manifest.json
 
+  # Tag pushes from GITHUB_TOKEN do not trigger on: push workflows. Call Flathub
+  # directly when Release Please creates a release.
+  update-flathub:
+    needs: release-please
+    if: ${{ needs.release-please.outputs.release_created == 'true' }}
+    uses: ./.github/workflows/flathub.yml
+    with:
+      release_tag: ${{ needs.release-please.outputs.tag_name }}
+    secrets:
+      FLATHUB_TOKEN: ${{ secrets.FLATHUB_TOKEN }}
+
   build-deb:
     needs: release-please
     if: ${{ needs.release-please.outputs.release_created == 'true' }}
