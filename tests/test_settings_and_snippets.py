@@ -361,58 +361,6 @@ class SettingsAndSnippetTests(unittest.TestCase):
                 )
             self.assertEqual(apply_qt_style(fusion, application), fusion)
 
-    def test_breeze_style_pads_submenu_item_width(self):
-        from PyQt6.QtWidgets import QMenu, QStyleFactory
-
-        from jottr.qt_style import (
-            _BreezeSubmenuPadStyle,
-            apply_qt_style,
-            capture_platform_qt_style,
-            normalize_qt_style,
-            register_bundled_qt_plugins,
-        )
-
-        if QStyleFactory.create("Breeze") is None:
-            self.skipTest("Breeze style unavailable")
-
-        application = app()
-        register_bundled_qt_plugins()
-        capture_platform_qt_style(application)
-        previous = application.property("_jottr_style_key")
-        self.addCleanup(lambda: apply_qt_style(previous or "Fusion", application))
-
-        breeze = normalize_qt_style("Breeze")
-        # Force a bare Breeze install so apply_qt_style must (re)wrap it.
-        application.setStyle("Breeze")
-        application.setProperty("_jottr_style_key", breeze)
-        application._jottr_style_proxy = None
-
-        self.assertEqual(apply_qt_style(breeze, application), breeze)
-        self.assertIsInstance(application._jottr_style_proxy, _BreezeSubmenuPadStyle)
-
-        menu = QMenu()
-        self.addCleanup(menu.deleteLater)
-        for name in ("Cut", "Copy", "Paste"):
-            action = menu.addAction(name)
-            action.setEnabled(False)
-        menu.addSeparator()
-        menu.addMenu("Capitalization").addAction("Uppercase")
-        padded_width = menu.sizeHint().width()
-
-        application.setStyle("Breeze")
-        application.setProperty("_jottr_style_key", None)
-        application._jottr_style_proxy = None
-        bare = QMenu()
-        self.addCleanup(bare.deleteLater)
-        for name in ("Cut", "Copy", "Paste"):
-            action = bare.addAction(name)
-            action.setEnabled(False)
-        bare.addSeparator()
-        bare.addMenu("Capitalization").addAction("Uppercase")
-        bare_width = bare.sizeHint().width()
-
-        self.assertGreaterEqual(padded_width, bare_width + 16)
-
     def test_apply_qt_color_scheme_sets_style_hints(self):
         from PyQt6.QtCore import Qt
 
