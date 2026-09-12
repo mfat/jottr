@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.3.1](https://github.com/mfat/jottr/compare/v2.3.0...v2.3.1) (2026-09-12)
+
+
+### Bug Fixes
+
+* remove bundled Adwaita-Qt and repair package builds ([bf3802e](https://github.com/mfat/jottr/commit/bf3802edaa0803902afdf0b77c83a6700214dadb))
+
 ## [2.3.0](https://github.com/mfat/jottr/compare/v2.2.1...v2.3.0) (2026-09-12)
 
 
