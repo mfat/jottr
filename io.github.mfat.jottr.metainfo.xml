@@ -23,7 +23,7 @@
 
   <!-- Release information -->
   <releases>
-    <release version="2.5.1" date="2026-09-12">
+    <release version="2.5.2" date="2026-09-12">
       <description>
         <p>Fix AppImage/frozen entry point import crash</p>
         <p>Remove bundled Adwaita-Qt; simplify package builds</p>
