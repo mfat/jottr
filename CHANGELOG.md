@@ -1,5 +1,17 @@
 # Changelog
 
+## [2.5.3](https://github.com/mfat/jottr/compare/v2.5.2...v2.5.3) (2026-09-12)
+
+
+### Bug Fixes
+
+* restyle Default chrome on live desktop light/dark switches ([2c70d2e](https://github.com/mfat/jottr/commit/2c70d2e3a930dba07a976564dd6eec2ac8c19450))
+
+
+### Miscellaneous
+
+* release 2.5.3 ([caf7057](https://github.com/mfat/jottr/commit/caf70578488e317767cf9fa541cf02583c41a8ed))
+
 ## [2.5.2](https://github.com/mfat/jottr/compare/v2.5.1...v2.5.2) (2026-09-12)
 
 
