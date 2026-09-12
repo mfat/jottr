@@ -90,7 +90,6 @@ class EditorThemeCard(QFrame):
         self._name_label = QLabel(name, self)
         self._name_label.setObjectName("editorThemeCardName")
         name_font = QFont(self._name_label.font())
-        name_font.setBold(True)
         name_font.setPointSize(max(9, name_font.pointSize()))
         self._name_label.setFont(name_font)
         header.addWidget(self._name_label, 1)
