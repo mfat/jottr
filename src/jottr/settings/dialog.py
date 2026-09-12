@@ -44,6 +44,7 @@ class SettingsDialog(
         language = self.settings_manager.get_setting("language", "en_US")
         set_language(language)
         self.ui_font = QFont(self.settings_manager.get_font("ui"))
+        self.ui_font_follow_system = self.settings_manager.uses_system_ui_font()
         self.setFont(self.ui_font)
         self.setLayoutDirection(
             Qt.LayoutDirection.RightToLeft

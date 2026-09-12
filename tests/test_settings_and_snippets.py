@@ -142,6 +142,7 @@ class SettingsAndSnippetTests(unittest.TestCase):
 
     def test_settings_manager_persists_separate_ui_and_editor_fonts(self):
         manager = SettingsManager()
+        self.assertTrue(manager.uses_system_ui_font())
 
         ui_font = QFont("Sans", 11)
         editor_font = QFont("Mono", 14)
@@ -149,15 +150,22 @@ class SettingsAndSnippetTests(unittest.TestCase):
         manager.save_font(editor_font, "editor")
 
         reloaded = SettingsManager()
+        self.assertFalse(reloaded.uses_system_ui_font())
         self.assertEqual(reloaded.get_font("ui").family(), "Sans")
         self.assertEqual(reloaded.get_font("ui").pointSize(), 11)
         self.assertEqual(reloaded.get_font("editor").family(), "Mono")
         self.assertEqual(reloaded.get_font("editor").pointSize(), 14)
 
+        manager.save_font(ui_font, "ui", follow_system=True)
+        self.assertTrue(manager.uses_system_ui_font())
+        system = SettingsManager.system_ui_font()
+        self.assertEqual(manager.get_font("ui").family(), system.family())
+
     def test_settings_manager_defaults_ui_font_to_system_and_coerces_qt5_weight(self):
         manager = SettingsManager()
         system = SettingsManager.system_ui_font()
         ui = manager.get_font("ui")
+        self.assertTrue(manager.uses_system_ui_font())
         self.assertEqual(ui.family(), system.family())
         self.assertGreaterEqual(int(ui.weight()), 100)
         self.assertEqual(SettingsManager.coerce_font_weight(50), int(QFont.Weight.Normal))
@@ -178,10 +186,30 @@ class SettingsAndSnippetTests(unittest.TestCase):
             encoding="utf-8",
         )
         reloaded = SettingsManager()
+        self.assertTrue(reloaded.uses_system_ui_font())
         self.assertEqual(reloaded.get_font("ui").family(), system.family())
         self.assertGreaterEqual(int(reloaded.get_font("ui").weight()), 100)
         self.assertEqual(int(reloaded.get_font("editor").weight()), int(QFont.Weight.Normal))
         self.assertEqual(reloaded.get_font("editor").family(), "DejaVu Sans Mono")
+
+        # Older custom UI fonts without the follow flag stay fixed faces.
+        Path(manager.settings_file).write_text(
+            json.dumps({
+                "ui_font_family": "Liberation Sans",
+                "ui_font_size": 13,
+                "ui_font_weight": 400,
+                "ui_font_italic": False,
+                "font_family": "DejaVu Sans Mono",
+                "font_size": 12,
+                "font_weight": 400,
+                "font_italic": False,
+            }),
+            encoding="utf-8",
+        )
+        custom = SettingsManager()
+        self.assertFalse(custom.uses_system_ui_font())
+        self.assertEqual(custom.get_font("ui").family(), "Liberation Sans")
+        self.assertEqual(custom.get_font("ui").pointSize(), 13)
 
     def test_settings_manager_persists_custom_themes(self):
         manager = SettingsManager()
@@ -557,9 +585,13 @@ class SettingsAndSnippetTests(unittest.TestCase):
         font_dialog_style = ThemeManager.build_font_dialog_stylesheet(dracula, QFont("Liberation Serif", 15))
         self.assertNotIn("QFontComboBox::drop-down", font_dialog_style)
         self.assertNotIn("QPushButton {", font_dialog_style)
+        self.assertNotIn("QDialog#fontSelectionDialog", font_dialog_style)
         self.assertIn("QLabel#fontPreview", font_dialog_style)
-        self.assertIn("#f8f8f2", font_dialog_style)
-        self.assertIn("#282a36", font_dialog_style)
+        # Chrome colors come from the app palette, not a forced theme sheet.
+        self.assertNotIn("#f8f8f2", font_dialog_style)
+        self.assertNotIn("#282a36", font_dialog_style)
+        self.assertIn("palette(base)", font_dialog_style)
+        self.assertIn("palette(text)", font_dialog_style)
         self.assertIn('font-family: "Liberation Serif"', font_dialog_style)
         self.assertIn("font-size: 15pt", font_dialog_style)
         # Chosen face/size belong only on the preview, not every form label.

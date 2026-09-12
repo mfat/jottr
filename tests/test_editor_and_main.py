@@ -2249,10 +2249,12 @@ class EditorAndMainTests(unittest.TestCase):
             self.assertEqual(dialog.style_combo.itemText(0), "Translated Regular")
             self.assertEqual(dialog.style_combo.itemText(3), "Translated Bold Italic")
             self.assertEqual(dialog.preview_text.text(), "Translated preview text.")
-            self.assertIn("QDialog#fontSelectionDialog", dialog.styleSheet())
             self.assertIn("QLabel#fontPreview", dialog.styleSheet())
+            self.assertNotIn("QDialog#fontSelectionDialog", dialog.styleSheet())
             self.assertNotIn("QFontComboBox::down-arrow", dialog.styleSheet())
             self.assertNotIn("QComboBox::down-arrow", dialog.styleSheet())
+            # No forced Light/Dark chrome — same as Settings / other dialogs.
+            self.assertNotIn("background:", dialog.styleSheet().split("QLabel#fontPreview")[0])
 
         translation_manager.set_language("en_US")
 
@@ -2280,6 +2282,33 @@ class EditorAndMainTests(unittest.TestCase):
         dialog.update_preview()
         self.assertIn("font-size: 18pt", dialog.styleSheet())
         self.assertEqual(dialog.preview_text.font().pointSize(), 18)
+
+    def test_font_dialog_system_default_option(self):
+        custom = QFont("Serif", 14)
+        dialog = FontSelectionDialog(
+            custom,
+            title="Choose Main UI Font",
+            allow_system_default=True,
+            system_default=False,
+        )
+        self.addCleanup(dialog.deleteLater)
+
+        self.assertIsNotNone(dialog.system_default_check)
+        self.assertFalse(dialog.uses_system_default())
+        self.assertTrue(dialog.font_combo.isEnabled())
+
+        dialog.system_default_check.setChecked(True)
+        self.assertTrue(dialog.uses_system_default())
+        self.assertFalse(dialog.font_combo.isEnabled())
+        self.assertFalse(dialog.size_combo.isEnabled())
+        self.assertFalse(dialog.style_combo.isEnabled())
+        system = SettingsManager.system_ui_font()
+        self.assertEqual(dialog.selectedFont().family(), system.family())
+
+        dialog.system_default_check.setChecked(False)
+        self.assertTrue(dialog.font_combo.isEnabled())
+        dialog.size_combo.setCurrentText("20")
+        self.assertEqual(dialog.selectedFont().pointSize(), 20)
 
     def test_main_window_retranslates_toolbar_menu_actions(self):
         class FakeEditorTab(QWidget):

@@ -1001,12 +1001,11 @@ class ThemeManager:
         """
 
     @staticmethod
-    def build_font_dialog_stylesheet(theme, font=None):
-        app = theme["app"]
-        editor = theme["editor"]
-        # Apply the chosen face/size only to the preview. Form labels must keep
-        # the normal UI font — stylesheet fonts override QWidget::setFont and
-        # would both enlarge the labels and freeze the preview.
+    def build_font_dialog_stylesheet(theme=None, font=None):
+        # Match Settings / other dialogs: leave chrome to QPalette + QStyle.
+        # Only the preview needs QSS (chosen face/size/style + a simple frame).
+        # ``theme`` is accepted for call-site compatibility but unused.
+        del theme
         preview_font_style = ThemeManager.build_font_stylesheet(font)
         if font is not None:
             preview_font_style += f"""
@@ -1014,17 +1013,10 @@ class ThemeManager:
                 font-style: {"italic" if font.italic() else "normal"};
             """
         return f"""
-            QDialog#fontSelectionDialog {{
-                background: {app['background']};
-                color: {app['text']};
-            }}
-            QLabel {{
-                color: {app['text']};
-            }}
             QLabel#fontPreview {{
-                background: {editor['background']};
-                color: {editor['foreground']};
-                border: 1px solid {editor['border']};
+                background: palette(base);
+                color: palette(text);
+                border: 1px solid palette(mid);
                 border-radius: 0px;
                 padding: 12px;
                 {preview_font_style}

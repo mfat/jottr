@@ -119,7 +119,8 @@ class AppearancePageMixin:
         font_label = QLabel(_("Main UI Font:"))
         self.ui_font_button = self.create_font_button(
             self.ui_font,
-            self.choose_ui_font
+            self.choose_ui_font,
+            follow_system=self.ui_font_follow_system,
         )
         general_layout.addRow(font_label, self.ui_font_button)
         appearance_layout.addWidget(general_box)
@@ -344,17 +345,19 @@ class AppearancePageMixin:
             ),
         )
 
-    def create_font_button(self, font, callback):
+    def create_font_button(self, font, callback, follow_system=False):
         button = QPushButton()
         button.setObjectName("fontSettingButton")
         button.clicked.connect(callback)
-        self.update_font_button(button, font)
+        self.update_font_button(button, font, follow_system=follow_system)
         return button
 
-    def update_font_button(self, button, font):
-        button.setText(self.font_summary(font))
+    def update_font_button(self, button, font, follow_system=False):
+        button.setText(self.font_summary(font, follow_system=follow_system))
 
-    def font_summary(self, font):
+    def font_summary(self, font, follow_system=False):
+        if follow_system:
+            return _("System default")
         parts = [font.family(), f"{font.pointSize()}pt"]
         if font.bold() and font.italic():
             parts.append(_("Bold Italic"))
@@ -367,15 +370,29 @@ class AppearancePageMixin:
         return " ".join(parts)
 
     def choose_ui_font(self):
-        dialog = FontSelectionDialog(self.ui_font, self, title=_("Choose Main UI Font"))
+        dialog = FontSelectionDialog(
+            self.ui_font,
+            self,
+            title=_("Choose Main UI Font"),
+            allow_system_default=True,
+            system_default=self.ui_font_follow_system,
+        )
         if dialog.exec() == QDialog.DialogCode.Accepted:
+            follow_system = dialog.uses_system_default()
             selected_font = dialog.selectedFont()
+            self.ui_font_follow_system = follow_system
             self.apply_ui_font(selected_font)
             self.apply_dialog_style()
-            self.update_font_button(self.ui_font_button, selected_font)
+            self.update_font_button(
+                self.ui_font_button,
+                selected_font,
+                follow_system=follow_system,
+            )
             self._commit(
                 "style",
-                lambda: self.settings_manager.save_font(selected_font, "ui"),
+                lambda: self.settings_manager.save_font(
+                    selected_font, "ui", follow_system=follow_system
+                ),
             )
 
     def common_autosave_intervals(self):

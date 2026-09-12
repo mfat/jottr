@@ -66,6 +66,8 @@ class SettingsManager:
             "ui_font_size": ui_size,
             "ui_font_weight": int(ui_font.weight()),
             "ui_font_italic": bool(ui_font.italic()),
+            # True = always resolve Main UI Font from the desktop; False = fixed face.
+            "ui_font_follow_system": True,
             "font_family": "DejaVu Sans Mono",
             "font_size": 12,
             "font_weight": int(QFont.Weight.Normal),
@@ -187,13 +189,14 @@ class SettingsManager:
             try:
                 with open(settings_path, 'r', encoding='utf-8') as f:
                     saved_settings = json.load(f)
+                    had_follow_flag = "ui_font_follow_system" in saved_settings
                     self.settings.update(saved_settings)
                     self.settings["custom_themes"] = self.get_custom_themes()
-                    self.migrate_legacy_font_settings()
+                    self.migrate_legacy_font_settings(had_follow_flag=had_follow_flag)
             except Exception as e:
                 print(f"Error loading settings: {str(e)}")
 
-    def migrate_legacy_font_settings(self):
+    def migrate_legacy_font_settings(self, had_follow_flag=True):
         """Replace the old DejaVu UI default and coerce Qt5 font weights."""
         changed = False
         family = self.settings.get("ui_font_family")
@@ -201,12 +204,13 @@ class SettingsManager:
         weight = self.settings.get("ui_font_weight")
         italic = bool(self.settings.get("ui_font_italic", False))
         legacy_family, legacy_size, legacy_weight, legacy_italic = _LEGACY_DEFAULT_UI_FONT
-        if (
+        is_legacy_ui = (
             family == legacy_family
             and size == legacy_size
             and weight == legacy_weight
             and italic == legacy_italic
-        ):
+        )
+        if is_legacy_ui:
             ui_font = self.system_ui_font()
             ui_size = ui_font.pointSize()
             if ui_size <= 0:
@@ -215,11 +219,17 @@ class SettingsManager:
             self.settings["ui_font_size"] = ui_size
             self.settings["ui_font_weight"] = int(ui_font.weight())
             self.settings["ui_font_italic"] = bool(ui_font.italic())
+            self.settings["ui_font_follow_system"] = True
             changed = True
         else:
             coerced = self.coerce_font_weight(weight)
             if weight != coerced:
                 self.settings["ui_font_weight"] = coerced
+                changed = True
+            # Older installs snapped a concrete face without a follow flag —
+            # keep that face until the user picks System default explicitly.
+            if not had_follow_flag:
+                self.settings["ui_font_follow_system"] = False
                 changed = True
 
         editor_weight = self.settings.get("font_weight")
@@ -260,7 +270,13 @@ class SettingsManager:
         }
         return prefixes.get(role, "font")
 
+    def uses_system_ui_font(self):
+        """True when Main UI Font should track the desktop GeneralFont."""
+        return bool(self.settings.get("ui_font_follow_system", False))
+
     def get_font(self, role="editor"):
+        if role == "ui" and self.uses_system_ui_font():
+            return self.system_ui_font()
         prefix = self.font_setting_prefix(role)
         legacy_prefix = "font"
         family = self.settings.get(f"{prefix}_family", self.settings[f"{legacy_prefix}_family"])
@@ -272,8 +288,14 @@ class SettingsManager:
         font.setItalic(self.settings.get(f"{prefix}_italic", self.settings[f"{legacy_prefix}_italic"]))
         return font
 
-    def save_font(self, font, role="editor"):
+    def save_font(self, font, role="editor", follow_system=None):
         prefix = self.font_setting_prefix(role)
+        if role == "ui":
+            # Explicit custom save clears follow-system unless asked otherwise.
+            follow = bool(follow_system) if follow_system is not None else False
+            self.settings["ui_font_follow_system"] = follow
+            if follow:
+                font = self.system_ui_font()
         point_size = font.pointSize()
         if point_size <= 0:
             point_size = round(font.pointSizeF()) if font.pointSizeF() > 0 else 10
