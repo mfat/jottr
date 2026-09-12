@@ -109,14 +109,10 @@ class DialogAndRssTests(unittest.TestCase):
                 msg=f"missing icon for {dialog.settings_nav.item(index).text()}",
             )
         dialog.homepage_edit.setText("https://home.example")
-        dialog.ui_theme_combo.setCurrentIndex(dialog.ui_theme_combo.findData("Dark"))
         dialog.editor_theme_combo.setCurrentText("Forest")
-        self.assertEqual(
-            [dialog.ui_theme_combo.itemData(i) for i in range(dialog.ui_theme_combo.count())],
-            ["System", "Light", "Dark"],
-        )
         self.assertGreaterEqual(dialog.window_color_scheme_combo.count(), 1)
         self.assertEqual(dialog.window_color_scheme_combo.itemData(0), "")
+        self.assertEqual(dialog.selected_ui_theme(), "Dark")
         self.assertIn("Forest", [
             dialog.editor_theme_combo.itemText(i)
             for i in range(dialog.editor_theme_combo.count())
@@ -351,9 +347,11 @@ class DialogAndRssTests(unittest.TestCase):
         self.assertEqual(dialog.font().pointSize(), 13)
         self.assertEqual(dialog.settings_nav.font().family(), "Liberation Sans")
         self.assertEqual(dialog.settings_nav.font().pointSize(), 13)
-        self.assertEqual(dialog.ui_theme_combo.font().family(), "Liberation Sans")
+        self.assertEqual(dialog.window_color_scheme_combo.font().family(), "Liberation Sans")
         self.assertEqual(dialog.qt_style_combo.font().family(), "Liberation Sans")
-        self.assertEqual(dialog.ui_theme_combo.view().font().family(), "Liberation Sans")
+        self.assertEqual(
+            dialog.window_color_scheme_combo.view().font().family(), "Liberation Sans"
+        )
         self.assertEqual(dialog.ui_font.family(), "Liberation Sans")
         stylesheet = dialog.styleSheet()
         self.assertIn('font-family: "Liberation Sans"', stylesheet)
@@ -408,7 +406,7 @@ class DialogAndRssTests(unittest.TestCase):
         dialog.save_custom_theme()
 
         self.assertIn("Ink", dialog.get_data()["custom_themes"])
-        self.assertEqual(dialog.ui_theme_combo.currentData(), "System")
+        self.assertEqual(dialog.selected_ui_theme(), "System")
         self.assertEqual(dialog.editor_theme_combo.currentText(), "Ink")
 
         dialog.custom_theme_list.setCurrentRow(0)

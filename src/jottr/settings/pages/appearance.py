@@ -34,23 +34,6 @@ class AppearancePageMixin:
         self.language_combo.currentIndexChanged.connect(self._on_language_changed)
         general_layout.addRow(language_label, self.language_combo)
 
-        ui_theme_label = QLabel(_("Follow system colors:"))
-        self.ui_theme_combo = QComboBox()
-        self.ui_theme_combo.addItem(_("Follow system"), "System")
-        self.ui_theme_combo.addItem(_("Light"), "Light")
-        self.ui_theme_combo.addItem(_("Dark"), "Dark")
-        current_scheme = self.settings_manager.get_ui_theme()
-        scheme_index = self.ui_theme_combo.findData(current_scheme)
-        self.ui_theme_combo.setCurrentIndex(scheme_index if scheme_index >= 0 else 0)
-        self.ui_theme_combo.setToolTip(
-            _("Used when Window Color Scheme is Default. "
-              "Sets Qt's application color scheme "
-              "(Follow system, Light, or Dark). "
-              "Editor themes are chosen separately.")
-        )
-        self.ui_theme_combo.currentIndexChanged.connect(self._on_ui_theme_changed)
-        general_layout.addRow(ui_theme_label, self.ui_theme_combo)
-
         window_scheme_label = QLabel(_("Window Color Scheme:"))
         self.window_color_scheme_combo = QComboBox()
         self._populate_window_color_scheme_combo()
@@ -78,7 +61,7 @@ class AppearancePageMixin:
             _("Lists every Qt widget style available on this system "
               "(Fusion, Windows, Darkly, desktop styles, and plugins). "
               "System keeps the platform default. "
-              "Paired light/dark styles follow the Color Scheme when both "
+              "Paired light/dark styles follow Window Color Scheme when both "
               "variants are installed.")
         )
         self.qt_style_combo.currentTextChanged.connect(self._on_qt_style_changed)
@@ -129,7 +112,7 @@ class AppearancePageMixin:
         theme_box_layout = QVBoxLayout(theme_box)
         standard_label = QLabel(
             _("Custom themes set editor and syntax colors only. "
-              "Color Scheme stays Follow system, Light, or Dark.")
+              "Window Color Scheme is unchanged.")
         )
         standard_label.setWordWrap(True)
         theme_box_layout.addWidget(standard_label)
@@ -278,14 +261,6 @@ class AppearancePageMixin:
             if data is not None:
                 return data
         return self.settings_manager.get_window_color_scheme()
-
-    def _on_ui_theme_changed(self):
-        self._commit(
-            "style",
-            lambda: self.settings_manager.save_ui_theme(self.selected_ui_theme()),
-        )
-        # Preview in the settings chrome without waiting for the host debounce.
-        self.apply_dialog_style()
 
     def _on_window_color_scheme_changed(self):
         # Kate applies Window Color Scheme immediately (palette swap).

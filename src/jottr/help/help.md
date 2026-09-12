@@ -3,9 +3,9 @@
 ## Themes
 Jottr separates chrome and editor colors:
 
-- **Color Scheme** (View → Color Scheme, or Settings → Appearance): **Follow system**, **Light**, or **Dark**. This sets Qt's [`ColorScheme`](https://doc.qt.io/qt-6/qt.html#ColorScheme-enum) via `QStyleHints` (`Unknown` follows the platform appearance).
+- **Window Color Scheme** (View → Window Color Scheme, or Settings → Appearance): Kate-style chrome palette from installed KDE `.colors` schemes. **Default** follows the system (Breeze Light/Dark when available); picking a named scheme installs that palette.
 - **Editor Theme** (View → Editor Theme, or Settings → Appearance): White, Black, Sepia, Dracula, Monokai, Monaspace, Tokyo Night, Matcha, Darkly, or a custom theme — applied to the writing surface and syntax colors only. The View menu shows a palette grid of preview cards for each theme.
-- **Custom Editor Themes**: User-defined editor and syntax colors (they do not change Color Scheme).
+- **Custom Editor Themes**: User-defined editor and syntax colors (they do not change Window Color Scheme).
 
 ## Widget styles
 In Settings > Appearance, **Widget Style** lists every Qt style available on your system, including:
@@ -14,7 +14,7 @@ In Settings > Appearance, **Widget Style** lists every Qt style available on you
 - Platform styles such as WindowsVista, windows11, or macos when provided by Qt
 - Desktop or plugin styles installed on your system (for example Breeze, Oxygen, or [Darkly](https://github.com/Bali10050/Darkly))
 
-The dropdown is filled from Qt's style factory, so everything your Qt build can create is offered. Color Scheme drives Qt's application palette hint; Jottr still styles its own chrome (toolbar, tabs, workspace) to match the effective light or dark appearance. Paired light/dark styles (when both are installed) automatically follow Color Scheme.
+The dropdown is filled from Qt's style factory, so everything your Qt build can create is offered. Window Color Scheme drives the application palette; Jottr still styles its own chrome (toolbar, tabs, workspace) to match the effective light or dark appearance. Paired light/dark styles (when both are installed) automatically follow the active scheme.
 
 To create a custom editor theme:
 1. Open Settings > Appearance
@@ -22,7 +22,7 @@ To create a custom editor theme:
 3. Put the theme name in the top-level `name` field
 4. Save the theme, then choose it as **Editor Theme**
 
-Theme standard (editor themes may still include an `app` block for compatibility; Color Scheme ignores it and stays Follow system, Light, or Dark):
+Theme standard (editor themes may still include an `app` block for compatibility; Window Color Scheme ignores it):
 ```json
 {
   "name": "My Theme",
@@ -65,9 +65,9 @@ To change the editor theme:
 2. Select your preferred theme
 3. Changes are applied immediately
 
-To change the color scheme:
-1. Open View → Color Scheme or Settings → Appearance
-2. Choose Follow system, Light, or Dark
+To change the window color scheme:
+1. Open View → Window Color Scheme or Settings → Appearance
+2. Choose Default (follow system) or a named KDE color scheme
 
 ## Font Customization
 Customize the editor font to your preference:

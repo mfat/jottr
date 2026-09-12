@@ -251,11 +251,8 @@ class SettingsDialog(
             self.close_callback(self)
 
     def selected_ui_theme(self):
-        if hasattr(self, "ui_theme_combo"):
-            return (
-                self.ui_theme_combo.currentData()
-                or self.settings_manager.get_ui_theme()
-            )
+        # Window Color Scheme owns chrome colors; ui_theme remains the
+        # System/Light/Dark hint used only when the scheme is Default.
         return self.settings_manager.get_ui_theme()
 
     def selected_icon_theme(self):

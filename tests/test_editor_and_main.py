@@ -2189,9 +2189,11 @@ class EditorAndMainTests(unittest.TestCase):
             self.assertEqual(settings_tab.font().family(), "Liberation Sans")
             self.assertEqual(settings_tab.settings_nav.font().family(), "Liberation Sans")
             self.assertEqual(settings_tab.settings_nav.font().pointSize(), 13)
-            self.assertEqual(settings_tab.ui_theme_combo.font().family(), "Liberation Sans")
             self.assertEqual(
-                settings_tab.ui_theme_combo.view().font().family(),
+                settings_tab.window_color_scheme_combo.font().family(), "Liberation Sans"
+            )
+            self.assertEqual(
+                settings_tab.window_color_scheme_combo.view().font().family(),
                 "Liberation Sans",
             )
             self.assertEqual(window.menuBar().font().family(), "Liberation Sans")
