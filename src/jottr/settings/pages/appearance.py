@@ -248,6 +248,8 @@ class AppearancePageMixin:
             "style",
             lambda: self.settings_manager.save_ui_theme(self.selected_ui_theme()),
         )
+        # Preview in the settings chrome without waiting for the host debounce.
+        self.apply_dialog_style()
 
     def _on_editor_theme_changed(self):
         self._commit(
@@ -330,7 +332,6 @@ class AppearancePageMixin:
             self.apply_ui_font(selected_font)
             self.apply_dialog_style()
             self.update_font_button(self.ui_font_button, selected_font)
-            # A picked font takes effect immediately instead of waiting for Apply.
             self._commit(
                 "style",
                 lambda: self.settings_manager.save_font(selected_font, "ui"),
@@ -422,7 +423,7 @@ class AppearancePageMixin:
         self.set_custom_themes(themes)
         self.refresh_theme_combos()
         self.editor_theme_combo.setCurrentText(name)
-        # Persist + apply immediately; the combo signal also fires but is idempotent.
+        # Persist custom themes; combo change also saves the active theme name.
         self._commit(
             "editor_theme",
             lambda: self.settings_manager.save_custom_themes(self.get_custom_themes()),

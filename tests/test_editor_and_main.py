@@ -1388,7 +1388,7 @@ class EditorAndMainTests(unittest.TestCase):
             window.tab_widget.setCurrentIndex(0)
             self.assertFalse(window.statusBar.isHidden())
 
-    def test_apply_settings_skips_plugin_reload_when_unchanged(self):
+    def test_instant_settings_persist_and_plugins_domain_reloads(self):
         class FakeEditorTab(QWidget):
             def __init__(self, snippet_manager, settings_manager):
                 super().__init__()
@@ -1416,16 +1416,52 @@ class EditorAndMainTests(unittest.TestCase):
             plugin_manager = window.plugin_manager
             toolbar = window.toolbar
 
-            with patch.object(plugin_manager, "refresh", wraps=plugin_manager.refresh) as refresh:
-                window.apply_settings_from_view(settings_tab)
-                refresh.assert_not_called()
-
-            self.assertIs(window.plugin_manager, plugin_manager)
-            self.assertIs(window.toolbar, toolbar)
+            settings_tab.homepage_edit.setText("https://instant.example/")
+            settings_tab.homepage_edit.editingFinished.emit()
             self.assertEqual(
                 window.settings_manager.get_setting("homepage"),
-                settings_tab.get_data()["homepage"],
+                "https://instant.example/",
             )
+
+            # Unrelated domains must not rebuild plugins/chrome.
+            window.apply_settings_domain("style")
+            self.assertIs(window.plugin_manager, plugin_manager)
+            self.assertIs(window.toolbar, toolbar)
+
+            with patch.object(window_module.PluginManager, "activate_enabled_plugins", return_value=[]) as activate:
+                window.apply_settings_domain("plugins")
+                activate.assert_called_once()
+            self.assertIsNot(window.plugin_manager, plugin_manager)
+            self.assertIsNot(window.toolbar, toolbar)
+
+    def test_editor_theme_domain_force_reapplies_same_named_theme(self):
+        class FakeEditorTab(QWidget):
+            def __init__(self, snippet_manager, settings_manager):
+                super().__init__()
+                self.editor = QTextEdit(self)
+                self.current_file = None
+                self.current_theme = "White"
+                self.apply_count = 0
+
+            def set_main_window(self, main_window):
+                self.main_window = main_window
+
+            def apply_theme(self, theme_name):
+                self.current_theme = theme_name
+                self.apply_count += 1
+
+        with patch.object(window_module, "EditorTab", FakeEditorTab):
+            window = TextEditorApp()
+            self.addCleanup(window.close)
+            self.addCleanup(window.deleteLater)
+
+            tab = window.tab_widget.widget(0)
+            self.assertEqual(tab.current_theme, "White")
+            window.settings_manager.save_theme("White")
+            window.apply_settings_domain("editor_theme")
+            self.assertEqual(tab.apply_count, 1)
+            window.apply_settings_domain("editor_theme")
+            self.assertEqual(tab.apply_count, 2)
 
     def test_main_window_builds_accessible_themed_menubar(self):
         class FakeEditorTab(QWidget):

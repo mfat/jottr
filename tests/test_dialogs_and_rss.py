@@ -406,6 +406,23 @@ class DialogAndRssTests(unittest.TestCase):
 
         self.assertNotIn("Ink", dialog.get_data()["custom_themes"])
 
+    def test_settings_dialog_is_close_only_and_persists_plugins_directory(self):
+        manager = SettingsManager()
+        dialog = SettingsDialog(manager)
+        from PyQt6.QtWidgets import QPushButton
+
+        labels = [btn.text() for btn in dialog.findChildren(QPushButton)]
+        self.assertIn("Close", labels)
+        self.assertNotIn("Apply", labels)
+        self.assertNotIn("OK", labels)
+        self.assertNotIn("Cancel", labels)
+
+        target = Path(self.temp_dir.name) / "more-plugins"
+        target.mkdir()
+        dialog.plugins_directory_edit.setText(str(target))
+        dialog.plugins_directory_edit.editingFinished.emit()
+        self.assertEqual(manager.get_setting("plugins_directory"), str(target))
+
     def test_settings_dialog_saves_advanced_theme_json(self):
         manager = SettingsManager()
         dialog = SettingsDialog(manager)

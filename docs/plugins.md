@@ -375,8 +375,8 @@ When changing plugin settings:
 
 1. Keep the canonical settings in `SettingsManager`.
 2. Surface user controls in the Plugins settings tab.
-3. Persist changes through `SettingsDialog.get_data()`.
-4. Rebuild `PluginManager` and app UI after settings are accepted.
+3. Persist each change immediately (enable/disable, channels, directory).
+4. Notify the host via the `plugins` settings domain so `PluginManager` and chrome rebuild.
 
 When moving an existing app feature into a registry plugin:
 

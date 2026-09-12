@@ -30,10 +30,9 @@ __all__ = ["SettingsDialog", "SearchSiteDialog"]
 class SettingsDialog(
     AppearancePageMixin, BrowserPageMixin, DictionaryPageMixin, PluginsTabMixin, QDialog
 ):
-    def __init__(self, settings_manager, parent=None, embedded=False, apply_callback=None, close_callback=None):
+    def __init__(self, settings_manager, parent=None, embedded=False, close_callback=None):
         super().__init__(parent)
         self.embedded = embedded
-        self.apply_callback = apply_callback
         self.close_callback = close_callback
         # Host window for instant-apply (set when embedded in the main window).
         self.host = parent if hasattr(parent, "apply_settings_domain") else None
@@ -169,18 +168,13 @@ class SettingsDialog(
 
         buttons = QHBoxLayout()
         buttons.addStretch()
+        # Settings apply instantly; Close only dismisses the UI.
+        close_button = QPushButton(_("Close"))
         if self.embedded:
-            # Settings apply instantly; Close just closes the tab.
-            close_button = QPushButton(_("Close"))
             close_button.clicked.connect(self.close_embedded_settings)
-            buttons.addWidget(close_button)
         else:
-            ok_button = QPushButton(_("OK"))
-            cancel_button = QPushButton(_("Cancel"))
-            ok_button.clicked.connect(self.accept)
-            cancel_button.clicked.connect(self.reject)
-            buttons.addWidget(ok_button)
-            buttons.addWidget(cancel_button)
+            close_button.clicked.connect(self.accept)
+        buttons.addWidget(close_button)
         layout.addLayout(buttons)
         self.apply_dialog_style()
 
@@ -217,12 +211,6 @@ class SettingsDialog(
             self.add_settings_page(_("Browser"), self.browser_settings_page, "browser")
         elif not self.browser_settings_available() and browser_index >= 0:
             self.remove_settings_page(self.browser_settings_page)
-
-    def apply_embedded_settings(self):
-        # Kept for compatibility; settings now apply instantly, but any
-        # external caller can still trigger a full apply via the callback.
-        if callable(self.apply_callback):
-            self.apply_callback(self)
 
     def close_embedded_settings(self):
         # Flush any debounced applies so a quick change + Close still lands.

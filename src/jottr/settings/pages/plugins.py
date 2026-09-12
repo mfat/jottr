@@ -1,4 +1,4 @@
-"""Plugins tab (moved verbatim from settings_dialog — behavior unchanged)."""
+"""Plugins tab: manage sources/plugins and notify the host on changes."""
 from PyQt6.QtWidgets import (
     QVBoxLayout, QHBoxLayout, QLabel, QLineEdit, QPushButton,
     QListWidget, QListWidgetItem, QWidget, QComboBox, QGroupBox,
@@ -30,6 +30,7 @@ class PluginsTabMixin:
         self.plugins_directory_edit = QLineEdit(
             self.settings_manager.get_setting("plugins_directory", self.plugin_manager.plugins_dir)
         )
+        self.plugins_directory_edit.editingFinished.connect(self._on_plugins_directory_edited)
         browse_plugins = QPushButton(_("Browse"))
         browse_plugins.clicked.connect(self.browse_plugins_directory)
         local_layout.addWidget(self.plugins_directory_edit, 1)
@@ -157,6 +158,10 @@ class PluginsTabMixin:
         self.refresh_plugin_list()
         return plugins_tab
 
+    def _host_plugins_changed(self):
+        """Ask the main window to reload plugins from SettingsManager."""
+        self._notify("plugins")
+
     def populate_plugin_channel_filter(self):
         if not hasattr(self, "plugin_channel_filter_combo"):
             return
@@ -208,6 +213,7 @@ class PluginsTabMixin:
             self.plugin_channel_filter_combo.setCurrentIndex(channel_index)
         self.plugin_manager.refresh()
         self.refresh_plugin_list()
+        self._host_plugins_changed()
 
     def remove_plugin_channel(self):
         channel = self.selected_plugin_channel()
@@ -223,6 +229,7 @@ class PluginsTabMixin:
         self.populate_plugin_channel_filter()
         self.plugin_manager.refresh()
         self.refresh_plugin_list()
+        self._host_plugins_changed()
 
     def change_plugin_channel_filter(self):
         if not hasattr(self, "plugin_channel_filter_combo"):
@@ -231,6 +238,7 @@ class PluginsTabMixin:
         self.update_plugin_channel_action_state()
         self.plugin_manager.refresh()
         self.refresh_plugin_list()
+        # Filter is UI-only for the settings list; host plugin set is unchanged.
 
     def plugin_source_label(self, plugin):
         if plugin.source == "remote":
@@ -290,9 +298,21 @@ class PluginsTabMixin:
         )
         if directory:
             self.plugins_directory_edit.setText(directory)
-            self.plugin_manager.set_plugins_directory(directory)
-            self.plugin_manager.refresh()
-            self.refresh_plugin_list()
+            self._apply_plugins_directory(directory)
+
+    def _on_plugins_directory_edited(self):
+        directory = self.plugins_directory_edit.text().strip()
+        if not directory:
+            return
+        if str(self.plugin_manager.plugins_dir) == directory:
+            return
+        self._apply_plugins_directory(directory)
+
+    def _apply_plugins_directory(self, directory):
+        self.plugin_manager.set_plugins_directory(directory)
+        self.plugin_manager.refresh()
+        self.refresh_plugin_list()
+        self._host_plugins_changed()
 
     def update_plugin_registry(self):
         try:
@@ -303,6 +323,7 @@ class PluginsTabMixin:
             self.plugin_manager.update_plugin_registry(channel_name=selected_channel)
             self.plugin_manager.refresh()
             self.refresh_plugin_list()
+            self._host_plugins_changed()
         except Exception as exc:
             QMessageBox.warning(self, _("Plugins"), _("Could not update plugin index: {error}").format(error=exc))
 
@@ -421,6 +442,7 @@ class PluginsTabMixin:
             self.plugin_manager.set_enabled(plugin.name, True, trusted=trusted)
             self.sync_plugin_dependent_settings_pages()
             self.refresh_plugin_list()
+            self._host_plugins_changed()
         except PermissionError as exc:
             QMessageBox.warning(self, _("Plugins"), str(exc))
 
@@ -443,6 +465,7 @@ class PluginsTabMixin:
             except Exception as exc:
                 QMessageBox.warning(self, _("Plugins"), _("Could not install plugin version: {error}").format(error=exc))
             self.refresh_plugin_list()
+            self._host_plugins_changed()
 
     def disable_selected_plugin(self):
         plugin = self.selected_plugin()
@@ -451,6 +474,7 @@ class PluginsTabMixin:
         self.plugin_manager.set_enabled(plugin.name, False)
         self.sync_plugin_dependent_settings_pages()
         self.refresh_plugin_list()
+        self._host_plugins_changed()
 
     def update_selected_plugin(self):
         plugin = self.selected_plugin()
@@ -463,6 +487,7 @@ class PluginsTabMixin:
                 self.plugin_manager.refresh()
             self.sync_plugin_dependent_settings_pages()
             self.refresh_plugin_list()
+            self._host_plugins_changed()
         except Exception as exc:
             QMessageBox.warning(self, _("Plugins"), _("Could not update plugin: {error}").format(error=exc))
 
@@ -482,5 +507,6 @@ class PluginsTabMixin:
             self.plugin_manager.remove_plugin(plugin.name)
             self.sync_plugin_dependent_settings_pages()
             self.refresh_plugin_list()
+            self._host_plugins_changed()
         except Exception as exc:
             QMessageBox.warning(self, _("Plugins"), _("Could not remove plugin: {error}").format(error=exc))
