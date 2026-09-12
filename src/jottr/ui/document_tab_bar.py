@@ -3,8 +3,6 @@ from PyQt6.QtWidgets import QTabBar, QTabWidget, QStyle, QStyleOptionTab, QStyle
 from PyQt6.QtCore import Qt, QRect, QSize, pyqtSignal
 from PyQt6.QtGui import QColor, QPen
 
-from jottr.theme_manager import ThemeManager
-
 
 class LeftAlignedDocumentTabBar(QTabBar):
     """Document tab bar that keeps labels centered in the tab area."""
@@ -45,7 +43,12 @@ class LeftAlignedDocumentTabBar(QTabBar):
         settings_manager = getattr(window, "settings_manager", None)
         if settings_manager is None:
             return None
-        return ThemeManager.get_ui_theme(settings_manager.get_ui_theme())["app"]
+        from jottr.window_color_scheme import effective_chrome_theme
+
+        return effective_chrome_theme(
+            settings_manager.get_window_color_scheme(),
+            settings_manager.get_ui_theme(),
+        )["app"]
 
     def rail_color(self):
         app = self.theme_app_colors()
