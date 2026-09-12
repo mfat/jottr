@@ -947,6 +947,17 @@ class EditorTab(
         self.editor.update_line_number_area()
         self.update_markdown_preview()
 
+    def apply_ui_font(self, font):
+        """Apply Main UI Font to snippets/browser chrome, not the writing surface."""
+        ui_font = QFont(font)
+        for attr in ("snippet_widget", "browser_widget", "find_toolbar"):
+            root = getattr(self, attr, None)
+            if root is None:
+                continue
+            root.setFont(ui_font)
+            for child in root.findChildren(QWidget):
+                child.setFont(ui_font)
+
     def get_language_direction(self):
         language = self.settings_manager.get_setting("language", "en_US")
         return (

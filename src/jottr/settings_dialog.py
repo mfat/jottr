@@ -475,8 +475,23 @@ class SettingsDialog(QDialog):
         theme = ThemeManager.get_ui_theme(scheme)
         ThemeManager.apply_app_palette(self, theme)
         self.setStyleSheet("")
+        self.apply_ui_font()
         apply_dialog_window_icon(self, "settings", self.settings_manager)
         self.refresh_settings_nav_icons()
+
+    def apply_ui_font(self, font=None):
+        """Apply Main UI Font to the dialog, sidebar, combos, and popups."""
+        ui_font = QFont(font) if font is not None else QFont(self.ui_font)
+        self.ui_font = QFont(ui_font)
+        self.setFont(ui_font)
+        # QListWidget/QComboBox/QGroupBox often keep the platform face unless set
+        # on each widget (same issue as popup QMenus under Breeze/Fusion).
+        for child in self.findChildren(QWidget):
+            child.setFont(ui_font)
+        for combo in self.findChildren(QComboBox):
+            view = combo.view()
+            if view is not None:
+                view.setFont(ui_font)
 
     def settings_nav_icon(self, icon_name):
         """Symbolic nav glyph tinted from the dialog palette (flat Selected mode)."""
@@ -547,8 +562,7 @@ class SettingsDialog(QDialog):
         dialog = FontSelectionDialog(self.ui_font, self, title=_("Choose Main UI Font"))
         if dialog.exec() == QDialog.DialogCode.Accepted:
             selected_font = dialog.selectedFont()
-            self.ui_font = selected_font
-            self.setFont(self.ui_font)
+            self.apply_ui_font(selected_font)
             self.apply_dialog_style()
             self.update_font_button(self.ui_font_button, selected_font)
 

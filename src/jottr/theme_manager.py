@@ -625,6 +625,8 @@ class ThemeManager:
         # cascading color/background onto QMenuBar breaks some widget styles
         # (e.g. Breeze) so menu titles go missing in dark mode. Style the
         # in-window menubar (#appMenuBar) explicitly so it matches the toolbar.
+        # Do not put font rules on QMenu — Qt stylesheets claim the font
+        # property without reliably applying it, which also blocks setFont.
         return f"""
             QWidget#mainSurface {{
                 background: {app['background']};

@@ -316,6 +316,20 @@ class EditorAndMainTests(unittest.TestCase):
 
         self.assertEqual(editor.editor.textCursor().selectedText(), selected)
 
+    def test_editor_apply_ui_font_updates_snippets_not_editor(self):
+        editor = self.make_editor()
+        editor_font = QFont("Liberation Mono", 16)
+        editor.update_font(editor_font)
+        ui_font = QFont("Liberation Sans", 13)
+
+        editor.apply_ui_font(ui_font)
+
+        self.assertEqual(editor.snippet_widget.font().family(), "Liberation Sans")
+        self.assertEqual(editor.snippet_list.font().family(), "Liberation Sans")
+        self.assertEqual(editor.snippet_list.font().pointSize(), 13)
+        self.assertEqual(editor.editor.font().family(), "Liberation Mono")
+        self.assertEqual(editor.editor.font().pointSize(), 16)
+
     def test_snippet_context_menu_maps_click_through_viewport(self):
         editor = self.make_editor()
         editor.snippet_manager.add_snippet("Greeting", "hello")
@@ -1514,10 +1528,11 @@ class EditorAndMainTests(unittest.TestCase):
             self.assertEqual(len(chips), 0)
             # In-window menubar is chrome-styled to match the toolbar. Do not
             # style QMainWindow (cascades hide titles under Breeze dark) or
-            # popup QMenu items (left to QStyle + palette).
+            # popup QMenu (left to QStyle + palette; font via setFont).
             stylesheet = QApplication.instance().styleSheet()
             self.assertIn("QMenuBar#appMenuBar", stylesheet)
             self.assertIn("QMenuBar#appMenuBar::item", stylesheet)
+            self.assertNotIn("QMenu {", stylesheet)
             self.assertNotIn("QMenu::item", stylesheet)
             self.assertNotIn("data:image/svg+xml", stylesheet)
             self.assertNotIn("QMainWindow", stylesheet)
@@ -1794,8 +1809,30 @@ class EditorAndMainTests(unittest.TestCase):
             self.assertEqual(QApplication.instance().font().family(), "Liberation Sans")
             self.assertEqual(QApplication.instance().font().pointSize(), 13)
             self.assertIn('font-family: "Liberation Sans"', QApplication.instance().styleSheet())
+            self.assertNotIn("QMenu {", QApplication.instance().styleSheet())
             self.assertIn("QToolBar#mainToolBar", QApplication.instance().styleSheet())
             self.assertNotIn("QScrollBar:vertical", QApplication.instance().styleSheet())
+            menus = [
+                action.menu()
+                for action in window.menuBar().actions()
+                if action.menu() is not None
+            ]
+            self.assertTrue(menus)
+            for menu in menus:
+                self.assertEqual(menu.font().family(), "Liberation Sans")
+                self.assertEqual(menu.font().pointSize(), 13)
+            settings_tab = window.show_settings()
+            window.apply_app_style(ui_font)
+            self.assertEqual(settings_tab.font().family(), "Liberation Sans")
+            self.assertEqual(settings_tab.settings_nav.font().family(), "Liberation Sans")
+            self.assertEqual(settings_tab.settings_nav.font().pointSize(), 13)
+            self.assertEqual(settings_tab.ui_theme_combo.font().family(), "Liberation Sans")
+            self.assertEqual(
+                settings_tab.ui_theme_combo.view().font().family(),
+                "Liberation Sans",
+            )
+            self.assertEqual(window.menuBar().font().family(), "Liberation Sans")
+            self.assertEqual(window.tab_widget.tabBar().font().family(), "Liberation Sans")
             self.assertEqual(first_tab.current_font.family(), "Liberation Mono")
             self.assertEqual(first_tab.current_font.pointSize(), 16)
             self.assertEqual(second_tab.current_font.family(), "Liberation Mono")

@@ -14,6 +14,7 @@ SRC_ROOT = PROJECT_ROOT / "src"
 sys.path.insert(0, str(SRC_ROOT))
 
 from PyQt6.QtCore import Qt
+from PyQt6.QtGui import QFont
 from PyQt6.QtWidgets import QApplication, QLabel, QMessageBox, QScrollArea, QWidget
 
 from jottr.feed_manager_dialog import FeedManagerDialog
@@ -321,6 +322,23 @@ class DialogAndRssTests(unittest.TestCase):
         # Settings chrome uses QStyle + palette — no dialog QSS overrides.
         self.assertEqual(dialog.styleSheet(), "")
         self.assertIsNotNone(dialog.findChild(QWidget, "settingsContentDivider"))
+
+    def test_settings_dialog_applies_ui_font_to_sidebar_and_controls(self):
+        manager = SettingsManager()
+        dialog = SettingsDialog(manager)
+        self.addCleanup(dialog.deleteLater)
+
+        ui_font = QFont("Liberation Sans", 13)
+        dialog.apply_ui_font(ui_font)
+
+        self.assertEqual(dialog.font().family(), "Liberation Sans")
+        self.assertEqual(dialog.font().pointSize(), 13)
+        self.assertEqual(dialog.settings_nav.font().family(), "Liberation Sans")
+        self.assertEqual(dialog.settings_nav.font().pointSize(), 13)
+        self.assertEqual(dialog.ui_theme_combo.font().family(), "Liberation Sans")
+        self.assertEqual(dialog.qt_style_combo.font().family(), "Liberation Sans")
+        self.assertEqual(dialog.ui_theme_combo.view().font().family(), "Liberation Sans")
+        self.assertEqual(dialog.ui_font.family(), "Liberation Sans")
 
     def test_settings_dialog_translates_autosave_seconds_label(self):
         translations_dir = Path(self.temp_dir.name) / "translations"

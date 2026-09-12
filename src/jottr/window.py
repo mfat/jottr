@@ -318,8 +318,63 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
         self.setStyleSheet(stylesheet)
         if application:
             refresh_styled_widgets(application)
+            self.apply_chrome_ui_font(app_font, application)
         self.update_action_icons()
         self.refresh_tab_icons()
+
+    def apply_chrome_ui_font(self, app_font, application=None):
+        """Push Main UI Font onto menus, tabs, status, settings, and side panels."""
+        app = application or QApplication.instance()
+        app_font = QFont(app_font)
+
+        menubar = self.menuBar()
+        if menubar is not None:
+            menubar.setFont(app_font)
+
+        if hasattr(self, "tab_widget") and self.tab_widget is not None:
+            self.tab_widget.setFont(app_font)
+            tab_bar = self.tab_widget.tabBar()
+            if tab_bar is not None:
+                tab_bar.setFont(app_font)
+
+        if hasattr(self, "toolbar") and self.toolbar is not None:
+            self.toolbar.setFont(app_font)
+
+        status = getattr(self, "statusBar", None)
+        if callable(status):
+            status = status()
+        if status is not None:
+            status.setFont(app_font)
+            for child in status.findChildren(QWidget):
+                child.setFont(app_font)
+                if isinstance(child, QComboBox) and child.view() is not None:
+                    child.view().setFont(app_font)
+
+        for name in (
+            "workspaceExplorer",
+            "workspaceTree",
+            "workspaceTitle",
+            "workspacePath",
+            "workspaceHeader",
+        ):
+            for widget in self.findChildren(QWidget, name):
+                widget.setFont(app_font)
+                for child in widget.findChildren(QWidget):
+                    child.setFont(app_font)
+
+        if app is not None:
+            for widget in app.allWidgets():
+                if isinstance(widget, QMenu):
+                    widget.setFont(app_font)
+                elif isinstance(widget, SettingsDialog):
+                    widget.apply_ui_font(app_font)
+
+        if hasattr(self, "tab_widget") and self.tab_widget is not None:
+            for index in range(self.tab_widget.count()):
+                tab = self.tab_widget.widget(index)
+                apply_ui = getattr(tab, "apply_ui_font", None)
+                if callable(apply_ui):
+                    apply_ui(app_font)
 
     def get_icon_color(self):
         """Return the configured icon color for the active app theme."""
