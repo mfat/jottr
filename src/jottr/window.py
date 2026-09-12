@@ -1069,7 +1069,6 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
         edit_menu.addAction(self.select_all_action)
         edit_menu.addSeparator()
         edit_menu.addAction(self.find_action)
-        edit_menu.addAction(self.editor_font_action)
 
         # View menu
         view_menu = add_menu("&View")
@@ -1081,6 +1080,7 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
         view_menu.addAction(self.zoom_out_action)
         view_menu.addAction(self.zoom_reset_action)
         view_menu.addSeparator()
+        view_menu.addAction(self.editor_font_action)
 
         toolbar_style_menu = view_menu.addMenu(_("Toolbar Style"))
         toolbar_style_menu.setAccessibleName(
