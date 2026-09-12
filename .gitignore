@@ -13,6 +13,9 @@ __pycache__/
 .benchmarks/
 .cursor/
 
+# Runtime state written to CWD by RSSReader
+rss_feeds.json
+
 # Package build artifacts
 *.tar.gz
 /AppDir/
