@@ -2,7 +2,8 @@
 
 A plain text and Markdown editor for writers, journalists, and researchers.
 
-![Main window](screenshots/main.png)
+![Main window](screenshots/markdown.png)
+
 
 ## What makes it different
 
