@@ -185,6 +185,17 @@ class ImportAndPackagingTests(unittest.TestCase):
         self.assertNotIn("build-adwaita-qt.sh", workflow)
         self.assertNotIn("build-adwaita-qt.sh", appimage_script)
 
+    def test_flathub_release_workflow_updates_manifest(self):
+        workflow = (PROJECT_ROOT / ".github" / "workflows" / "flathub.yml").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn("flathub/io.github.mfat.jottr", workflow)
+        self.assertIn("secrets.FLATHUB_TOKEN", workflow)
+        self.assertIn("peter-evans/create-pull-request@v6", workflow)
+        self.assertIn("io.github.mfat.jottr.yml", workflow)
+        self.assertIn("pypi-dependencies.yaml", workflow)
+        self.assertIn("io.github.mfat.jottr.metainfo.xml", workflow)
+
     def test_symbolic_icons_use_qt_resources(self):
         from PyQt6.QtWidgets import QApplication
 
