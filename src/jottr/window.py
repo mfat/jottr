@@ -266,7 +266,11 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
         self.tab_widget.tabCloseRequested.connect(self.close_tab)
         self.tab_widget.currentChanged.connect(self.update_document_language_status)
         self.tab_widget.currentChanged.connect(self.update_status_bar_visibility)
+        self.tab_widget.currentChanged.connect(self.update_edit_actions)
         self.tab_widget.tabBar().tabs_changed.connect(self.refresh_tab_close_buttons)
+        clipboard = QApplication.clipboard()
+        if clipboard is not None:
+            clipboard.dataChanged.connect(self.update_edit_actions)
         
         # Install event filters on both the tab bar and its containing tab strip.
         self.tab_widget.tabBar().installEventFilter(self)
@@ -287,7 +291,8 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
         # Open file if specified
         if file_path:
             self.open_file_path(file_path)
-        
+
+        self.update_edit_actions()
         self.apply_app_style()
 
     def apply_app_style(self, font=None):
@@ -678,6 +683,10 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
         self.paste_action = self._make_action(
             "Paste", self.paste, shortcut=QKeySequence.StandardKey.Paste, tooltip="Paste"
         )
+        # Kate/KTextEditor: cut/copy need a selection; paste needs pasteable clipboard.
+        self.cut_action.setEnabled(False)
+        self.copy_action.setEnabled(False)
+        self.paste_action.setEnabled(False)
         self.select_all_action = self._make_action(
             "Select All",
             self.select_all,
@@ -900,6 +909,34 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
         if current_tab:
             return getattr(current_tab, "editor", None)
         return None
+
+    def update_edit_actions(self, *_args):
+        """Enable cut/copy only with a selection; paste when clipboard can paste.
+
+        Matches Kate/KTextEditor (selection gates cut/copy) and Qt's canPaste().
+        """
+        editor = self.get_current_editor()
+        previous = getattr(self, "_edit_action_editor", None)
+        if editor is not previous:
+            if previous is not None:
+                try:
+                    previous.copyAvailable.disconnect(self._on_copy_available)
+                except (TypeError, RuntimeError):
+                    pass
+            self._edit_action_editor = editor
+            if editor is not None:
+                editor.copyAvailable.connect(self._on_copy_available)
+
+        has_selection = bool(editor is not None and editor.textCursor().hasSelection())
+        can_paste = bool(editor is not None and editor.canPaste())
+        self.cut_action.setEnabled(has_selection)
+        self.copy_action.setEnabled(has_selection)
+        self.paste_action.setEnabled(can_paste)
+
+    def _on_copy_available(self, available):
+        """QTextEdit.copyAvailable tracks selection for cut/copy."""
+        self.cut_action.setEnabled(available)
+        self.copy_action.setEnabled(available)
         
     def undo(self):
         editor = self.get_current_editor()
@@ -913,17 +950,17 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
             
     def cut(self):
         editor = self.get_current_editor()
-        if editor:
+        if editor and editor.textCursor().hasSelection():
             editor.cut()
             
     def copy(self):
         editor = self.get_current_editor()
-        if editor:
+        if editor and editor.textCursor().hasSelection():
             editor.copy()
             
     def paste(self):
         editor = self.get_current_editor()
-        if editor:
+        if editor and editor.canPaste():
             editor.paste()
 
     def select_all(self):
@@ -1022,6 +1059,7 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
 
         # Edit menu
         edit_menu = add_menu("&Edit")
+        edit_menu.aboutToShow.connect(self.update_edit_actions)
         edit_menu.addAction(self.undo_action)
         edit_menu.addAction(self.redo_action)
         edit_menu.addSeparator()

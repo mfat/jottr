@@ -1738,6 +1738,64 @@ class EditorAndMainTests(unittest.TestCase):
             self.assertTrue(window.settings_manager.get_setting("spell_check"))
             self.assertTrue(spell_action.isChecked())
 
+    def test_cut_copy_paste_actions_follow_selection_and_clipboard(self):
+        """Kate-style: cut/copy need selection; paste needs canPaste()."""
+
+        class FakeEditorTab(QWidget):
+            def __init__(self, snippet_manager, settings_manager):
+                super().__init__()
+                self.editor = QTextEdit(self)
+                self.current_file = None
+
+            def set_main_window(self, main_window):
+                self.main_window = main_window
+
+            def apply_theme(self, theme_name):
+                pass
+
+            def apply_autosave_settings(self):
+                pass
+
+            def apply_line_numbers(self, visible):
+                pass
+
+        with patch.object(window_module, "EditorTab", FakeEditorTab):
+            window = TextEditorApp()
+            self.addCleanup(window.close)
+            self.addCleanup(window.deleteLater)
+
+            editor = window.get_current_editor()
+            self.assertIsNotNone(editor)
+            editor.setPlainText("hello world")
+            editor.moveCursor(QTextCursor.MoveOperation.Start)
+            QApplication.processEvents()
+            window.update_edit_actions()
+
+            self.assertFalse(window.cut_action.isEnabled())
+            self.assertFalse(window.copy_action.isEnabled())
+
+            editor.selectAll()
+            QApplication.processEvents()
+            window.update_edit_actions()
+            self.assertTrue(window.cut_action.isEnabled())
+            self.assertTrue(window.copy_action.isEnabled())
+
+            clipboard = QApplication.clipboard()
+            self.assertIsNotNone(clipboard)
+            clipboard.setText("clipboard text")
+            QApplication.processEvents()
+            window.update_edit_actions()
+            self.assertTrue(window.paste_action.isEnabled())
+
+            cursor = editor.textCursor()
+            cursor.clearSelection()
+            editor.setTextCursor(cursor)
+            QApplication.processEvents()
+            window.update_edit_actions()
+            self.assertFalse(window.cut_action.isEnabled())
+            self.assertFalse(window.copy_action.isEnabled())
+            self.assertTrue(window.paste_action.isEnabled())
+
     def test_view_menu_color_scheme_and_editor_theme(self):
         window = TextEditorApp()
         self.addCleanup(window.close)

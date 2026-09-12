@@ -842,10 +842,14 @@ class EditorTab(
             # Like Kate: spelling for the word under the caret without selecting it
             self._add_spelling_actions(menu, self._word_at_cursor())
 
-        # Cut/Copy/Paste actions
-        menu.addAction(_("Cut"), self.editor.cut)
-        menu.addAction(_("Copy"), self.editor.copy)
-        menu.addAction(_("Paste"), self.editor.paste)
+        # Cut/Copy/Paste actions (Kate: cut/copy need selection; paste needs clipboard)
+        has_selection = bool(selected_text)
+        cut_action = menu.addAction(_("Cut"), self.editor.cut)
+        cut_action.setEnabled(has_selection)
+        copy_action = menu.addAction(_("Copy"), self.editor.copy)
+        copy_action.setEnabled(has_selection)
+        paste_action = menu.addAction(_("Paste"), self.editor.paste)
+        paste_action.setEnabled(self.editor.canPaste())
         menu.addSeparator()
 
         # Top-left of the menu at the click (Kate: mapToGlobal(e->pos()))
@@ -1135,18 +1139,22 @@ class EditorTab(
         """Create context menu for editor"""
         menu = QMenu(self)
         
-        # Cut/Copy/Paste actions
+        # Cut/Copy/Paste actions (Kate: cut/copy need selection; paste needs clipboard)
+        has_selection = self.editor.textCursor().hasSelection()
         cut_action = menu.addAction(_("Cut"))
         cut_action.triggered.connect(self.editor.cut)
         cut_action.setShortcut("Ctrl+X")
+        cut_action.setEnabled(has_selection)
         
         copy_action = menu.addAction(_("Copy"))
         copy_action.triggered.connect(self.editor.copy)
         copy_action.setShortcut("Ctrl+C")
+        copy_action.setEnabled(has_selection)
         
         paste_action = menu.addAction(_("Paste"))
         paste_action.triggered.connect(self.editor.paste)
         paste_action.setShortcut("Ctrl+V")
+        paste_action.setEnabled(self.editor.canPaste())
         
         # Add separator before Select All
         menu.addSeparator()
