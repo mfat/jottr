@@ -30,6 +30,11 @@ from jottr.translation_manager import _, format_language_label, is_rtl_language,
 from jottr.font_dialog import FontSelectionDialog
 from jottr.plugin_manager import PluginManager
 from jottr.file_dialogs import get_open_file_name
+from jottr.editor.case_transform import (
+    apply_capitalize,
+    apply_lowercase,
+    apply_uppercase,
+)
 from jottr.editor.spellcheck import (
     DOCUMENT_LANGUAGE_AUTO,
     get_document_language,
@@ -693,6 +698,25 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
             shortcut=QKeySequence.StandardKey.SelectAll,
             tooltip="Select All",
         )
+        # Kate/KTextEditor Tools capitalization shortcuts (Selection ▸ Capitalization).
+        self.uppercase_action = self._make_action(
+            "Uppercase",
+            self.uppercase,
+            shortcut=QKeySequence("Ctrl+U"),
+            tooltip="Convert the selection to uppercase, or the character to the right of the cursor",
+        )
+        self.lowercase_action = self._make_action(
+            "Lowercase",
+            self.lowercase,
+            shortcut=QKeySequence("Ctrl+Shift+U"),
+            tooltip="Convert the selection to lowercase, or the character to the right of the cursor",
+        )
+        self.capitalize_action = self._make_action(
+            "Capitalize",
+            self.capitalize,
+            shortcut=QKeySequence("Ctrl+Alt+U"),
+            tooltip="Capitalize the selection, or the word under the cursor",
+        )
         self.find_action = self._make_action(
             "Find/Replace",
             self.toggle_find,
@@ -967,6 +991,15 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
         editor = self.get_current_editor()
         if editor:
             editor.selectAll()
+
+    def uppercase(self):
+        apply_uppercase(self.get_current_editor())
+
+    def lowercase(self):
+        apply_lowercase(self.get_current_editor())
+
+    def capitalize(self):
+        apply_capitalize(self.get_current_editor())
         
     def new_tab(self):
         editor_tab = EditorTab(self.snippet_manager)
@@ -1067,6 +1100,16 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
         edit_menu.addAction(self.copy_action)
         edit_menu.addAction(self.paste_action)
         edit_menu.addAction(self.select_all_action)
+        capitalization_menu = edit_menu.addMenu(_("Capitalization"))
+        capitalization_menu.setAccessibleName(
+            _("{title} menu").format(title=_("Capitalization"))
+        )
+        capitalization_menu.menuAction().setProperty("text_key", "Capitalization")
+        self.translatable_actions.append(capitalization_menu.menuAction())
+        self.translatable_menus.append((capitalization_menu, "Capitalization"))
+        capitalization_menu.addAction(self.uppercase_action)
+        capitalization_menu.addAction(self.lowercase_action)
+        capitalization_menu.addAction(self.capitalize_action)
         edit_menu.addSeparator()
         edit_menu.addAction(self.find_action)
 

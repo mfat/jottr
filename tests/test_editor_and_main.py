@@ -1642,8 +1642,21 @@ class EditorAndMainTests(unittest.TestCase):
             ]
             self.assertEqual(edit_actions[:3], ["Undo", "Redo", "Cut"])
             self.assertIn("Select All", edit_actions)
+            self.assertIn("Capitalization", edit_actions)
             self.assertIn("Find/Replace", edit_actions)
             self.assertNotIn("Settings", edit_actions)
+            capitalization_menu = next(
+                action.menu()
+                for action in menubar.actions()[1].menu().actions()
+                if action.text() == "Capitalization"
+            )
+            capitalization_items = [
+                action.text() for action in capitalization_menu.actions() if not action.isSeparator()
+            ]
+            self.assertEqual(capitalization_items, ["Uppercase", "Lowercase", "Capitalize"])
+            self.assertEqual(window.uppercase_action.shortcut().toString(), "Ctrl+U")
+            self.assertEqual(window.lowercase_action.shortcut().toString(), "Ctrl+Shift+U")
+            self.assertEqual(window.capitalize_action.shortcut().toString(), "Ctrl+Alt+U")
             self.assertIn(window.undo_action, window.toolbar.actions())
             self.assertIn(window.focus_mode_action, window.toolbar.actions())
             self.assertIn(

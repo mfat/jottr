@@ -33,6 +33,11 @@ from jottr.editor.spellcheck import (
     SpellCheckHighlighter,
     find_word_bounds,
 )
+from jottr.editor.case_transform import (
+    apply_capitalize,
+    apply_lowercase,
+    apply_uppercase,
+)
 from jottr.editor.text_edit import CompletingTextEdit
 from jottr.editor.markdown import MarkdownPreviewMixin, MarkdownPreviewPage
 from jottr.editor.browser import BrowserPaneMixin
@@ -852,6 +857,13 @@ class EditorTab(
         paste_action.setEnabled(self.editor.canPaste())
         menu.addSeparator()
 
+        # Kate Selection ▸ Capitalization
+        capitalization_menu = menu.addMenu(_("Capitalization"))
+        capitalization_menu.addAction(_("Uppercase"), lambda: apply_uppercase(self.editor))
+        capitalization_menu.addAction(_("Lowercase"), lambda: apply_lowercase(self.editor))
+        capitalization_menu.addAction(_("Capitalize"), lambda: apply_capitalize(self.editor))
+        menu.addSeparator()
+
         # Top-left of the menu at the click (Kate: mapToGlobal(e->pos()))
         menu.exec(global_pos)
 
@@ -1155,6 +1167,12 @@ class EditorTab(
         paste_action.triggered.connect(self.editor.paste)
         paste_action.setShortcut("Ctrl+V")
         paste_action.setEnabled(self.editor.canPaste())
+        
+        menu.addSeparator()
+        capitalization_menu = menu.addMenu(_("Capitalization"))
+        capitalization_menu.addAction(_("Uppercase"), lambda: apply_uppercase(self.editor))
+        capitalization_menu.addAction(_("Lowercase"), lambda: apply_lowercase(self.editor))
+        capitalization_menu.addAction(_("Capitalize"), lambda: apply_capitalize(self.editor))
         
         # Add separator before Select All
         menu.addSeparator()
