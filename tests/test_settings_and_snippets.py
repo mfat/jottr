@@ -407,14 +407,15 @@ class SettingsAndSnippetTests(unittest.TestCase):
         self.assertFalse(ThemeManager.theme_is_dark(ThemeManager.get_theme("Sepia")))
         self.assertEqual(ThemeManager.normalize_editor_theme_name("Light"), "White")
         self.assertEqual(ThemeManager.normalize_editor_theme_name("Dark"), "Black")
-        self.assertEqual(ThemeManager.normalize_editor_theme_name("default"), "White")
+        self.assertEqual(ThemeManager.normalize_editor_theme_name("default"), "Sepia")
         self.assertEqual(ThemeManager.normalize_ui_theme("Dracula"), "Dark")
         self.assertEqual(ThemeManager.normalize_ui_theme("Sepia"), "Light")
         self.assertEqual(ThemeManager.normalize_ui_theme("Darkly"), "Dark")
         self.assertEqual(ThemeManager.normalize_ui_theme("default"), "System")
         self.assertEqual(ThemeManager.normalize_ui_theme("System"), "System")
         self.assertEqual(ThemeManager.UI_THEME_NAMES, ("System", "Light", "Dark"))
-        self.assertEqual(ThemeManager.DEFAULT_THEME_NAME, "White")
+        self.assertEqual(ThemeManager.DEFAULT_THEME_NAME, "Sepia")
+        self.assertEqual(SettingsManager().get_theme(), "Sepia")
         from PyQt6.QtCore import Qt
 
         self.assertEqual(

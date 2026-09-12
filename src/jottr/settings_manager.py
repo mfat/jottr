@@ -69,7 +69,7 @@ class SettingsManager:
             "font_weight": int(QFont.Weight.Normal),
             "font_italic": False,
             "ui_theme": "System",
-            "theme": "default",
+            "theme": "Sepia",
             "qt_style": "System",
             "custom_themes": {},
             "language": "en_US",

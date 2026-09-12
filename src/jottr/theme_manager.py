@@ -6,7 +6,7 @@ from PyQt6.QtGui import QColor, QPalette
 class ThemeManager:
     """Theme schema and stylesheet generation for Jottr."""
 
-    DEFAULT_THEME_NAME = "White"
+    DEFAULT_THEME_NAME = "Sepia"
     # Qt::ColorScheme mapping: System→Unknown, Light→Light, Dark→Dark
     UI_THEME_NAMES = ("System", "Light", "Dark")
     DEFAULT_UI_THEME = "System"
@@ -14,7 +14,7 @@ class ThemeManager:
     EDITOR_THEME_ALIASES = {
         "Light": "White",
         "Dark": "Black",
-        "default": "White",
+        "default": "Sepia",
     }
 
     BASE_APP = {
