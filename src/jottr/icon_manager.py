@@ -262,6 +262,36 @@ def resolve_icon_color(settings_manager=None) -> str:
     return app["text"]
 
 
+def resolve_icon_mode_colors(
+    settings_manager=None,
+    palette=None,
+) -> tuple[str | None, str | None]:
+    """Return ``(selected_color, disabled_color)`` for explicit QIcon modes.
+
+    Qt's default icon engine calls ``QStyle.generatedIconPixmap`` when a mode is
+    missing, so styles re-tint Normal pixmaps (and disagree with each other).
+    Supplying Selected/Disabled yourself keeps chrome tint stable across
+    ``QApplication.setStyle``.
+    """
+    if palette is not None:
+        selected = palette.color(QPalette.ColorRole.HighlightedText).name()
+        disabled = palette.color(
+            QPalette.ColorGroup.Disabled,
+            QPalette.ColorRole.WindowText,
+        ).name()
+        return selected, disabled
+    if settings_manager is None:
+        return None, None
+
+    from jottr.theme_manager import ThemeManager
+
+    theme = ThemeManager.get_ui_theme(settings_manager.get_ui_theme())
+    accent = QColor(theme["app"]["accent"])
+    # Flat white/black on accent chips when no widget palette is available.
+    selected = "#1a1a1a" if accent.lightnessF() >= 0.55 else "#ffffff"
+    return selected, theme["app"]["muted"]
+
+
 def themed_symbolic_icon(
     name: str,
     settings_manager=None,
@@ -274,6 +304,7 @@ def themed_symbolic_icon(
 
     When *palette* is given, Selected/Disabled modes use HighlightedText and
     disabled WindowText so list/menu styles do not invent multi-tone pixmaps.
+    With a settings manager (toolbar/chrome), modes use accent contrast + muted.
     """
     if color is None:
         if palette is not None:
@@ -281,23 +312,9 @@ def themed_symbolic_icon(
         else:
             color = resolve_icon_color(settings_manager)
 
-    selected_color = None
-    disabled_color = None
-    if palette is not None:
-        selected_color = palette.color(QPalette.ColorRole.HighlightedText).name()
-        disabled_color = palette.color(
-            QPalette.ColorGroup.Disabled,
-            QPalette.ColorRole.WindowText,
-        ).name()
-    elif settings_manager is not None:
-        # Keep Selected flat white/black for contrast on accent chips even when
-        # callers do not pass a palette (toolbar stays Normal-only).
-        from jottr.theme_manager import ThemeManager
-
-        theme = ThemeManager.get_ui_theme(settings_manager.get_ui_theme())
-        accent = QColor(theme["app"]["accent"])
-        selected_color = "#1a1a1a" if accent.lightnessF() >= 0.55 else "#ffffff"
-        disabled_color = theme["app"]["muted"]
+    selected_color, disabled_color = resolve_icon_mode_colors(
+        settings_manager, palette
+    )
 
     resolved_theme = resolve_icon_theme_id(settings_manager, theme_id)
     return build_themed_icon(

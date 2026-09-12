@@ -205,6 +205,7 @@ class ImportAndPackagingTests(unittest.TestCase):
             list_bundled_icon_themes,
             load_bundled_icon_paths,
             normalize_icon_theme,
+            resolve_icon_mode_colors,
         )
 
         # Keep a strong reference; QPixmap requires a live QGuiApplication.
@@ -241,6 +242,9 @@ class ImportAndPackagingTests(unittest.TestCase):
 
         tinted = build_themed_icon(icons["save"], "#f8f8f2", size=16)
         self.assertFalse(tinted.isNull())
+        selected_color, disabled_color = resolve_icon_mode_colors(None)
+        self.assertIsNone(selected_color)
+        self.assertIsNone(disabled_color)
         selected = build_themed_icon(
             icons["save"],
             "#17202a",

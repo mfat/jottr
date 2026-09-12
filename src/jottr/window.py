@@ -45,6 +45,7 @@ from jottr.icon_manager import (
     load_app_icon,
     load_bundled_icon_paths,
     resolve_icon_color,
+    resolve_icon_mode_colors,
 )
 from jottr.paths import find_data_file
 from jottr import __version__
@@ -304,8 +305,11 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
             )
             if application.property("_jottr_style_key") != next_key:
                 # Drop stylesheets before setStyle so the widget style can take effect.
+                # Forget the cached sheet too — otherwise an unchanged theme/font
+                # skips re-apply and chrome stays unstyled (compact toolbars).
                 application.setStyleSheet("")
                 self.setStyleSheet("")
+                self._applied_app_stylesheet = None
             apply_qt_color_scheme(scheme_setting, application)
             apply_qt_style(
                 self.settings_manager.get_qt_style(),
@@ -334,6 +338,8 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
         if application:
             refresh_styled_widgets(application)
             self.apply_chrome_ui_font(app_font, application)
+        # Rebuild icons so styles cannot keep synthesized Selected/Disabled tints.
+        self._themed_icon_cache = {}
         self.update_action_icons()
         self.refresh_tab_icons()
 
@@ -396,9 +402,16 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
         return resolve_icon_color(self.settings_manager)
 
     def build_themed_icon(self, icon_name):
-        """Tint a bundled symbolic SVG to the active icon color (cached)."""
+        """Tint a bundled symbolic SVG with explicit modes (cached).
+
+        Selected/Disabled pixmaps are required so QStyle.generatedIconPixmap
+        does not invent a style-specific tint after widget-style switches.
+        """
         color = self.get_icon_color()
-        key = (icon_name, color)
+        selected_color, disabled_color = resolve_icon_mode_colors(
+            self.settings_manager
+        )
+        key = (icon_name, color, selected_color, disabled_color)
         cache = getattr(self, "_themed_icon_cache", None)
         if cache is None:
             cache = self._themed_icon_cache = {}
@@ -407,6 +420,8 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
             icon = render_bundled_icon(
                 self.icons.get(icon_name, ""),
                 color,
+                selected_color=selected_color,
+                disabled_color=disabled_color,
             )
             cache[key] = icon
         return QIcon(icon)
@@ -786,7 +801,6 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
         self.toolbar.setFloatable(False)
         self.addToolBar(self.toolbar)
         self.toolbar.setContextMenuPolicy(Qt.ContextMenuPolicy.PreventContextMenu)
-        self.toolbar.setIconSize(QSize(22, 22))
         self.toolbar.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonIconOnly)
 
         self.create_shared_actions()

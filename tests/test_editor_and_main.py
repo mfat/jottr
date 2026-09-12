@@ -1434,6 +1434,70 @@ class EditorAndMainTests(unittest.TestCase):
             self.assertIsNot(window.plugin_manager, plugin_manager)
             self.assertIsNot(window.toolbar, toolbar)
 
+    def test_style_domain_rebuilds_toolbar_icons_with_explicit_modes(self):
+        from PyQt6.QtGui import QIcon
+        from PyQt6.QtWidgets import QStyleFactory
+
+        from jottr.qt_style import normalize_qt_style
+
+        class FakeEditorTab(QWidget):
+            def __init__(self, snippet_manager, settings_manager):
+                super().__init__()
+                self.editor = QTextEdit(self)
+                self.current_file = None
+
+            def set_main_window(self, main_window):
+                self.main_window = main_window
+
+            def apply_theme(self, theme_name):
+                self.applied_theme = theme_name
+
+            def apply_autosave_settings(self):
+                pass
+
+            def apply_line_numbers(self, visible):
+                pass
+
+        with patch.object(window_module, "EditorTab", FakeEditorTab):
+            window = TextEditorApp()
+            self.addCleanup(window.close)
+            self.addCleanup(window.deleteLater)
+
+            save_icon = window.save_action.icon()
+            self.assertTrue(save_icon.availableSizes(QIcon.Mode.Selected))
+            self.assertTrue(save_icon.availableSizes(QIcon.Mode.Disabled))
+
+            styles = [normalize_qt_style(key) for key in QStyleFactory.keys()]
+            styles = [key for key in dict.fromkeys(styles) if key]
+            if len(styles) < 2:
+                self.skipTest("need at least two Qt styles to swap")
+
+            first, second = styles[0], styles[1]
+            window.settings_manager.save_qt_style(first)
+            window.apply_settings_domain("style")
+
+            # Trigger style synthesis paths, then switch styles.
+            window.undo_action.setEnabled(False)
+            window.focus_mode_action.setChecked(True)
+            QApplication.processEvents()
+
+            window.settings_manager.save_qt_style(second)
+            window.apply_settings_domain("style")
+
+            refreshed = window.save_action.icon()
+            self.assertTrue(refreshed.availableSizes(QIcon.Mode.Selected))
+            self.assertTrue(refreshed.availableSizes(QIcon.Mode.Disabled))
+            # Explicit Disabled pixmap differs from Normal (not style-invented grey).
+            size = window.toolbar.iconSize()
+            normal = refreshed.pixmap(size, QIcon.Mode.Normal).toImage()
+            disabled = refreshed.pixmap(size, QIcon.Mode.Disabled).toImage()
+            self.assertNotEqual(normal, disabled)
+            # Style swap clears QSS before setStyle; sheet must be re-applied even
+            # when theme/font (and thus stylesheet text) did not change.
+            sheet = QApplication.instance().styleSheet()
+            self.assertIn("QToolBar#mainToolBar", sheet)
+            self.assertIn("padding:", sheet)
+
     def test_editor_theme_domain_force_reapplies_same_named_theme(self):
         class FakeEditorTab(QWidget):
             def __init__(self, snippet_manager, settings_manager):
