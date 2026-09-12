@@ -101,7 +101,7 @@ need_command desktop-file-validate
 
 need_file "$repo_root/requirements.txt"
 need_file "$repo_root/pyproject.toml"
-need_file "$repo_root/src/jottr/__main__.py"
+need_file "$repo_root/src/jottr/main.py"
 need_file "$repo_root/icons/jottr.svg"
 need_file "$repo_root/io.github.mfat.jottr.desktop"
 
@@ -184,7 +184,7 @@ echo "==> Building PyInstaller bundle"
     --add-data "src/jottr/icons:jottr/icons" \
     --add-data "icons:icons" \
     --add-data "translations:translations" \
-    src/jottr/__main__.py
+    src/jottr/main.py
 )
 
 bundle_exe="$repo_root/dist/jottr/jottr"

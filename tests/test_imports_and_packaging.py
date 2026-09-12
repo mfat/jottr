@@ -171,8 +171,10 @@ class ImportAndPackagingTests(unittest.TestCase):
 
         self.assertIn("--paths src", workflow)
         self.assertIn("--paths src", appimage_script)
-        self.assertIn("src/jottr/__main__.py", workflow)
-        self.assertIn("src/jottr/__main__.py", appimage_script)
+        self.assertIn("src/jottr/main.py", workflow)
+        self.assertIn("src/jottr/main.py", appimage_script)
+        self.assertNotIn("src/jottr/__main__.py", workflow)
+        self.assertNotIn("src/jottr/__main__.py", appimage_script)
         self.assertIn("APPIMAGE_EXTRACT_AND_RUN=1", appimage_script)
         self.assertIn('--add-data "icons:icons"', workflow)
         self.assertIn('--add-data "icons:icons"', appimage_script)

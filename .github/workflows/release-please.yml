@@ -285,7 +285,7 @@ jobs:
             --add-data "src/jottr/icons:jottr/icons" \
             --add-data "icons:icons" \
             --add-data "translations:translations" \
-            src/jottr/__main__.py
+            src/jottr/main.py
 
       - name: Build AppDir
         run: |
@@ -417,7 +417,7 @@ jobs:
             --add-data "src/jottr/icons:jottr/icons" \
             --add-data "icons:icons" \
             --add-data "translations:translations" \
-            src/jottr/__main__.py
+            src/jottr/main.py
 
       - name: Create unsigned DMG
         run: |
