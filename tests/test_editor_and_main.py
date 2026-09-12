@@ -16,7 +16,7 @@ sys.path.insert(0, str(SRC_ROOT))
 
 from PyQt6.QtCore import QPoint, QRect, Qt, QEvent
 from PyQt6.QtGui import QColor, QFont, QKeyEvent, QTextCharFormat, QTextCursor, QTextDocument
-from PyQt6.QtWidgets import QApplication, QDialog, QFrame, QMessageBox, QTabBar, QTextEdit, QWidget
+from PyQt6.QtWidgets import QApplication, QDialog, QFrame, QMessageBox, QMenu, QTabBar, QTextEdit, QWidget
 
 from jottr.editor_tab import EditorTab, SpellCheckHighlighter
 import jottr.editor.markdown as editor_markdown_module
@@ -1497,6 +1497,73 @@ class EditorAndMainTests(unittest.TestCase):
             sheet = QApplication.instance().styleSheet()
             self.assertIn("QToolBar#mainToolBar", sheet)
             self.assertIn("padding:", sheet)
+
+    def test_toolbar_style_comfy_and_default_toggle(self):
+        from jottr.settings_manager import TOOLBAR_STYLE_COMFY, TOOLBAR_STYLE_DEFAULT
+
+        class FakeEditorTab(QWidget):
+            def __init__(self, snippet_manager, settings_manager):
+                super().__init__()
+                self.editor = QTextEdit(self)
+                self.current_file = None
+
+            def set_main_window(self, main_window):
+                self.main_window = main_window
+
+            def apply_theme(self, theme_name):
+                pass
+
+            def apply_autosave_settings(self):
+                pass
+
+            def apply_line_numbers(self, visible):
+                pass
+
+        with patch.object(window_module, "EditorTab", FakeEditorTab):
+            window = TextEditorApp()
+            self.addCleanup(window.close)
+            self.addCleanup(window.deleteLater)
+
+            self.assertEqual(window.settings_manager.get_toolbar_style(), TOOLBAR_STYLE_COMFY)
+            self.assertIn("QToolBar#mainToolBar", QApplication.instance().styleSheet())
+
+            view_menu = next(
+                action.menu()
+                for action in window.menuBar().actions()
+                if action.text().replace("&", "") == "View"
+            )
+            toolbar_style_menu = next(
+                action.menu()
+                for action in view_menu.actions()
+                if action.menu() is not None
+                and action.text().replace("&", "") == "Toolbar Style"
+            )
+            labels = {
+                action.text(): action
+                for action in toolbar_style_menu.actions()
+            }
+            self.assertIn("Comfy", labels)
+            self.assertIn("Default", labels)
+            self.assertTrue(labels["Comfy"].isChecked())
+
+            window.set_toolbar_style(TOOLBAR_STYLE_DEFAULT)
+            self.assertEqual(
+                window.settings_manager.get_toolbar_style(), TOOLBAR_STYLE_DEFAULT
+            )
+            self.assertNotIn("QToolBar#mainToolBar", QApplication.instance().styleSheet())
+            self.assertTrue(labels["Default"].isChecked())
+            self.assertFalse(labels["Comfy"].isChecked())
+
+            self.assertEqual(
+                window.toolbar.contextMenuPolicy(),
+                Qt.ContextMenuPolicy.CustomContextMenu,
+            )
+            with patch.object(QMenu, "exec", return_value=None) as menu_exec:
+                window.show_toolbar_context_menu(window.toolbar.rect().center())
+                menu_exec.assert_called_once()
+
+            window.set_toolbar_style(TOOLBAR_STYLE_COMFY)
+            self.assertIn("QToolBar#mainToolBar", QApplication.instance().styleSheet())
 
     def test_editor_theme_domain_force_reapplies_same_named_theme(self):
         class FakeEditorTab(QWidget):

@@ -266,6 +266,29 @@ class SettingsAndSnippetTests(unittest.TestCase):
         manager.save_icon_theme("NotARealTheme")
         self.assertEqual(manager.get_icon_theme(), DEFAULT_ICON_THEME)
 
+    def test_settings_manager_persists_toolbar_style(self):
+        from jottr.settings_manager import (
+            TOOLBAR_STYLE_COMFY,
+            TOOLBAR_STYLE_DEFAULT,
+            SettingsManager,
+        )
+
+        manager = SettingsManager()
+        self.assertEqual(manager.get_toolbar_style(), TOOLBAR_STYLE_COMFY)
+
+        manager.save_toolbar_style("default")
+        reloaded = SettingsManager()
+        self.assertEqual(reloaded.get_toolbar_style(), TOOLBAR_STYLE_DEFAULT)
+
+        manager.save_toolbar_style("native")
+        self.assertEqual(manager.get_toolbar_style(), TOOLBAR_STYLE_DEFAULT)
+
+        manager.save_toolbar_style("Comfy")
+        self.assertEqual(manager.get_toolbar_style(), TOOLBAR_STYLE_COMFY)
+
+        manager.save_toolbar_style("nope")
+        self.assertEqual(manager.get_toolbar_style(), TOOLBAR_STYLE_COMFY)
+
     def test_apply_qt_style_switches_application_style(self):
         from PyQt6.QtWidgets import QStyleFactory
 
@@ -463,6 +486,11 @@ class SettingsAndSnippetTests(unittest.TestCase):
         app_style = ThemeManager.build_app_stylesheet(dracula, QFont("Liberation Serif", 15))
         self.assertIn('font-family: "Liberation Serif"', app_style)
         self.assertIn("font-size: 15pt", app_style)
+        self.assertIn("QToolBar#mainToolBar", app_style)
+        default_toolbar = ThemeManager.build_app_stylesheet(
+            dracula, toolbar_style="default"
+        )
+        self.assertNotIn("QToolBar#mainToolBar", default_toolbar)
         self.assertNotIn("QScrollBar:vertical", app_style)
         self.assertNotIn("QComboBox {", app_style)
         self.assertNotIn("QToolTip", app_style)

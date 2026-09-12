@@ -625,51 +625,22 @@ class ThemeManager:
         return palette
 
     @staticmethod
-    def build_app_stylesheet(theme, font=None):
+    def build_app_stylesheet(theme, font=None, toolbar_style="comfy"):
+        from jottr.settings_manager import TOOLBAR_STYLE_COMFY, SettingsManager
+
         app = theme["app"]
         font_style = ThemeManager.build_font_stylesheet(font)
+        toolbar_style = SettingsManager.normalize_toolbar_style(toolbar_style)
         # Style Jottr chrome by object name only. Do not style QMainWindow:
         # cascading color/background onto QMenuBar breaks some widget styles
         # (e.g. Breeze) so menu titles go missing in dark mode. Style the
-        # in-window menubar (#appMenuBar) explicitly so it matches the toolbar.
+        # in-window menubar (#appMenuBar) explicitly. Toolbar chrome is optional
+        # (Comfy QSS vs Default widget-style metrics).
         # Do not put font rules on QMenu — Qt stylesheets claim the font
         # property without reliably applying it, which also blocks setFont.
-        return f"""
-            QWidget#mainSurface {{
-                background: {app['background']};
-                color: {app['text']};
-                {font_style}
-            }}
-            QMenuBar#appMenuBar {{
-                background: {app['surface']};
-                border: none;
-                border-bottom: 1px solid {app['border']};
-                color: {app['text']};
-                padding: 3px 8px;
-                spacing: 2px;
-                {font_style}
-            }}
-            QMenuBar#appMenuBar::item {{
-                background: transparent;
-                border: 1px solid transparent;
-                border-radius: 0px;
-                color: {app['text']};
-                margin: 1px 2px;
-                padding: 5px 10px;
-            }}
-            QMenuBar#appMenuBar::item:selected {{
-                background: {app['surface_hover']};
-                border-color: {app['border_active']};
-                color: {app['text']};
-            }}
-            QMenuBar#appMenuBar::item:pressed {{
-                background: {app['surface_active']};
-                border-color: {app['accent']};
-                color: {app['accent_text']};
-            }}
-            QMenuBar#appMenuBar:focus {{
-                border-bottom: 2px solid {app['accent']};
-            }}
+        toolbar_block = ""
+        if toolbar_style == TOOLBAR_STYLE_COMFY:
+            toolbar_block = f"""
             QToolBar#mainToolBar {{
                 background: {app['surface']};
                 border: none;
@@ -711,6 +682,44 @@ class ThemeManager:
                 width: 1px;
                 margin: 6px 8px;
             }}
+            """
+        return f"""
+            QWidget#mainSurface {{
+                background: {app['background']};
+                color: {app['text']};
+                {font_style}
+            }}
+            QMenuBar#appMenuBar {{
+                background: {app['surface']};
+                border: none;
+                border-bottom: 1px solid {app['border']};
+                color: {app['text']};
+                padding: 3px 8px;
+                spacing: 2px;
+                {font_style}
+            }}
+            QMenuBar#appMenuBar::item {{
+                background: transparent;
+                border: 1px solid transparent;
+                border-radius: 0px;
+                color: {app['text']};
+                margin: 1px 2px;
+                padding: 5px 10px;
+            }}
+            QMenuBar#appMenuBar::item:selected {{
+                background: {app['surface_hover']};
+                border-color: {app['border_active']};
+                color: {app['text']};
+            }}
+            QMenuBar#appMenuBar::item:pressed {{
+                background: {app['surface_active']};
+                border-color: {app['accent']};
+                color: {app['accent_text']};
+            }}
+            QMenuBar#appMenuBar:focus {{
+                border-bottom: 2px solid {app['accent']};
+            }}
+            {toolbar_block}
             QTabWidget#documentTabs {{
                 background: {app['surface']};
             }}
