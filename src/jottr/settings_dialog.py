@@ -467,14 +467,14 @@ class SettingsDialog(QDialog):
         return self.settings_manager.get_icon_theme()
 
     def apply_dialog_style(self):
-        # Palette + QStyle only — no dialog QSS so Widget Style stays visible.
+        # Palette + QStyle for colors; font-only QSS so group titles / labels
+        # follow Main UI Font without restyling controls.
         from jottr.qt_style import apply_qt_color_scheme
 
         scheme = self.selected_ui_theme()
         apply_qt_color_scheme(scheme)
         theme = ThemeManager.get_ui_theme(scheme)
         ThemeManager.apply_app_palette(self, theme)
-        self.setStyleSheet("")
         self.apply_ui_font()
         apply_dialog_window_icon(self, "settings", self.settings_manager)
         self.refresh_settings_nav_icons()
@@ -484,8 +484,22 @@ class SettingsDialog(QDialog):
         ui_font = QFont(font) if font is not None else QFont(self.ui_font)
         self.ui_font = QFont(ui_font)
         self.setFont(ui_font)
-        # QListWidget/QComboBox/QGroupBox often keep the platform face unless set
-        # on each widget (same issue as popup QMenus under Breeze/Fusion).
+        # setFont alone is not enough: Fusion/Breeze paint QGroupBox titles and
+        # some form labels from the style, so set a font-only stylesheet too.
+        font_style = ThemeManager.build_font_stylesheet(ui_font)
+        self.setStyleSheet(
+            f"""
+            QWidget {{
+                {font_style}
+            }}
+            QGroupBox {{
+                {font_style}
+            }}
+            QGroupBox::title {{
+                {font_style}
+            }}
+            """
+        )
         for child in self.findChildren(QWidget):
             child.setFont(ui_font)
         for combo in self.findChildren(QComboBox):

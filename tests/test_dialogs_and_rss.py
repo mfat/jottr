@@ -15,7 +15,7 @@ sys.path.insert(0, str(SRC_ROOT))
 
 from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QFont
-from PyQt6.QtWidgets import QApplication, QLabel, QMessageBox, QScrollArea, QWidget
+from PyQt6.QtWidgets import QApplication, QGroupBox, QLabel, QMessageBox, QScrollArea, QWidget
 
 from jottr.feed_manager_dialog import FeedManagerDialog
 from jottr.rss_reader import RSSReader
@@ -228,7 +228,9 @@ class DialogAndRssTests(unittest.TestCase):
         plugin_tab = dialog.findChild(QWidget, "pluginsSettingsTab")
         self.assertIsNotNone(plugin_tab)
         self.assertEqual(plugin_tab.styleSheet(), "")
-        self.assertEqual(dialog.styleSheet(), "")
+        # Dialog may carry font-only QSS for Main UI Font; no color chrome.
+        self.assertNotIn("background", dialog.styleSheet())
+        self.assertNotIn("color:", dialog.styleSheet())
         self.assertGreater(dialog.plugin_list.count(), 0)
         current_card = dialog.plugin_list.itemWidget(dialog.plugin_list.currentItem())
         self.assertEqual(current_card.cursor().shape(), Qt.CursorShape.PointingHandCursor)
@@ -319,8 +321,12 @@ class DialogAndRssTests(unittest.TestCase):
 
         dialog.autosave_interval_combo.setCurrentText("bad")
         self.assertEqual(dialog.get_data()["autosave_interval_seconds"], 30)
-        # Settings chrome uses QStyle + palette — no dialog QSS overrides.
-        self.assertEqual(dialog.styleSheet(), "")
+        # Settings uses font-only QSS so titles follow Main UI Font; no color chrome.
+        stylesheet = dialog.styleSheet()
+        self.assertIn("QGroupBox::title", stylesheet)
+        self.assertIn("font-family:", stylesheet)
+        self.assertNotIn("background", stylesheet)
+        self.assertNotIn("color:", stylesheet)
         self.assertIsNotNone(dialog.findChild(QWidget, "settingsContentDivider"))
 
     def test_settings_dialog_applies_ui_font_to_sidebar_and_controls(self):
@@ -339,6 +345,15 @@ class DialogAndRssTests(unittest.TestCase):
         self.assertEqual(dialog.qt_style_combo.font().family(), "Liberation Sans")
         self.assertEqual(dialog.ui_theme_combo.view().font().family(), "Liberation Sans")
         self.assertEqual(dialog.ui_font.family(), "Liberation Sans")
+        stylesheet = dialog.styleSheet()
+        self.assertIn('font-family: "Liberation Sans"', stylesheet)
+        self.assertIn("QGroupBox::title", stylesheet)
+        self.assertIn("font-size: 13pt", stylesheet)
+        general = next(
+            box for box in dialog.findChildren(QGroupBox)
+            if box.title() == "General"
+        )
+        self.assertEqual(general.font().family(), "Liberation Sans")
 
     def test_settings_dialog_translates_autosave_seconds_label(self):
         translations_dir = Path(self.temp_dir.name) / "translations"
