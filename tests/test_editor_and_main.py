@@ -250,7 +250,7 @@ class EditorAndMainTests(unittest.TestCase):
         self.assertIn("language-plugin-diagram", html)
         self.assertNotIn("window.pluginDiagram", html)
 
-    def test_editor_context_menu_selects_word_with_qt6_enum(self):
+    def test_editor_context_menu_places_caret_without_selecting_word(self):
         editor = self.make_editor()
         editor.editor.setPlainText("hello world")
         editor.editor.moveCursor(QTextCursor.MoveOperation.Start)
@@ -258,8 +258,63 @@ class EditorAndMainTests(unittest.TestCase):
         with patch.object(editor_tab_impl.QTimer, "singleShot") as single_shot:
             editor.show_context_menu(editor.editor.cursorRect().center())
 
-        self.assertEqual(editor.editor.textCursor().selectedText(), "hello")
+        cursor = editor.editor.textCursor()
+        self.assertFalse(cursor.hasSelection())
+        self.assertEqual(cursor.block().text()[cursor.positionInBlock():], "hello world")
         single_shot.assert_called_once()
+
+    def test_editor_context_menu_opens_at_click_position(self):
+        editor = self.make_editor()
+        editor.editor.setPlainText("hello world")
+        editor.editor.resize(400, 200)
+        click_pos = editor.editor.cursorRect().center()
+        expected = editor.editor.viewport().mapToGlobal(click_pos)
+
+        with patch.object(editor_tab_impl.QMenu, "exec") as menu_exec:
+            editor._show_context_menu_impl(expected)
+
+        menu_exec.assert_called_once()
+        self.assertEqual(menu_exec.call_args[0][0], expected)
+
+    def test_editor_context_menu_maps_click_through_viewport(self):
+        editor = self.make_editor()
+        editor.editor.setPlainText("hello world")
+        editor.editor.resize(400, 200)
+        # Simulate stylesheet padding so editor origin != viewport origin
+        editor.editor.setStyleSheet("QTextEdit#writingEditor { padding: 18px 22px; }")
+        click_pos = editor.editor.cursorRect().center()
+        expected = editor.editor.viewport().mapToGlobal(click_pos)
+        wrong = editor.editor.mapToGlobal(click_pos)
+
+        captured = {}
+
+        def capture_single_shot(_ms, callback):
+            with patch.object(editor_tab_impl.QMenu, "exec") as menu_exec:
+                callback()
+                captured["pos"] = menu_exec.call_args[0][0]
+
+        with patch.object(editor_tab_impl.QTimer, "singleShot", side_effect=capture_single_shot):
+            editor.show_context_menu(click_pos)
+
+        self.assertEqual(captured["pos"], expected)
+        self.assertNotEqual(expected, wrong)
+
+    def test_editor_context_menu_keeps_existing_selection(self):
+        editor = self.make_editor()
+        editor.editor.setPlainText("hello world")
+        cursor = editor.editor.textCursor()
+        cursor.movePosition(QTextCursor.MoveOperation.Start)
+        cursor.movePosition(
+            QTextCursor.MoveOperation.NextWord,
+            QTextCursor.MoveMode.KeepAnchor,
+        )
+        editor.editor.setTextCursor(cursor)
+        selected = editor.editor.textCursor().selectedText()
+
+        with patch.object(editor_tab_impl.QTimer, "singleShot"):
+            editor.show_context_menu(QPoint(10, 10))
+
+        self.assertEqual(editor.editor.textCursor().selectedText(), selected)
 
     def test_editor_font_updates_visible_editor_style_and_document(self):
         editor = self.make_editor()

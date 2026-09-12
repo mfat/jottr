@@ -711,130 +711,145 @@ class EditorTab(
             self.editor.insertPlainText(text)
             
     def show_context_menu(self, pos):
-        """Show context menu"""
-        # Get current selection
-        cursor = self.editor.textCursor()
-        had_selection = cursor.hasSelection()
-        
-        if not had_selection:
-            # Select word under cursor, keeping contractions like "shouldn't" intact
-            cursor = self.editor.cursorForPosition(pos)
-            block = cursor.block()
-            start, end = find_word_bounds(block.text(), cursor.positionInBlock())
-            cursor.setPosition(block.position() + start)
-            cursor.setPosition(block.position() + end, QTextCursor.MoveMode.KeepAnchor)
-            self.editor.setTextCursor(cursor)
-        
-        # Create menu with a slight delay to prevent accidental triggers
-        QTimer.singleShot(100, lambda: self._show_context_menu_impl(pos))
+        """Show context menu (Kate/KTextEditor-style placement).
 
-    def _show_context_menu_impl(self, pos):
-        """Implementation of context menu display"""
+        Mouse: keep an existing selection; otherwise only move the caret to the
+        click. Do not auto-select the word under the cursor.
+
+        customContextMenuRequested / cursorForPosition use viewport coordinates;
+        map via the viewport so editor stylesheet padding does not shift the menu.
+        """
+        cursor = self.editor.textCursor()
+        if not cursor.hasSelection():
+            self.editor.setTextCursor(self.editor.cursorForPosition(pos))
+
+        global_pos = self.editor.viewport().mapToGlobal(pos)
+        # Create menu with a slight delay to prevent accidental triggers
+        QTimer.singleShot(100, lambda: self._show_context_menu_impl(global_pos))
+
+    def _word_at_cursor(self):
+        """Return the word under the caret without changing the selection."""
+        cursor = self.editor.textCursor()
+        block = cursor.block()
+        start, end = find_word_bounds(block.text(), cursor.positionInBlock())
+        return block.text()[start:end]
+
+    def _add_spelling_actions(self, menu, word):
+        """Add spell-check actions for a single misspelled word."""
+        if not word or ' ' in word or not self.highlighter.spell_check_enabled:
+            return False
+        if self.highlighter.check_word(word):
+            return False
+
+        added = False
+        suggestions = self.highlighter.suggest(word)[:7]
+        if suggestions:
+            menu.addAction(_("Spelling Suggestions:")).setEnabled(False)
+            for suggestion in suggestions:
+                action = menu.addAction(suggestion)
+                action.triggered.connect(lambda checked, replacement=suggestion:
+                    self.replace_word(replacement))
+            menu.addSeparator()
+            added = True
+
+        if not self.highlighter.word_in_user_dictionary(word):
+            add_action = menu.addAction(_("Add to Dictionary"))
+            add_action.triggered.connect(lambda: self.add_to_dictionary(word))
+            menu.addSeparator()
+            added = True
+        return added
+
+    def _show_context_menu_impl(self, global_pos):
+        """Implementation of context menu display.
+
+        global_pos is already in global screen coordinates (from the viewport).
+        """
         menu = QMenu(self)
-        
-        # # Cut/Copy/Paste actions
-        # menu.addAction("Cut", self.editor.cut)
-        # menu.addAction("Copy", self.editor.copy)
-        # menu.addAction("Paste", self.editor.paste)
-        # menu.addSeparator()
-        
-        # Get selected text
+
+        # Get selected text (only real user selections; we never auto-select)
         selected_text = self.editor.textCursor().selectedText()
-        
+
         if selected_text:
-            
-            
             if self.browser_panel_enabled():
                 # Add search submenu
                 search_menu = menu.addMenu(_("Search in..."))
-                
+
                 # Get site-specific searches from settings
                 search_sites = self.settings_manager.get_setting('search_sites', {
                     'AP News': 'site:apnews.com',
                     'Reuters': 'site:reuters.com',
                     'BBC News': 'site:bbc.com/news'
                 })
-                
+
                 # Add search actions for each site
                 for name, site_query in search_sites.items():
                     action = search_menu.addAction(name)
                     search_url = f"https://www.google.com/search?q={quote(selected_text)}+{site_query}"
-                    action.triggered.connect(lambda checked, url=search_url: 
+                    action.triggered.connect(lambda checked, url=search_url:
                         self.search_in_browser(url))
-                
+
                 # Add separator and regular Google search
                 search_menu.addSeparator()
                 google_action = search_menu.addAction(_("Google"))
                 google_url = f"https://www.google.com/search?q={quote(selected_text)}"
-                google_action.triggered.connect(lambda checked, url=google_url: 
+                google_action.triggered.connect(lambda checked, url=google_url:
                     self.search_in_browser(url))
                 # Add Wikipedia search
                 wiki_action = search_menu.addAction(_("Wikipedia"))
                 wiki_url = f"https://en.wikipedia.org/w/index.php?search={quote(selected_text)}"
-                wiki_action.triggered.connect(lambda checked, url=wiki_url: 
+                wiki_action.triggered.connect(lambda checked, url=wiki_url:
                     self.search_in_browser(url))
-                
+
                 # Add Google Scholar search
                 scholar_action = search_menu.addAction(_("Google Scholar"))
                 scholar_url = f"https://scholar.google.com/scholar?q={quote(selected_text)}"
-                scholar_action.triggered.connect(lambda checked, url=scholar_url: 
+                scholar_action.triggered.connect(lambda checked, url=scholar_url:
                     self.search_in_browser(url))
-                
+
                 # Add Google Maps search
                 maps_action = search_menu.addAction(_("Google Maps"))
                 maps_url = f"https://www.google.com/maps/search/{quote(selected_text)}"
-                maps_action.triggered.connect(lambda checked, url=maps_url: 
+                maps_action.triggered.connect(lambda checked, url=maps_url:
                     self.search_in_browser(url))
-                
+
                 # Add Google News search
                 news_action = search_menu.addAction(_("Google News"))
                 news_url = f"https://news.google.com/search?q={quote(selected_text)}"
-                news_action.triggered.connect(lambda checked, url=news_url: 
+                news_action.triggered.connect(lambda checked, url=news_url:
                     self.search_in_browser(url))
-                
+
                 # add google translate search
                 translate_action = search_menu.addAction(_("Google Translate"))
                 translate_url = f"https://translate.google.com/?sl=auto&tl=en&text={quote(selected_text)}"
-                translate_action.triggered.connect(lambda checked, url=translate_url: 
+                translate_action.triggered.connect(lambda checked, url=translate_url:
                     self.search_in_browser(url))
-                
+
                 # Add Google define search
                 dictionary_action = search_menu.addAction(_("Google Define"))
                 dictionary_url = f"https://www.google.com/search?q=define+{quote(selected_text)}"
-                dictionary_action.triggered.connect(lambda checked, url=dictionary_url: 
+                dictionary_action.triggered.connect(lambda checked, url=dictionary_url:
                     self.search_in_browser(url))
-                
+
                 menu.addSeparator()
-            
-            # Only show spell check options for single words
-            if not ' ' in selected_text:
-                # Add spell check suggestions if word is misspelled
-                if self.highlighter.spell_check_enabled:
-                    suggestions = self.highlighter.suggest(selected_text)[:7]  # Limit to 7 suggestions
-                    if suggestions:
-                        menu.addAction(_("Spelling Suggestions:")).setEnabled(False)
-                        for suggestion in suggestions:
-                            action = menu.addAction(suggestion)
-                            action.triggered.connect(lambda checked, word=suggestion: 
-                                self.replace_word(word))
-                        menu.addSeparator()
-                
-                # Add to dictionary option if not already in it
-                if not self.highlighter.word_in_user_dictionary(selected_text):
-                    add_action = menu.addAction(_("Add to Dictionary"))
-                    add_action.triggered.connect(lambda: self.add_to_dictionary(selected_text))
-                    menu.addSeparator()
+
+            # Spell-check for a single selected word
+            if ' ' not in selected_text:
+                self._add_spelling_actions(menu, selected_text)
             # Add "Save as Snippet" option
             menu.addAction(_("Save as Snippet"), lambda: self.save_snippet(selected_text))
             menu.addSeparator()
+        else:
+            # Like Kate: spelling for the word under the caret without selecting it
+            self._add_spelling_actions(menu, self._word_at_cursor())
+
         # Cut/Copy/Paste actions
         menu.addAction(_("Cut"), self.editor.cut)
         menu.addAction(_("Copy"), self.editor.copy)
         menu.addAction(_("Paste"), self.editor.paste)
-        menu.addSeparator()            
-        
-        # Show menu
-        menu.exec(self.editor.mapToGlobal(pos))
+        menu.addSeparator()
+
+        # Top-left of the menu at the click (Kate: mapToGlobal(e->pos()))
+        menu.exec(global_pos)
 
     def add_to_dictionary(self, word):
         """Add word to user dictionary via the shared highlighter."""
