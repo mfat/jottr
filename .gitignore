@@ -6,6 +6,13 @@ __pycache__/
 *.pyc
 *.egg-info/
 
+# Local / tooling
+.venv/
+.pybuild/
+.pytest_cache/
+.benchmarks/
+.cursor/
+
 # Package build artifacts
 *.tar.gz
 /AppDir/
