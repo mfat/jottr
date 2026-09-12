@@ -3,14 +3,14 @@
   <id>io.github.mfat.jottr</id>
   
   <name>Jottr</name>
-  <summary>A simple text editor mainly intended for writers, journalists and researchers</summary>
+  <summary>Simple text and markdown editor mainly intended for writers, journalists and researchers</summary>
   
   <metadata_license>FSFAP</metadata_license>
   <project_license>GPL-3.0-or-later</project_license>
   
   <description>
     <p>
-      A simple, opinionated plain text editor designed for writers, journalists and researchers. Jottr has features like distraction-free writing, an integrated web-browser, customizable search in specific sites from the context menu and smart auto-completion.
+      A simple, opinionated plain text and markdown editor designed for writers, journalists and researchers. Jottr has features like distraction-free writing, an integrated web-browser, customizable site-specific search from the context menu and smart auto-completion from saved snippets.
     </p>
   </description>
   
