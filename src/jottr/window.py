@@ -49,7 +49,7 @@ from jottr.icon_manager import (
 from jottr.paths import find_data_file
 from jottr import __version__
 from jottr.ui.workspace_controller import WorkspaceControllerMixin
-from jottr.ui.document_tab_bar import LeftAlignedDocumentTabBar
+from jottr.ui.document_tab_bar import DocumentTabWidget
 
 APP_NAME = "Jottr"
 APP_VERSION = __version__
@@ -254,8 +254,7 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
         self.main_splitter.setObjectName("mainSplitter")
         self.setup_workspace_explorer()
 
-        self.tab_widget = QTabWidget()
-        self.tab_widget.setTabBar(LeftAlignedDocumentTabBar())
+        self.tab_widget = DocumentTabWidget()
         self.tab_widget.setObjectName("documentTabs")
         self.tab_widget.setDocumentMode(False)
         self.tab_widget.setMovable(True)

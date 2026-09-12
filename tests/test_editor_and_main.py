@@ -1252,8 +1252,8 @@ class EditorAndMainTests(unittest.TestCase):
             self.assertEqual(tab_bar.tab_text_color(True).name(), QColor(dark_app["text"]).name())
             self.assertEqual(tab_bar.tab_text_color(False).name(), QColor(dark_app["muted"]).name())
             label_rect = tab_bar.label_contents_rect(QRect(0, 0, 160, 38))
-            self.assertEqual(label_rect.top(), 0)
-            self.assertEqual(label_rect.bottom(), 35)
+            self.assertEqual(label_rect.top(), 2)
+            self.assertEqual(label_rect.bottom(), 37)
             self.assertEqual(tab_bar.icon_vertical_offset, -1)
             self.assertFalse(window.tab_widget.tabIcon(0).isNull())
             close_button = tab_bar.tabButton(0, QTabBar.ButtonPosition.RightSide)
@@ -1678,6 +1678,17 @@ class EditorAndMainTests(unittest.TestCase):
             stylesheet = QApplication.instance().styleSheet()
             self.assertIn("QTabWidget#documentTabs::tab-bar", stylesheet)
             self.assertIn("alignment: left", stylesheet)
+            self.assertIn("QTabWidget#documentTabs QTabBar", stylesheet)
+            self.assertIn("border-bottom: 1px solid", stylesheet)
+            tab_bar = window.tab_widget.tabBar()
+            tab_bar.sync_rail_width()
+            self.assertGreaterEqual(tab_bar.minimumWidth(), window.tab_widget.width())
+            expected_rail = QColor(
+                main_module.ThemeManager.get_ui_theme(
+                    window.settings_manager.get_ui_theme()
+                )["app"]["surface"]
+            )
+            self.assertEqual(tab_bar.rail_color().name(), expected_rail.name())
 
     def test_tab_bar_uses_configured_tab_actions(self):
         class FakeEditorTab(QWidget):

@@ -1,7 +1,7 @@
-"""Document tab bar with centered label painting."""
-from PyQt6.QtWidgets import QTabBar, QStyle, QStyleOptionTab, QStylePainter
+"""Document tab bar with centered label painting and a full-width chrome rail."""
+from PyQt6.QtWidgets import QTabBar, QTabWidget, QStyle, QStyleOptionTab, QStylePainter
 from PyQt6.QtCore import Qt, QRect, QSize, pyqtSignal
-from PyQt6.QtGui import QColor
+from PyQt6.QtGui import QColor, QPen
 
 from jottr.theme_manager import ThemeManager
 
@@ -25,30 +25,83 @@ class LeftAlignedDocumentTabBar(QTabBar):
         super().tabRemoved(index)
         self.tabs_changed.emit()
 
+    def document_tab_widget(self):
+        parent = self.parentWidget()
+        while parent is not None and not isinstance(parent, QTabWidget):
+            parent = parent.parentWidget()
+        return parent
+
+    def sync_rail_width(self):
+        """Stretch the bar across the tab widget so the rail fills empty space."""
+        tab_widget = self.document_tab_widget()
+        if tab_widget is None:
+            return
+        width = max(0, tab_widget.width())
+        if self.minimumWidth() != width:
+            self.setMinimumWidth(width)
+
+    def theme_app_colors(self):
+        window = self.window()
+        settings_manager = getattr(window, "settings_manager", None)
+        if settings_manager is None:
+            return None
+        return ThemeManager.get_ui_theme(settings_manager.get_ui_theme())["app"]
+
+    def rail_color(self):
+        app = self.theme_app_colors()
+        if app is None:
+            return self.palette().window().color()
+        # Match toolbar/menubar chrome so the rail reads against page background.
+        return QColor(app["surface"])
+
+    def rail_border_color(self):
+        app = self.theme_app_colors()
+        if app is None:
+            return self.palette().mid().color()
+        return QColor(app["border"])
+
+    def accent_color(self):
+        app = self.theme_app_colors()
+        if app is None:
+            return self.palette().highlight().color()
+        return QColor(app["accent"])
+
     def paintEvent(self, event):
         painter = QStylePainter(self)
+        painter.fillRect(self.rect(), self.rail_color())
+        border_y = self.rect().bottom()
+        painter.setPen(QPen(self.rail_border_color(), 1))
+        painter.drawLine(self.rect().left(), border_y, self.rect().right(), border_y)
+
         option = QStyleOptionTab()
         for index in range(self.count()):
             self.initStyleOption(option, index)
             painter.drawControl(QStyle.ControlElement.CE_TabBarTabShape, option)
             self.draw_left_aligned_label(painter, option, index)
+            if option.state & QStyle.StateFlag.State_Selected:
+                self.draw_active_top_strip(painter, option.rect)
+
+    def draw_active_top_strip(self, painter, tab_rect):
+        strip = QRect(
+            tab_rect.left(),
+            tab_rect.top(),
+            tab_rect.width(),
+            self.underline_height,
+        )
+        painter.fillRect(strip, self.accent_color())
 
     def tab_text_color(self, selected=False):
-        window = self.window()
-        settings_manager = getattr(window, "settings_manager", None)
-        if settings_manager is None:
+        app = self.theme_app_colors()
+        if app is None:
             return self.palette().windowText().color()
-        theme = ThemeManager.get_ui_theme(
-            settings_manager.get_ui_theme()
-        )
-        return QColor(theme["app"]["text" if selected else "muted"])
+        return QColor(app["text" if selected else "muted"])
 
     def label_contents_rect(self, tab_rect):
         return tab_rect.adjusted(
             self.label_left_padding,
-            0,
+            self.underline_height,
             -self.label_right_padding,
-            -self.underline_height
+            0,
         )
 
     def draw_left_aligned_label(self, painter, option, index):
@@ -90,3 +143,17 @@ class LeftAlignedDocumentTabBar(QTabBar):
             Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter | Qt.TextFlag.TextSingleLine,
             text
         )
+
+
+class DocumentTabWidget(QTabWidget):
+    """QTabWidget that keeps the document tab rail full-width."""
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setTabBar(LeftAlignedDocumentTabBar())
+
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        tab_bar = self.tabBar()
+        if isinstance(tab_bar, LeftAlignedDocumentTabBar):
+            tab_bar.sync_rail_width()

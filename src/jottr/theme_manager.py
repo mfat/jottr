@@ -702,13 +702,22 @@ class ThemeManager:
                 width: 1px;
                 margin: 6px 8px;
             }}
+            QTabWidget#documentTabs {{
+                background: {app['surface']};
+            }}
             QTabWidget#documentTabs::pane {{
+                background: {app['background']};
                 border: none;
                 margin: 0px;
                 padding: 0px;
             }}
             QTabWidget#documentTabs::tab-bar {{
                 alignment: left;
+            }}
+            QTabWidget#documentTabs QTabBar {{
+                background: {app['surface']};
+                border: none;
+                border-bottom: 1px solid {app['border']};
             }}
             QSplitter#mainSplitter::handle {{
                 background: {app['border']};
@@ -812,7 +821,7 @@ class ThemeManager:
                 color: {app['muted']};
                 border: none;
                 border-right: 1px solid {app['border']};
-                border-bottom: 2px solid transparent;
+                border-top: 2px solid transparent;
                 height: 38px;
                 min-width: 118px;
                 margin: 0px;
@@ -820,10 +829,10 @@ class ThemeManager:
                 text-align: center;
             }}
             QTabWidget#documentTabs QTabBar::tab:selected {{
-                background: {app['surface']};
+                background: {app['surface_hover']};
                 color: {app['text']};
                 border-right: 1px solid {app['border_active']};
-                border-bottom: 2px solid {app['accent']};
+                border-top: 2px solid {app['accent']};
             }}
             QTabWidget#documentTabs QTabBar::tab:hover:!selected {{
                 background: {app['surface_hover']};
