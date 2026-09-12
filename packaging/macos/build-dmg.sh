@@ -73,8 +73,6 @@ pyinstaller \
   --hidden-import jottr.resources.rc_bootstrap_icons \
   --hidden-import jottr.paths \
   --hidden-import jottr.plugin_manager \
-  --hidden-import jottr.qt_style \
-  --hidden-import jottr.window_color_scheme \
   --hidden-import jottr.rss_reader \
   --hidden-import jottr.rss_tab \
   --hidden-import jottr.settings_dialog \

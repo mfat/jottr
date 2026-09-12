@@ -69,7 +69,6 @@ class SettingsManager:
             "font_weight": int(QFont.Weight.Normal),
             "font_italic": False,
             "ui_theme": "System",
-            "window_color_scheme": "",
             "theme": "Sepia",
             "qt_style": "System",
             "custom_themes": {},
@@ -305,19 +304,6 @@ class SettingsManager:
         from jottr.theme_manager import ThemeManager
 
         self.settings["ui_theme"] = ThemeManager.normalize_ui_theme(theme)
-        self.save_settings()
-
-    def get_window_color_scheme(self):
-        from jottr.window_color_scheme import normalize_window_color_scheme
-
-        return normalize_window_color_scheme(
-            self.settings.get("window_color_scheme", "")
-        )
-
-    def save_window_color_scheme(self, scheme_id):
-        from jottr.window_color_scheme import normalize_window_color_scheme
-
-        self.settings["window_color_scheme"] = normalize_window_color_scheme(scheme_id)
         self.save_settings()
 
     def get_qt_style(self):

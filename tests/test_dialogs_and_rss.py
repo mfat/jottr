@@ -115,8 +115,6 @@ class DialogAndRssTests(unittest.TestCase):
             [dialog.ui_theme_combo.itemData(i) for i in range(dialog.ui_theme_combo.count())],
             ["System", "Light", "Dark"],
         )
-        self.assertGreaterEqual(dialog.window_color_scheme_combo.count(), 1)
-        self.assertEqual(dialog.window_color_scheme_combo.itemData(0), "")
         self.assertIn("Forest", [
             dialog.editor_theme_combo.itemText(i)
             for i in range(dialog.editor_theme_combo.count())
@@ -186,7 +184,6 @@ class DialogAndRssTests(unittest.TestCase):
         self.assertEqual(data["document_language"], "auto")
         self.assertEqual(data["spell_languages"], [])
         self.assertEqual(data["ui_theme"], "Dark")
-        self.assertEqual(data["window_color_scheme"], "")
         self.assertEqual(data["theme"], "Forest")
         self.assertEqual(data["qt_style"], fusion)
         self.assertEqual(data["custom_themes"]["Forest"]["editor"]["background"], "#102018")

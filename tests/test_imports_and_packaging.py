@@ -148,7 +148,6 @@ class ImportAndPackagingTests(unittest.TestCase):
             "jottr.paths",
             "jottr.plugin_manager",
             "jottr.qt_style",
-            "jottr.window_color_scheme",
             "jottr.rss_reader",
             "jottr.rss_tab",
             "jottr.settings_dialog",

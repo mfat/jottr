@@ -306,30 +306,16 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
         Widget-style swaps follow Kate/KStyleManager: QApplication.setStyle
         first. Qt already repolishes on setStyle, so we skip a second full
         all-widgets refresh in that case.
-
-        Window Color Scheme (Kate / KColorSchemeManager) installs a QPalette
-        from a ``.colors`` file when selected; Default follows System/Light/Dark.
         """
-        from jottr.window_color_scheme import (
-            activate_window_color_scheme,
-            effective_chrome_theme,
-            find_window_color_scheme,
-            scheme_is_dark,
-        )
-
         scheme_setting = self.settings_manager.get_ui_theme()
-        window_scheme_id = self.settings_manager.get_window_color_scheme()
         app_font = QFont(font) if font is not None else self.settings_manager.get_font("ui")
         application = QApplication.instance()
         style_swapped = False
-        window_scheme = find_window_color_scheme(window_scheme_id)
         if application:
             # Only drop stylesheets when the widget style actually swaps;
             # the clears each force a full repolish, while palette/font/theme
             # switches just need the sheets re-applied below.
-            theme = effective_chrome_theme(
-                window_scheme_id, scheme_setting, application
-            )
+            theme = ThemeManager.get_ui_theme(scheme_setting, application)
             next_key = resolve_qt_style_key(
                 self.settings_manager.get_qt_style(), theme=theme
             )
@@ -340,15 +326,7 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
                 application.setStyleSheet("")
                 self.setStyleSheet("")
                 self._applied_app_stylesheet = None
-            # Qt ColorScheme hint: explicit Window Color Scheme forces Light/Dark;
-            # Default uses the Appearance System/Light/Dark setting.
-            if window_scheme.path:
-                apply_qt_color_scheme(
-                    "Dark" if scheme_is_dark(window_scheme.path) else "Light",
-                    application,
-                )
-            else:
-                apply_qt_color_scheme(scheme_setting, application)
+            apply_qt_color_scheme(scheme_setting, application)
             previous_key = application.property("_jottr_style_key")
             apply_qt_style(
                 self.settings_manager.get_qt_style(),
@@ -356,16 +334,11 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
                 theme=theme,
             )
             style_swapped = previous_key != application.property("_jottr_style_key")
-            activate_window_color_scheme(window_scheme_id, application)
-            if not window_scheme.path:
-                ThemeManager.apply_app_palette(application, theme)
+            ThemeManager.apply_app_palette(application, theme)
             application.setFont(app_font)
         else:
-            theme = effective_chrome_theme(window_scheme_id, scheme_setting)
-        if not window_scheme.path:
-            ThemeManager.apply_app_palette(self, theme)
-        else:
-            self.setPalette(application.palette() if application else self.palette())
+            theme = ThemeManager.get_ui_theme(scheme_setting)
+        ThemeManager.apply_app_palette(self, theme)
         self.setFont(app_font)
         stylesheet = ThemeManager.build_app_stylesheet(
             theme,
@@ -406,12 +379,8 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
         application = QApplication.instance()
         if application is None:
             return None
-        from jottr.window_color_scheme import effective_chrome_theme
-
-        theme = effective_chrome_theme(
-            self.settings_manager.get_window_color_scheme(),
-            self.settings_manager.get_ui_theme(),
-            application,
+        theme = ThemeManager.get_ui_theme(
+            self.settings_manager.get_ui_theme(), application
         )
         previous_key = application.property("_jottr_style_key")
         saved_sheet = application.styleSheet()
@@ -1230,21 +1199,33 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
             toolbar_style_menu.addAction(action)
         self.sync_toolbar_style_menu()
 
-        color_scheme_menu = view_menu.addMenu(_("Window Color Scheme"))
+        color_scheme_menu = view_menu.addMenu(_("Color Scheme"))
         color_scheme_menu.setAccessibleName(
-            _("{title} menu").format(title=_("Window Color Scheme"))
+            _("{title} menu").format(title=_("Color Scheme"))
         )
-        color_scheme_menu.menuAction().setProperty("text_key", "Window Color Scheme")
+        color_scheme_menu.menuAction().setProperty("text_key", "Color Scheme")
         self.translatable_actions.append(color_scheme_menu.menuAction())
-        self.translatable_menus.append((color_scheme_menu, "Window Color Scheme"))
+        self.translatable_menus.append((color_scheme_menu, "Color Scheme"))
         self.color_scheme_menu = color_scheme_menu
         self.color_scheme_actions = QActionGroup(self)
         self.color_scheme_actions.setExclusive(True)
-        self.color_scheme_actions.triggered.connect(
-            self._on_window_color_scheme_menu_triggered
-        )
-        color_scheme_menu.aboutToShow.connect(self.sync_window_color_scheme_menu)
-        self.sync_window_color_scheme_menu()
+        current_scheme = self.settings_manager.get_ui_theme()
+        for scheme_id, label_key in (
+            ("System", "Follow system"),
+            ("Light", "Light"),
+            ("Dark", "Dark"),
+        ):
+            action = QAction(_(label_key), self)
+            action.setCheckable(True)
+            action.setData(scheme_id)
+            action.setProperty("text_key", label_key)
+            action.setChecked(scheme_id == current_scheme)
+            action.triggered.connect(
+                lambda checked=False, tag=scheme_id: self.set_ui_color_scheme(tag)
+            )
+            self.color_scheme_actions.addAction(action)
+            self.translatable_actions.append(action)
+            color_scheme_menu.addAction(action)
 
         editor_theme_menu = view_menu.addMenu(_("Editor Theme"))
         editor_theme_menu.setAccessibleName(
@@ -1467,48 +1448,14 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
         grid.set_current(current)
 
     def sync_color_scheme_menu(self):
-        """Compatibility alias for Window Color Scheme menu sync."""
-        self.sync_window_color_scheme_menu()
-
-    def sync_window_color_scheme_menu(self):
-        """Rebuild View → Window Color Scheme like KColorSchemeMenu."""
-        from jottr.window_color_scheme import (
-            DEFAULT_WINDOW_COLOR_SCHEME,
-            create_preview_icon,
-            discover_window_color_schemes,
-        )
-
-        menu = getattr(self, "color_scheme_menu", None)
-        group = getattr(self, "color_scheme_actions", None)
-        if menu is None or group is None:
+        """Mark the active Color Scheme entry in View → Color Scheme."""
+        if not hasattr(self, "color_scheme_actions") or self.color_scheme_actions is None:
             return
-        current = self.settings_manager.get_window_color_scheme()
-        menu.clear()
-        for action in list(group.actions()):
-            group.removeAction(action)
-            action.deleteLater()
-        for scheme in discover_window_color_schemes():
-            label = (
-                _("Default")
-                if scheme.scheme_id == DEFAULT_WINDOW_COLOR_SCHEME
-                else scheme.name
-            )
-            action = QAction(label, self)
-            action.setCheckable(True)
-            action.setData(scheme.scheme_id)
-            action.setChecked(scheme.scheme_id == current)
-            if scheme.path:
-                action.setIcon(create_preview_icon(scheme.path))
-            else:
-                action.setIcon(QIcon.fromTheme("edit-undo"))
-            group.addAction(action)
-            menu.addAction(action)
-
-    def _on_window_color_scheme_menu_triggered(self, action):
-        scheme_id = action.data()
-        if scheme_id is None:
-            return
-        self.set_window_color_scheme(scheme_id)
+        current = self.settings_manager.get_ui_theme()
+        for action in self.color_scheme_actions.actions():
+            action.blockSignals(True)
+            action.setChecked(action.data() == current)
+            action.blockSignals(False)
 
     def setup_toolbar_style_actions(self):
         """Exclusive Comfy / Default actions shared by View and toolbar menus."""
@@ -1606,42 +1553,15 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
         menu.exec(self.toolbar.mapToGlobal(pos))
 
     def set_ui_color_scheme(self, scheme):
-        """Persist Follow system/Light/Dark (Default Window Color Scheme mode)."""
+        """Persist Color Scheme from the View menu and restyle the app."""
         scheme = ThemeManager.normalize_ui_theme(scheme)
-        # Choosing System/Light/Dark implies Kate's Default window scheme.
-        if self.settings_manager.get_window_color_scheme():
-            self.settings_manager.save_window_color_scheme("")
         if scheme == self.settings_manager.get_ui_theme():
-            self.sync_window_color_scheme_menu()
+            self.sync_color_scheme_menu()
             return
         self.settings_manager.save_ui_theme(scheme)
         self.apply_app_style()
-        self.sync_window_color_scheme_menu()
+        self.sync_color_scheme_menu()
         self.sync_toolbar_style_menu()
-
-    def set_window_color_scheme(self, scheme_id):
-        """Persist Window Color Scheme (Kate) and restyle the app."""
-        from jottr.window_color_scheme import normalize_window_color_scheme
-
-        scheme_id = normalize_window_color_scheme(scheme_id)
-        if scheme_id == self.settings_manager.get_window_color_scheme():
-            self.sync_window_color_scheme_menu()
-            return
-        self.settings_manager.save_window_color_scheme(scheme_id)
-        self.apply_app_style()
-        self.sync_window_color_scheme_menu()
-        self.sync_toolbar_style_menu()
-        for index in range(self.tab_widget.count()):
-            tab = self.tab_widget.widget(index)
-            wcombo = getattr(tab, "window_color_scheme_combo", None)
-            if wcombo is not None:
-                wcombo.blockSignals(True)
-                idx = wcombo.findData(scheme_id)
-                if idx >= 0:
-                    wcombo.setCurrentIndex(idx)
-                wcombo.blockSignals(False)
-            if hasattr(tab, "apply_dialog_style"):
-                tab.apply_dialog_style()
 
     def set_editor_theme(self, theme_name):
         """Persist Editor Theme from the View menu and apply it to open tabs."""

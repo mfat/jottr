@@ -34,7 +34,7 @@ class AppearancePageMixin:
         self.language_combo.currentIndexChanged.connect(self._on_language_changed)
         general_layout.addRow(language_label, self.language_combo)
 
-        ui_theme_label = QLabel(_("Follow system colors:"))
+        ui_theme_label = QLabel(_("Color Scheme:"))
         self.ui_theme_combo = QComboBox()
         self.ui_theme_combo.addItem(_("Follow system"), "System")
         self.ui_theme_combo.addItem(_("Light"), "Light")
@@ -43,25 +43,12 @@ class AppearancePageMixin:
         scheme_index = self.ui_theme_combo.findData(current_scheme)
         self.ui_theme_combo.setCurrentIndex(scheme_index if scheme_index >= 0 else 0)
         self.ui_theme_combo.setToolTip(
-            _("Used when Window Color Scheme is Default. "
-              "Sets Qt's application color scheme "
+            _("Sets Qt's application color scheme "
               "(Follow system, Light, or Dark). "
               "Editor themes are chosen separately.")
         )
         self.ui_theme_combo.currentIndexChanged.connect(self._on_ui_theme_changed)
         general_layout.addRow(ui_theme_label, self.ui_theme_combo)
-
-        window_scheme_label = QLabel(_("Window Color Scheme:"))
-        self.window_color_scheme_combo = QComboBox()
-        self._populate_window_color_scheme_combo()
-        self.window_color_scheme_combo.setToolTip(
-            _("Kate-style window palette from installed KDE .colors schemes. "
-              "Default follows the system (Breeze Light/Dark when available).")
-        )
-        self.window_color_scheme_combo.currentIndexChanged.connect(
-            self._on_window_color_scheme_changed
-        )
-        general_layout.addRow(window_scheme_label, self.window_color_scheme_combo)
 
         editor_theme_label = QLabel(_("Editor Theme:"))
         self.editor_theme_combo = QComboBox()
@@ -256,51 +243,12 @@ class AppearancePageMixin:
             ),
         )
 
-    def _populate_window_color_scheme_combo(self):
-        from jottr.window_color_scheme import (
-            DEFAULT_WINDOW_COLOR_SCHEME,
-            create_preview_icon,
-            discover_window_color_schemes,
-        )
-
-        combo = self.window_color_scheme_combo
-        current = self.settings_manager.get_window_color_scheme()
-        combo.blockSignals(True)
-        combo.clear()
-        for scheme in discover_window_color_schemes():
-            label = (
-                _("Default")
-                if scheme.scheme_id == DEFAULT_WINDOW_COLOR_SCHEME
-                else scheme.name
-            )
-            combo.addItem(create_preview_icon(scheme.path), label, scheme.scheme_id)
-        index = combo.findData(current)
-        combo.setCurrentIndex(index if index >= 0 else 0)
-        combo.blockSignals(False)
-
-    def selected_window_color_scheme(self):
-        if hasattr(self, "window_color_scheme_combo"):
-            data = self.window_color_scheme_combo.currentData()
-            if data is not None:
-                return data
-        return self.settings_manager.get_window_color_scheme()
-
     def _on_ui_theme_changed(self):
         self._commit(
             "style",
             lambda: self.settings_manager.save_ui_theme(self.selected_ui_theme()),
         )
         # Preview in the settings chrome without waiting for the host debounce.
-        self.apply_dialog_style()
-
-    def _on_window_color_scheme_changed(self):
-        # Kate applies Window Color Scheme immediately (palette swap).
-        self._commit_now(
-            "style",
-            lambda: self.settings_manager.save_window_color_scheme(
-                self.selected_window_color_scheme()
-            ),
-        )
         self.apply_dialog_style()
 
     def _on_editor_theme_changed(self):
