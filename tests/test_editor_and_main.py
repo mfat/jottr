@@ -1319,8 +1319,7 @@ class EditorAndMainTests(unittest.TestCase):
             self.assertEqual(first_tab.current_font.pointSize(), original_size + 1)
             toolbar_actions["Reset Zoom"].trigger()
             self.assertEqual(first_tab.current_font.pointSize(), original_size)
-            self.assertIn("QToolBar#mainToolBar QToolButton:focus", QApplication.instance().styleSheet())
-            self.assertIn("QToolBar#mainToolBar QToolButton:disabled", QApplication.instance().styleSheet())
+            self.assertNotIn("QToolBar#mainToolBar", QApplication.instance().styleSheet())
             self.assertIn("QTabWidget#documentTabs QTabBar::close-button", QApplication.instance().styleSheet())
             self.assertIn("subcontrol-position: center right", QApplication.instance().styleSheet())
             self.assertIn("margin-bottom: 2px", QApplication.instance().styleSheet())
@@ -1495,8 +1494,8 @@ class EditorAndMainTests(unittest.TestCase):
             # Style swap clears QSS before setStyle; sheet must be re-applied even
             # when theme/font (and thus stylesheet text) did not change.
             sheet = QApplication.instance().styleSheet()
-            self.assertIn("QToolBar#mainToolBar", sheet)
-            self.assertIn("padding:", sheet)
+            self.assertIn("QMenuBar#appMenuBar", sheet)
+            self.assertIn("QWidget#mainSurface", sheet)
 
     def test_editor_theme_domain_force_reapplies_same_named_theme(self):
         class FakeEditorTab(QWidget):
@@ -1910,7 +1909,7 @@ class EditorAndMainTests(unittest.TestCase):
             self.assertEqual(QApplication.instance().font().pointSize(), 13)
             self.assertIn('font-family: "Liberation Sans"', QApplication.instance().styleSheet())
             self.assertNotIn("QMenu {", QApplication.instance().styleSheet())
-            self.assertIn("QToolBar#mainToolBar", QApplication.instance().styleSheet())
+            self.assertNotIn("QToolBar#mainToolBar", QApplication.instance().styleSheet())
             self.assertNotIn("QScrollBar:vertical", QApplication.instance().styleSheet())
             menus = [
                 action.menu()
