@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.4.1](https://github.com/mfat/jottr/compare/v2.4.0...v2.4.1) (2026-09-12)
+
+
+### CI
+
+* call Flathub update from Release Please ([47ce824](https://github.com/mfat/jottr/commit/47ce8240a4b30fa529a21f21e607d5b313ce381f))
+
 ## [2.4.0](https://github.com/mfat/jottr/compare/v2.3.3...v2.4.0) (2026-09-12)
 
 
