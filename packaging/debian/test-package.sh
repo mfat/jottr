@@ -25,14 +25,14 @@ if ! which jottr > /dev/null; then
     exit 1
 fi
 
-# Check if desktop file is installed
-if [ ! -f "/usr/share/applications/jottr.desktop" ]; then
+# Check if desktop file is installed (basename must match setDesktopFileName)
+if [ ! -f "/usr/share/applications/io.github.mfat.jottr.desktop" ]; then
     echo -e "${RED}Error: Desktop file not installed${NC}"
     exit 1
 fi
 
-# Check if icon is installed
-if [ ! -f "/usr/share/icons/hicolor/scalable/apps/jottr.svg" ]; then
+# Check if icon is installed (name must match Icon= in the desktop file)
+if [ ! -f "/usr/share/icons/hicolor/scalable/apps/io.github.mfat.jottr.svg" ]; then
     echo -e "${RED}Error: Application icon not installed${NC}"
     exit 1
 fi

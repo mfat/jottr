@@ -61,24 +61,25 @@ exec python3 -m jottr "${args[@]}"
 EOF
 chmod 755 %{buildroot}%{_bindir}/%{name}
 
-# Desktop entry
+# Desktop entry must match QGuiApplication.setDesktopFileName
 mkdir -p %{buildroot}%{_datadir}/applications
-cat > %{buildroot}%{_datadir}/applications/%{name}.desktop << EOF
+cat > %{buildroot}%{_datadir}/applications/io.github.mfat.jottr.desktop << EOF
 [Desktop Entry]
 Name=Jottr
 Comment=Text editor for writers
 Exec=jottr %F
-Icon=jottr
+Icon=io.github.mfat.jottr
 Terminal=false
 Type=Application
 Categories=Utility;TextEditor;
 MimeType=text/plain;text/markdown;text/x-markdown;
 StartupNotify=true
+StartupWMClass=Jottr
 EOF
 
-# App icon (Freedesktop scalable SVG)
+# App icon (Freedesktop scalable SVG; basename matches Icon=)
 mkdir -p %{buildroot}%{_datadir}/icons/hicolor/scalable/apps/
-install -p -m 644 icons/jottr.svg %{buildroot}%{_datadir}/icons/hicolor/scalable/apps/%{name}.svg
+install -p -m 644 icons/jottr.svg %{buildroot}%{_datadir}/icons/hicolor/scalable/apps/io.github.mfat.jottr.svg
 
 %files
 %license LICENSE
@@ -86,8 +87,8 @@ install -p -m 644 icons/jottr.svg %{buildroot}%{_datadir}/icons/hicolor/scalable
 %{python3_sitelib}/jottr
 %{_datadir}/%{name}
 %{_bindir}/%{name}
-%{_datadir}/applications/%{name}.desktop
-%{_datadir}/icons/hicolor/scalable/apps/%{name}.svg
+%{_datadir}/applications/io.github.mfat.jottr.desktop
+%{_datadir}/icons/hicolor/scalable/apps/io.github.mfat.jottr.svg
 
 %changelog
 * Sat Mar 01 2025 mFat <newmfat@gmail.com> - 1.4.3-1

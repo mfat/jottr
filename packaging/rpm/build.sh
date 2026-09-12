@@ -49,24 +49,26 @@ completion, snippets, and integrated web browsing.
 # Install desktop file + scalable SVG app icon
 mkdir -p %{buildroot}%{_datadir}/applications/
 mkdir -p %{buildroot}%{_datadir}/icons/hicolor/scalable/apps/
-cat > %{buildroot}%{_datadir}/applications/jottr.desktop << EOL
+cat > %{buildroot}%{_datadir}/applications/io.github.mfat.jottr.desktop << EOL
 [Desktop Entry]
 Name=Jottr
 Comment=Modern text editor for writers
 Exec=jottr
-Icon=jottr
+Icon=io.github.mfat.jottr
 Terminal=false
 Type=Application
 Categories=Office;TextEditor;
+StartupNotify=true
+StartupWMClass=Jottr
 EOL
-install -p -m 644 icons/jottr.svg %{buildroot}%{_datadir}/icons/hicolor/scalable/apps/jottr.svg
+install -p -m 644 icons/jottr.svg %{buildroot}%{_datadir}/icons/hicolor/scalable/apps/io.github.mfat.jottr.svg
 
 %files
 %{python3_sitelib}/jottr/
 %{python3_sitelib}/jottr-%{version}*
 %{_bindir}/jottr
-%{_datadir}/applications/jottr.desktop
-%{_datadir}/icons/hicolor/scalable/apps/jottr.svg
+%{_datadir}/applications/io.github.mfat.jottr.desktop
+%{_datadir}/icons/hicolor/scalable/apps/io.github.mfat.jottr.svg
 
 %changelog
 * $(date '+%a %b %d %Y') Package Builder <builder@example.com> - ${PACKAGE_VERSION}-1

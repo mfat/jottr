@@ -204,11 +204,13 @@ mkdir -p \
   "$app_dir/usr/share/icons/hicolor/scalable/apps"
 
 cp -r "$repo_root/dist/jottr/." "$app_dir/usr/share/jottr/"
-cp "$repo_root/icons/jottr.svg" "$app_dir/usr/share/icons/hicolor/scalable/apps/jottr.svg"
+cp "$repo_root/icons/jottr.svg" "$app_dir/usr/share/icons/hicolor/scalable/apps/io.github.mfat.jottr.svg"
 cp "$repo_root/icons/jottr.svg" "$app_dir/jottr.svg"
-cp "$repo_root/io.github.mfat.jottr.desktop" "$app_dir/usr/share/applications/jottr.desktop"
+# AppImage root desktop keeps Icon=jottr for appimagetool; applications/
+# entry must match setDesktopFileName for shell/dock association.
+cp "$repo_root/io.github.mfat.jottr.desktop" \
+  "$app_dir/usr/share/applications/io.github.mfat.jottr.desktop"
 cp "$repo_root/io.github.mfat.jottr.desktop" "$app_dir/jottr.desktop"
-sed -i 's/^Icon=.*/Icon=jottr/' "$app_dir/usr/share/applications/jottr.desktop"
 sed -i 's/^Icon=.*/Icon=jottr/' "$app_dir/jottr.desktop"
 
 cat > "$app_dir/AppRun" <<'EOF'
@@ -227,7 +229,7 @@ exec "$APPDIR/AppRun" "$@"
 EOF
 chmod +x "$app_dir/usr/bin/jottr"
 
-desktop-file-validate "$app_dir/usr/share/applications/jottr.desktop"
+desktop-file-validate "$app_dir/usr/share/applications/io.github.mfat.jottr.desktop"
 
 echo "==> Building AppImage"
 mkdir -p "$release_dir"

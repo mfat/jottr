@@ -292,11 +292,12 @@ jobs:
           version="${{ needs.release-please.outputs.tag_name }}"
           mkdir -p AppDir/usr/bin AppDir/usr/share/jottr AppDir/usr/share/applications AppDir/usr/share/icons/hicolor/scalable/apps
           cp -r dist/jottr/* AppDir/usr/share/jottr/
-          cp icons/jottr.svg AppDir/usr/share/icons/hicolor/scalable/apps/jottr.svg
+          cp icons/jottr.svg AppDir/usr/share/icons/hicolor/scalable/apps/io.github.mfat.jottr.svg
           cp icons/jottr.svg AppDir/jottr.svg
-          cp io.github.mfat.jottr.desktop AppDir/usr/share/applications/jottr.desktop
+          # AppImage root desktop keeps Icon=jottr for appimagetool; applications/
+          # entry must match setDesktopFileName for shell/dock association.
+          cp io.github.mfat.jottr.desktop AppDir/usr/share/applications/io.github.mfat.jottr.desktop
           cp io.github.mfat.jottr.desktop AppDir/jottr.desktop
-          sed -i 's/^Icon=.*/Icon=jottr/' AppDir/usr/share/applications/jottr.desktop
           sed -i 's/^Icon=.*/Icon=jottr/' AppDir/jottr.desktop
           printf '%s\n' \
             '#!/bin/sh' \
@@ -312,7 +313,7 @@ jobs:
             'exec "$APPDIR/AppRun" "$@"' \
             > AppDir/usr/bin/jottr
           chmod +x AppDir/usr/bin/jottr
-          desktop-file-validate AppDir/usr/share/applications/jottr.desktop
+          desktop-file-validate AppDir/usr/share/applications/io.github.mfat.jottr.desktop
           echo "APPIMAGE_VERSION=$version" >> $GITHUB_ENV
 
       - name: Build AppImage

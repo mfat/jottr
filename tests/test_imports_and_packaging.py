@@ -299,10 +299,13 @@ class ImportAndPackagingTests(unittest.TestCase):
 
         self.assertIn("hicolor/scalable/apps", rpm_spec)
         self.assertIn("icons/jottr.svg", rpm_spec)
+        self.assertIn("io.github.mfat.jottr.desktop", rpm_spec)
+        self.assertIn("io.github.mfat.jottr.svg", rpm_spec)
         self.assertNotIn("hicolor/256x256/apps/%{name}.png", rpm_spec)
 
         self.assertIn("hicolor/scalable/apps", debian_rules)
-        self.assertIn("jottr.svg", debian_rules)
+        self.assertIn("io.github.mfat.jottr.desktop", debian_rules)
+        self.assertIn("io.github.mfat.jottr.svg", debian_rules)
 
         self.assertIn(
             "hicolor/scalable/apps/io.github.mfat.jottr.svg",
@@ -312,7 +315,14 @@ class ImportAndPackagingTests(unittest.TestCase):
 
         self.assertIn("hicolor/scalable/apps", appimage)
         self.assertIn("icons/jottr.svg", appimage)
+        self.assertIn("io.github.mfat.jottr.desktop", appimage)
         self.assertNotIn("icons/jottr.png", appimage)
+
+        desktop = (PROJECT_ROOT / "io.github.mfat.jottr.desktop").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn("Icon=io.github.mfat.jottr", desktop)
+        self.assertIn("StartupWMClass=Jottr", desktop)
 
     def test_message_box_uses_bundled_button_icons(self):
         from PyQt6.QtCore import QSize
