@@ -460,16 +460,28 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
         )
 
     def _on_system_color_scheme_changed(self):
-        """Reapply chrome for the new desktop appearance (System setting only)."""
+        """Reapply chrome when the desktop light/dark preference changes.
+
+        Runs for Appearance System *or* Window Color Scheme Default: Default
+        resolves Breeze Light/Dark from the host, and Flatpak may also remap
+        explicit Light/Dark chrome when ColorScheme is pinned by the platform.
+        Named .colors schemes stay put.
+        """
         from jottr.system_color_scheme import system_color_scheme
+        from jottr.window_color_scheme import find_window_color_scheme
 
         ui_theme = self.settings_manager.get_ui_theme()
-        if ThemeManager.normalize_ui_theme(ui_theme) != "System":
-            return
+        window_scheme_id = self.settings_manager.get_window_color_scheme()
+        normalized = ThemeManager.normalize_ui_theme(ui_theme)
+        named_scheme = bool(find_window_color_scheme(window_scheme_id).path)
+        follows_desktop = normalized == "System" or not named_scheme
         scheme = system_color_scheme(QApplication.instance())
+        prev = getattr(self, "_system_color_scheme", None)
+        if not follows_desktop:
+            return
         # Pinning Qt's scheme makes it echo colorSchemeChanged straight back;
         # only a genuinely different appearance is worth a restyle.
-        if scheme == getattr(self, "_system_color_scheme", None):
+        if scheme == prev:
             return
         self._system_color_scheme = scheme
         # apply_app_style drops the chrome-theme cache before it resolves.
