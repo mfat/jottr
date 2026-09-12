@@ -17,12 +17,13 @@ finish-args:
   - --socket=wayland
   - --socket=fallback-x11
   - --device=dri
-  # Follow the host light/dark appearance. Jottr reads color-scheme from the
-  # desktop portal, and these read-only config peeks let Qt's platform theme
-  # agree with it instead of falling back to a light Breeze default.
+  # Follow the host light/dark appearance. The portal carries color-scheme
+  # with no permission at all, which is what Jottr reads; kdeglobals is the
+  # one xdg-config peek Flathub's linter allows, and lets Qt's own KDE
+  # platform theme agree instead of defaulting to light Breeze. Do not add
+  # xdg-config/gtk-3.0 or gtk-4.0 here: every other xdg-config subdirectory
+  # is a hard linter error (finish-args-unnecessary-xdg-config-*-access).
   - --filesystem=xdg-config/kdeglobals:ro
-  - --filesystem=xdg-config/gtk-3.0:ro
-  - --filesystem=xdg-config/gtk-4.0:ro
   - --env=QTWEBENGINEPROCESS_PATH=/app/bin/QtWebEngineProcess
   - --env=QTWEBENGINE_DISABLE_SANDBOX=1
 modules:

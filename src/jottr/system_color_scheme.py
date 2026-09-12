@@ -12,6 +12,11 @@ So fall back the way portals intend: read ``color-scheme`` from the
 which xdg-desktop-portal exposes to every Flatpak without extra permissions and
 which GNOME, Plasma and wlroots portals all implement. If no portal answers,
 fall back to the host GTK settings files.
+
+The portal is the operative path inside Flatpak: Flathub's linter rejects every
+``--filesystem=xdg-config/<subdir>`` grant but ``kdeglobals:ro``, so the GTK
+settings files below are simply not reachable there. They cover unsandboxed
+runs on desktops without a portal.
 """
 
 from __future__ import annotations
