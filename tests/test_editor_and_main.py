@@ -316,6 +316,25 @@ class EditorAndMainTests(unittest.TestCase):
 
         self.assertEqual(editor.editor.textCursor().selectedText(), selected)
 
+    def test_snippet_context_menu_maps_click_through_viewport(self):
+        editor = self.make_editor()
+        editor.snippet_manager.add_snippet("Greeting", "hello")
+        editor.update_snippet_list()
+        editor.snippet_list.resize(220, 300)
+        editor.snippet_list.setStyleSheet("QListWidget#snippetList { padding: 8px; }")
+        editor.snippet_list.setCurrentRow(0)
+
+        click_pos = QPoint(20, 20)
+        expected = editor.snippet_list.viewport().mapToGlobal(click_pos)
+        wrong = editor.snippet_list.mapToGlobal(click_pos)
+
+        with patch.object(editor_tab_impl.QMenu, "exec") as menu_exec:
+            editor.show_snippet_context_menu(click_pos)
+
+        menu_exec.assert_called_once()
+        self.assertEqual(menu_exec.call_args[0][0], expected)
+        self.assertNotEqual(expected, wrong)
+
     def test_editor_font_updates_visible_editor_style_and_document(self):
         editor = self.make_editor()
         font = QFont("Liberation Serif", 16)

@@ -888,11 +888,12 @@ class EditorTab(
     def show_snippet_context_menu(self, position):
         menu = QMenu()
         current_item = self.snippet_list.currentItem()
-        
+
         if current_item:
             menu.addAction(_("Edit Snippet"), self.edit_current_snippet)
             menu.addAction(_("Delete Snippet"), self.delete_current_snippet)
-            menu.exec(self.snippet_list.mapToGlobal(position))
+            # customContextMenuRequested is viewport-relative; list has stylesheet padding
+            menu.exec(self.snippet_list.viewport().mapToGlobal(position))
 
     def update_completer_model(self):
         """Update completer with current snippets"""
