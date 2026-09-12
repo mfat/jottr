@@ -185,8 +185,16 @@ def apply_qt_color_scheme(scheme_name, application=None):
     """Apply Qt::ColorScheme from a System/Light/Dark UI setting.
 
     ``System`` maps to ``Qt.ColorScheme.Unknown``, which follows the platform
-    appearance (see QStyleHints::setColorScheme).
+    appearance (see QStyleHints::setColorScheme). When the platform theme has
+    no opinion — a sandboxed plugin that cannot read the host config — pin the
+    scheme the desktop portal reports instead, so the widget style does not
+    stay light while the chrome goes dark.
     """
+    from jottr.system_color_scheme import (
+        desktop_color_scheme,
+        note_pinned_color_scheme,
+        pinned_color_scheme,
+    )
     from jottr.theme_manager import ThemeManager
 
     app = application or QGuiApplication.instance()
@@ -198,6 +206,15 @@ def apply_qt_color_scheme(scheme_name, application=None):
         return None
 
     scheme = ThemeManager.ui_theme_color_scheme(scheme_name)
+    pinned = Qt.ColorScheme.Unknown
+    if scheme == Qt.ColorScheme.Unknown:
+        # Ignore an override we installed earlier: only the platform theme's
+        # own answer means System can be left to follow Qt.
+        platform_scheme = hints.colorScheme()
+        if platform_scheme in (Qt.ColorScheme.Unknown, pinned_color_scheme()):
+            pinned = desktop_color_scheme()
+            scheme = pinned
+    note_pinned_color_scheme(pinned)
     hints.setColorScheme(scheme)
     return hints.colorScheme()
 

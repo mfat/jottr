@@ -342,10 +342,9 @@ def chrome_theme_from_scheme(path):
 
 def automatic_scheme_for_system():
     """Kate non-Plasma Default: Breeze Light/Dark when available."""
-    app = QGuiApplication.instance()
-    prefer_dark = False
-    if app is not None and hasattr(app, "styleHints"):
-        prefer_dark = app.styleHints().colorScheme() == Qt.ColorScheme.Dark
+    from jottr.system_color_scheme import system_prefers_dark
+
+    prefer_dark = system_prefers_dark(QGuiApplication.instance())
     target = "BreezeDark" if prefer_dark else "BreezeLight"
     scheme = find_window_color_scheme(target)
     if scheme.path:
@@ -389,10 +388,20 @@ def activate_window_color_scheme(scheme_id, application=None):
 
 def effective_chrome_theme(scheme_id, ui_theme_name, application=None):
     """Theme dict for jottr chrome QSS under the active Window Color Scheme."""
+    from jottr.system_color_scheme import system_color_scheme
     from jottr.theme_manager import ThemeManager
 
     normalized = ThemeManager.normalize_ui_theme(ui_theme_name)
-    cache_key = ((scheme_id or DEFAULT_WINDOW_COLOR_SCHEME).strip(), normalized)
+    # System resolves through the desktop preference, so key the cache on it
+    # too: a host light/dark switch must not be served a stale theme.
+    resolved = (
+        system_color_scheme(application) if normalized == "System" else None
+    )
+    cache_key = (
+        (scheme_id or DEFAULT_WINDOW_COLOR_SCHEME).strip(),
+        normalized,
+        resolved,
+    )
     cached = _effective_chrome_cache.get(cache_key)
     if cached is not None:
         return cached

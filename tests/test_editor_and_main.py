@@ -15,7 +15,7 @@ SRC_ROOT = PROJECT_ROOT / "src"
 sys.path.insert(0, str(SRC_ROOT))
 
 from PyQt6.QtCore import QPoint, QRect, Qt, QEvent
-from PyQt6.QtGui import QColor, QFont, QKeyEvent, QTextCharFormat, QTextCursor, QTextDocument
+from PyQt6.QtGui import QColor, QFont, QKeyEvent, QPalette, QTextCharFormat, QTextCursor, QTextDocument
 from PyQt6.QtWidgets import QApplication, QDialog, QFrame, QMessageBox, QMenu, QTabBar, QTextEdit, QWidget
 
 from jottr.editor_tab import EditorTab, SpellCheckHighlighter
@@ -1862,6 +1862,42 @@ class EditorAndMainTests(unittest.TestCase):
             spell_action.trigger()
             self.assertTrue(window.settings_manager.get_setting("spell_check"))
             self.assertTrue(spell_action.isChecked())
+
+    def test_main_window_palette_follows_later_ui_theme_switches(self):
+        """QStyleSheetStyle restores the palette a widget first polished with.
+
+        Setting the window palette before the application stylesheet froze it
+        at the first theme, so palette-tinted icons stayed light after a switch
+        to dark (and after a host light/dark switch under the System setting).
+        """
+        class FakeEditorTab(QWidget):
+            def __init__(self, snippet_manager, settings_manager):
+                super().__init__()
+                self.editor = QTextEdit(self)
+                self.current_file = None
+
+            def set_main_window(self, main_window):
+                self.main_window = main_window
+
+        with patch.object(window_module, "EditorTab", FakeEditorTab):
+            window = TextEditorApp()
+            self.addCleanup(window.close)
+            self.addCleanup(window.deleteLater)
+            self.addCleanup(lambda: QApplication.instance().setStyleSheet(""))
+            saved_ui_theme = window.settings_manager.get_ui_theme()
+            self.addCleanup(window.settings_manager.save_ui_theme, saved_ui_theme)
+
+            def window_background(ui_theme):
+                window.settings_manager.save_ui_theme(ui_theme)
+                window.apply_app_style()
+                return window.palette().color(QPalette.ColorRole.Window)
+
+            dark = window_background("Dark")
+            light = window_background("Light")
+            self.assertLess(dark.lightnessF(), 0.5)
+            self.assertGreater(light.lightnessF(), 0.5)
+            # Back again: a repolish must not restore the first theme's colors.
+            self.assertLess(window_background("Dark").lightnessF(), 0.5)
 
     def test_cut_copy_paste_actions_follow_selection_and_clipboard(self):
         """Kate-style: cut/copy need selection; paste needs canPaste()."""

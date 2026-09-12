@@ -445,6 +445,35 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
 
         self.update_edit_actions()
         self.apply_app_style()
+        self.watch_system_color_scheme()
+
+    def watch_system_color_scheme(self):
+        """Re-theme chrome when the desktop switches between light and dark."""
+        from jottr.system_color_scheme import (
+            connect_system_color_scheme_changed,
+            system_color_scheme,
+        )
+
+        self._system_color_scheme = system_color_scheme(QApplication.instance())
+        return connect_system_color_scheme_changed(
+            self._on_system_color_scheme_changed, QApplication.instance()
+        )
+
+    def _on_system_color_scheme_changed(self):
+        """Reapply chrome for the new desktop appearance (System setting only)."""
+        from jottr.system_color_scheme import system_color_scheme
+
+        ui_theme = self.settings_manager.get_ui_theme()
+        if ThemeManager.normalize_ui_theme(ui_theme) != "System":
+            return
+        scheme = system_color_scheme(QApplication.instance())
+        # Pinning Qt's scheme makes it echo colorSchemeChanged straight back;
+        # only a genuinely different appearance is worth a restyle.
+        if scheme == getattr(self, "_system_color_scheme", None):
+            return
+        self._system_color_scheme = scheme
+        # apply_app_style drops the chrome-theme cache before it resolves.
+        self.apply_app_style()
 
     def apply_app_style(self, font=None):
         """Apply widget style, Qt color scheme, UI font, and matching chrome.
@@ -512,10 +541,6 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
             application.setFont(app_font)
         else:
             theme = effective_chrome_theme(window_scheme_id, scheme_setting)
-        if not window_scheme.path:
-            ThemeManager.apply_app_palette(self, theme)
-        else:
-            self.setPalette(application.palette() if application else self.palette())
         self.setFont(app_font)
         stylesheet = ThemeManager.build_app_stylesheet(
             theme,
@@ -540,6 +565,14 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
             if not style_swapped:
                 refresh_styled_widgets(application)
             self.apply_chrome_ui_font(app_font, application)
+        # Last, because QStyleSheetStyle remembers the palette a widget had
+        # when it first polished it and restores that on every later repolish:
+        # set before the stylesheet, the window would keep its first theme's
+        # colors forever and palette-tinted icons would stay light.
+        if not window_scheme.path:
+            ThemeManager.apply_app_palette(self, theme)
+        else:
+            self.setPalette(application.palette() if application else self.palette())
         # Rebuild icons so styles cannot keep synthesized Selected/Disabled tints.
         self._themed_icon_cache = {}
         self.update_action_icons()
