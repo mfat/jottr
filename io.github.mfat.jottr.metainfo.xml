@@ -23,6 +23,11 @@
 
   <!-- Release information -->
   <releases>
+    <release version="2.5.3" date="2026-09-13">
+      <description>
+        <p>Bug fixes and improvements</p>
+      </description>
+    </release>
     <release version="2.5.2" date="2026-09-12">
       <description>
         <p>Fix AppImage/frozen entry point import crash</p>
