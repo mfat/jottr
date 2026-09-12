@@ -1502,6 +1502,8 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
                 action.setIcon(create_preview_icon(scheme.path))
             else:
                 action.setIcon(QIcon.fromTheme("edit-undo"))
+            # Override AA_DontShowIconsInMenus so Kate-style previews show.
+            action.setIconVisibleInMenu(True)
             group.addAction(action)
             menu.addAction(action)
 
