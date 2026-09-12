@@ -34,24 +34,20 @@
 
    <screenshots>
     <screenshot type="default">
-      <image>https://raw.githubusercontent.com/mfat/jottr/a5af219651bb2eb9bea97e750ddaa0eced08b406/screenshots/main.png</image>
+      <image>https://raw.githubusercontent.com/mfat/jottr/72e57cf662bfaaa250f0c7d659642df9fa5f464f/screenshots/main.png</image>
       <caption>Main window of Jottr</caption>
     </screenshot>
     <screenshot>
-      <image>https://raw.githubusercontent.com/mfat/jottr/a5af219651bb2eb9bea97e750ddaa0eced08b406/screenshots/markdown.png</image>
-      <caption>Live Markdown preview beside the editor</caption>
+      <image>https://raw.githubusercontent.com/mfat/jottr/72e57cf662bfaaa250f0c7d659642df9fa5f464f/screenshots/editor-themes.png</image>
+      <caption>Editor color themes</caption>
     </screenshot>
     <screenshot>
-      <image>https://raw.githubusercontent.com/mfat/jottr/a5af219651bb2eb9bea97e750ddaa0eced08b406/screenshots/browser.png</image>
-      <caption>Integrated research browser</caption>
+      <image>https://raw.githubusercontent.com/mfat/jottr/72e57cf662bfaaa250f0c7d659642df9fa5f464f/screenshots/browser.png</image>
+      <caption>Site-specific search in the research browser</caption>
     </screenshot>
     <screenshot>
-      <image>https://raw.githubusercontent.com/mfat/jottr/a5af219651bb2eb9bea97e750ddaa0eced08b406/screenshots/snippets.png</image>
-      <caption>Reusable text snippets</caption>
-    </screenshot>
-    <screenshot>
-      <image>https://raw.githubusercontent.com/mfat/jottr/a5af219651bb2eb9bea97e750ddaa0eced08b406/screenshots/focus.png</image>
-      <caption>Distraction-free Focus Mode</caption>
+      <image>https://raw.githubusercontent.com/mfat/jottr/72e57cf662bfaaa250f0c7d659642df9fa5f464f/screenshots/snippets.png</image>
+      <caption>Snippets and Tab completion</caption>
     </screenshot>
   </screenshots>
 </component>
