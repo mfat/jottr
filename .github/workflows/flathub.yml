@@ -129,35 +129,30 @@ jobs:
           manifest = pathlib.Path("flathub/io.github.mfat.jottr.yml")
           text = manifest.read_text()
 
+          # In-tree packaging uses type: dir / path: . for local builds.
+          # Flathub needs a pinned git source plus a metainfo overlay.
           pattern = re.compile(
-              r'(url:\s*"?https://github\.com/mfat/jottr\.git"?[ \t]*\n)'
-              r'([ \t]*)tag:[ \t]*[^\n]+\n'
-              r'([ \t]*)commit:[ \t]*[0-9a-fA-F]+'
+              r"(    sources:\n)"
+              r"      - type: dir\n"
+              r"(?:        #.*\n)*"
+              r"        path: \.\n"
+              r"(?:        skip:\n(?:          - .*\n)+)?",
+              re.MULTILINE,
           )
-
-          def repl(match):
-              return (
-                  f"{match.group(1)}"
-                  f"{match.group(2)}tag: {tag}\n"
-                  f"{match.group(3)}commit: {sha}"
-              )
-
-          new_text, count = pattern.subn(repl, text, count=1)
+          replacement = (
+              r"\1"
+              "      - type: git\n"
+              "        url: https://github.com/mfat/jottr.git\n"
+              f"        tag: {tag}\n"
+              f"        commit: {sha}\n"
+              "      - type: file\n"
+              "        path: io.github.mfat.jottr.metainfo.xml\n"
+          )
+          new_text, count = pattern.subn(replacement, text, count=1)
           if count != 1:
-              raise SystemExit("Failed to update tag/commit in the Flatpak manifest")
-
-          # Flathub installs AppStream metainfo from a local overlay so release
-          # notes stay editable without retagging upstream.
-          if "path: io.github.mfat.jottr.metainfo.xml" not in new_text:
-              needle = f"commit: {sha}"
-              overlay = (
-                  f"{needle}\n"
-                  f"      - type: file\n"
-                  f"        path: io.github.mfat.jottr.metainfo.xml"
+              raise SystemExit(
+                  "Failed to convert type: dir jottr source to pinned git for Flathub"
               )
-              if needle not in new_text:
-                  raise SystemExit("Could not insert metainfo file source")
-              new_text = new_text.replace(needle, overlay, 1)
 
           manifest.write_text(new_text)
           print(f"Synced Flathub packaging to {tag} ({sha})")

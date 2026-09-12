@@ -46,7 +46,20 @@ modules:
       - install -D -m644 icons/jottr.svg ${FLATPAK_DEST}/share/icons/hicolor/scalable/apps/io.github.mfat.jottr.svg
       - install -D -m644 io.github.mfat.jottr.metainfo.xml -t ${FLATPAK_DEST}/share/metainfo/
     sources:
-      - type: git
-        url: https://github.com/mfat/jottr.git
-        tag: v2.3.2
-        commit: 9a13115b16253d2626b1845b9cf0cc678aabd8a2
+      - type: dir
+        # Local / GNOME Builder builds use the working tree. Flathub pins
+        # type: git separately in flathub/io.github.mfat.jottr.
+        path: .
+        skip:
+          - .flatpak-builder
+          - .git
+          - .venv
+          - venv
+          - build-venv
+          - builddir
+          - repo
+          - AppDir
+          - dist
+          - build
+          - release-assets-local
+          - .history

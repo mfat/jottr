@@ -31,6 +31,7 @@ src/jottr/jottr.spec
 src/.DS_Store
 .DS_Store
 /.flatpak-builder
+/builddir
 /repo
 io.github.mfat.jottr-1.4.1.flatpak
 /deb_dist
