@@ -299,6 +299,40 @@ class EditorAndMainTests(unittest.TestCase):
         self.assertEqual(captured["pos"], expected)
         self.assertNotEqual(expected, wrong)
 
+    def test_editor_context_menu_disables_capitalization_without_selection(self):
+        editor = self.make_editor()
+        editor.editor.setPlainText("hello world")
+        editor.editor.moveCursor(QTextCursor.MoveOperation.Start)
+
+        captured = {}
+
+        with patch.object(
+            editor_tab_impl.QMenu,
+            "exec",
+            lambda self, pos: captured.update(menu=self) or None,
+        ):
+            editor._show_context_menu_impl(QPoint(10, 10))
+
+        capitalization = next(
+            action for action in captured["menu"].actions() if action.text() == "Capitalization"
+        )
+        self.assertFalse(capitalization.isEnabled())
+
+        editor.editor.selectAll()
+        with patch.object(
+            editor_tab_impl.QMenu,
+            "exec",
+            lambda self, pos: captured.update(menu=self) or None,
+        ):
+            editor._show_context_menu_impl(QPoint(10, 10))
+
+        capitalization = next(
+            action
+            for action in captured["menu"].actions()
+            if action.text() == "Capitalization"
+        )
+        self.assertTrue(capitalization.isEnabled())
+
     def test_editor_context_menu_keeps_existing_selection(self):
         editor = self.make_editor()
         editor.editor.setPlainText("hello world")
@@ -1850,12 +1884,14 @@ class EditorAndMainTests(unittest.TestCase):
 
             self.assertFalse(window.cut_action.isEnabled())
             self.assertFalse(window.copy_action.isEnabled())
+            self.assertFalse(window.capitalization_menu_action.isEnabled())
 
             editor.selectAll()
             QApplication.processEvents()
             window.update_edit_actions()
             self.assertTrue(window.cut_action.isEnabled())
             self.assertTrue(window.copy_action.isEnabled())
+            self.assertTrue(window.capitalization_menu_action.isEnabled())
 
             clipboard = QApplication.clipboard()
             self.assertIsNotNone(clipboard)
@@ -1871,6 +1907,7 @@ class EditorAndMainTests(unittest.TestCase):
             window.update_edit_actions()
             self.assertFalse(window.cut_action.isEnabled())
             self.assertFalse(window.copy_action.isEnabled())
+            self.assertFalse(window.capitalization_menu_action.isEnabled())
             self.assertTrue(window.paste_action.isEnabled())
 
     def test_view_menu_color_scheme_and_editor_theme(self):

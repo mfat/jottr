@@ -6,9 +6,32 @@ from pathlib import Path
 
 from PyQt6.QtCore import QCoreApplication, Qt
 from PyQt6.QtGui import QGuiApplication
-from PyQt6.QtWidgets import QApplication, QStyleFactory
+from PyQt6.QtWidgets import (
+    QApplication,
+    QProxyStyle,
+    QStyle,
+    QStyleFactory,
+    QStyleOptionMenuItem,
+)
 
 SYSTEM_QT_STYLE = "System"
+
+# Breeze sizes submenu rows so tightly that the ▶ overlaps the label.
+_BREEZE_SUBMENU_EXTRA_WIDTH = 16
+
+
+class _BreezeSubmenuPadStyle(QProxyStyle):
+    """Widen Breeze submenu items so the arrow clears the label text."""
+
+    def sizeFromContents(self, ct, opt, size, widget=None):
+        size = super().sizeFromContents(ct, opt, size, widget)
+        if (
+            ct == QStyle.ContentsType.CT_MenuItem
+            and isinstance(opt, QStyleOptionMenuItem)
+            and opt.menuItemType == QStyleOptionMenuItem.MenuItemType.SubMenu
+        ):
+            size.setWidth(size.width() + _BREEZE_SUBMENU_EXTRA_WIDTH)
+        return size
 
 # Styles that ship paired light/dark plugins. UI themes must use the matching
 # variant or light chrome can end up with dark palette text (unreadable).
@@ -250,13 +273,27 @@ def apply_qt_style(style_name, application=None, theme=None):
     # style().objectName() is not reliable across platforms (often empty),
     # so remember the key we applied on the application object itself.
     if app.property("_jottr_style_key") == key:
-        return key
+        # Re-apply when a prior setStyle("Breeze") dropped our submenu pad proxy.
+        if key.casefold() != "breeze" or isinstance(
+            getattr(app, "_jottr_style_proxy", None), _BreezeSubmenuPadStyle
+        ):
+            return key
     # Prefer the QString overload like KStyleManager::initStyle
     # (QApplication::setStyle(styleToUse)). Probe creatable first so we
     # do not leave the app on a failed override.
-    if QStyleFactory.create(key) is None:
+    style = QStyleFactory.create(key)
+    if style is None:
         return None
-    app.setStyle(key)
+    # Breeze under-reserves width for submenu arrows; pad only that style.
+    # Keep a Python reference: setStyle takes C++ ownership, but PyQt still
+    # GC's the wrapper and then virtual overrides (sizeFromContents) vanish.
+    if key.casefold() == "breeze":
+        proxy = _BreezeSubmenuPadStyle(style)
+        app._jottr_style_proxy = proxy
+        app.setStyle(proxy)
+    else:
+        app._jottr_style_proxy = None
+        app.setStyle(key)
     app.setProperty("_jottr_style_key", key)
     return key
 
