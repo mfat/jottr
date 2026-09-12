@@ -350,7 +350,17 @@ jobs:
   build-macos:
     needs: release-please
     if: ${{ needs.release-please.outputs.release_created == 'true' }}
-    runs-on: macos-13
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: macos-15
+            arch: aarch64
+            file_arch: arm64
+          - runner: macos-15-intel
+            arch: x86_64
+            file_arch: x86_64
+    runs-on: ${{ matrix.runner }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -367,7 +377,7 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install -r requirements.txt
 
-      - name: Build unsigned macOS app
+      - name: Build macOS app
         run: |
           python -m pip install -e ".[build]"
           pyinstaller \
@@ -420,6 +430,25 @@ jobs:
             --add-data "translations:translations" \
             src/jottr/main.py
 
+      - name: Verify architecture and ad-hoc sign
+        run: |
+          APP_BIN="dist/Jottr.app/Contents/MacOS/Jottr"
+          if [ ! -f "$APP_BIN" ]; then
+            echo "Expected app binary at $APP_BIN"
+            find dist -maxdepth 4 -type f -perm -111 || true
+            exit 1
+          fi
+          file "$APP_BIN"
+          if ! file "$APP_BIN" | grep -q "${{ matrix.file_arch }}"; then
+            echo "Architecture mismatch: expected ${{ matrix.file_arch }}"
+            exit 1
+          fi
+          # Ad-hoc sign after the bundle is final. No Developer ID, so Gatekeeper
+          # still treats it as unidentified, but a valid ad-hoc signature avoids
+          # the "app is damaged" dead-end on downloaded copies.
+          codesign --sign - --force --deep --timestamp=none dist/Jottr.app
+          codesign --verify --strict --verbose=2 dist/Jottr.app
+
       - name: Create unsigned DMG
         run: |
           mkdir -p release-assets dmg-root
@@ -430,12 +459,12 @@ jobs:
             -srcfolder dmg-root \
             -ov \
             -format UDZO \
-            "release-assets/jottr-${{ needs.release-please.outputs.tag_name }}-macos-x86_64-unsigned.dmg"
+            "release-assets/jottr-${{ needs.release-please.outputs.tag_name }}-macos-${{ matrix.arch }}-unsigned.dmg"
 
       - name: Upload macOS workflow artifact
         uses: actions/upload-artifact@v4
         with:
-          name: macos-release-package
+          name: macos-release-package-${{ matrix.arch }}
           path: release-assets/*.dmg
           retention-days: 14
 

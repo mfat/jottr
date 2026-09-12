@@ -58,9 +58,10 @@ The first supported release assets are Linux and unsigned macOS packages:
 - `jottr-vX.Y.Z-linux-noarch.src.rpm`
 - `jottr-vX.Y.Z-linux-x86_64.AppImage`
 - `jottr-vX.Y.Z-macos-x86_64-unsigned.dmg`
+- `jottr-vX.Y.Z-macos-aarch64-unsigned.dmg`
 - one matching `.sha256` checksum file per package
 
-The macOS DMG is unsigned and is built on the GitHub-hosted Intel macOS runner. Users may need to bypass Gatekeeper manually. Windows installers are not generated yet. Add a separate trusted release job before advertising `.exe` or `.msi` downloads.
+macOS DMGs are built for Intel (`macos-15-intel`) and Apple Silicon (`macos-15`). Each `.app` is ad-hoc code-signed (no Apple Developer ID), so Gatekeeper still treats the download as unidentified; users may need to open it via right-click ▸ Open or clear quarantine. Notarized Developer ID builds are not enabled yet. Windows installers are not generated yet. Add a separate trusted release job before advertising `.exe` or `.msi` downloads.
 
 Release packages are attached to the GitHub release page for the tag. Package jobs publish independently: if the Debian build succeeds, it uploads the Debian package even if RPM, AppImage, or macOS later fail. CI workflow artifacts are retained for 14 days for debugging; release assets remain available from the release page unless a maintainer deletes them.
 
@@ -75,21 +76,21 @@ sha256sum -c jottr-vX.Y.Z-linux-x86_64.AppImage.sha256
 On macOS, use:
 
 ```bash
-shasum -a 256 -c jottr-vX.Y.Z-macos-x86_64-unsigned.dmg.sha256
+shasum -a 256 -c jottr-vX.Y.Z-macos-aarch64-unsigned.dmg.sha256
 ```
 
-The command should report `OK` for files that match the published checksum.
+Use the matching checksum file for the Intel (`x86_64`) or Apple Silicon (`aarch64`) DMG you downloaded. The command should report `OK` for files that match the published checksum.
 
 ## Debugging package builds
 
 If a release package is missing or a packaging job fails:
 
 - Open the failed `Release Please` workflow run in GitHub Actions.
-- Check the `build-deb`, `build-rpm`, `build-appimage`, and `build-macos` jobs.
+- Check the `build-deb`, `build-rpm`, `build-appimage`, and `build-macos` jobs (macOS runs once per architecture).
 - Download the short-lived workflow artifacts if the build completed but release upload failed.
 - Confirm the job checked out the expected release tag.
 - Re-run the failed job after fixing packaging dependencies or scripts.
 
 Each release upload step uses `overwrite_files: false`, so an accidental re-run will not silently replace existing release assets with the same filenames.
 
-Prereleases, beta releases, nightly builds, website publication, package signing, notarized macOS installers, Apple Silicon macOS builds, and Windows installers are not enabled yet. Add them later if the project starts publishing those artifacts from CI.
+Prereleases, beta releases, nightly builds, website publication, Developer ID / notarized macOS installers, and Windows installers are not enabled yet. Add them later if the project starts publishing those artifacts from CI.
