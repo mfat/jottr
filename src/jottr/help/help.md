@@ -89,10 +89,11 @@ Enter distraction-free writing mode:
 ## Spell Checking
 Jottr underlines misspelled words while you type:
 
-- Toggle from Tools > Automatic Spell Checking (Ctrl+Shift+O), or in Settings > Dictionary
-- Set the document language under Tools > Document Language, or in Settings > Dictionary
+- Toggle from Tools > Automatic Spell Checking (Ctrl+Shift+O), or in Settings > Spellcheck
+- Set the document language under Tools > Document Language, or in Settings > Spellcheck
 - Choose a specific language, or Auto-detect (uses `langdetect` on the document text)
 - Jottr loads the matching installed Enchant/hunspell dictionary; if none is installed it shows a warning instead of guessing
+- Settings > Spellcheck lists dictionaries detected on this system
 - For Persian/Farsi, install `myspell-fa` (Debian/Ubuntu) or `hunspell-fa` (Fedora)
 - Changing the document language rechecks open documents immediately
 
@@ -101,7 +102,7 @@ The editor maintains a custom dictionary for your frequently used words:
 
 - Words you add to the dictionary won't be marked as misspelled
 - These words will also appear as autocomplete suggestions
-- Manage your dictionary in Settings > Dictionary
+- Manage your dictionary in Settings > Spellcheck
 
 To add words:
 1. Right-click on a word

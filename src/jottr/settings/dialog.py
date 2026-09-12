@@ -159,7 +159,7 @@ class SettingsDialog(
         browser_page = self.build_browser_page()
         if self.browser_settings_available():
             self.add_settings_page(_("Browser"), browser_page, "browser")
-        self.add_settings_page(_("Dictionary"), self.build_dictionary_page(), "insert-text")
+        self.add_settings_page(_("Spellcheck"), self.build_dictionary_page(), "insert-text")
         self.add_settings_page(_("Plugins"), self.create_plugins_tab(), "applications-system")
         if self.settings_nav.count():
             self.settings_nav.setCurrentRow(0)

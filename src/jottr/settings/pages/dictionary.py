@@ -1,4 +1,5 @@
-"""Dictionary / spell-check page (moved from settings_dialog, plus instant wiring)."""
+"""Spellcheck settings page (moved from settings_dialog, plus instant wiring)."""
+from PyQt6.QtCore import Qt
 from PyQt6.QtWidgets import (
     QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QListWidget,
     QWidget, QCheckBox, QComboBox, QGroupBox, QFormLayout, QInputDialog,
@@ -7,6 +8,7 @@ from PyQt6.QtWidgets import (
 from jottr.editor.spellcheck import (
     DOCUMENT_LANGUAGE_AUTO,
     get_document_language,
+    list_available_spell_languages,
     list_document_language_choices,
     match_dictionary_for_language,
     missing_dictionary_message,
@@ -15,7 +17,7 @@ from jottr.translation_manager import _, format_language_label
 
 
 class DictionaryPageMixin:
-    """Builds the Dictionary tab and its helpers. Expects SettingsDialog host."""
+    """Builds the Spellcheck tab and its helpers. Expects SettingsDialog host."""
 
     def build_dictionary_page(self):
         dict_tab = QWidget()
@@ -58,6 +60,26 @@ class DictionaryPageMixin:
         spell_form.addRow(spell_langs_hint)
         dict_layout.addWidget(spell_box)
 
+        detected_box = QGroupBox(_("Detected dictionaries"))
+        detected_layout = QVBoxLayout(detected_box)
+        detected_layout.setContentsMargins(12, 10, 12, 12)
+        detected_layout.setSpacing(8)
+        detected_hint = QLabel(
+            _("Spell dictionaries found on this system via Enchant. "
+              "Install hunspell/myspell packages to add more languages.")
+        )
+        detected_hint.setWordWrap(True)
+        detected_layout.addWidget(detected_hint)
+        self.detected_dictionaries_list = QListWidget()
+        self.detected_dictionaries_list.setMinimumHeight(100)
+        self.detected_dictionaries_list.setSelectionMode(
+            QListWidget.SelectionMode.NoSelection
+        )
+        self.detected_dictionaries_list.setFocusPolicy(Qt.FocusPolicy.NoFocus)
+        self.load_detected_dictionaries()
+        detected_layout.addWidget(self.detected_dictionaries_list)
+        dict_layout.addWidget(detected_box)
+
         dict_label = QLabel(_("User Dictionary:"))
         dict_layout.addWidget(dict_label)
 
@@ -95,6 +117,18 @@ class DictionaryPageMixin:
                 'user_dictionary', self.get_user_dictionary()
             )
         )
+
+    def load_detected_dictionaries(self):
+        """List Enchant dictionaries installed on this system."""
+        self.detected_dictionaries_list.clear()
+        languages = list_available_spell_languages()
+        if not languages:
+            self.detected_dictionaries_list.addItem(_("No dictionaries detected."))
+            return
+        for language in languages:
+            self.detected_dictionaries_list.addItem(
+                f"{format_language_label(language)} ({language})"
+            )
 
     def load_user_dict(self):
         """Load user dictionary words"""

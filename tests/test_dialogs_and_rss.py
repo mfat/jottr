@@ -166,6 +166,13 @@ class DialogAndRssTests(unittest.TestCase):
         dialog.plugins_directory_edit.setText(str(Path(self.temp_dir.name) / "plugins"))
         dialog.spell_check_enabled.setChecked(False)
 
+        nav_labels = [
+            dialog.settings_nav.item(index).text()
+            for index in range(dialog.settings_nav.count())
+        ]
+        self.assertIn("Spellcheck", nav_labels)
+        self.assertGreater(dialog.detected_dictionaries_list.count(), 0)
+
         data = dialog.get_data()
 
         self.assertEqual(data["homepage"], "https://home.example")

@@ -894,6 +894,22 @@ msgstr "ویرایش"
 msgid "Delete"
 msgstr "حذف"
 
+#: src/jottr/settings/dialog.py
+msgid "Spellcheck"
+msgstr "غلط‌یاب"
+
+#: src/jottr/settings/pages/dictionary.py
+msgid "Detected dictionaries"
+msgstr "واژه‌نامه‌های تشخیص‌داده‌شده"
+
+#: src/jottr/settings/pages/dictionary.py
+msgid "Spell dictionaries found on this system via Enchant. Install hunspell/myspell packages to add more languages."
+msgstr "واژه‌نامه‌های املایی یافت‌شده روی این سیستم از طریق Enchant. برای افزودن زبان‌های بیشتر بسته‌های hunspell/myspell را نصب کنید."
+
+#: src/jottr/settings/pages/dictionary.py
+msgid "No dictionaries detected."
+msgstr "هیچ واژه‌نامه‌ای تشخیص داده نشد."
+
 #: src/jottr/settings_dialog.py:191
 msgid "User Dictionary:"
 msgstr "واژه‌نامهٔ کاربر:"
@@ -905,10 +921,6 @@ msgstr "افزودن واژه"
 #: src/jottr/settings_dialog.py:201
 msgid "Delete Word"
 msgstr "حذف واژه"
-
-#: src/jottr/settings_dialog.py:210
-msgid "Dictionary"
-msgstr "واژه‌نامه"
 
 #: src/jottr/settings_dialog.py:276
 msgid "Use a unique custom theme name."

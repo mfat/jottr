@@ -894,6 +894,22 @@ msgstr "Edit"
 msgid "Delete"
 msgstr "Delete"
 
+#: src/jottr/settings/dialog.py
+msgid "Spellcheck"
+msgstr "Spellcheck"
+
+#: src/jottr/settings/pages/dictionary.py
+msgid "Detected dictionaries"
+msgstr "Detected dictionaries"
+
+#: src/jottr/settings/pages/dictionary.py
+msgid "Spell dictionaries found on this system via Enchant. Install hunspell/myspell packages to add more languages."
+msgstr "Spell dictionaries found on this system via Enchant. Install hunspell/myspell packages to add more languages."
+
+#: src/jottr/settings/pages/dictionary.py
+msgid "No dictionaries detected."
+msgstr "No dictionaries detected."
+
 #: src/jottr/settings_dialog.py:191
 msgid "User Dictionary:"
 msgstr "User Dictionary:"
@@ -905,10 +921,6 @@ msgstr "Add Word"
 #: src/jottr/settings_dialog.py:201
 msgid "Delete Word"
 msgstr "Delete Word"
-
-#: src/jottr/settings_dialog.py:210
-msgid "Dictionary"
-msgstr "Dictionary"
 
 #: src/jottr/settings_dialog.py:276
 msgid "Use a unique custom theme name."
