@@ -502,64 +502,50 @@ class DialogAndRssTests(unittest.TestCase):
         warning.assert_called_once()
 
     def test_rss_reader_loads_default_and_custom_feeds(self):
-        with tempfile.TemporaryDirectory() as cwd:
-            Path(cwd, "rss_feeds.json").write_text(
-                json.dumps({"Local": "https://local.example/rss"}),
-                encoding="utf-8",
-            )
-            old_cwd = Path.cwd()
-            os.chdir(cwd)
-            try:
-                reader = RSSReader()
-            finally:
-                os.chdir(old_cwd)
+        settings = SettingsManager()
+        feeds_path = Path(settings.config_dir) / "rss_feeds.json"
+        feeds_path.write_text(
+            json.dumps({"Local": "https://local.example/rss"}),
+            encoding="utf-8",
+        )
+        reader = RSSReader(settings)
 
+        self.assertEqual(Path(reader.feed_file), feeds_path)
         self.assertIn("BBC World", reader.feeds)
         self.assertEqual(reader.feeds["Local"], "https://local.example/rss")
         self.assertGreater(reader.feed_selector.count(), 0)
+        self.assertTrue(feeds_path.is_file())
 
     def test_rss_reader_refresh_populates_entries_and_content(self):
-        with tempfile.TemporaryDirectory() as cwd:
-            old_cwd = Path.cwd()
-            os.chdir(cwd)
-            try:
-                reader = RSSReader()
-                reader.feeds = {"Local": "https://local.example/rss"}
-                reader.update_feed_selector()
-                response = Mock(text="<rss></rss>")
-                response.raise_for_status.return_value = None
-                entry = SimpleNamespace(
-                    title="Headline",
-                    published="Today",
-                    description="Summary",
-                    link="https://example.test/story",
-                )
-                feed = SimpleNamespace(entries=[entry])
-                with patch("jottr.rss_reader.requests.get", return_value=response), \
-                        patch("jottr.rss_reader.feedparser.parse", return_value=feed):
-                    reader.refresh_current_feed()
-                    reader.entries_list.setCurrentRow(0)
-            finally:
-                os.chdir(old_cwd)
+        reader = RSSReader(SettingsManager())
+        reader.feeds = {"Local": "https://local.example/rss"}
+        reader.update_feed_selector()
+        response = Mock(text="<rss></rss>")
+        response.raise_for_status.return_value = None
+        entry = SimpleNamespace(
+            title="Headline",
+            published="Today",
+            description="Summary",
+            link="https://example.test/story",
+        )
+        feed = SimpleNamespace(entries=[entry])
+        with patch("jottr.rss_reader.requests.get", return_value=response), \
+                patch("jottr.rss_reader.feedparser.parse", return_value=feed):
+            reader.refresh_current_feed()
+            reader.entries_list.setCurrentRow(0)
 
         self.assertEqual(reader.entries_list.count(), 1)
         self.assertIn("Headline", reader.content_viewer.toHtml())
 
     def test_rss_reader_remove_feed_respects_confirmation(self):
-        with tempfile.TemporaryDirectory() as cwd:
-            old_cwd = Path.cwd()
-            os.chdir(cwd)
-            try:
-                reader = RSSReader()
-                reader.feeds = {"Local": "https://local.example/rss"}
-                reader.update_feed_selector()
-                with patch(
-                    "jottr.rss_reader.QMessageBox.question",
-                    return_value=QMessageBox.StandardButton.Yes,
-                ):
-                    reader.remove_feed()
-            finally:
-                os.chdir(old_cwd)
+        reader = RSSReader(SettingsManager())
+        reader.feeds = {"Local": "https://local.example/rss"}
+        reader.update_feed_selector()
+        with patch(
+            "jottr.rss_reader.QMessageBox.question",
+            return_value=QMessageBox.StandardButton.Yes,
+        ):
+            reader.remove_feed()
 
         self.assertEqual(reader.feeds, {})
 

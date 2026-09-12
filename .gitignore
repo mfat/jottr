@@ -13,7 +13,7 @@ __pycache__/
 .benchmarks/
 .cursor/
 
-# Runtime state written to CWD by RSSReader
+# Leftover CWD dumps from older RSSReader builds
 rss_feeds.json
 
 # Package build artifacts
@@ -27,11 +27,6 @@ packaging/debian/jottr_*/
 packaging/debian/debhelper-build-stamp
 packaging/debian/files
 packaging/debian/*.substvars
-packaging/rpm/BUILD/
-packaging/rpm/BUILDROOT/
-packaging/rpm/RPMS/
-packaging/rpm/SOURCES/
-packaging/rpm/SRPMS/
 
 .history/
 .codex

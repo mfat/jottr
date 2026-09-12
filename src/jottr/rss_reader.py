@@ -9,8 +9,9 @@ import requests
 from jottr.feed_manager_dialog import FeedManagerDialog
 from jottr.translation_manager import _
 
+
 class RSSReader(QWidget):
-    def __init__(self, parent=None):
+    def __init__(self, settings_manager=None, parent=None):
         super().__init__(parent)
         self.feeds = {
             "BBC World": "https://feeds.bbci.co.uk/news/world/rss.xml",
@@ -22,10 +23,13 @@ class RSSReader(QWidget):
             "AP World News": "https://apnews.com/hub/world-news/feed",
             "AP Middle East": "https://apnews.com/hub/middle-east/feed"
         }
-        self.feed_file = "rss_feeds.json"
+        if settings_manager is None:
+            from jottr.settings_manager import SettingsManager
+            settings_manager = SettingsManager()
+        self.feed_file = os.path.join(settings_manager.config_dir, "rss_feeds.json")
         self.setup_ui()
         self.load_feeds()
-        
+
     def setup_ui(self):
         layout = QVBoxLayout(self)
         

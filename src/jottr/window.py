@@ -1625,7 +1625,7 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
         if RSSTab is None:
             from jottr.rss_tab import RSSTab as _RSSTab
             RSSTab = _RSSTab
-        rss_tab = RSSTab()
+        rss_tab = RSSTab(self.settings_manager)
         self.tab_widget.addTab(rss_tab, _("RSS Reader"))
         self.tab_widget.setCurrentWidget(rss_tab)
 
@@ -2465,7 +2465,7 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
             if RSSTab is None:
                 from jottr.rss_tab import RSSTab as _RSSTab
                 RSSTab = _RSSTab
-            return RSSTab()
+            return RSSTab(self.settings_manager)
         label = QLabel(panel.get("content") or panel.get("description") or _("Plugin panel"))
         label.setWordWrap(True)
         label.setAlignment(Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignLeft)
