@@ -1,5 +1,50 @@
 # Changelog
 
+## [2.4.0](https://github.com/mfat/jottr/compare/v2.3.3...v2.4.0) (2026-09-12)
+
+
+### Features
+
+* add Comfy and Default toolbar styles ([abdfc50](https://github.com/mfat/jottr/commit/abdfc50619cdf2df5ad13c49aa3e5c4ec12bd2d0))
+* add Kate-style uppercase, lowercase, and capitalize ([cf75afb](https://github.com/mfat/jottr/commit/cf75afb9d7c7ee57a66e8e19e21cd2a93d2ee9e7))
+* default new installs to the Sepia editor theme ([3e1cfec](https://github.com/mfat/jottr/commit/3e1cfec8edc34a8e01b414c982b1629587ed88fe))
+* rename Settings Dictionary to Spellcheck and list detected dictionaries ([0797fed](https://github.com/mfat/jottr/commit/0797fedb076956bed2c913664cb15c5ae9a1bf5f))
+
+
+### Bug Fixes
+
+* apply Main UI Font across chrome, menus, and side panels ([45de2e4](https://github.com/mfat/jottr/commit/45de2e404ab6476edd772d8e2421f9702790b536))
+* default UI font to system and coerce Qt5 weights ([9b81367](https://github.com/mfat/jottr/commit/9b81367340b4e3c0d5e8b6e99cdc1d9bb52447e3))
+* disable Capitalization menus without a text selection ([9ab02b2](https://github.com/mfat/jottr/commit/9ab02b228ce6667e60f45495fa2db3bfbab3c59f))
+* disable cut/copy without selection and paste without clipboard ([f06a7a9](https://github.com/mfat/jottr/commit/f06a7a9f9a5b73ae5c646db04dd2932a66be2a2c))
+* gate Capitalization on selection and pad Breeze submenu arrows ([25ddd5f](https://github.com/mfat/jottr/commit/25ddd5f50fc876fb099d64c0b7240e9a20365a45))
+* keep Default toolbar chrome themed without Comfy padding. ([600d9af](https://github.com/mfat/jottr/commit/600d9af5462ca0c40b3dcf029e95303debda6315))
+* keep toolbar chrome stable when switching widget styles ([922fbe0](https://github.com/mfat/jottr/commit/922fbe02b84b4e2e0142a6e04384a20f3bf87133))
+* move Editor Font from Edit menu to View menu ([d6a224d](https://github.com/mfat/jottr/commit/d6a224d1859146d3b48acc086831d420ef8f1a8b))
+* use a thinner border on the snippet suggestion popup ([891c3e7](https://github.com/mfat/jottr/commit/891c3e731da6ed68cc6dd146ba46c47c5aee16d5))
+* use font-only QSS so settings group titles follow UI font ([4104841](https://github.com/mfat/jottr/commit/410484180a75a56bf8abac3e486c10feac7366a5))
+* wire plugins domain and finish instant-apply settings ([b9ca54b](https://github.com/mfat/jottr/commit/b9ca54b4101fcce754ab9f04e2cc6dd9334a99ea))
+
+
+### Code Refactoring
+
+* drop main toolbar QSS and use the widget style ([18344e1](https://github.com/mfat/jottr/commit/18344e1e10f359e24dfb5c8b73214456f2264043))
+* pin editor theme and snippets to the toolbar right ([4b358ea](https://github.com/mfat/jottr/commit/4b358eaf6589bf72f426507640d742bd16a4a4aa))
+* split settings dialog per tab with instant apply, cut apply cost ([3e89978](https://github.com/mfat/jottr/commit/3e89978fe4be85e090b9e6c62623df34850ed6e4))
+
+
+### CI
+
+* add workflow_dispatch macOS DMG builds ([a5e8ae1](https://github.com/mfat/jottr/commit/a5e8ae101b5570710306549ea65edea8b69f7cdd))
+* build Apple Silicon and Intel macOS DMGs with ad-hoc signing ([1d5cf15](https://github.com/mfat/jottr/commit/1d5cf15b5bed0c63e57cea188867d6c8f578d97d))
+* open Flathub PRs on tagged releases like sshpilot ([7a4b3fc](https://github.com/mfat/jottr/commit/7a4b3fc469d0f03afdc8743f73c829b5a2110cd3))
+
+
+### Miscellaneous
+
+* bump Flatpak runtime to KDE/PyQt 6.11 ([d098ea7](https://github.com/mfat/jottr/commit/d098ea7513a00f42510384ad2ccad1eb5a3da1bf))
+* mention KDE 6.11 in Flatpak AppStream notes ([e4cdd4b](https://github.com/mfat/jottr/commit/e4cdd4b295db8ec777e8125d16cc2b1187e496d0))
+
 ## [2.3.3](https://github.com/mfat/jottr/compare/v2.3.2...v2.3.3) (2026-09-12)
 
 
