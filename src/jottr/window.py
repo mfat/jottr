@@ -822,8 +822,6 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
         self.toolbar.addAction(self.focus_mode_action)
         self.toolbar.addSeparator()
         self.toolbar.addAction(self.editor_font_action)
-        self.toolbar.addAction(self.editor_theme_action)
-        self.toolbar.addAction(self.snippets_action)
         self.toolbar.addAction(self.markdown_action)
 
         for toolbar_action in self.plugin_manager.registry.toolbar_actions:
@@ -849,6 +847,8 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
         spacer = QWidget()
         spacer.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
         self.toolbar.addWidget(spacer)
+        self.toolbar.addAction(self.editor_theme_action)
+        self.toolbar.addAction(self.snippets_action)
 
         def update_overflow_button():
             overflow_button = self.toolbar.findChild(QToolButton, "qt_toolbar_ext_button")
