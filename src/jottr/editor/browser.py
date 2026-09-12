@@ -3,8 +3,6 @@ from urllib.parse import quote
 
 from PyQt6.QtCore import QUrl, Qt, QSize
 from PyQt6.QtGui import QAction, QShortcut, QKeySequence, QIcon, QFont
-from PyQt6.QtWebEngineWidgets import QWebEngineView
-from PyQt6.QtWebEngineCore import QWebEnginePage, QWebEngineSettings
 from PyQt6.QtWidgets import QToolBar, QLineEdit, QLabel, QWidget, QHBoxLayout, QPushButton
 
 from jottr.translation_manager import _
@@ -168,6 +166,8 @@ class BrowserPaneMixin:
 
     def create_web_view(self):
         """Create and set up web view"""
+        from PyQt6.QtWebEngineWidgets import QWebEngineView
+
         self.web_view = QWebEngineView()
         
         # Connect all web view signals
@@ -267,6 +267,8 @@ class BrowserPaneMixin:
         """Setup standard shortcuts for the web browser"""
         if not self.web_view:
             return
+
+        from PyQt6.QtWebEngineCore import QWebEnginePage
             
         # Copy
         copy_action = QAction(self.web_view)
@@ -333,6 +335,7 @@ class BrowserPaneMixin:
     def update_nav_buttons(self):
         """Update navigation button states"""
         if self.web_view:
+            from PyQt6.QtWebEngineCore import QWebEnginePage
             self.back_btn.setEnabled(self.web_view.page().action(QWebEnginePage.WebAction.Back).isEnabled())
             self.forward_btn.setEnabled(self.web_view.page().action(QWebEnginePage.WebAction.Forward).isEnabled())
 

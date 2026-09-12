@@ -13,7 +13,6 @@ from PyQt6.QtCore import (
     Qt, QUrl, QTimer, QEvent, QPropertyAnimation,
     QEasingCurve, QParallelAnimationGroup, QSize, pyqtSignal,
 )
-from PyQt6.QtWebEngineWidgets import QWebEngineView
 from PyQt6.QtGui import (
     QAction, QActionGroup, QIcon, QDesktopServices,
     QKeySequence, QFont, QPalette, QPainter, QColor,
@@ -21,11 +20,9 @@ from PyQt6.QtGui import (
 
 from jottr.editor_tab import EditorTab
 from jottr.snippet_manager import SnippetManager
-from jottr.rss_tab import RSSTab
 from jottr.theme_manager import ThemeManager
 from jottr.qt_style import apply_qt_color_scheme, apply_qt_style, refresh_styled_widgets, resolve_qt_style_key
 from jottr.settings_manager import SettingsManager
-from jottr.settings_dialog import SettingsDialog
 from jottr.translation_manager import _, format_language_label, is_rtl_language, set_language
 from jottr.font_dialog import FontSelectionDialog
 from jottr.plugin_manager import PluginManager
@@ -56,6 +53,9 @@ from jottr.paths import find_data_file
 from jottr import __version__
 from jottr.ui.workspace_controller import WorkspaceControllerMixin
 from jottr.ui.document_tab_bar import DocumentTabWidget
+
+# Lazy-loaded symbols (kept patchable for tests).
+RSSTab = None
 
 APP_NAME = "Jottr"
 APP_VERSION = __version__
@@ -358,8 +358,6 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
         self.setGeometry(100, 100, 1200, 800)
         
         # Initialize managers first
-        self.settings_manager = SettingsManager()
-        self.snippet_manager = SnippetManager(self.settings_manager)
         self.plugin_manager = PluginManager(self.settings_manager)
         self.plugin_manager.refresh()
         self.plugin_manager.activate_enabled_plugins()
@@ -461,10 +459,14 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
         """
         from jottr.window_color_scheme import (
             activate_window_color_scheme,
+            clear_effective_chrome_theme_cache,
             effective_chrome_theme,
             find_window_color_scheme,
             scheme_is_dark,
         )
+
+        # Palette / System theme may have changed; keep icon chrome colors fresh.
+        clear_effective_chrome_theme_cache()
 
         scheme_setting = self.settings_manager.get_ui_theme()
         window_scheme_id = self.settings_manager.get_window_color_scheme()
@@ -640,6 +642,8 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
                     child.setFont(app_font)
 
         if app is not None:
+            from jottr.settings_dialog import SettingsDialog
+
             for widget in app.allWidgets():
                 if isinstance(widget, QMenu):
                     widget.setFont(app_font)
@@ -1421,7 +1425,6 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
         self.color_scheme_menu = color_scheme_menu
         self.color_scheme_grid = None
         color_scheme_menu.aboutToShow.connect(self.refresh_window_color_scheme_menu)
-        self.refresh_window_color_scheme_menu()
 
         editor_theme_menu = view_menu.addMenu(_("Editor Theme"))
         editor_theme_menu.setAccessibleName(
@@ -1433,7 +1436,6 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
         self.editor_theme_menu = editor_theme_menu
         self.editor_theme_grid = None
         editor_theme_menu.aboutToShow.connect(self.refresh_editor_theme_menu)
-        self.refresh_editor_theme_menu()
 
         # Tools menu
         tools_menu = add_menu("&Tools")
@@ -1558,6 +1560,10 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
         return editor_tab
         
     def new_rss_tab(self):
+        global RSSTab
+        if RSSTab is None:
+            from jottr.rss_tab import RSSTab as _RSSTab
+            RSSTab = _RSSTab
         rss_tab = RSSTab()
         self.tab_widget.addTab(rss_tab, _("RSS Reader"))
         self.tab_widget.setCurrentWidget(rss_tab)
@@ -1623,6 +1629,7 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
         """Mark the active Editor Theme swatch without rebuilding the grid."""
         grid = getattr(self, "editor_theme_grid", None)
         if grid is None:
+            self.refresh_editor_theme_menu()
             return
         current = self.settings_manager.get_theme()
         if current not in grid._cards:
@@ -2307,6 +2314,8 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
 
     def show_settings(self):
         """Open settings as a workspace tab."""
+        from jottr.settings_dialog import SettingsDialog
+
         for index in range(self.tab_widget.count()):
             tab = self.tab_widget.widget(index)
             if getattr(tab, "is_settings_tab", False):
@@ -2384,11 +2393,17 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
     def create_manifest_plugin_panel(self, panel):
         panel_type = panel.get("type", "text")
         if panel_type in {"browser", "web"}:
+            from PyQt6.QtWebEngineWidgets import QWebEngineView
+
             view = QWebEngineView()
             url = panel.get("url") or panel.get("homepage") or "about:blank"
             view.load(QUrl(url))
             return view
         if panel_type == "rss":
+            global RSSTab
+            if RSSTab is None:
+                from jottr.rss_tab import RSSTab as _RSSTab
+                RSSTab = _RSSTab
             return RSSTab()
         label = QLabel(panel.get("content") or panel.get("description") or _("Plugin panel"))
         label.setWordWrap(True)

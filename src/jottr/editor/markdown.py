@@ -26,6 +26,63 @@ class MarkdownPreviewPage(QWebEnginePage):
 
 
 class MarkdownPreviewMixin:
+    def ensure_markdown_preview(self):
+        """Create the Chromium markdown preview on first use."""
+        if getattr(self, "_markdown_preview_ready", False):
+            return self.markdown_preview
+
+        import jottr.editor.tab as tab_mod
+        from PyQt6.QtWebEngineCore import QWebEngineSettings
+
+        # Prefer symbols on editor.tab so tests can patch without importing WebEngine.
+        ViewCls = tab_mod.QWebEngineView
+        if ViewCls is None:
+            from PyQt6.QtWebEngineWidgets import QWebEngineView as ViewCls
+            tab_mod.QWebEngineView = ViewCls
+        PageCls = tab_mod.MarkdownPreviewPage
+        if PageCls is None:
+            tab_mod.MarkdownPreviewPage = MarkdownPreviewPage
+            PageCls = MarkdownPreviewPage
+
+        placeholder = getattr(self, "markdown_preview", None)
+        was_visible = bool(placeholder is not None and placeholder.isVisible())
+        sizes = None
+        if hasattr(self, "markdown_splitter"):
+            sizes = self.markdown_splitter.sizes()
+
+        view = ViewCls()
+        view.setObjectName("markdownPreview")
+        if hasattr(view, "setPage"):
+            view.setPage(PageCls(view))
+        if hasattr(view, "settings"):
+            preview_settings = view.settings()
+            preview_settings.setAttribute(QWebEngineSettings.WebAttribute.JavascriptEnabled, True)
+            preview_settings.setAttribute(
+                QWebEngineSettings.WebAttribute.LocalContentCanAccessRemoteUrls, True
+            )
+            preview_settings.setAttribute(
+                QWebEngineSettings.WebAttribute.LocalContentCanAccessFileUrls, True
+            )
+        view.installEventFilter(self)
+        if hasattr(view, "loadFinished"):
+            view.loadFinished.connect(self.render_markdown_preview_scripts)
+
+        if hasattr(self, "markdown_splitter") and placeholder is not None:
+            index = self.markdown_splitter.indexOf(placeholder)
+            if index < 0:
+                index = self.markdown_splitter.count()
+            self.markdown_splitter.insertWidget(index, view)
+            placeholder.setParent(None)
+            placeholder.deleteLater()
+            if sizes:
+                self.markdown_splitter.setSizes(sizes)
+        self.markdown_preview = view
+        self._markdown_preview_ready = True
+        view.setVisible(was_visible)
+        if hasattr(self, "apply_language_direction"):
+            self.apply_language_direction()
+        return view
+
     def is_markdown_file(self, file_path=None):
         """Return True when a path should be treated as markdown."""
         path = file_path or self.current_file or ""
@@ -33,6 +90,13 @@ class MarkdownPreviewMixin:
 
     def set_markdown_preview_visible(self, visible, save_state=True):
         """Show or hide the rendered markdown preview."""
+        if visible:
+            self.ensure_markdown_preview()
+        elif not getattr(self, "_markdown_preview_ready", False):
+            self.markdown_preview_visible = False
+            if save_state:
+                self.save_pane_states()
+            return
         self.markdown_preview_visible = visible
         self.animate_widget_visibility(self.markdown_preview, visible, fade=False)
         self.markdown_preview.setMinimumWidth(240 if visible else 0)
@@ -54,7 +118,7 @@ class MarkdownPreviewMixin:
 
     def schedule_markdown_preview_update(self):
         """Render the preview after typing has settled briefly."""
-        if not hasattr(self, 'markdown_preview') or not self.markdown_preview_visible:
+        if not getattr(self, "_markdown_preview_ready", False) or not self.markdown_preview_visible:
             return
         self.markdown_typing_active_until = time.time() + 0.75
         self.pending_preview_source_line = self.editor.textCursor().blockNumber() + 1
@@ -63,8 +127,10 @@ class MarkdownPreviewMixin:
 
     def update_markdown_preview(self):
         """Render editor markdown into the preview pane."""
-        if not hasattr(self, 'markdown_preview') or not self.markdown_preview_visible:
+        if not self.markdown_preview_visible:
             return
+        if not getattr(self, "_markdown_preview_ready", False):
+            self.ensure_markdown_preview()
 
         if self.current_file:
             content_base_url = QUrl.fromLocalFile(os.path.dirname(self.current_file) + os.sep).toString()
@@ -106,7 +172,7 @@ class MarkdownPreviewMixin:
 
     def render_markdown_preview_scripts(self, *args):
         """Run preview scripts that need the WebEngine page to finish loading."""
-        if not hasattr(self, 'markdown_preview') or not self.markdown_preview_visible:
+        if not getattr(self, "_markdown_preview_ready", False) or not self.markdown_preview_visible:
             return
 
         script = """
@@ -188,7 +254,7 @@ class MarkdownPreviewMixin:
         self.preview_scroll_pending = False
         if (not self.settings_manager.get_setting('markdown_scroll_sync', True) or
                 not self.markdown_preview_visible or
-                not hasattr(self, 'markdown_preview')):
+                not getattr(self, "_markdown_preview_ready", False)):
             return
 
         source_line = self.pending_preview_source_line or self.get_editor_top_visible_line()
@@ -290,7 +356,7 @@ class MarkdownPreviewMixin:
         self.editor_scroll_pending = False
         if (not self.settings_manager.get_setting('markdown_scroll_sync', True) or
                 not self.markdown_preview_visible or
-                not hasattr(self, 'markdown_preview')):
+                not getattr(self, "_markdown_preview_ready", False)):
             return
 
         script = """

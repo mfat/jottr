@@ -16,6 +16,23 @@ from PyQt6.QtWidgets import QApplication
 
 DEFAULT_WINDOW_COLOR_SCHEME = ""  # Kate "Default" — follow system / automatic
 
+# Process-lifetime cache: scheme files rarely change while the app is open, and
+# find/effective_chrome_theme used to re-scan every .colors file per icon tint.
+_schemes_cache: tuple[WindowColorSchemeInfo, ...] | None = None
+_effective_chrome_cache: dict[tuple[str, str], dict] = {}
+
+
+def clear_window_color_scheme_caches():
+    """Drop cached scheme lists / chrome themes (tests or on-disk changes)."""
+    global _schemes_cache
+    _schemes_cache = None
+    _effective_chrome_cache.clear()
+
+
+def clear_effective_chrome_theme_cache():
+    """Drop chrome QSS theme cache after palette / UI theme changes."""
+    _effective_chrome_cache.clear()
+
 
 @dataclass(frozen=True)
 class WindowColorSchemeInfo:
@@ -73,6 +90,10 @@ def _group_color(sections, group, key, fallback):
 
 def discover_window_color_schemes():
     """Return Default + all ``*.colors`` schemes (user overrides system)."""
+    global _schemes_cache
+    if _schemes_cache is not None:
+        return list(_schemes_cache)
+
     found: dict[str, WindowColorSchemeInfo] = {}
     roots = QStandardPaths.locateAll(
         QStandardPaths.StandardLocation.GenericDataLocation,
@@ -98,7 +119,7 @@ def discover_window_color_schemes():
                 path=str(path),
             )
     schemes = sorted(found.values(), key=lambda item: item.name.casefold())
-    return [
+    result = [
         WindowColorSchemeInfo(
             scheme_id=DEFAULT_WINDOW_COLOR_SCHEME,
             name="Default",
@@ -106,6 +127,8 @@ def discover_window_color_schemes():
         ),
         *schemes,
     ]
+    _schemes_cache = tuple(result)
+    return result
 
 
 def find_window_color_scheme(scheme_id):
@@ -368,10 +391,20 @@ def effective_chrome_theme(scheme_id, ui_theme_name, application=None):
     """Theme dict for jottr chrome QSS under the active Window Color Scheme."""
     from jottr.theme_manager import ThemeManager
 
+    normalized = ThemeManager.normalize_ui_theme(ui_theme_name)
+    cache_key = ((scheme_id or DEFAULT_WINDOW_COLOR_SCHEME).strip(), normalized)
+    cached = _effective_chrome_cache.get(cache_key)
+    if cached is not None:
+        return cached
+
     scheme = find_window_color_scheme(scheme_id)
     if scheme.path:
-        return chrome_theme_from_scheme(scheme.path)
-    auto = automatic_scheme_for_system()
-    if auto.path and ThemeManager.normalize_ui_theme(ui_theme_name) == "System":
-        return chrome_theme_from_scheme(auto.path)
-    return ThemeManager.get_ui_theme(ui_theme_name, application)
+        theme = chrome_theme_from_scheme(scheme.path)
+    else:
+        auto = automatic_scheme_for_system()
+        if auto.path and normalized == "System":
+            theme = chrome_theme_from_scheme(auto.path)
+        else:
+            theme = ThemeManager.get_ui_theme(ui_theme_name, application)
+    _effective_chrome_cache[cache_key] = theme
+    return theme

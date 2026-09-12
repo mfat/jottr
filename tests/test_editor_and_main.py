@@ -131,6 +131,7 @@ class EditorAndMainTests(unittest.TestCase):
         self.addCleanup(web_view_patch.stop)
         self.addCleanup(preview_page_patch.stop)
         editor = EditorTab(self.snippets, self.settings)
+        editor.ensure_markdown_preview()
         self.addCleanup(editor.deleteLater)
         self.addCleanup(editor.backup_timer.stop)
         self.addCleanup(editor.preview_scroll_timer.stop)

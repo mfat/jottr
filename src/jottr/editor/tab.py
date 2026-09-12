@@ -21,8 +21,6 @@ from PyQt6.QtGui import (
     QPainter, QPen, QColor, QFontMetrics, QTextDocument, QTextCursor, QTextOption,
     QPageLayout, QPageSize,
 )
-from PyQt6.QtWebEngineWidgets import QWebEngineView
-from PyQt6.QtWebEngineCore import QWebEnginePage, QWebEngineSettings
 
 from jottr.snippet_editor_dialog import SnippetEditorDialog
 from jottr.theme_manager import ThemeManager
@@ -39,10 +37,14 @@ from jottr.editor.case_transform import (
     apply_uppercase,
 )
 from jottr.editor.text_edit import CompletingTextEdit
-from jottr.editor.markdown import MarkdownPreviewMixin, MarkdownPreviewPage
+from jottr.editor.markdown import MarkdownPreviewMixin
 from jottr.editor.browser import BrowserPaneMixin
 from jottr.editor.focus_mode import FocusModeMixin
 from jottr.editor.find_replace import FindReplaceMixin
+
+# Lazily bound / test-patched WebEngine symbols used by markdown preview.
+QWebEngineView = None
+MarkdownPreviewPage = None
 
 
 class EditorTab(
@@ -164,16 +166,13 @@ class EditorTab(
         self.markdown_splitter.setObjectName("markdownSplitter")
         self.markdown_splitter.addWidget(self.editor)
 
-        self.markdown_preview = QWebEngineView()
+        # Placeholder until markdown preview is first shown — avoids starting
+        # Chromium on every blank editor tab at startup.
+        self.markdown_preview = QWidget()
         self.markdown_preview.setObjectName("markdownPreview")
-        self.markdown_preview.setPage(MarkdownPreviewPage(self.markdown_preview))
-        preview_settings = self.markdown_preview.settings()
-        preview_settings.setAttribute(QWebEngineSettings.WebAttribute.JavascriptEnabled, True)
-        preview_settings.setAttribute(QWebEngineSettings.WebAttribute.LocalContentCanAccessRemoteUrls, True)
-        preview_settings.setAttribute(QWebEngineSettings.WebAttribute.LocalContentCanAccessFileUrls, True)
+        self._markdown_preview_ready = False
         self.markdown_preview.setVisible(False)
         self.markdown_preview.installEventFilter(self)
-        self.markdown_preview.loadFinished.connect(self.render_markdown_preview_scripts)
         self.markdown_splitter.addWidget(self.markdown_preview)
         self.markdown_splitter.setSizes([600, 600])
         self.markdown_splitter.splitterMoved.connect(self.save_pane_states)
