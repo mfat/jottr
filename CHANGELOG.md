@@ -1,5 +1,23 @@
 # Changelog
 
+## [2.3.0](https://github.com/mfat/jottr/compare/v2.2.1...v2.3.0) (2026-09-12)
+
+
+### Features
+
+* use bundled symbolic icons in dialogs and tab close ([f994704](https://github.com/mfat/jottr/commit/f994704009a6eacabd14fc1652c1fd08c3ff0d90))
+
+
+### Code Refactoring
+
+* extract workspace session logic from the main window ([35e09e9](https://github.com/mfat/jottr/commit/35e09e906bddbdee33b03971024bfe85d0d3fd68))
+* split editor_tab and main into focused packages ([ac280bb](https://github.com/mfat/jottr/commit/ac280bbed58a4cab1006558074d077c8008f369b))
+
+
+### Miscellaneous
+
+* stop tracking local codebase-memory index ([e4ec6ff](https://github.com/mfat/jottr/commit/e4ec6ff1d86e8c71bfa7c5265da4ea0da3cdbb85))
+
 ## [2.2.1](https://github.com/mfat/jottr/compare/v2.2.0...v2.2.1) (2026-05-31)
 
 
