@@ -54,19 +54,22 @@ Release Please creates the tag with `GITHUB_TOKEN`, which does not start other `
 
 Release Please only opens a release PR when it finds releasable commits since the last tag (`feat` / `fix`, or other types listed in `changelog-sections`). With no such commits it logs `No commits for path: ., skipping` and does nothing.
 
-To force a release anyway:
-
-1. Open **Actions → Release Please → Run workflow**.
-2. Set **release_as** to the version you want (for example `2.5.2`).
-3. Run the workflow. It pushes an empty `Release-As` commit on `main`, then opens or updates the release PR at that version.
-4. Merge the release PR as usual to cut the tag and build packages.
-
-From a local checkout you can do the same without the UI:
+Release Please also only bumps the metainfo **version** attribute; it does not write Flathub-facing release notes. Prefer the local helper, which collects notes, prepends an AppStream `<release>` block, then pushes a `Release-As` commit so Release Please opens the PR:
 
 ```bash
-git commit --allow-empty -m "chore: release 2.5.2" -m "Release-As: 2.5.2"
-git push origin main
+./scripts/release.sh
 ```
+
+The script asks for the next semver, opens an editor for short user-facing notes (one change per line), updates `io.github.mfat.jottr.metainfo.xml`, commits with a `Release-As:` footer, pushes to `main`, and watches the Release Please workflow. Merge the release PR as usual to cut the tag and build packages.
+
+Alternatives without curated metainfo notes:
+
+1. **Actions → Release Please → Run workflow**, set **release_as** (for example `2.5.3`), then edit metainfo on the open release PR before merging.
+2. Empty commit only:
+   ```bash
+   git commit --allow-empty -m "chore: release 2.5.3" -m "Release-As: 2.5.3"
+   git push origin main
+   ```
 
 ## Release packages
 
