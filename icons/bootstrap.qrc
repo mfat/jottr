@@ -25,6 +25,8 @@
         <file alias="menu.svg">bootstrap/menu.svg</file>
         <file alias="new.svg">bootstrap/new.svg</file>
         <file alias="open.svg">bootstrap/open.svg</file>
+        <file alias="brush.svg">bootstrap/brush.svg</file>
+        <file alias="palette.svg">bootstrap/palette.svg</file>
         <file alias="preferences-desktop-display-randr.svg">bootstrap/preferences-desktop-display-randr.svg</file>
         <file alias="preferences-desktop-font.svg">bootstrap/preferences-desktop-font.svg</file>
         <file alias="preferences-desktop-theme-applications.svg">bootstrap/preferences-desktop-theme-applications.svg</file>
@@ -36,7 +38,7 @@
         <file alias="snippets.svg">bootstrap/snippets.svg</file>
         <file alias="star-large-symbolic.svg">bootstrap/star-large-symbolic.svg</file>
         <file alias="tab-close.svg">bootstrap/tab-close.svg</file>
-        <file alias="theme.svg">bootstrap/theme.svg</file>
+        <file alias="theme.svg">bootstrap/brush.svg</file>
         <file alias="undo.svg">bootstrap/undo.svg</file>
         <file alias="user-trash.svg">bootstrap/user-trash.svg</file>
         <file alias="view-fullscreen-symbolic.svg">bootstrap/view-fullscreen-symbolic.svg</file>

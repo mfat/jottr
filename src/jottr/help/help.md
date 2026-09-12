@@ -64,7 +64,7 @@ Theme standard (editor themes may still include an `app` block for compatibility
 ```
 
 To change the editor theme:
-1. Open View → Editor Theme (palette grid) or Settings → Appearance
+1. Click the Theme button in the toolbar, open View → Editor Theme (palette grid), or use Settings → Appearance
 2. Select your preferred theme
 3. Changes are applied immediately
 

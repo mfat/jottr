@@ -1207,11 +1207,11 @@ class EditorAndMainTests(unittest.TestCase):
                 if not action.isSeparator() and action.text()
             }
             self.assertEqual(toolbar_tooltips["Editor Font"], "Choose Editor Font")
+            self.assertEqual(toolbar_tooltips["Editor Theme"], "Choose Editor Theme")
             self.assertEqual(toolbar_tooltips["Zoom In"], "Zoom In (Ctrl+=)")
             self.assertEqual(toolbar_tooltips["Zoom Out"], "Zoom Out (Ctrl+-)")
             self.assertEqual(toolbar_tooltips["Reset Zoom"], "Reset Zoom (Ctrl+0)")
             self.assertNotIn("Preview Font", toolbar_tooltips)
-            self.assertNotIn("Theme", toolbar_tooltips)
             self.assertNotIn("Menu", toolbar_tooltips)
             self.assertTrue(all(toolbar_tooltips.values()))
             toolbar_actions = {
@@ -1219,6 +1219,10 @@ class EditorAndMainTests(unittest.TestCase):
                 for action in window.toolbar.actions()
                 if not action.isSeparator() and action.text()
             }
+            self.assertFalse(toolbar_actions["Editor Theme"].icon().isNull())
+            self.assertIn("theme", window.icons)
+            self.assertTrue(window.icons["theme"].startswith(":/icons/bootstrap/"))
+            self.assertIs(toolbar_actions["Editor Theme"], window.editor_theme_action)
             self.assertFalse(toolbar_actions["Zoom In"].icon().isNull())
             self.assertFalse(toolbar_actions["Zoom Out"].icon().isNull())
             self.assertFalse(toolbar_actions["Reset Zoom"].icon().isNull())

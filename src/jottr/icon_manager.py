@@ -35,6 +35,7 @@ _ICON_ALIASES = (
     ("markdown", "eye-outline-filled-symbolic"),
     ("eye", "eye-outline-filled-symbolic"),
     ("font", "large-text-symbolic"),
+    ("theme", "preferences-desktop-theme-applications"),
 )
 
 

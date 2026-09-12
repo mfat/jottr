@@ -211,8 +211,15 @@ class ImportAndPackagingTests(unittest.TestCase):
 
         self.assertIn("save", icons)
         self.assertIn("tab-close", icons)
+        self.assertIn("theme", icons)
+        self.assertIn("brush-monitor-symbolic", icons)
         self.assertTrue(icons["save"].startswith(":/icons/symbolic/"))
         self.assertTrue(icons["tab-close"].startswith(":/icons/symbolic/"))
+        self.assertEqual(icons["theme"], ":/icons/symbolic/theme.svg")
+        self.assertEqual(
+            icons["brush-monitor-symbolic"],
+            ":/icons/symbolic/brush-monitor-symbolic.svg",
+        )
         self.assertNotEqual(icons["save"], icons["menu"])
 
         tinted = build_themed_icon(icons["save"], "#f8f8f2", size=16)
@@ -237,10 +244,17 @@ class ImportAndPackagingTests(unittest.TestCase):
         self.assertIn("save", bootstrap)
         self.assertIn("snippets", bootstrap)
         self.assertIn("markdown", bootstrap)
+        self.assertIn("theme", bootstrap)
+        self.assertIn("brush", bootstrap)
+        self.assertIn("palette", bootstrap)
         self.assertTrue(bootstrap["save"].startswith(":/icons/bootstrap/"))
         self.assertTrue(bootstrap["tab-close"].startswith(":/icons/bootstrap/"))
+        self.assertEqual(bootstrap["theme"], ":/icons/bootstrap/theme.svg")
+        self.assertEqual(bootstrap["brush"], ":/icons/bootstrap/brush.svg")
+        self.assertEqual(bootstrap["palette"], ":/icons/bootstrap/palette.svg")
         self.assertNotEqual(bootstrap["save"], icons["save"])
-        bootstrap_tinted = build_themed_icon(bootstrap["save"], "#f8f8f2", size=16)
+        self.assertNotEqual(bootstrap["theme"], icons["theme"])
+        bootstrap_tinted = build_themed_icon(bootstrap["theme"], "#f8f8f2", size=16)
         self.assertFalse(bootstrap_tinted.isNull())
         self.assertTrue((PROJECT_ROOT / "icons" / "bootstrap.qrc").is_file())
         self.assertTrue(

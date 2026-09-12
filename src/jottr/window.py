@@ -621,6 +621,12 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
             icon_name="font",
             tooltip="Choose Editor Font",
         )
+        self.editor_theme_action = self._make_action(
+            "Editor Theme",
+            self.show_editor_theme_popup,
+            icon_name="theme",
+            tooltip="Choose Editor Theme",
+        )
 
         self.snippets_action = self._make_action(
             "Toggle Snippets",
@@ -739,6 +745,7 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
         self.toolbar.addAction(self.focus_mode_action)
         self.toolbar.addSeparator()
         self.toolbar.addAction(self.editor_font_action)
+        self.toolbar.addAction(self.editor_theme_action)
         self.toolbar.addAction(self.snippets_action)
         self.toolbar.addAction(self.markdown_action)
 
@@ -1076,6 +1083,24 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
         help_menu = add_menu("&Help")
         help_menu.addAction(self.help_action)
         help_menu.addAction(self.about_action)
+
+    def show_editor_theme_popup(self, _checked=False):
+        """Open the Editor Theme palette under the toolbar button."""
+        if not hasattr(self, "editor_theme_menu") or self.editor_theme_menu is None:
+            return
+        self.refresh_editor_theme_menu()
+        button = None
+        if hasattr(self, "toolbar"):
+            for child in self.toolbar.findChildren(QToolButton):
+                if child.defaultAction() is self.editor_theme_action:
+                    button = child
+                    break
+        if button is not None:
+            self.editor_theme_menu.popup(button.mapToGlobal(button.rect().bottomLeft()))
+        else:
+            from PyQt6.QtGui import QCursor
+
+            self.editor_theme_menu.popup(QCursor.pos())
 
     def close_current_tab(self):
         """Close the active document tab from the menubar or shortcut."""
