@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.5.1](https://github.com/mfat/jottr/compare/v2.5.0...v2.5.1) (2026-09-12)
+
+
+### Bug Fixes
+
+* follow the host dark theme in the Flatpak build ([e5e35cd](https://github.com/mfat/jottr/commit/e5e35cd0d77ce9bbed6be728c87b1b39fa7a2c6d))
+
 ## [2.5.0](https://github.com/mfat/jottr/compare/v2.4.1...v2.5.0) (2026-09-12)
 
 
