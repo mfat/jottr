@@ -1730,22 +1730,27 @@ class EditorAndMainTests(unittest.TestCase):
             editor_theme_menu = view_items["Editor Theme"].menu()
             self.assertIsNotNone(color_scheme_menu)
             self.assertIsNotNone(editor_theme_menu)
-            scheme_labels = [
-                action.text() for action in color_scheme_menu.actions() if not action.isSeparator()
+            scheme_actions = [
+                action for action in color_scheme_menu.actions() if not action.isSeparator()
             ]
-            self.assertGreaterEqual(len(scheme_labels), 1)
-            self.assertEqual(scheme_labels[0], "Default")
-            self.assertTrue(
-                any(
-                    action.isChecked() and action.data() == ""
-                    for action in color_scheme_menu.actions()
-                )
-            )
+            self.assertEqual(len(scheme_actions), 1)
+            from PyQt6.QtWidgets import QWidgetAction
+
+            self.assertIsInstance(scheme_actions[0], QWidgetAction)
+            scheme_scroll = scheme_actions[0].defaultWidget()
+            from PyQt6.QtWidgets import QScrollArea
+
+            self.assertIsInstance(scheme_scroll, QScrollArea)
+            scheme_grid = scheme_scroll.widget()
+            self.assertIsInstance(scheme_grid, window_module.WindowColorSchemeGrid)
+            self.assertGreaterEqual(len(scheme_grid._cards), 1)
+            self.assertIn("", scheme_grid._cards)
+            self.assertTrue(scheme_grid._cards[""].is_selected())
+            self.assertEqual(scheme_grid._cards[""]._name_label.text(), "Default")
             theme_actions = [
                 action for action in editor_theme_menu.actions() if not action.isSeparator()
             ]
             self.assertEqual(len(theme_actions), 1)
-            from PyQt6.QtWidgets import QWidgetAction
 
             self.assertIsInstance(theme_actions[0], QWidgetAction)
             grid = theme_actions[0].defaultWidget()
@@ -1879,12 +1884,10 @@ class EditorAndMainTests(unittest.TestCase):
         window.set_ui_color_scheme("Dark")
         self.assertEqual(window.settings_manager.get_ui_theme(), "Dark")
         self.assertEqual(window.settings_manager.get_window_color_scheme(), "")
-        self.assertTrue(
-            any(
-                action.isChecked() and action.data() == ""
-                for action in window.color_scheme_actions.actions()
-            )
-        )
+        scheme_grid = window.color_scheme_grid
+        self.assertIsInstance(scheme_grid, window_module.WindowColorSchemeGrid)
+        self.assertIn("", scheme_grid._cards)
+        self.assertTrue(scheme_grid._cards[""].is_selected())
 
         named = next((s for s in discover_window_color_schemes() if s.path), None)
         if named is not None:
@@ -1892,12 +1895,8 @@ class EditorAndMainTests(unittest.TestCase):
             self.assertEqual(
                 window.settings_manager.get_window_color_scheme(), named.scheme_id
             )
-            self.assertTrue(
-                any(
-                    action.isChecked() and action.data() == named.scheme_id
-                    for action in window.color_scheme_actions.actions()
-                )
-            )
+            self.assertTrue(scheme_grid._cards[named.scheme_id].is_selected())
+            self.assertFalse(scheme_grid._cards[""].is_selected())
 
         window.set_editor_theme("Dracula")
         self.assertEqual(window.settings_manager.get_theme(), "Dracula")

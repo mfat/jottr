@@ -139,17 +139,34 @@ def scheme_is_dark(path):
     return background.isValid() and background.lightnessF() < 0.5
 
 
-def create_preview_icon(path, sizes=(16, 24)):
-    """4-quadrant preview icon (Window/Button/View/Selection), Kate-style."""
-    if not path:
-        return QIcon.fromTheme("edit-undo")
-    sections = _read_colors_file(path)
+def scheme_preview_colors(path):
+    """Return (window, button, view, selection) for Kate-style swatches."""
+    resolved = path
+    if not resolved:
+        auto = automatic_scheme_for_system()
+        resolved = auto.path if auto and auto.path else ""
+    if not resolved:
+        return (
+            QColor("#eff0f1"),
+            QColor("#fcfcfc"),
+            QColor("#fcfcfc"),
+            QColor("#3daee9"),
+        )
+    sections = _read_colors_file(resolved)
     window = _group_color(sections, "Colors:Window", "BackgroundNormal", "#eff0f1")
     button = _group_color(sections, "Colors:Button", "BackgroundNormal", "#fcfcfc")
     view = _group_color(sections, "Colors:View", "BackgroundNormal", "#fcfcfc")
     selection = _group_color(
         sections, "Colors:Selection", "BackgroundNormal", "#3daee9"
     )
+    return window, button, view, selection
+
+
+def create_preview_icon(path, sizes=(16, 24)):
+    """4-quadrant preview icon (Window/Button/View/Selection), Kate-style."""
+    if not path:
+        return QIcon.fromTheme("edit-undo")
+    window, button, view, selection = scheme_preview_colors(path)
     icon = QIcon()
     for size in sizes:
         pix = QPixmap(size, size)

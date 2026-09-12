@@ -7,7 +7,7 @@ from PyQt6.QtWidgets import (
     QMainWindow, QTabWidget, QWidget, QVBoxLayout, QHBoxLayout, QGridLayout,
     QSplitter, QToolBar, QMessageBox, QLabel, QDialog, QSizePolicy, QMenu,
     QDialogButtonBox, QToolButton, QTabBar, QWidgetAction, QFrame,
-    QGraphicsOpacityEffect, QApplication, QComboBox,
+    QGraphicsOpacityEffect, QApplication, QComboBox, QScrollArea,
 )
 from PyQt6.QtCore import (
     Qt, QUrl, QTimer, QEvent, QPropertyAnimation,
@@ -16,7 +16,7 @@ from PyQt6.QtCore import (
 from PyQt6.QtWebEngineWidgets import QWebEngineView
 from PyQt6.QtGui import (
     QAction, QActionGroup, QIcon, QDesktopServices,
-    QKeySequence, QFont, QPalette,
+    QKeySequence, QFont, QPalette, QPainter, QColor,
 )
 
 from jottr.editor_tab import EditorTab
@@ -189,6 +189,155 @@ class EditorThemeGrid(QWidget):
     def set_current(self, name):
         for theme_name, card in self._cards.items():
             card.set_selected(theme_name == name)
+
+
+class WindowColorSchemeSwatch(QWidget):
+    """Kate-style 4-quadrant Window/Button/View/Selection preview."""
+
+    def __init__(self, colors, parent=None):
+        super().__init__(parent)
+        self.setObjectName("windowColorSchemeSwatch")
+        self._colors = colors
+        self.setFixedSize(52, 52)
+
+    def paintEvent(self, event):
+        del event
+        painter = QPainter(self)
+        painter.fillRect(self.rect(), QColor("#000000"))
+        half_w = self.width() // 2 - 1
+        half_h = self.height() // 2 - 1
+        painter.fillRect(1, 1, half_w, half_h, self._colors[0])
+        painter.fillRect(1 + half_w, 1, half_w, half_h, self._colors[1])
+        painter.fillRect(1, 1 + half_h, half_w, half_h, self._colors[2])
+        painter.fillRect(1 + half_w, 1 + half_h, half_w, half_h, self._colors[3])
+        painter.end()
+
+
+class WindowColorSchemeCard(QFrame):
+    """Preview card for View → Window Color Scheme."""
+
+    SELECT_COLOR = "#2563eb"
+
+    def __init__(self, scheme_id, label, colors, selected=False, parent=None):
+        super().__init__(parent)
+        self.scheme_id = scheme_id
+        self._selected = False
+        self.setObjectName("windowColorSchemeCard")
+        self.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
+        self.setFixedSize(148, 100)
+
+        root = QVBoxLayout(self)
+        root.setContentsMargins(10, 8, 10, 10)
+        root.setSpacing(6)
+
+        header = QHBoxLayout()
+        header.setContentsMargins(0, 0, 0, 0)
+        header.setSpacing(4)
+        self._name_label = QLabel(label, self)
+        self._name_label.setObjectName("windowColorSchemeCardName")
+        name_font = QFont(self._name_label.font())
+        name_font.setBold(True)
+        name_font.setPointSize(max(9, name_font.pointSize()))
+        self._name_label.setFont(name_font)
+        header.addWidget(self._name_label, 1)
+
+        self._check = QLabel("✓", self)
+        self._check.setObjectName("windowColorSchemeCardCheck")
+        self._check.setFixedSize(18, 18)
+        self._check.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        header.addWidget(self._check, 0, Qt.AlignmentFlag.AlignTop)
+        root.addLayout(header)
+
+        self._swatch = WindowColorSchemeSwatch(colors, self)
+        root.addWidget(self._swatch, 0, Qt.AlignmentFlag.AlignHCenter)
+        root.addStretch(1)
+
+        self.set_selected(selected)
+
+    def is_selected(self):
+        return self._selected
+
+    def set_selected(self, selected):
+        self._selected = bool(selected)
+        border = self.SELECT_COLOR if self._selected else "#888888"
+        border_width = 3 if self._selected else 1
+        self.setStyleSheet(
+            f"""
+            QFrame#windowColorSchemeCard {{
+                background-color: palette(window);
+                border: {border_width}px solid {border};
+                border-radius: 8px;
+            }}
+            QLabel#windowColorSchemeCardName {{
+                color: palette(window-text);
+                background: transparent;
+            }}
+            QLabel#windowColorSchemeCardCheck {{
+                color: #ffffff;
+                background-color: {self.SELECT_COLOR};
+                border-radius: 9px;
+                font-weight: bold;
+                font-size: 11px;
+            }}
+            """
+        )
+        self._check.setVisible(self._selected)
+
+    def mouseReleaseEvent(self, event):
+        if event.button() == Qt.MouseButton.LeftButton:
+            parent = self.parentWidget()
+            while parent is not None and not isinstance(parent, WindowColorSchemeGrid):
+                parent = parent.parentWidget()
+            if isinstance(parent, WindowColorSchemeGrid):
+                parent.scheme_chosen.emit(self.scheme_id)
+            event.accept()
+            return
+        super().mouseReleaseEvent(event)
+
+
+class WindowColorSchemeGrid(QWidget):
+    """Palette grid of Window Color Scheme preview cards."""
+
+    COLUMNS = 3
+    scheme_chosen = pyqtSignal(str)
+
+    def __init__(self, schemes, current, parent=None):
+        super().__init__(parent)
+        self.setObjectName("windowColorSchemeGrid")
+        self._cards = {}
+
+        layout = QGridLayout(self)
+        layout.setContentsMargins(10, 10, 10, 10)
+        layout.setHorizontalSpacing(10)
+        layout.setVerticalSpacing(10)
+
+        from jottr.window_color_scheme import (
+            DEFAULT_WINDOW_COLOR_SCHEME,
+            scheme_preview_colors,
+        )
+
+        for index, scheme in enumerate(schemes):
+            label = (
+                _("Default")
+                if scheme.scheme_id == DEFAULT_WINDOW_COLOR_SCHEME
+                else scheme.name
+            )
+            colors = scheme_preview_colors(scheme.path)
+            card = WindowColorSchemeCard(
+                scheme.scheme_id,
+                label,
+                colors,
+                selected=(scheme.scheme_id == current),
+                parent=self,
+            )
+            row, column = divmod(index, self.COLUMNS)
+            layout.addWidget(card, row, column, Qt.AlignmentFlag.AlignCenter)
+            self._cards[scheme.scheme_id] = card
+
+    def set_current(self, scheme_id):
+        for card_id, card in self._cards.items():
+            card.set_selected(card_id == scheme_id)
 
 
 class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
@@ -1252,13 +1401,9 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
         self.translatable_actions.append(color_scheme_menu.menuAction())
         self.translatable_menus.append((color_scheme_menu, "Window Color Scheme"))
         self.color_scheme_menu = color_scheme_menu
-        self.color_scheme_actions = QActionGroup(self)
-        self.color_scheme_actions.setExclusive(True)
-        self.color_scheme_actions.triggered.connect(
-            self._on_window_color_scheme_menu_triggered
-        )
-        color_scheme_menu.aboutToShow.connect(self.sync_window_color_scheme_menu)
-        self.sync_window_color_scheme_menu()
+        self.color_scheme_grid = None
+        color_scheme_menu.aboutToShow.connect(self.refresh_window_color_scheme_menu)
+        self.refresh_window_color_scheme_menu()
 
         editor_theme_menu = view_menu.addMenu(_("Editor Theme"))
         editor_theme_menu.setAccessibleName(
@@ -1472,46 +1617,51 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
         self.sync_window_color_scheme_menu()
 
     def sync_window_color_scheme_menu(self):
-        """Rebuild View → Window Color Scheme like KColorSchemeMenu."""
-        from jottr.window_color_scheme import (
-            DEFAULT_WINDOW_COLOR_SCHEME,
-            create_preview_icon,
-            discover_window_color_schemes,
-        )
-
-        menu = getattr(self, "color_scheme_menu", None)
-        group = getattr(self, "color_scheme_actions", None)
-        if menu is None or group is None:
+        """Mark the active Window Color Scheme card without rebuilding the grid."""
+        grid = getattr(self, "color_scheme_grid", None)
+        if grid is None:
+            self.refresh_window_color_scheme_menu()
             return
         current = self.settings_manager.get_window_color_scheme()
-        menu.clear()
-        for action in list(group.actions()):
-            group.removeAction(action)
-            action.deleteLater()
-        for scheme in discover_window_color_schemes():
-            label = (
-                _("Default")
-                if scheme.scheme_id == DEFAULT_WINDOW_COLOR_SCHEME
-                else scheme.name
-            )
-            action = QAction(label, self)
-            action.setCheckable(True)
-            action.setData(scheme.scheme_id)
-            action.setChecked(scheme.scheme_id == current)
-            if scheme.path:
-                action.setIcon(create_preview_icon(scheme.path))
-            else:
-                action.setIcon(QIcon.fromTheme("edit-undo"))
-            # Override AA_DontShowIconsInMenus so Kate-style previews show.
-            action.setIconVisibleInMenu(True)
-            group.addAction(action)
-            menu.addAction(action)
-
-    def _on_window_color_scheme_menu_triggered(self, action):
-        scheme_id = action.data()
-        if scheme_id is None:
+        if current not in grid._cards:
+            self.refresh_window_color_scheme_menu()
             return
+        grid.set_current(current)
+
+    def refresh_window_color_scheme_menu(self):
+        """Rebuild View → Window Color Scheme as a Kate-style preview grid."""
+        from jottr.window_color_scheme import discover_window_color_schemes
+
+        menu = getattr(self, "color_scheme_menu", None)
+        if menu is None:
+            return
+        menu.clear()
+        self.color_scheme_grid = None
+
+        schemes = discover_window_color_schemes()
+        current = self.settings_manager.get_window_color_scheme()
+        grid = WindowColorSchemeGrid(schemes, current)
+        grid.scheme_chosen.connect(self._on_window_color_scheme_grid_chosen)
+
+        scroll = QScrollArea()
+        scroll.setObjectName("windowColorSchemeScroll")
+        scroll.setWidgetResizable(True)
+        scroll.setFrameShape(QScrollArea.Shape.NoFrame)
+        scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        scroll.setWidget(grid)
+        # Keep tall scheme lists usable inside a popup menu.
+        scroll.setMinimumWidth(grid.sizeHint().width() + 24)
+        scroll.setMaximumHeight(420)
+
+        action = QWidgetAction(self)
+        action.setDefaultWidget(scroll)
+        menu.addAction(action)
+        self.color_scheme_grid = grid
+
+    def _on_window_color_scheme_grid_chosen(self, scheme_id):
         self.set_window_color_scheme(scheme_id)
+        if self.color_scheme_menu is not None:
+            self.color_scheme_menu.close()
 
     def setup_toolbar_style_actions(self):
         """Exclusive Comfy / Default actions shared by View and toolbar menus."""
