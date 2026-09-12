@@ -1672,8 +1672,8 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
             self.color_scheme_menu.close()
 
     def setup_toolbar_style_actions(self):
-        """Exclusive Comfy / Default actions shared by View and toolbar menus."""
-        from jottr.settings_manager import TOOLBAR_STYLE_COMFY, TOOLBAR_STYLE_DEFAULT
+        """Exclusive Comfy / Compact actions shared by View and toolbar menus."""
+        from jottr.settings_manager import TOOLBAR_STYLE_COMFY, TOOLBAR_STYLE_COMPACT
 
         if getattr(self, "toolbar_style_actions", None) is not None:
             return
@@ -1682,7 +1682,7 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
         current = self.settings_manager.get_toolbar_style()
         for style_id, label_key in (
             (TOOLBAR_STYLE_COMFY, "Comfy"),
-            (TOOLBAR_STYLE_DEFAULT, "Default"),
+            (TOOLBAR_STYLE_COMPACT, "Compact"),
         ):
             action = QAction(_(label_key), self)
             action.setCheckable(True)
@@ -1757,7 +1757,7 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
         self.sync_toolbar_style_menu()
 
     def show_toolbar_context_menu(self, pos):
-        """Right-click on the main toolbar: Comfy / Default density."""
+        """Right-click on the main toolbar: Comfy / Compact density."""
         self.setup_toolbar_style_actions()
         self.sync_toolbar_style_menu()
         menu = QMenu(self)

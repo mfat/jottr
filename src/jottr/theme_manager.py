@@ -635,9 +635,9 @@ class ThemeManager:
         # cascading color/background onto QMenuBar breaks some widget styles
         # (e.g. Breeze) so menu titles go missing in dark mode. Style the
         # in-window menubar (#appMenuBar) explicitly. Toolbar always gets the
-        # chrome surface color (otherwise Default falls back to Window/scheme
+        # chrome surface color (otherwise Compact falls back to Window/scheme
         # grey under Breeze/Oxygen). Comfy adds padded QSS button metrics;
-        # Default leaves QToolButton painting to the widget style.
+        # Compact leaves QToolButton painting to the widget style.
         # Do not put font rules on QMenu — Qt stylesheets claim the font
         # property without reliably applying it, which also blocks setFont.
         if toolbar_style == TOOLBAR_STYLE_COMFY:

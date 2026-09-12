@@ -18,8 +18,10 @@ DEFAULT_PLUGIN_CHANNELS = [
     }
 ]
 TOOLBAR_STYLE_COMFY = "comfy"
-TOOLBAR_STYLE_DEFAULT = "default"
-TOOLBAR_STYLES = (TOOLBAR_STYLE_COMFY, TOOLBAR_STYLE_DEFAULT)
+TOOLBAR_STYLE_COMPACT = "compact"
+TOOLBAR_STYLES = (TOOLBAR_STYLE_COMFY, TOOLBAR_STYLE_COMPACT)
+# Legacy saved value / import alias for Compact.
+TOOLBAR_STYLE_DEFAULT = TOOLBAR_STYLE_COMPACT
 # Former baked-in UI default (Qt5 Normal weight=50). Migrate to the system UI font.
 _LEGACY_DEFAULT_UI_FONT = ("DejaVu Sans", 10, 50, False)
 
@@ -344,10 +346,10 @@ class SettingsManager:
 
     @staticmethod
     def normalize_toolbar_style(style_name):
-        """Map a saved value to comfy (padded QSS) or default (chrome color, native buttons)."""
+        """Map a saved value to comfy (padded QSS) or compact (chrome color, native buttons)."""
         name = (style_name or TOOLBAR_STYLE_COMFY).strip().casefold()
-        if name in {TOOLBAR_STYLE_DEFAULT, "system", "native"}:
-            return TOOLBAR_STYLE_DEFAULT
+        if name in {TOOLBAR_STYLE_COMPACT, "default", "system", "native"}:
+            return TOOLBAR_STYLE_COMPACT
         return TOOLBAR_STYLE_COMFY
 
     def get_toolbar_style(self):

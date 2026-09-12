@@ -1587,8 +1587,8 @@ class EditorAndMainTests(unittest.TestCase):
             sheet = QApplication.instance().styleSheet()
             self.assertIn("QToolBar#mainToolBar", sheet)
 
-    def test_toolbar_style_comfy_and_default_toggle(self):
-        from jottr.settings_manager import TOOLBAR_STYLE_COMFY, TOOLBAR_STYLE_DEFAULT
+    def test_toolbar_style_comfy_and_compact_toggle(self):
+        from jottr.settings_manager import TOOLBAR_STYLE_COMFY, TOOLBAR_STYLE_COMPACT
 
         class FakeEditorTab(QWidget):
             def __init__(self, snippet_manager, settings_manager):
@@ -1632,18 +1632,18 @@ class EditorAndMainTests(unittest.TestCase):
                 for action in toolbar_style_menu.actions()
             }
             self.assertIn("Comfy", labels)
-            self.assertIn("Default", labels)
+            self.assertIn("Compact", labels)
             self.assertTrue(labels["Comfy"].isChecked())
 
-            window.set_toolbar_style(TOOLBAR_STYLE_DEFAULT)
+            window.set_toolbar_style(TOOLBAR_STYLE_COMPACT)
             self.assertEqual(
-                window.settings_manager.get_toolbar_style(), TOOLBAR_STYLE_DEFAULT
+                window.settings_manager.get_toolbar_style(), TOOLBAR_STYLE_COMPACT
             )
-            default_sheet = QApplication.instance().styleSheet()
-            self.assertIn("QToolBar#mainToolBar", default_sheet)
-            self.assertNotIn("padding: 6px 10px", default_sheet)
-            self.assertNotIn("QToolBar#mainToolBar QToolButton", default_sheet)
-            self.assertTrue(labels["Default"].isChecked())
+            compact_sheet = QApplication.instance().styleSheet()
+            self.assertIn("QToolBar#mainToolBar", compact_sheet)
+            self.assertNotIn("padding: 6px 10px", compact_sheet)
+            self.assertNotIn("QToolBar#mainToolBar QToolButton", compact_sheet)
+            self.assertTrue(labels["Compact"].isChecked())
             self.assertFalse(labels["Comfy"].isChecked())
 
             self.assertEqual(

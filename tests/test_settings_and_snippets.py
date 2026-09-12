@@ -298,19 +298,22 @@ class SettingsAndSnippetTests(unittest.TestCase):
     def test_settings_manager_persists_toolbar_style(self):
         from jottr.settings_manager import (
             TOOLBAR_STYLE_COMFY,
-            TOOLBAR_STYLE_DEFAULT,
+            TOOLBAR_STYLE_COMPACT,
             SettingsManager,
         )
 
         manager = SettingsManager()
         self.assertEqual(manager.get_toolbar_style(), TOOLBAR_STYLE_COMFY)
 
-        manager.save_toolbar_style("default")
+        manager.save_toolbar_style("compact")
         reloaded = SettingsManager()
-        self.assertEqual(reloaded.get_toolbar_style(), TOOLBAR_STYLE_DEFAULT)
+        self.assertEqual(reloaded.get_toolbar_style(), TOOLBAR_STYLE_COMPACT)
 
+        # Legacy "default" / "native" values migrate to Compact.
+        manager.save_toolbar_style("default")
+        self.assertEqual(manager.get_toolbar_style(), TOOLBAR_STYLE_COMPACT)
         manager.save_toolbar_style("native")
-        self.assertEqual(manager.get_toolbar_style(), TOOLBAR_STYLE_DEFAULT)
+        self.assertEqual(manager.get_toolbar_style(), TOOLBAR_STYLE_COMPACT)
 
         manager.save_toolbar_style("Comfy")
         self.assertEqual(manager.get_toolbar_style(), TOOLBAR_STYLE_COMFY)
@@ -517,13 +520,18 @@ class SettingsAndSnippetTests(unittest.TestCase):
         self.assertIn('font-family: "Liberation Serif"', app_style)
         self.assertIn("font-size: 15pt", app_style)
         self.assertIn("QToolBar#mainToolBar", app_style)
-        default_toolbar = ThemeManager.build_app_stylesheet(
+        compact_toolbar = ThemeManager.build_app_stylesheet(
+            dracula, toolbar_style="compact"
+        )
+        self.assertIn("QToolBar#mainToolBar", compact_toolbar)
+        self.assertIn(dracula["app"]["surface"], compact_toolbar)
+        self.assertNotIn("padding: 6px 10px", compact_toolbar)
+        self.assertNotIn("QToolBar#mainToolBar QToolButton", compact_toolbar)
+        legacy_default = ThemeManager.build_app_stylesheet(
             dracula, toolbar_style="default"
         )
-        self.assertIn("QToolBar#mainToolBar", default_toolbar)
-        self.assertIn(dracula["app"]["surface"], default_toolbar)
-        self.assertNotIn("padding: 6px 10px", default_toolbar)
-        self.assertNotIn("QToolBar#mainToolBar QToolButton", default_toolbar)
+        self.assertIn("QToolBar#mainToolBar", legacy_default)
+        self.assertNotIn("padding: 6px 10px", legacy_default)
         self.assertNotIn("QScrollBar:vertical", app_style)
         self.assertNotIn("QComboBox {", app_style)
         self.assertNotIn("QToolTip", app_style)
