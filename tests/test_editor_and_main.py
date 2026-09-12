@@ -1437,7 +1437,7 @@ class EditorAndMainTests(unittest.TestCase):
                 for child in sample.findChildren(QFrame)
                 if child.objectName() == "editorThemeSwatchChip"
             ]
-            self.assertEqual(len(chips), 6)
+            self.assertEqual(len(chips), 0)
             # In-window menubar is chrome-styled to match the toolbar. Do not
             # style QMainWindow (cascades hide titles under Breeze dark) or
             # popup QMenu items (left to QStyle + palette).

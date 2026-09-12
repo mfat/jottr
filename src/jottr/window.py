@@ -61,7 +61,6 @@ class EditorThemeCard(QFrame):
 
     SELECT_COLOR = "#2563eb"
     SAMPLE_LINES = ("The quick brown", "fox jumps over", "the lazy dog")
-    SWATCH_KEYS = ("error", "string", "number", "keyword", "type", "function")
 
     def __init__(self, name, theme, selected=False, parent=None):
         super().__init__(parent)
@@ -73,7 +72,7 @@ class EditorThemeCard(QFrame):
         self.setObjectName("editorThemeCard")
         self.setCursor(Qt.CursorShape.PointingHandCursor)
         self.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
-        self.setFixedSize(168, 132)
+        self.setFixedSize(168, 112)
 
         root = QVBoxLayout(self)
         root.setContentsMargins(10, 8, 10, 10)
@@ -106,26 +105,6 @@ class EditorThemeCard(QFrame):
         self._sample.setFont(sample_font)
         self._sample.setWordWrap(False)
         root.addWidget(self._sample, 1)
-
-        swatches = QHBoxLayout()
-        swatches.setContentsMargins(0, 0, 0, 0)
-        swatches.setSpacing(4)
-        syntax = self._theme.get("syntax") or {}
-        for key in self.SWATCH_KEYS:
-            color = syntax.get(key) or self._theme["editor"].get("foreground", "#888888")
-            if not ThemeManager.is_valid_color(color):
-                color = "#888888"
-            chip = QFrame(self)
-            chip.setObjectName("editorThemeSwatchChip")
-            chip.setFixedSize(14, 10)
-            chip.setStyleSheet(
-                f"QFrame#editorThemeSwatchChip {{"
-                f"background-color: {color}; border: none; border-radius: 2px;"
-                f"}}"
-            )
-            swatches.addWidget(chip)
-        swatches.addStretch(1)
-        root.addLayout(swatches)
 
         self.set_selected(selected)
 
