@@ -1,5 +1,6 @@
 """Spell-checking helpers and markdown/syntax highlighter."""
 import re
+from functools import lru_cache
 
 from PyQt6.QtGui import QSyntaxHighlighter, QTextCharFormat, QColor, QFont
 from PyQt6.QtCore import Qt
@@ -119,6 +120,12 @@ def find_word_bounds(text, pos):
 
 def word_scripts(word):
     """Return Unicode scripts present in word (latin/arabic/cyrillic/hebrew)."""
+    return _word_scripts_cached(word)
+
+
+@lru_cache(maxsize=4096)
+def _word_scripts_cached(word):
+    """Cached script detection (words repeat heavily within a document)."""
     scripts = set()
     if _LATIN_SCRIPT_RE.search(word):
         scripts.add("latin")
@@ -128,11 +135,17 @@ def word_scripts(word):
         scripts.add("cyrillic")
     if _HEBREW_SCRIPT_RE.search(word):
         scripts.add("hebrew")
-    return scripts
+    return frozenset(scripts)
 
 
 def language_scripts(language):
     """Scripts covered by an Enchant/Hunspell locale tag."""
+    return _language_scripts_cached(str(language))
+
+
+@lru_cache(maxsize=None)
+def _language_scripts_cached(language):
+    """Cached script coverage (only a handful of distinct locale tags exist)."""
     code = str(language).replace("-", "_").split("_", 1)[0].lower()
     return _LANGUAGE_SCRIPTS.get(code, frozenset({"latin"}))
 
@@ -182,8 +195,30 @@ if SpellChecker is None:
     SpellChecker = FallbackSpellChecker
 
 
+_available_spell_languages_cache = None
+
+
 def list_available_spell_languages():
-    """Return installed Enchant locale tags suitable for the settings UI."""
+    """Return installed Enchant locale tags suitable for the settings UI.
+
+    The broker enumeration hits every provider on each call (~0.35ms), and
+    this runs dozens of times per settings pass, so the result is cached.
+    Installed dictionaries do not change at runtime; tests patch this
+    function itself, which bypasses the cache.
+    """
+    global _available_spell_languages_cache
+    if _available_spell_languages_cache is None:
+        _available_spell_languages_cache = _query_available_spell_languages()
+    return list(_available_spell_languages_cache)
+
+
+def clear_spell_language_cache():
+    """Drop the cached Enchant listing (e.g. after installing dictionaries)."""
+    global _available_spell_languages_cache
+    _available_spell_languages_cache = None
+
+
+def _query_available_spell_languages():
     if not USE_ENCHANT or _enchant is None:
         return ["en_US"]
     languages = []
@@ -431,6 +466,15 @@ class SpellCheckHighlighter(QSyntaxHighlighter):
         self.resolved_document_language = None
         self.detection_confidence = None
         self.markdown_formats = {}
+        # Edit clock: contentsChange fires on real text edits but NOT on
+        # rehighlight (which only emits contentsChanged and bumps revision),
+        # so it tells "text changed since last paint" apart from our own
+        # repaints. Used to skip redundant rehighlights on settings applies.
+        self._edit_clock = 0
+        self._painted_edit_clock = -1
+        document = self.document()
+        if document is not None:
+            document.contentsChange.connect(self._bump_edit_clock)
         self.set_theme(
             self.settings_manager.get_theme(),
             self.settings_manager.get_custom_themes(),
@@ -438,15 +482,24 @@ class SpellCheckHighlighter(QSyntaxHighlighter):
         )
         self.apply_spell_settings(rehighlight=False)
 
+    def _bump_edit_clock(self, *_args):
+        self._edit_clock += 1
+
     def set_theme(self, theme_name=None, custom_themes=None, rehighlight=True):
         """Refresh Markdown syntax colors from the active editor theme."""
-        theme = ThemeManager.get_theme(
-            theme_name or self.settings_manager.get_theme(),
-            custom_themes if custom_themes is not None else self.settings_manager.get_custom_themes()
-        )
+        resolved_name = theme_name or self.settings_manager.get_theme()
+        if custom_themes is None:
+            custom_themes = self.settings_manager.get_custom_themes()
+        theme_key = (resolved_name, custom_themes)
+        theme = ThemeManager.get_theme(resolved_name, custom_themes)
         self.markdown_formats = self.build_markdown_formats(theme)
-        if rehighlight:
+        # Theme switches from settings/VIEW menu re-fire for every tab; only
+        # the first pass needs a full rehighlight.
+        if rehighlight and theme_key != getattr(self, "_theme_key", None):
+            self._theme_key = theme_key
             self.rehighlight()
+        elif getattr(self, "_theme_key", None) is None:
+            self._theme_key = theme_key
 
     def build_markdown_formats(self, theme):
         syntax = theme["syntax"]
@@ -484,19 +537,79 @@ class SpellCheckHighlighter(QSyntaxHighlighter):
         document = self.document()
         return document.toPlainText() if document is not None else ""
 
+    def _detect_sample(self, limit=8000):
+        """Bounded text sample for auto language detection.
+
+        Explicit document languages never need the text; auto mode only
+        needs a prefix (detection itself caps at 8000 chars). Sampling by
+        block avoids copying a large document on every settings pass.
+        """
+        if get_document_language(self.settings_manager) != DOCUMENT_LANGUAGE_AUTO:
+            return ""
+        document = self.document()
+        if document is None:
+            return ""
+        parts = []
+        total = 0
+        block = document.firstBlock()
+        while block.isValid() and total < limit:
+            chunk = block.text()
+            parts.append(chunk)
+            total += len(chunk) + 1
+            block = block.next()
+        return "\n".join(parts)[:limit]
+
     def apply_spell_settings(self, rehighlight=True):
-        """Reload enable flag and active dictionaries from settings/document text."""
-        self.spell_check_enabled = bool(self.settings_manager.get_setting("spell_check", True))
-        effective, matched, confidence = resolve_document_language(
-            self.settings_manager,
-            text=self.document_text(),
-        )
+        """Reload enable flag and active dictionaries from settings/document text.
+
+        Returns True when the backend changed (and a rehighlight happened if
+        requested); no-op re-applies are skipped so settings toggles and
+        typing-triggered refreshes stay cheap.
+        """
+        enabled = bool(self.settings_manager.get_setting("spell_check", True))
+        user_words = self.user_dictionary_words()
+        user_key = tuple(w.lower() for w in user_words)
+        sample = self._detect_sample()
+        # Auto-detect runs langdetect per call (~100ms on a large sample);
+        # memoize on the sample so repeats with unchanged text skip it.
+        detect_key = (sample if len(sample) < 200 else hash(sample))
+        memo = getattr(self, "_detect_memo", None)
+        if (
+            memo is not None
+            and memo[0] == enabled
+            and memo[1] == user_key
+            and memo[2] == detect_key
+        ):
+            effective, matched, confidence = memo[3]
+        else:
+            effective, matched, confidence = resolve_document_language(
+                self.settings_manager,
+                text=sample,
+            )
+            self._detect_memo = (enabled, user_key, detect_key, (effective, matched, confidence))
+        languages = [matched] if matched else []
+        key = (enabled, tuple(languages), user_key)
+        # An explicit rehighlight request must still repaint when the text
+        # changed even if the backend is identical (e.g. tests apply settings
+        # after setPlainText). The edit clock ignores our own repaints.
+        if key == getattr(self, "_spell_key", None):
+            self.resolved_document_language = effective
+            self.detection_confidence = confidence
+            if rehighlight and self._edit_clock != self._painted_edit_clock:
+                self._painted_edit_clock = self._edit_clock
+                self.rehighlight()
+                return True
+            return False
+        self.spell_check_enabled = enabled
         self.resolved_document_language = effective
         self.detection_confidence = confidence
-        self.spell_languages = [matched] if matched else []
+        self.spell_languages = languages
         self._rebuild_spell_backends()
+        self._spell_key = key
+        self._painted_edit_clock = self._edit_clock
         if rehighlight:
             self.rehighlight()
+        return True
 
     def refresh_detected_language(self, rehighlight=True):
         """Re-run auto language detection from the current document text."""
@@ -515,6 +628,12 @@ class SpellCheckHighlighter(QSyntaxHighlighter):
         self.resolved_document_language = self.spell_languages[0] if self.spell_languages else None
         self.detection_confidence = None
         self._rebuild_spell_backends()
+        user_words = self.user_dictionary_words()
+        self._spell_key = (
+            bool(self.spell_check_enabled),
+            tuple(self.spell_languages),
+            tuple(w.lower() for w in user_words),
+        )
         if rehighlight:
             self.rehighlight()
 
@@ -525,11 +644,13 @@ class SpellCheckHighlighter(QSyntaxHighlighter):
             # Document language has no installed dictionary; do not fall back
             # to an unrelated English pyspellchecker backend.
             self.USE_ENCHANT = False
+            self._refresh_spell_caches()
             return
 
         if self.USE_ENCHANT:
             self.spells = _build_enchant_dicts(self.spell_languages)
             if self.spells:
+                self._refresh_spell_caches()
                 return
             print("No Enchant dictionaries loaded, falling back to pyspellchecker")
             self.USE_ENCHANT = False
@@ -540,13 +661,34 @@ class SpellCheckHighlighter(QSyntaxHighlighter):
             print(f"Spell checker initialization error: {exc}, using permissive fallback")
             self.spells = [FallbackSpellChecker()]
             self.USE_ENCHANT = False
+        self._refresh_spell_caches()
+
+    def _refresh_spell_caches(self, user_words=None):
+        """Refresh per-word lookup caches (tags, script coverage, user words)."""
+        if user_words is None:
+            user_words = self.user_dictionary_words()
+        self._user_words = frozenset(w.lower() for w in user_words)
+        self._user_words_len = len(user_words)
+        self._spell_tags = [self._dictionary_tag(spell) for spell in self.spells]
+        self._spell_scripts = [_language_scripts_cached(tag) for tag in self._spell_tags]
+        self._check_cache = {}
+
+    def _sync_spell_caches(self):
+        """Rebuild caches if backends were swapped directly or dict changed."""
+        tags = [self._dictionary_tag(spell) for spell in self.spells]
+        if tags != getattr(self, "_spell_tags", None):
+            self._refresh_spell_caches()
+            return
+        words = self.user_dictionary_words()
+        if len(words) != getattr(self, "_user_words_len", -1):
+            self._refresh_spell_caches(words)
 
     def user_dictionary_words(self):
         return self.settings_manager.get_setting("user_dictionary", []) or []
 
     def word_in_user_dictionary(self, word):
-        needle = word.lower()
-        return any(entry.lower() == needle for entry in self.user_dictionary_words())
+        self._sync_spell_caches()
+        return word.lower() in self._user_words
 
     def _dictionary_tag(self, spell):
         """Locale tag for an Enchant dict, or a Latin default for fallbacks."""
@@ -557,11 +699,15 @@ class SpellCheckHighlighter(QSyntaxHighlighter):
 
     def _spells_for_word(self, word):
         """Backends whose script matches the word (skip English junk for Farsi)."""
-        matched = [
-            spell for spell in self.spells
-            if dictionaries_cover_word(word, [self._dictionary_tag(spell)])
+        self._sync_spell_caches()
+        scripts = word_scripts(word)
+        if not scripts:
+            return list(self.spells)
+        return [
+            spell
+            for spell, covered in zip(self.spells, self._spell_scripts)
+            if scripts & covered
         ]
-        return matched
 
     def check_word(self, word):
         """Return True if the word is accepted by the user dict or any active dictionary."""
@@ -579,7 +725,18 @@ class SpellCheckHighlighter(QSyntaxHighlighter):
         if not spells:
             return True
         if self.USE_ENCHANT:
-            return any(spell.check(word) for spell in spells)
+            # Enchant checks are FFI calls (~20us each); words repeat heavily
+            # within a document, so memoize per backend set. Cleared whenever
+            # backends or the user dictionary change.
+            cache = self._check_cache
+            key = (word, tuple(self._spell_tags))
+            hit = cache.get(key, None)
+            if hit is None:
+                hit = any(spell.check(word) for spell in spells)
+                # Bound memory on pathological inputs (each key is one word).
+                if len(cache) < 20000:
+                    cache[key] = hit
+            return hit
 
         # pyspellchecker considers unknown words misspelled
         lowered = word.lower()
@@ -632,6 +789,9 @@ class SpellCheckHighlighter(QSyntaxHighlighter):
         if not any(entry.lower() == word.lower() for entry in user_dict):
             user_dict.append(word)
             self.settings_manager.save_setting("user_dictionary", user_dict)
+            self._refresh_spell_caches(user_dict)
+            # Backend-affecting state changed; force the next apply to rebuild.
+            self._spell_key = None
 
         self.rehighlight()
 

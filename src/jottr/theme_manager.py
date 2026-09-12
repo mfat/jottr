@@ -414,12 +414,19 @@ class ThemeManager:
                 normalized[clean_name] = clean_theme
         return normalized
 
+    # Normalized built-in themes. DEFAULT_THEMES is a class-level constant, so
+    # normalizing once (instead of on every get_themes call, each of which
+    # validates thousands of colors) is safe; callers get deep copies.
+    _normalized_default_themes = None
+
     @staticmethod
     def get_themes(custom_themes=None):
-        themes = {
-            name: ThemeManager.normalize_theme(theme)
-            for name, theme in ThemeManager.DEFAULT_THEMES.items()
-        }
+        if ThemeManager._normalized_default_themes is None:
+            ThemeManager._normalized_default_themes = {
+                name: ThemeManager.normalize_theme(theme)
+                for name, theme in ThemeManager.DEFAULT_THEMES.items()
+            }
+        themes = deepcopy(ThemeManager._normalized_default_themes)
         themes.update(ThemeManager.normalize_custom_themes(custom_themes))
         return themes
 

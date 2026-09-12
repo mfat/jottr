@@ -984,20 +984,22 @@ class EditorTab(
     def apply_theme(self, theme_name):
         """Apply theme while preserving font properties"""
         self.current_theme = theme_name
-        self.settings_manager.save_theme(theme_name)
         ThemeManager.apply_theme(
             self.editor,
             theme_name,
             self.settings_manager.get_custom_themes()
         )
-        
-        # After applying theme, reapply font to ensure properties are preserved
+
+        # After applying theme, reapply font to ensure properties are preserved.
+        # update_font already rehighlights with the new theme, so the final
+        # set_theme below only refreshes formats without a second full pass.
         if hasattr(self, 'current_font'):
             self.update_font(self.current_font)
         if hasattr(self, "highlighter"):
             self.highlighter.set_theme(
                 theme_name,
-                self.settings_manager.get_custom_themes()
+                self.settings_manager.get_custom_themes(),
+                rehighlight=not hasattr(self, 'current_font'),
             )
         self.apply_workspace_style()
         self.update_markdown_preview()

@@ -23,7 +23,7 @@ from jottr.editor_tab import EditorTab
 from jottr.snippet_manager import SnippetManager
 from jottr.rss_tab import RSSTab
 from jottr.theme_manager import ThemeManager
-from jottr.qt_style import apply_qt_color_scheme, apply_qt_style, refresh_styled_widgets
+from jottr.qt_style import apply_qt_color_scheme, apply_qt_style, refresh_styled_widgets, resolve_qt_style_key
 from jottr.settings_manager import SettingsManager
 from jottr.settings_dialog import SettingsDialog
 from jottr.translation_manager import _, format_language_label, is_rtl_language, set_language
@@ -294,13 +294,19 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
         scheme_setting = self.settings_manager.get_ui_theme()
         app_font = QFont(font) if font is not None else self.settings_manager.get_font("ui")
         application = QApplication.instance()
-        # Drop stylesheets before setStyle so the widget style can take effect.
         if application:
-            application.setStyleSheet("")
-        self.setStyleSheet("")
-        if application:
-            apply_qt_color_scheme(scheme_setting, application)
+            # Only drop stylesheets when the widget style actually swaps;
+            # the clears each force a full repolish, while palette/font/theme
+            # switches just need the sheets re-applied below.
             theme = ThemeManager.get_ui_theme(scheme_setting, application)
+            next_key = resolve_qt_style_key(
+                self.settings_manager.get_qt_style(), theme=theme
+            )
+            if application.property("_jottr_style_key") != next_key:
+                # Drop stylesheets before setStyle so the widget style can take effect.
+                application.setStyleSheet("")
+                self.setStyleSheet("")
+            apply_qt_color_scheme(scheme_setting, application)
             apply_qt_style(
                 self.settings_manager.get_qt_style(),
                 application,
@@ -314,8 +320,17 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
         self.setFont(app_font)
         stylesheet = ThemeManager.build_app_stylesheet(theme, app_font)
         if application:
-            application.setStyleSheet(stylesheet)
-        self.setStyleSheet(stylesheet)
+            # The window inherits the application stylesheet; keep a
+            # window-level override only to clear a stale one, so a repeat
+            # apply costs one repolish instead of two. Qt normalizes the
+            # sheet on set, so compare against the string we applied.
+            if self.styleSheet():
+                self.setStyleSheet("")
+            if stylesheet != getattr(self, "_applied_app_stylesheet", None):
+                application.setStyleSheet(stylesheet)
+                self._applied_app_stylesheet = stylesheet
+        elif self.styleSheet() != stylesheet:
+            self.setStyleSheet(stylesheet)
         if application:
             refresh_styled_widgets(application)
             self.apply_chrome_ui_font(app_font, application)
@@ -381,11 +396,20 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
         return resolve_icon_color(self.settings_manager)
 
     def build_themed_icon(self, icon_name):
-        """Tint a bundled symbolic SVG to the active icon color."""
-        return render_bundled_icon(
-            self.icons.get(icon_name, ""),
-            self.get_icon_color(),
-        )
+        """Tint a bundled symbolic SVG to the active icon color (cached)."""
+        color = self.get_icon_color()
+        key = (icon_name, color)
+        cache = getattr(self, "_themed_icon_cache", None)
+        if cache is None:
+            cache = self._themed_icon_cache = {}
+        icon = cache.get(key)
+        if icon is None:
+            icon = render_bundled_icon(
+                self.icons.get(icon_name, ""),
+                color,
+            )
+            cache[key] = icon
+        return QIcon(icon)
 
     def update_action_icons(self):
         if not hasattr(self, "icon_actions"):
@@ -1189,7 +1213,7 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
         """Apply an editor color theme to all open editor tabs."""
         for index in range(self.tab_widget.count()):
             tab = self.tab_widget.widget(index)
-            if isinstance(tab, EditorTab):
+            if isinstance(tab, EditorTab) and getattr(tab, "current_theme", None) != theme_name:
                 tab.apply_theme(theme_name)
 
     def refresh_editor_theme_menu(self):
@@ -1262,12 +1286,16 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
         self.sync_editor_theme_menu()
 
     def apply_spell_check_to_tabs(self):
-        """Reload spell dictionaries and rehighlight all open editor tabs."""
+        """Reload spell dictionaries and rehighlight tabs whose backend changed."""
+        changed = False
         for index in range(self.tab_widget.count()):
             tab = self.tab_widget.widget(index)
             if isinstance(tab, EditorTab) and hasattr(tab, "highlighter"):
-                tab.highlighter.apply_spell_settings()
-        self.update_document_language_status()
+                if tab.highlighter.apply_spell_settings():
+                    changed = True
+        if changed:
+            self.update_document_language_status()
+        return changed
 
     def _populate_document_language_combo(self, combo):
         """Fill a document-language combo without emitting change signals."""
@@ -1312,9 +1340,6 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
 
         current_tab = self.tab_widget.currentWidget() if hasattr(self, "tab_widget") else None
         highlighter = getattr(current_tab, "highlighter", None) if current_tab else None
-        text = ""
-        if current_tab is not None and hasattr(current_tab, "editor"):
-            text = current_tab.editor.toPlainText()
 
         confidence = None
         if highlighter is not None and highlighter.resolved_document_language is not None:
@@ -1322,6 +1347,23 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
             matched = highlighter.spell_languages[0] if highlighter.spell_languages else None
             confidence = highlighter.detection_confidence
         else:
+            # Resolving only needs document text for auto-detect; explicit
+            # languages skip the copy entirely. Sample the first blocks so a
+            # large open file cannot stall the status bar.
+            text = ""
+            if configured == DOCUMENT_LANGUAGE_AUTO:
+                editor = getattr(current_tab, "editor", None) if current_tab else None
+                document = editor.document() if editor is not None else None
+                if document is not None:
+                    parts = []
+                    total = 0
+                    block = document.firstBlock()
+                    while block.isValid() and total < 4000:
+                        chunk = block.text()
+                        parts.append(chunk)
+                        total += len(chunk) + 1
+                        block = block.next()
+                    text = "\n".join(parts)[:4000]
             effective, matched, confidence = resolve_document_language(
                 self.settings_manager,
                 text=text,
@@ -1742,11 +1784,7 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
             )
             chrome_changed = language_changed or icons_changed or plugins_changed
             if chrome_changed:
-                self.icons = load_bundled_icon_paths(sm.get_icon_theme())
-                self.removeToolBar(self.toolbar)
-                self.toolbar.deleteLater()
-                self.setup_toolbar()
-                self.create_menu_bar()
+                self.rebuild_chrome()
                 QApplication.processEvents()
 
             style_changed = (
@@ -1789,6 +1827,49 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
             self.statusBar.showMessage(_("Settings applied"), 3000)
         finally:
             QApplication.restoreOverrideCursor()
+
+    def rebuild_chrome(self):
+        """Reload icons and rebuild toolbar + menu bar (extracted from full apply)."""
+        self.icons = load_bundled_icon_paths(self.settings_manager.get_icon_theme())
+        self._themed_icon_cache = {}
+        self.removeToolBar(self.toolbar)
+        self.toolbar.deleteLater()
+        self.setup_toolbar()
+        self.create_menu_bar()
+
+    def apply_settings_domain(self, domain):
+        """Apply one settings domain immediately (instant-apply path).
+
+        The settings tab persists each control to SettingsManager first, then
+        calls here so only the affected subsystem rebuilds.
+        """
+        sm = self.settings_manager
+        if domain == "language":
+            language = sm.get_setting("language", "en_US")
+            set_language(language)
+            self.apply_layout_direction(language)
+            self.apply_language_direction_to_tabs()
+            self.retranslate_actions()
+            self.rebuild_chrome()
+            self.apply_app_style()
+            self.sync_color_scheme_menu()
+        elif domain == "chrome":
+            self.rebuild_chrome()
+            self.apply_app_style()
+            self.sync_color_scheme_menu()
+        elif domain == "style":
+            self.apply_app_style()
+            self.sync_color_scheme_menu()
+        elif domain == "editor_theme":
+            self.apply_editor_theme_to_tabs(sm.get_theme())
+            self.refresh_editor_theme_menu()
+        elif domain == "spell":
+            self.apply_spell_check_to_tabs()
+            self.sync_spell_check_ui(bool(sm.get_setting("spell_check", True)))
+        elif domain == "lines":
+            self.apply_editor_line_numbers(bool(sm.get_setting("editor_line_numbers", True)))
+        elif domain == "autosave":
+            self.apply_autosave_settings()
 
     def close_settings_tab(self, settings_view):
         index = self.tab_widget.indexOf(settings_view)

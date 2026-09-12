@@ -142,15 +142,26 @@ def _canonical_style_key(candidate):
     return name
 
 
+_creatable_style_keys_cache = None
+
+
 def creatable_qt_style_keys():
-    """All style keys Qt can create on this platform (built-in and plugins)."""
+    """All style keys Qt can create on this platform (built-in and plugins).
+
+    Each probe instantiates a style object, so the result is cached; the
+    available styles do not change at runtime.
+    """
+    global _creatable_style_keys_cache
+    if _creatable_style_keys_cache is not None:
+        return list(_creatable_style_keys_cache)
     found = {}
     candidates = list(QStyleFactory.keys()) + list(KNOWN_QT_STYLE_KEYS)
     for candidate in candidates:
         key = _canonical_style_key(candidate)
         if key:
             found[key.casefold()] = key
-    return sorted(found.values(), key=str.casefold)
+    _creatable_style_keys_cache = sorted(found.values(), key=str.casefold)
+    return list(_creatable_style_keys_cache)
 
 
 def available_qt_styles():
@@ -236,10 +247,15 @@ def apply_qt_style(style_name, application=None, theme=None):
         return None
 
     key = resolve_qt_style_key(style_name, theme=theme)
+    # style().objectName() is not reliable across platforms (often empty),
+    # so remember the key we applied on the application object itself.
+    if app.property("_jottr_style_key") == key:
+        return key
     style = QStyleFactory.create(key)
     if style is None:
         return None
     app.setStyle(style)
+    app.setProperty("_jottr_style_key", key)
     return key
 
 
