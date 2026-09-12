@@ -42,15 +42,9 @@ jobs:
             dh-python \
             python3-all \
             python3-setuptools \
-            python3-pyqt6 \
-            python3-pyqt6.qtwebengine \
-            python3-feedparser \
-            python3-enchant \
-            python3-pyqt6.qtsvg \
             python3-pip \
             unzip \
-            git \
-            build-essential
+            git
 
       - name: Download pyspellchecker
         run: |
