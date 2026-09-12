@@ -1319,6 +1319,16 @@ class EditorAndMainTests(unittest.TestCase):
             self.assertEqual(first_tab.current_font.pointSize(), original_size)
             window.toggle_markdown_preview()
             self.assertTrue(first_tab.markdown_preview_visible)
+            self.assertTrue(window.line_numbers_action.isCheckable())
+            self.assertTrue(window.line_numbers_action.isChecked())
+            self.assertIn(
+                window.line_numbers_action,
+                [a for a in window.menuBar().actions()[2].menu().actions() if not a.isSeparator()],
+            )
+            window.line_numbers_action.trigger()
+            self.assertFalse(window.line_numbers_action.isChecked())
+            self.assertFalse(first_tab.editor.line_numbers_visible)
+            self.assertFalse(window.settings_manager.get_setting("editor_line_numbers", True))
             window.apply_editor_line_numbers(False)
             self.assertFalse(first_tab.editor.line_numbers_visible)
             window.export_pdf()

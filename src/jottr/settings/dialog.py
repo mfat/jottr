@@ -390,7 +390,9 @@ class SettingsDialog(
             'enable_animations': self.enable_animations_check.isChecked(),
             'ui_font': QFont(self.ui_font),
             'markdown_scroll_sync': self.markdown_scroll_sync_check.isChecked(),
-            'editor_line_numbers': self.editor_line_numbers_check.isChecked(),
+            'editor_line_numbers': self.settings_manager.get_setting(
+                'editor_line_numbers', True
+            ),
             'double_click_empty_tab_bar_new_tab': self.double_click_empty_tab_bar_new_tab_check.isChecked(),
             'middle_click_tab_closes_tab': self.middle_click_tab_closes_tab_check.isChecked(),
             'autosave_enabled': self.autosave_enabled_check.isChecked(),

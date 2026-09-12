@@ -177,13 +177,6 @@ class AppearancePageMixin:
         )
         editor_layout.addWidget(self.markdown_scroll_sync_check)
 
-        self.editor_line_numbers_check = QCheckBox(_("Show editor line numbers"))
-        self.editor_line_numbers_check.setChecked(
-            self.settings_manager.get_setting('editor_line_numbers', True)
-        )
-        self.editor_line_numbers_check.toggled.connect(self._on_line_numbers_toggled)
-        editor_layout.addWidget(self.editor_line_numbers_check)
-
         self.double_click_empty_tab_bar_new_tab_check = QCheckBox(
             _("Double-click empty tab bar to open a new tab")
         )
@@ -335,12 +328,6 @@ class AppearancePageMixin:
         self._commit(
             "style",
             lambda: self.settings_manager.save_setting("enable_animations", bool(checked)),
-        )
-
-    def _on_line_numbers_toggled(self, checked):
-        self._commit(
-            "lines",
-            lambda: self.settings_manager.save_setting("editor_line_numbers", bool(checked)),
         )
 
     def _on_autosave_toggled(self, checked):

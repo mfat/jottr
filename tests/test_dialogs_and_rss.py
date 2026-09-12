@@ -159,7 +159,7 @@ class DialogAndRssTests(unittest.TestCase):
         )
         dialog.icon_contrast_combo.setCurrentText("light")
         dialog.markdown_scroll_sync_check.setChecked(False)
-        dialog.editor_line_numbers_check.setChecked(False)
+        dialog.settings_manager.save_setting("editor_line_numbers", False)
         dialog.double_click_empty_tab_bar_new_tab_check.setChecked(False)
         dialog.middle_click_tab_closes_tab_check.setChecked(False)
         dialog.enable_animations_check.setChecked(False)

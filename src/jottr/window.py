@@ -1001,6 +1001,15 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
             tooltip="Focus Mode",
             checkable=True,
         )
+        self.line_numbers_action = self._make_action(
+            "Show Line Numbers",
+            self.toggle_line_numbers,
+            tooltip="Show or hide editor line numbers",
+            checkable=True,
+        )
+        self.line_numbers_action.setChecked(
+            bool(self.settings_manager.get_setting("editor_line_numbers", True))
+        )
         self.zoom_in_action = self._make_action(
             "Zoom In",
             self.zoom_in,
@@ -1368,6 +1377,7 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
         view_menu.addAction(self.snippets_action)
         view_menu.addAction(self.markdown_action)
         view_menu.addAction(self.focus_mode_action)
+        view_menu.addAction(self.line_numbers_action)
         view_menu.addSeparator()
         view_menu.addAction(self.zoom_in_action)
         view_menu.addAction(self.zoom_out_action)
@@ -2010,6 +2020,20 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
         self.sync_spell_check_ui(enabled)
         self.apply_spell_check_to_tabs()
 
+    def toggle_line_numbers(self, checked=None):
+        """Toggle editor line numbers from View."""
+        if checked is None:
+            checked = not bool(
+                self.settings_manager.get_setting("editor_line_numbers", True)
+            )
+        visible = bool(checked)
+        self.settings_manager.save_setting("editor_line_numbers", visible)
+        if hasattr(self, "line_numbers_action") and self.line_numbers_action is not None:
+            self.line_numbers_action.blockSignals(True)
+            self.line_numbers_action.setChecked(visible)
+            self.line_numbers_action.blockSignals(False)
+        self.apply_editor_line_numbers(visible)
+
     def toggle_snippets(self):
         """Toggle snippets pane in current tab"""
         current_tab = self.tab_widget.currentWidget()
@@ -2257,7 +2281,12 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
             self.apply_spell_check_to_tabs()
             self.sync_spell_check_ui(bool(sm.get_setting("spell_check", True)))
         elif domain == "lines":
-            self.apply_editor_line_numbers(bool(sm.get_setting("editor_line_numbers", True)))
+            visible = bool(sm.get_setting("editor_line_numbers", True))
+            if hasattr(self, "line_numbers_action") and self.line_numbers_action is not None:
+                self.line_numbers_action.blockSignals(True)
+                self.line_numbers_action.setChecked(visible)
+                self.line_numbers_action.blockSignals(False)
+            self.apply_editor_line_numbers(visible)
         elif domain == "autosave":
             self.apply_autosave_settings()
         elif domain == "plugins":
