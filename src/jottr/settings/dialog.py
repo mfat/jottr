@@ -269,11 +269,32 @@ class SettingsDialog(
         # Palette + QStyle for colors; font-only QSS so group titles / labels
         # follow Main UI Font without restyling controls.
         from jottr.qt_style import apply_qt_color_scheme
+        from jottr.window_color_scheme import (
+            activate_window_color_scheme,
+            effective_chrome_theme,
+            find_window_color_scheme,
+            scheme_is_dark,
+        )
 
         scheme = self.selected_ui_theme()
-        apply_qt_color_scheme(scheme)
-        theme = ThemeManager.get_ui_theme(scheme)
-        ThemeManager.apply_app_palette(self, theme)
+        window_scheme_id = self.selected_window_color_scheme()
+        window_scheme = find_window_color_scheme(window_scheme_id)
+        if window_scheme.path:
+            apply_qt_color_scheme(
+                "Dark" if scheme_is_dark(window_scheme.path) else "Light"
+            )
+        else:
+            apply_qt_color_scheme(scheme)
+        theme = effective_chrome_theme(window_scheme_id, scheme)
+        activate_window_color_scheme(window_scheme_id)
+        if not window_scheme.path:
+            ThemeManager.apply_app_palette(self, theme)
+        else:
+            from PyQt6.QtWidgets import QApplication
+
+            app = QApplication.instance()
+            if app is not None:
+                self.setPalette(app.palette())
         self.apply_ui_font()
         apply_dialog_window_icon(self, "settings", self.settings_manager)
         self.refresh_settings_nav_icons()
@@ -359,6 +380,7 @@ class SettingsDialog(
             'document_language': self.get_document_language(),
             'spell_languages': self._spell_languages_for_document(),
             'ui_theme': self.selected_ui_theme(),
+            'window_color_scheme': self.selected_window_color_scheme(),
             'theme': self.editor_theme_combo.currentText(),
             'qt_style': self.qt_style_combo.currentText(),
             'custom_themes': self.get_custom_themes(),

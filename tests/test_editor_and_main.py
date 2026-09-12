@@ -1724,18 +1724,22 @@ class EditorAndMainTests(unittest.TestCase):
                 for action in view_menu.actions()
                 if not action.isSeparator()
             }
-            self.assertIn("Color Scheme", view_items)
+            self.assertIn("Window Color Scheme", view_items)
             self.assertIn("Editor Theme", view_items)
-            color_scheme_menu = view_items["Color Scheme"].menu()
+            color_scheme_menu = view_items["Window Color Scheme"].menu()
             editor_theme_menu = view_items["Editor Theme"].menu()
             self.assertIsNotNone(color_scheme_menu)
             self.assertIsNotNone(editor_theme_menu)
             scheme_labels = [
                 action.text() for action in color_scheme_menu.actions() if not action.isSeparator()
             ]
-            self.assertEqual(scheme_labels, ["Follow system", "Light", "Dark"])
+            self.assertGreaterEqual(len(scheme_labels), 1)
+            self.assertEqual(scheme_labels[0], "Default")
             self.assertTrue(
-                any(action.isChecked() and action.data() == "System" for action in color_scheme_menu.actions())
+                any(
+                    action.isChecked() and action.data() == ""
+                    for action in color_scheme_menu.actions()
+                )
             )
             theme_actions = [
                 action for action in editor_theme_menu.actions() if not action.isSeparator()
@@ -1865,6 +1869,8 @@ class EditorAndMainTests(unittest.TestCase):
             self.assertTrue(window.paste_action.isEnabled())
 
     def test_view_menu_color_scheme_and_editor_theme(self):
+        from jottr.window_color_scheme import discover_window_color_schemes
+
         window = TextEditorApp()
         self.addCleanup(window.close)
         self.addCleanup(window.deleteLater)
@@ -1872,12 +1878,26 @@ class EditorAndMainTests(unittest.TestCase):
 
         window.set_ui_color_scheme("Dark")
         self.assertEqual(window.settings_manager.get_ui_theme(), "Dark")
+        self.assertEqual(window.settings_manager.get_window_color_scheme(), "")
         self.assertTrue(
             any(
-                action.isChecked() and action.data() == "Dark"
+                action.isChecked() and action.data() == ""
                 for action in window.color_scheme_actions.actions()
             )
         )
+
+        named = next((s for s in discover_window_color_schemes() if s.path), None)
+        if named is not None:
+            window.set_window_color_scheme(named.scheme_id)
+            self.assertEqual(
+                window.settings_manager.get_window_color_scheme(), named.scheme_id
+            )
+            self.assertTrue(
+                any(
+                    action.isChecked() and action.data() == named.scheme_id
+                    for action in window.color_scheme_actions.actions()
+                )
+            )
 
         window.set_editor_theme("Dracula")
         self.assertEqual(window.settings_manager.get_theme(), "Dracula")
