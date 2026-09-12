@@ -1401,13 +1401,13 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
         self.sync_toolbar_style_menu()
 
         # Kate: Settings → Application Style (KStyleManager::createConfigureAction).
-        widget_style_menu = view_menu.addMenu(_("Application Style"))
+        widget_style_menu = view_menu.addMenu(_("Widget Style"))
         widget_style_menu.setAccessibleName(
-            _("{title} menu").format(title=_("Application Style"))
+            _("{title} menu").format(title=_("Widget Style"))
         )
-        widget_style_menu.menuAction().setProperty("text_key", "Application Style")
+        widget_style_menu.menuAction().setProperty("text_key", "Widget Style")
         self.translatable_actions.append(widget_style_menu.menuAction())
-        self.translatable_menus.append((widget_style_menu, "Application Style"))
+        self.translatable_menus.append((widget_style_menu, "Widget Style"))
         self.widget_style_menu = widget_style_menu
         self.widget_style_actions = QActionGroup(self)
         self.widget_style_actions.setExclusive(True)
@@ -1722,7 +1722,7 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
             action.blockSignals(False)
 
     def sync_widget_style_menu(self):
-        """Rebuild View → Application Style like KStyleManager's menu."""
+        """Rebuild View → Widget Style like KStyleManager's menu."""
         from jottr.qt_style import SYSTEM_QT_STYLE, available_qt_styles
 
         menu = getattr(self, "widget_style_menu", None)
