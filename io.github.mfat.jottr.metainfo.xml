@@ -34,8 +34,24 @@
 
    <screenshots>
     <screenshot type="default">
-      <image>https://raw.githubusercontent.com/mfat/jottr/266df5566ca0834bd1f29aeb84a9def9070cc5e3/screenshots/main.png</image>
+      <image>https://raw.githubusercontent.com/mfat/jottr/c12aaf6c23cb1ebdf8c888aa6b4e158f16ae29b3/screenshots/main.png</image>
       <caption>Main window of Jottr</caption>
+    </screenshot>
+    <screenshot>
+      <image>https://raw.githubusercontent.com/mfat/jottr/c12aaf6c23cb1ebdf8c888aa6b4e158f16ae29b3/screenshots/markdown.png</image>
+      <caption>Live Markdown preview beside the editor</caption>
+    </screenshot>
+    <screenshot>
+      <image>https://raw.githubusercontent.com/mfat/jottr/c12aaf6c23cb1ebdf8c888aa6b4e158f16ae29b3/screenshots/browser.png</image>
+      <caption>Integrated research browser</caption>
+    </screenshot>
+    <screenshot>
+      <image>https://raw.githubusercontent.com/mfat/jottr/c12aaf6c23cb1ebdf8c888aa6b4e158f16ae29b3/screenshots/snippets.png</image>
+      <caption>Reusable text snippets</caption>
+    </screenshot>
+    <screenshot>
+      <image>https://raw.githubusercontent.com/mfat/jottr/c12aaf6c23cb1ebdf8c888aa6b4e158f16ae29b3/screenshots/focus.png</image>
+      <caption>Distraction-free Focus Mode</caption>
     </screenshot>
   </screenshots>
 </component>
