@@ -16,7 +16,7 @@ sys.path.insert(0, str(SRC_ROOT))
 
 from PyQt6.QtCore import QPoint, QRect, Qt, QEvent
 from PyQt6.QtGui import QColor, QFont, QKeyEvent, QTextCharFormat, QTextCursor, QTextDocument
-from PyQt6.QtWidgets import QApplication, QDialog, QMessageBox, QTabBar, QTextEdit, QWidget
+from PyQt6.QtWidgets import QApplication, QDialog, QFrame, QMessageBox, QTabBar, QTextEdit, QWidget
 
 from jottr.editor_tab import EditorTab, SpellCheckHighlighter
 import jottr.editor.markdown as editor_markdown_module
@@ -1419,19 +1419,21 @@ class EditorAndMainTests(unittest.TestCase):
             self.assertIsInstance(theme_actions[0], QWidgetAction)
             grid = theme_actions[0].defaultWidget()
             self.assertIsInstance(grid, window_module.EditorThemeGrid)
-            self.assertGreaterEqual(len(grid._buttons), 5)
+            self.assertGreaterEqual(len(grid._cards), 5)
             self.assertEqual(
                 grid.layout().columnCount(),
                 window_module.EditorThemeGrid.COLUMNS,
             )
-            sample = next(iter(grid._buttons.values()))
-            self.assertEqual(
-                sample.iconSize().width(),
-                window_module.EditorThemeGrid.TILE_SIZE,
-            )
-            self.assertFalse(sample.icon().isNull())
-            self.assertEqual(sample.text(), "")
-            self.assertTrue(all(button.toolTip() for button in grid._buttons.values()))
+            sample = next(iter(grid._cards.values()))
+            self.assertIsInstance(sample, window_module.EditorThemeCard)
+            self.assertEqual(sample._name_label.text(), sample.theme_name)
+            self.assertIn("The quick brown", sample._sample.text())
+            chips = [
+                child
+                for child in sample.findChildren(QFrame)
+                if child.objectName() == "editorThemeSwatchChip"
+            ]
+            self.assertEqual(len(chips), 6)
             # In-window menubar is chrome-styled to match the toolbar. Do not
             # style QMainWindow (cascades hide titles under Breeze dark) or
             # popup QMenu items (left to QStyle + palette).
@@ -1497,9 +1499,9 @@ class EditorAndMainTests(unittest.TestCase):
         self.assertEqual(editor_tab.current_theme, "Dracula")
         grid = window.editor_theme_grid
         self.assertIsInstance(grid, window_module.EditorThemeGrid)
-        self.assertTrue(grid._buttons["Dracula"].isChecked())
-        self.assertGreaterEqual(len(grid._buttons), 5)
-        self.assertFalse(grid._buttons["Dracula"].icon().isNull())
+        self.assertTrue(grid._cards["Dracula"].is_selected())
+        self.assertGreaterEqual(len(grid._cards), 5)
+        self.assertIn("fox jumps over", grid._cards["Dracula"]._sample.text())
 
     def test_plugin_menu_deduplicates_sidebar_items_that_open_existing_panels(self):
         class FakeEditorTab(QWidget):

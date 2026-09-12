@@ -6,7 +6,7 @@ import sys
 from PyQt6.QtWidgets import (
     QMainWindow, QTabWidget, QWidget, QVBoxLayout, QHBoxLayout, QGridLayout,
     QSplitter, QToolBar, QMessageBox, QLabel, QDialog, QSizePolicy, QMenu,
-    QDialogButtonBox, QToolButton, QTabBar, QWidgetAction,
+    QDialogButtonBox, QToolButton, QTabBar, QWidgetAction, QFrame,
     QGraphicsOpacityEffect, QApplication, QComboBox,
 )
 from PyQt6.QtCore import (
@@ -56,49 +56,154 @@ APP_VERSION = __version__
 APP_HOMEPAGE = "https://github.com/mfat/jottr"
 
 
-class EditorThemeGrid(QWidget):
-    """Grid of editor theme swatches for View → Editor Theme."""
+class EditorThemeCard(QFrame):
+    """Palette-style theme preview card for View → Editor Theme."""
 
-    TILE_SIZE = 56
+    SELECT_COLOR = "#2563eb"
+    SAMPLE_LINES = ("The quick brown", "fox jumps over", "the lazy dog")
+    SWATCH_KEYS = ("error", "string", "number", "keyword", "type", "function")
+
+    def __init__(self, name, theme, selected=False, parent=None):
+        super().__init__(parent)
+        self.theme_name = name
+        self._theme = ThemeManager.normalize_theme(theme) or ThemeManager.get_theme(
+            ThemeManager.DEFAULT_THEME_NAME
+        )
+        self._selected = False
+        self.setObjectName("editorThemeCard")
+        self.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
+        self.setFixedSize(168, 132)
+
+        root = QVBoxLayout(self)
+        root.setContentsMargins(10, 8, 10, 10)
+        root.setSpacing(6)
+
+        header = QHBoxLayout()
+        header.setContentsMargins(0, 0, 0, 0)
+        header.setSpacing(4)
+        self._name_label = QLabel(name, self)
+        self._name_label.setObjectName("editorThemeCardName")
+        name_font = QFont(self._name_label.font())
+        name_font.setBold(True)
+        name_font.setPointSize(max(9, name_font.pointSize()))
+        self._name_label.setFont(name_font)
+        header.addWidget(self._name_label, 1)
+
+        self._check = QLabel("✓", self)
+        self._check.setObjectName("editorThemeCardCheck")
+        self._check.setFixedSize(18, 18)
+        self._check.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        header.addWidget(self._check, 0, Qt.AlignmentFlag.AlignTop)
+        root.addLayout(header)
+
+        self._sample = QLabel("\n".join(self.SAMPLE_LINES), self)
+        self._sample.setObjectName("editorThemeCardSample")
+        sample_font = QFont("DejaVu Sans Mono")
+        if sample_font.family() != "DejaVu Sans Mono":
+            sample_font = QFont("monospace")
+        sample_font.setPointSize(9)
+        self._sample.setFont(sample_font)
+        self._sample.setWordWrap(False)
+        root.addWidget(self._sample, 1)
+
+        swatches = QHBoxLayout()
+        swatches.setContentsMargins(0, 0, 0, 0)
+        swatches.setSpacing(4)
+        syntax = self._theme.get("syntax") or {}
+        for key in self.SWATCH_KEYS:
+            color = syntax.get(key) or self._theme["editor"].get("foreground", "#888888")
+            if not ThemeManager.is_valid_color(color):
+                color = "#888888"
+            chip = QFrame(self)
+            chip.setObjectName("editorThemeSwatchChip")
+            chip.setFixedSize(14, 10)
+            chip.setStyleSheet(
+                f"QFrame#editorThemeSwatchChip {{"
+                f"background-color: {color}; border: none; border-radius: 2px;"
+                f"}}"
+            )
+            swatches.addWidget(chip)
+        swatches.addStretch(1)
+        root.addLayout(swatches)
+
+        self.set_selected(selected)
+
+    def is_selected(self):
+        return self._selected
+
+    def set_selected(self, selected):
+        self._selected = bool(selected)
+        editor = self._theme["editor"]
+        background = editor.get("background", "#ffffff")
+        foreground = editor.get("foreground", "#000000")
+        idle_border = editor.get("border") or foreground
+        if not ThemeManager.is_valid_color(idle_border):
+            idle_border = "#888888"
+        border = self.SELECT_COLOR if self._selected else idle_border
+        border_width = 3 if self._selected else 1
+        self.setStyleSheet(
+            f"""
+            QFrame#editorThemeCard {{
+                background-color: {background};
+                border: {border_width}px solid {border};
+                border-radius: 8px;
+            }}
+            QLabel#editorThemeCardName,
+            QLabel#editorThemeCardSample {{
+                color: {foreground};
+                background: transparent;
+            }}
+            QLabel#editorThemeCardCheck {{
+                color: #ffffff;
+                background-color: {self.SELECT_COLOR};
+                border-radius: 9px;
+                font-weight: bold;
+                font-size: 11px;
+            }}
+            """
+        )
+        self._check.setVisible(self._selected)
+
+    def mouseReleaseEvent(self, event):
+        if event.button() == Qt.MouseButton.LeftButton:
+            parent = self.parentWidget()
+            while parent is not None and not isinstance(parent, EditorThemeGrid):
+                parent = parent.parentWidget()
+            if isinstance(parent, EditorThemeGrid):
+                parent.theme_chosen.emit(self.theme_name)
+            event.accept()
+            return
+        super().mouseReleaseEvent(event)
+
+
+class EditorThemeGrid(QWidget):
+    """Palette grid of editor theme preview cards."""
+
     COLUMNS = 3
     theme_chosen = pyqtSignal(str)
 
     def __init__(self, themes, current, parent=None):
         super().__init__(parent)
         self.setObjectName("editorThemeGrid")
-        self._buttons = {}
+        self._cards = {}
+        # Compatibility alias used by menu sync/tests.
+        self._buttons = self._cards
 
         layout = QGridLayout(self)
-        layout.setContentsMargins(8, 8, 8, 8)
-        layout.setHorizontalSpacing(8)
-        layout.setVerticalSpacing(8)
+        layout.setContentsMargins(10, 10, 10, 10)
+        layout.setHorizontalSpacing(10)
+        layout.setVerticalSpacing(10)
 
         for index, (name, theme) in enumerate(themes.items()):
-            button = QToolButton(self)
-            button.setObjectName("editorThemeSwatch")
-            button.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonIconOnly)
-            button.setIcon(ThemeManager.build_theme_tile_icon(theme, size=self.TILE_SIZE))
-            button.setIconSize(QSize(self.TILE_SIZE, self.TILE_SIZE))
-            button.setText("")
-            button.setToolTip(name)
-            button.setAccessibleName(name)
-            button.setFixedSize(self.TILE_SIZE + 8, self.TILE_SIZE + 8)
-            button.setCheckable(True)
-            button.setAutoExclusive(True)
-            button.setChecked(name == current)
-            button.setAutoRaise(True)
-            button.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
-            button.clicked.connect(
-                lambda checked=False, tag=name: self.theme_chosen.emit(tag)
-            )
+            card = EditorThemeCard(name, theme, selected=(name == current), parent=self)
             row, column = divmod(index, self.COLUMNS)
-            layout.addWidget(button, row, column, Qt.AlignmentFlag.AlignCenter)
-            self._buttons[name] = button
+            layout.addWidget(card, row, column, Qt.AlignmentFlag.AlignCenter)
+            self._cards[name] = card
 
     def set_current(self, name):
-        button = self._buttons.get(name)
-        if button is not None:
-            button.setChecked(True)
+        for theme_name, card in self._cards.items():
+            card.set_selected(theme_name == name)
 
 
 class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
@@ -1061,7 +1166,7 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
         if grid is None:
             return
         current = self.settings_manager.get_theme()
-        if current not in grid._buttons:
+        if current not in grid._cards:
             self.refresh_editor_theme_menu()
             return
         grid.set_current(current)
