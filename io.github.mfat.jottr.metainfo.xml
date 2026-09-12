@@ -27,7 +27,7 @@
       <description>
         <p>Fix AppImage/frozen entry point import crash</p>
         <p>Remove bundled Adwaita-Qt; simplify package builds</p>
-        <p>Update Flatpak packaging to PyQt6 / KDE 6.10</p>
+        <p>Update Flatpak packaging to PyQt6 / KDE 6.11</p>
       </description>
     </release>
   </releases>
