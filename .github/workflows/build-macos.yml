@@ -1,0 +1,95 @@
+name: Build macOS DMG
+
+on:
+  workflow_dispatch:
+    inputs:
+      git_ref:
+        description: 'Git ref to checkout (branch, tag, or SHA). Leave empty for the branch selected in the UI.'
+        required: false
+        type: string
+        default: ''
+      release_tag:
+        description: 'Optional existing GitHub release tag to attach DMGs to (example: v2.3.3). Leave empty for artifact-only.'
+        required: false
+        type: string
+        default: ''
+
+permissions:
+  contents: write
+
+jobs:
+  build-macos:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: macos-15
+            arch: aarch64
+            file_arch: arm64
+          - runner: macos-15-intel
+            arch: x86_64
+            file_arch: x86_64
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.git_ref != '' && inputs.git_ref || github.ref }}
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install macOS build dependencies
+        run: |
+          brew update
+          brew install enchant hunspell
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt
+
+      - name: Resolve version label
+        id: version
+        run: |
+          if [ -n "${{ inputs.release_tag }}" ]; then
+            LABEL="${{ inputs.release_tag }}"
+          else
+            VERSION=$(grep -o '__version__ = "[^"]*"' src/jottr/__init__.py | cut -d'"' -f2)
+            if [ -z "$VERSION" ]; then
+              echo "Could not read version from src/jottr/__init__.py"
+              exit 1
+            fi
+            LABEL="v${VERSION}"
+          fi
+          echo "label=$LABEL" >> "$GITHUB_OUTPUT"
+          echo "Building DMG version label: $LABEL"
+
+      - name: Build and package DMG
+        env:
+          EXPECTED_FILE_ARCH: ${{ matrix.file_arch }}
+        run: |
+          chmod +x packaging/macos/build-dmg.sh
+          packaging/macos/build-dmg.sh "${{ steps.version.outputs.label }}" release-assets
+
+      - name: Upload macOS workflow artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: macos-package-${{ matrix.arch }}
+          path: release-assets/*.dmg
+          retention-days: 14
+
+      - name: Generate macOS checksum
+        run: |
+          cd release-assets
+          for package in *.dmg; do
+            shasum -a 256 "$package" > "$package.sha256"
+          done
+
+      - name: Upload macOS package to release
+        if: ${{ inputs.release_tag != '' }}
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ inputs.release_tag }}
+          files: release-assets/*
+          fail_on_unmatched_files: true
+          overwrite_files: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

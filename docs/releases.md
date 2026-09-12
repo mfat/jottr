@@ -81,12 +81,19 @@ shasum -a 256 -c jottr-vX.Y.Z-macos-aarch64-unsigned.dmg.sha256
 
 Use the matching checksum file for the Intel (`x86_64`) or Apple Silicon (`aarch64`) DMG you downloaded. The command should report `OK` for files that match the published checksum.
 
+## Manual macOS builds
+
+Use **Actions → Build macOS DMG → Run workflow** for a dispatchable Intel + Apple Silicon build. Leave `release_tag` empty to upload workflow artifacts only (14 days). Set `release_tag` (for example `v2.3.3`) to also attach the DMGs and checksums to that existing GitHub release. Optionally set `git_ref` to build a specific branch, tag, or SHA instead of the branch selected in the UI.
+
+Shared packaging lives in `packaging/macos/build-dmg.sh` and is used by both this workflow and the Release Please `build-macos` job.
+
 ## Debugging package builds
 
 If a release package is missing or a packaging job fails:
 
 - Open the failed `Release Please` workflow run in GitHub Actions.
 - Check the `build-deb`, `build-rpm`, `build-appimage`, and `build-macos` jobs (macOS runs once per architecture).
+- Or re-run **Build macOS DMG** via workflow dispatch and download its artifacts.
 - Download the short-lived workflow artifacts if the build completed but release upload failed.
 - Confirm the job checked out the expected release tag.
 - Re-run the failed job after fixing packaging dependencies or scripts.

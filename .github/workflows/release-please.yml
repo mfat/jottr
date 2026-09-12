@@ -377,89 +377,14 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install -r requirements.txt
 
-      - name: Build macOS app
+      - name: Build and package DMG
+        env:
+          EXPECTED_FILE_ARCH: ${{ matrix.file_arch }}
         run: |
-          python -m pip install -e ".[build]"
-          pyinstaller \
-            --noconfirm \
-            --windowed \
-            --name Jottr \
-            --icon src/jottr/jottr_icon.icns \
-            --paths src \
-            --collect-submodules jottr \
-            --hidden-import ctypes \
-            --hidden-import ctypes.util \
-            --hidden-import jottr \
-            --hidden-import jottr.editor_tab \
-            --hidden-import jottr.editor \
-            --hidden-import jottr.editor.browser \
-            --hidden-import jottr.editor.find_replace \
-            --hidden-import jottr.editor.focus_mode \
-            --hidden-import jottr.editor.markdown \
-            --hidden-import jottr.editor.spellcheck \
-            --hidden-import jottr.editor.tab \
-            --hidden-import jottr.editor.text_edit \
-            --hidden-import jottr.ui \
-            --hidden-import jottr.ui.document_tab_bar \
-            --hidden-import jottr.ui.workspace \
-            --hidden-import jottr.ui.workspace_controller \
-            --hidden-import jottr.window \
-            --hidden-import jottr.feed_manager_dialog \
-            --hidden-import jottr.font_dialog \
-            --hidden-import jottr.file_dialogs \
-            --hidden-import jottr.icon_manager \
-            --hidden-import jottr.resources \
-            --hidden-import jottr.resources.rc_symbolic_icons \
-            --hidden-import jottr.resources.rc_bootstrap_icons \
-            --hidden-import jottr.paths \
-            --hidden-import jottr.plugin_manager \
-            --hidden-import jottr.rss_reader \
-            --hidden-import jottr.rss_tab \
-            --hidden-import jottr.settings_dialog \
-            --hidden-import jottr.settings_manager \
-            --hidden-import jottr.snippet_editor_dialog \
-            --hidden-import jottr.snippet_manager \
-            --hidden-import jottr.theme_manager \
-            --hidden-import jottr.translation_manager \
-            --hidden-import pyenchant \
-            --hidden-import pyspellchecker \
-            --hidden-import spellchecker \
-            --add-data "src/jottr/help:jottr/help" \
-            --add-data "src/jottr/icons:jottr/icons" \
-            --add-data "icons:icons" \
-            --add-data "translations:translations" \
-            src/jottr/main.py
-
-      - name: Verify architecture and ad-hoc sign
-        run: |
-          APP_BIN="dist/Jottr.app/Contents/MacOS/Jottr"
-          if [ ! -f "$APP_BIN" ]; then
-            echo "Expected app binary at $APP_BIN"
-            find dist -maxdepth 4 -type f -perm -111 || true
-            exit 1
-          fi
-          file "$APP_BIN"
-          if ! file "$APP_BIN" | grep -q "${{ matrix.file_arch }}"; then
-            echo "Architecture mismatch: expected ${{ matrix.file_arch }}"
-            exit 1
-          fi
-          # Ad-hoc sign after the bundle is final. No Developer ID, so Gatekeeper
-          # still treats it as unidentified, but a valid ad-hoc signature avoids
-          # the "app is damaged" dead-end on downloaded copies.
-          codesign --sign - --force --deep --timestamp=none dist/Jottr.app
-          codesign --verify --strict --verbose=2 dist/Jottr.app
-
-      - name: Create unsigned DMG
-        run: |
-          mkdir -p release-assets dmg-root
-          cp -R dist/Jottr.app dmg-root/
-          ln -s /Applications dmg-root/Applications
-          hdiutil create \
-            -volname "Jottr" \
-            -srcfolder dmg-root \
-            -ov \
-            -format UDZO \
-            "release-assets/jottr-${{ needs.release-please.outputs.tag_name }}-macos-${{ matrix.arch }}-unsigned.dmg"
+          chmod +x packaging/macos/build-dmg.sh
+          packaging/macos/build-dmg.sh \
+            "${{ needs.release-please.outputs.tag_name }}" \
+            release-assets
 
       - name: Upload macOS workflow artifact
         uses: actions/upload-artifact@v4
