@@ -5,6 +5,13 @@ on:
     branches:
       - main
   workflow_dispatch:
+    inputs:
+      release_as:
+        description: >-
+          Force a release PR at this version (e.g. 2.5.2), even with no
+          feat/fix commits. Leave empty for normal conventional-commits behavior.
+        required: false
+        type: string
 
 permissions:
   contents: write
@@ -17,6 +24,30 @@ jobs:
       release_created: ${{ steps.release.outputs.release_created }}
       tag_name: ${{ steps.release.outputs.tag_name }}
     steps:
+      # Manifest mode ignores the action's release-as input. Push an empty
+      # commit with a Release-As footer so release-please opens a PR anyway.
+      - name: Checkout for forced release
+        if: github.event_name == 'workflow_dispatch' && inputs.release_as != ''
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Create Release-As commit
+        if: github.event_name == 'workflow_dispatch' && inputs.release_as != ''
+        run: |
+          version="${{ inputs.release_as }}"
+          version="${version#v}"
+          if ! [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+([.+-].+)?$ ]]; then
+            echo "Invalid version '$version' (expected semver like 2.5.2)"
+            exit 1
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit --allow-empty \
+            -m "chore: release ${version}" \
+            -m "Release-As: ${version}"
+          git push
+
       - uses: googleapis/release-please-action@v4
         id: release
         with:

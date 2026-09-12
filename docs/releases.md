@@ -28,7 +28,7 @@ Release PRs update:
 
 ## GitHub Actions setup
 
-Release automation runs from `.github/workflows/release-please.yml` on pushes to `main`.
+Release automation runs from `.github/workflows/release-please.yml` on pushes to `main`, and via **Run workflow** when you need a forced release.
 
 The workflow uses `googleapis/release-please-action` with the repository `GITHUB_TOKEN`. Make sure GitHub Actions has permission to write pull requests and repository contents:
 
@@ -49,6 +49,24 @@ No extra secret is required for the default setup. If branch protection rules pr
 7. Let the `update-flathub` job open a packaging PR on `flathub/io.github.mfat.jottr` for that tag.
 
 Release Please creates the tag with `GITHUB_TOKEN`, which does not start other `on: push: tags` workflows. The Release Please workflow therefore calls `.github/workflows/flathub.yml` directly when `release_created` is true. Manual Flathub updates remain available via **Actions → Update Flathub Manifest**.
+
+## Manual / forced releases
+
+Release Please only opens a release PR when it finds releasable commits since the last tag (`feat` / `fix`, or other types listed in `changelog-sections`). With no such commits it logs `No commits for path: ., skipping` and does nothing.
+
+To force a release anyway:
+
+1. Open **Actions → Release Please → Run workflow**.
+2. Set **release_as** to the version you want (for example `2.5.2`).
+3. Run the workflow. It pushes an empty `Release-As` commit on `main`, then opens or updates the release PR at that version.
+4. Merge the release PR as usual to cut the tag and build packages.
+
+From a local checkout you can do the same without the UI:
+
+```bash
+git commit --allow-empty -m "chore: release 2.5.2" -m "Release-As: 2.5.2"
+git push origin main
+```
 
 ## Release packages
 
