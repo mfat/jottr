@@ -1679,7 +1679,7 @@ class EditorAndMainTests(unittest.TestCase):
             self.assertIn("QTabWidget#documentTabs::tab-bar", stylesheet)
             self.assertIn("alignment: left", stylesheet)
 
-    def test_double_click_tab_bar_uses_configured_tab_actions(self):
+    def test_tab_bar_uses_configured_tab_actions(self):
         class FakeEditorTab(QWidget):
             def __init__(self, snippet_manager, settings_manager):
                 super().__init__()
@@ -1699,6 +1699,19 @@ class EditorAndMainTests(unittest.TestCase):
             def pos(self):
                 return self._pos
 
+        class FakeMouseMiddleClickEvent:
+            def __init__(self, pos):
+                self._pos = pos
+
+            def type(self):
+                return QEvent.Type.MouseButtonPress
+
+            def button(self):
+                return Qt.MouseButton.MiddleButton
+
+            def pos(self):
+                return self._pos
+
         with patch.object(window_module, "EditorTab", FakeEditorTab):
             window = TextEditorApp()
             self.addCleanup(window.close)
@@ -1713,17 +1726,24 @@ class EditorAndMainTests(unittest.TestCase):
             )
             initial_count = window.tab_widget.count()
 
-            self.assertTrue(window.eventFilter(tab_bar, FakeMouseDoubleClickEvent(tab_pos)))
+            self.assertFalse(window.eventFilter(tab_bar, FakeMouseDoubleClickEvent(tab_pos)))
             self.assertEqual(window.tab_widget.count(), initial_count)
+
+            window.new_editor_tab()
+            self.assertEqual(window.tab_widget.count(), initial_count + 1)
+            tab_pos = tab_bar.tabRect(0).center()
+            self.assertTrue(window.eventFilter(tab_bar, FakeMouseMiddleClickEvent(tab_pos)))
+            self.assertEqual(window.tab_widget.count(), initial_count)
+
             self.assertTrue(window.eventFilter(tab_bar, FakeMouseDoubleClickEvent(empty_pos)))
             self.assertEqual(window.tab_widget.count(), initial_count + 1)
             self.assertTrue(window.eventFilter(window.tab_widget, FakeMouseDoubleClickEvent(widget_empty_pos)))
             self.assertEqual(window.tab_widget.count(), initial_count + 2)
 
-            window.settings_manager.save_setting("double_click_tab_closes_tab", False)
+            window.settings_manager.save_setting("middle_click_tab_closes_tab", False)
             current_count = window.tab_widget.count()
             current_tab_pos = tab_bar.tabRect(0).center()
-            self.assertFalse(window.eventFilter(tab_bar, FakeMouseDoubleClickEvent(current_tab_pos)))
+            self.assertFalse(window.eventFilter(tab_bar, FakeMouseMiddleClickEvent(current_tab_pos)))
             self.assertEqual(window.tab_widget.count(), current_count)
 
             window.settings_manager.save_setting("double_click_empty_tab_bar_new_tab", False)

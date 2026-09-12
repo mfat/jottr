@@ -46,7 +46,7 @@ class SettingsManager:
             "markdown_scroll_sync": True,
             "editor_line_numbers": True,
             "double_click_empty_tab_bar_new_tab": True,
-            "double_click_tab_closes_tab": True,
+            "middle_click_tab_closes_tab": True,
             "search_sites": {
                 "AP News": "site:apnews.com",
                 "Reuters": "site:reuters.com",

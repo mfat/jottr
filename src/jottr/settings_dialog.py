@@ -248,13 +248,13 @@ class SettingsDialog(QDialog):
         )
         editor_layout.addWidget(self.double_click_empty_tab_bar_new_tab_check)
 
-        self.double_click_tab_closes_tab_check = QCheckBox(
-            _("Double-click existing tab to close it")
+        self.middle_click_tab_closes_tab_check = QCheckBox(
+            _("Middle-click existing tab to close it")
         )
-        self.double_click_tab_closes_tab_check.setChecked(
-            self.settings_manager.get_setting("double_click_tab_closes_tab", True)
+        self.middle_click_tab_closes_tab_check.setChecked(
+            self.settings_manager.get_setting("middle_click_tab_closes_tab", True)
         )
-        editor_layout.addWidget(self.double_click_tab_closes_tab_check)
+        editor_layout.addWidget(self.middle_click_tab_closes_tab_check)
         appearance_layout.addWidget(editor_box)
 
         autosave_box = QGroupBox(_("Autosave"))
@@ -817,7 +817,7 @@ class SettingsDialog(QDialog):
             'markdown_scroll_sync': self.markdown_scroll_sync_check.isChecked(),
             'editor_line_numbers': self.editor_line_numbers_check.isChecked(),
             'double_click_empty_tab_bar_new_tab': self.double_click_empty_tab_bar_new_tab_check.isChecked(),
-            'double_click_tab_closes_tab': self.double_click_tab_closes_tab_check.isChecked(),
+            'middle_click_tab_closes_tab': self.middle_click_tab_closes_tab_check.isChecked(),
             'autosave_enabled': self.autosave_enabled_check.isChecked(),
             'autosave_interval_seconds': self.autosave_interval_seconds(),
             'plugins_directory': self.plugins_directory_edit.text().strip(),

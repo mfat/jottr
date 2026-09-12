@@ -1650,8 +1650,8 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
                     settings['double_click_empty_tab_bar_new_tab']
                 )
                 sm.save_setting(
-                    'double_click_tab_closes_tab',
-                    settings['double_click_tab_closes_tab']
+                    'middle_click_tab_closes_tab',
+                    settings['middle_click_tab_closes_tab']
                 )
                 sm.save_setting('autosave_enabled', settings['autosave_enabled'])
                 sm.save_setting('autosave_interval_seconds', settings['autosave_interval_seconds'])
@@ -1880,13 +1880,20 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
 
 
     def eventFilter(self, obj, event):
-        """Handle double-click on the tab bar."""
+        """Handle middle-click close and double-click new-tab on the tab bar."""
+        if (
+            event.type() == QEvent.Type.MouseButtonPress
+            and event.button() == Qt.MouseButton.MiddleButton
+            and obj == self.tab_widget.tabBar()
+        ):
+            tab_index = self.tab_widget.tabBar().tabAt(event.pos())
+            if tab_index >= 0 and self.settings_manager.get_setting("middle_click_tab_closes_tab", True):
+                self.close_tab(tab_index)
+                return True
+            return False
         if event.type() == QEvent.Type.MouseButtonDblClick:
             if obj == self.tab_widget.tabBar():
                 tab_index = self.tab_widget.tabBar().tabAt(event.pos())
-                if tab_index >= 0 and self.settings_manager.get_setting("double_click_tab_closes_tab", True):
-                    self.close_tab(tab_index)
-                    return True
                 if tab_index == -1 and self.settings_manager.get_setting("double_click_empty_tab_bar_new_tab", True):
                     self.new_editor_tab()
                     return True
