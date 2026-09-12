@@ -285,13 +285,14 @@ class SettingsDialog(
                 "Dark" if scheme_is_dark(window_scheme.path) else "Light"
             )
             apply_qt_color_scheme(color_scheme_setting)
+            theme = effective_chrome_theme(window_scheme_id, scheme)
         else:
             color_scheme_setting = scheme
             apply_qt_color_scheme(scheme)
-        theme = reconcile_chrome_theme_with_color_scheme(
-            effective_chrome_theme(window_scheme_id, scheme),
-            color_scheme_setting,
-        )
+            theme = reconcile_chrome_theme_with_color_scheme(
+                effective_chrome_theme(window_scheme_id, scheme),
+                color_scheme_setting,
+            )
         activate_window_color_scheme(window_scheme_id)
         if not window_scheme.path:
             ThemeManager.apply_app_palette(self, theme)

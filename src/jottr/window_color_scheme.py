@@ -388,6 +388,10 @@ def activate_window_color_scheme(scheme_id, application=None):
 
 def effective_chrome_theme(scheme_id, ui_theme_name, application=None):
     """Theme dict for jottr chrome QSS under the active Window Color Scheme."""
+    from jottr.qt_style import (
+        actual_qt_color_scheme,
+        reconcile_chrome_theme_with_color_scheme,
+    )
     from jottr.system_color_scheme import system_color_scheme
     from jottr.theme_manager import ThemeManager
 
@@ -397,10 +401,18 @@ def effective_chrome_theme(scheme_id, ui_theme_name, application=None):
     resolved = (
         system_color_scheme(application) if normalized == "System" else None
     )
+    # Explicit Light/Dark may be overridden when the platform refuses
+    # setColorScheme; cache must follow the scheme styles actually paint with.
+    pinned_actual = (
+        actual_qt_color_scheme(application)
+        if normalized in {"Light", "Dark"}
+        else None
+    )
     cache_key = (
         (scheme_id or DEFAULT_WINDOW_COLOR_SCHEME).strip(),
         normalized,
         resolved,
+        pinned_actual,
     )
     cached = _effective_chrome_cache.get(cache_key)
     if cached is not None:
@@ -415,5 +427,10 @@ def effective_chrome_theme(scheme_id, ui_theme_name, application=None):
             theme = chrome_theme_from_scheme(auto.path)
         else:
             theme = ThemeManager.get_ui_theme(ui_theme_name, application)
+        # Default scheme + explicit Light/Dark: align with immutable ColorScheme
+        # so tab rail / icons do not keep Light surfaces on a dark Adwaita shell.
+        theme = reconcile_chrome_theme_with_color_scheme(
+            theme, ui_theme_name, application
+        )
     _effective_chrome_cache[cache_key] = theme
     return theme

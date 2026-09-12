@@ -286,15 +286,7 @@ def resolve_qt_style_key(style_name, theme=None, application=None):
 
     from jottr.theme_manager import ThemeManager
 
-    dark = ThemeManager.theme_is_dark(theme)
-    # Paired styles also key off ColorScheme; if the platform pinned a scheme
-    # that disagrees with the chrome theme dict, follow the scheme.
-    actual = actual_qt_color_scheme(application)
-    if actual == Qt.ColorScheme.Dark:
-        dark = True
-    elif actual == Qt.ColorScheme.Light:
-        dark = False
-    return match_style_variant_to_theme(key, dark)
+    return match_style_variant_to_theme(key, ThemeManager.theme_is_dark(theme))
 
 
 def apply_qt_style(style_name, application=None, theme=None):

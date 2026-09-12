@@ -520,11 +520,13 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
             else:
                 color_scheme_setting = scheme_setting
                 apply_qt_color_scheme(scheme_setting, application)
-            # Flatpak/KDE platform may ignore Light/Dark pins; realign chrome so
-            # Adwaita does not paint light text onto a light palette.
-            theme = reconcile_chrome_theme_with_color_scheme(
-                theme, color_scheme_setting, application
-            )
+                # Only Default chrome may be remapped when the platform refuses
+                # Light/Dark pins. Named .colors schemes keep their own palette;
+                # reconciling them to Dark would paint dark QSS over a light
+                # Breeze Classic (etc.) palette.
+                theme = reconcile_chrome_theme_with_color_scheme(
+                    theme, color_scheme_setting, application
+                )
             next_key = resolve_qt_style_key(
                 self.settings_manager.get_qt_style(),
                 theme=theme,
@@ -599,17 +601,18 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
         if application is None:
             return None
         from jottr.qt_style import reconcile_chrome_theme_with_color_scheme
-        from jottr.window_color_scheme import effective_chrome_theme
-
-        theme = reconcile_chrome_theme_with_color_scheme(
-            effective_chrome_theme(
-                self.settings_manager.get_window_color_scheme(),
-                self.settings_manager.get_ui_theme(),
-                application,
-            ),
-            self.settings_manager.get_ui_theme(),
-            application,
+        from jottr.window_color_scheme import (
+            effective_chrome_theme,
+            find_window_color_scheme,
         )
+
+        window_scheme_id = self.settings_manager.get_window_color_scheme()
+        ui_theme = self.settings_manager.get_ui_theme()
+        theme = effective_chrome_theme(window_scheme_id, ui_theme, application)
+        if not find_window_color_scheme(window_scheme_id).path:
+            theme = reconcile_chrome_theme_with_color_scheme(
+                theme, ui_theme, application
+            )
         previous_key = application.property("_jottr_style_key")
         saved_sheet = application.styleSheet()
         if saved_sheet:

@@ -288,7 +288,10 @@ class QtColorSchemePinTests(unittest.TestCase):
         self.assertFalse(ThemeManager.theme_is_dark(unchanged))
 
     def test_adwaita_variant_follows_immutable_color_scheme(self):
-        from jottr.qt_style import resolve_qt_style_key
+        from jottr.qt_style import (
+            reconcile_chrome_theme_with_color_scheme,
+            resolve_qt_style_key,
+        )
         from jottr.theme_manager import ThemeManager
 
         if QStyleFactory.create("Adwaita") is None:
@@ -298,8 +301,11 @@ class QtColorSchemePinTests(unittest.TestCase):
 
         light = ThemeManager.get_ui_theme("Light", app())
         with patch.object(QStyleHints, "colorScheme", lambda _self: Qt.ColorScheme.Dark):
+            reconciled = reconcile_chrome_theme_with_color_scheme(
+                light, "Light", app()
+            )
             self.assertEqual(
-                resolve_qt_style_key("Adwaita", theme=light, application=app()),
+                resolve_qt_style_key("Adwaita", theme=reconciled, application=app()),
                 "Adwaita-Dark",
             )
 
