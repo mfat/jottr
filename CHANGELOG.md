@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.5.0](https://github.com/mfat/jottr/compare/v2.4.1...v2.5.0) (2026-09-12)
+
+
+### Features
+
+* add system-default Main UI Font and Appearance polish ([831853d](https://github.com/mfat/jottr/commit/831853dc33c9c879b72a5b0af93328d6fc85e663))
+
 ## [2.4.1](https://github.com/mfat/jottr/compare/v2.4.0...v2.4.1) (2026-09-12)
 
 
