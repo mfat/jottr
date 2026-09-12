@@ -11,7 +11,7 @@ from PyQt6.QtWidgets import QApplication, QStyleFactory
 SYSTEM_QT_STYLE = "System"
 
 # Styles that ship paired light/dark plugins. UI themes must use the matching
-# variant or Adwaita paints light chrome with dark palette text (unreadable).
+# variant or light chrome can end up with dark palette text (unreadable).
 STYLE_VARIANT_PAIRS = (
     ("Adwaita", "Adwaita-Dark"),
     ("Adwaita-HighContrast", "Adwaita-HighContrastInverse"),
@@ -34,13 +34,6 @@ KNOWN_QT_STYLE_KEYS = (
     "GTK+",
     "kvantum",
     "qt5ct-style",
-    # Bundled FedoraQt/adwaita-qt (vendor/adwaita-qt)
-    "Adwaita",
-    "Adwaita-Dark",
-    "Adwaita-HighContrast",
-    "Adwaita-HighContrastInverse",
-    "HighContrast",
-    "HighContrastInverse",
 )
 
 _platform_style_key = None
@@ -48,17 +41,16 @@ _bundled_plugins_registered = False
 
 
 def bundled_qt_plugin_roots() -> list[Path]:
-    """Candidate directories that may contain styles/ for bundled Qt plugins."""
+    """Candidate directories that may contain styles/ for optional Qt plugins."""
     from jottr.paths import data_roots, package_dir
 
     roots: list[Path] = []
     for base in (package_dir(), *data_roots()):
         roots.append(base / "qt_plugins")
-        # Flatpak cmake install layout: …/plugins with styles/ underneath.
         roots.append(base / "plugins")
         roots.append(base)
 
-    # Common Flatpak / prefix installs of the style plugin.
+    # Common Flatpak / prefix installs of style plugins.
     for extra in (
         Path("/app/lib/plugins"),
         Path("/app/lib/qt6/plugins"),
@@ -81,7 +73,7 @@ def bundled_qt_plugin_roots() -> list[Path]:
 
 
 def register_bundled_qt_plugins() -> list[str]:
-    """Register package-local Qt plugin paths (Adwaita style, etc.).
+    """Register package-local Qt plugin paths when present.
 
     Safe to call before or after QApplication; missing trees are ignored.
     """
@@ -200,7 +192,7 @@ def apply_qt_color_scheme(scheme_name, application=None):
 
 
 def match_style_variant_to_theme(style_key, dark_theme):
-    """Map Adwaita/HighContrast style keys to the light or dark plugin for a theme."""
+    """Map paired light/dark style keys to the variant matching a theme."""
     key = (style_key or "").strip()
     if not key:
         return key
@@ -236,8 +228,8 @@ def resolve_qt_style_key(style_name, theme=None):
 def apply_qt_style(style_name, application=None, theme=None):
     """Apply a Qt style by name. System restores the captured platform style.
 
-    When *theme* is provided, Adwaita/HighContrast styles switch to the light or
-    dark plugin so controls stay readable with the UI theme palette.
+    When *theme* is provided, paired light/dark styles switch to the matching
+    plugin so controls stay readable with the UI theme palette.
     """
     app = application or QApplication.instance()
     if app is None:

@@ -42,11 +42,7 @@ entities.json
 # Codebase Memory MCP local index
 .codebase-memory/
 
-# Built Adwaita-Qt style plugin (see scripts/build-adwaita-qt.sh)
-src/jottr/qt_plugins/
-vendor/adwaita-qt/build/
-
-# Local Qt SDK / tools used only to build adwaita-qt
+# Local Qt SDK / tools (optional)
 .qt/
 .qt-build-venv/
 .local/

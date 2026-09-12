@@ -60,7 +60,7 @@ def main():
     # Share GL contexts for Qt WebEngine (must be set before QApplication).
     QApplication.setAttribute(Qt.ApplicationAttribute.AA_ShareOpenGLContexts)
 
-    # Register bundled Qt style plugins (Adwaita) before any style lookup.
+    # Register optional package-local Qt style plugins before any style lookup.
     register_bundled_qt_plugins()
 
     # Create application instance

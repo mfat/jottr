@@ -555,7 +555,7 @@ class ThemeManager:
         muted = QColor(app["muted"])
         accent = QColor(app["accent"])
         border = QColor(app["border"])
-        # Selection must stay vivid: styles like Adwaita paint menu-bar chips and
+        # Selection must stay vivid: some styles paint menu-bar chips and
         # focus cues from Highlight / HighlightedText (not the soft surface_active chip).
         highlight = QColor(app["accent"])
         if highlight.lightnessF() >= 0.55:

@@ -24,7 +24,7 @@ It has cool features including:
 * Two methods to quickly inserting frequently used text blocks: add words to your dictionary or create text snippets and insert with custom keywords
 * Smart, intuitive autocompletion with tab key
 * Themes: choose between, light, dark and Sepia (paper-like) themes for the editor
-* Widget styles: pick built-in Qt styles such as Fusion or Windows, bundled [Adwaita](https://github.com/FedoraQt/adwaita-qt) on Linux builds, or installed styles like Darkly
+* Widget styles: pick built-in Qt styles such as Fusion or Windows, or installed styles like Darkly
 * Familiar, intuitive keyboard shortcuts (ctrl+= to make text bigger, for example)
 
 [Video overview](https://www.youtube.com/watch?v=P2nyr5V01SU)
@@ -52,10 +52,6 @@ To run Jottr on Mac you need to install  echant through [homebrew](https://brew.
 `cd jottr`
 
 `python3 -m pip install -e ".[build]"`
-
-On Linux, optionally build the bundled Adwaita Qt style plugin (needs cmake, a C++ compiler, and Qt6 headers):
-
-`./scripts/build-adwaita-qt.sh`
 
 `jottr`
 

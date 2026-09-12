@@ -15,12 +15,7 @@ sudo apt-get install -y \
   python3-all \
   python3-setuptools \
   python3-enchant \
-  python3-pyqt6.qtsvg \
-  cmake \
-  g++ \
-  ninja-build \
-  patchelf \
-  qt6-base-dev
+  python3-pyqt6.qtsvg
 
 
 # Create debian directory link

@@ -33,15 +33,6 @@ modules:
       - /share/doc
       - /share/man
 
-  - name: adwaita-qt
-    buildsystem: cmake-ninja
-    config-opts:
-      - -DUSE_QT6=ON
-      - -DCMAKE_BUILD_TYPE=Release
-    sources:
-      - type: dir
-        path: vendor/adwaita-qt
-
   - pypi-dependencies.yaml
 
   - name: jottr

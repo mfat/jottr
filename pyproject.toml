@@ -66,5 +66,4 @@ where = ["src"]
 jottr = [
   "help/**/*",
   "icons/**/*",
-  "qt_plugins/**/*",
 ]

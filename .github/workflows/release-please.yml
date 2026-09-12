@@ -27,7 +27,7 @@ jobs:
     needs: release-please
     if: ${{ needs.release-please.outputs.release_created == 'true' }}
     runs-on: ubuntu-latest
-    container: ubuntu:20.04
+    container: ubuntu:22.04
     steps:
       - uses: actions/checkout@v4
         with:
@@ -42,11 +42,11 @@ jobs:
             dh-python \
             python3-all \
             python3-setuptools \
-            python3-pyqt5 \
-            python3-pyqt5.qtwebengine \
+            python3-pyqt6 \
+            python3-pyqt6.qtwebengine \
             python3-feedparser \
             python3-enchant \
-            python3-pyqt5.qtsvg \
+            python3-pyqt6.qtsvg \
             python3-pip \
             unzip \
             git \
@@ -153,7 +153,8 @@ jobs:
       - name: Create source tarball
         run: |
           mkdir -p /tmp/jottr-${{ steps.get_version.outputs.version }}
-          cp -r src LICENSE README.md icons /tmp/jottr-${{ steps.get_version.outputs.version }}/
+          cp -r src LICENSE README.md icons translations \
+            /tmp/jottr-${{ steps.get_version.outputs.version }}/
           cd /tmp
           tar czf ~/rpmbuild/SOURCES/jottr-${{ steps.get_version.outputs.version }}.tar.gz jottr-${{ steps.get_version.outputs.version }}/
 
@@ -230,19 +231,11 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y \
-            cmake \
             desktop-file-utils \
             file \
-            g++ \
             libfuse2 \
-            ninja-build \
-            patchelf \
             python3-venv \
-            qt6-base-dev \
             wget
-
-      - name: Build bundled Adwaita-Qt style plugin
-        run: scripts/build-adwaita-qt.sh
 
       - name: Build Linux PyInstaller bundle
         run: |
@@ -296,7 +289,6 @@ jobs:
             --hidden-import spellchecker \
             --add-data "src/jottr/help:jottr/help" \
             --add-data "src/jottr/icons:jottr/icons" \
-            --add-data "src/jottr/qt_plugins:jottr/qt_plugins" \
             --add-data "icons:icons" \
             --add-data "translations:translations" \
             src/jottr/__main__.py

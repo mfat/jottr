@@ -31,7 +31,7 @@ class ImportAndPackagingTests(unittest.TestCase):
         from jottr import theme_manager
 
         self.assertEqual(main.APP_NAME, "Jottr")
-        self.assertEqual(main.APP_VERSION, "2.2.1")
+        self.assertEqual(main.APP_VERSION, "2.3.0")
 
     def test_package_entry_points_exist(self):
         pyproject = (PROJECT_ROOT / "pyproject.toml").read_text(encoding="utf-8")
@@ -91,22 +91,26 @@ class ImportAndPackagingTests(unittest.TestCase):
             "packaging/debian/jottr/",
             "/deb_dist",
             "src/jottr/jottr.spec",
-            "src/jottr/qt_plugins/",
-            "vendor/adwaita-qt/build/",
         ):
             with self.subTest(pattern=pattern):
                 self.assertIn(pattern, gitignore)
 
-    def test_vendored_adwaita_qt_is_present(self):
-        vendor = PROJECT_ROOT / "vendor" / "adwaita-qt"
-        self.assertTrue((vendor / "CMakeLists.txt").is_file())
-        self.assertTrue((vendor / "ATTRIBUTION.md").is_file())
-        self.assertTrue((PROJECT_ROOT / "scripts" / "build-adwaita-qt.sh").is_file())
+    def test_adwaita_qt_is_not_vendored(self):
+        self.assertFalse((PROJECT_ROOT / "vendor" / "adwaita-qt").exists())
+        self.assertFalse((PROJECT_ROOT / "scripts" / "build-adwaita-qt.sh").exists())
         pyproject = (PROJECT_ROOT / "pyproject.toml").read_text(encoding="utf-8")
-        self.assertIn("qt_plugins/**/*", pyproject)
+        self.assertNotIn("qt_plugins/**/*", pyproject)
         flatpak = (PROJECT_ROOT / "io.github.mfat.jottr.yml").read_text(encoding="utf-8")
-        self.assertIn("adwaita-qt", flatpak)
-        self.assertIn("vendor/adwaita-qt", flatpak)
+        self.assertNotIn("adwaita-qt", flatpak)
+        self.assertNotIn("vendor/adwaita-qt", flatpak)
+        rpm_spec = (PROJECT_ROOT / "rpm.spec").read_text(encoding="utf-8")
+        self.assertNotIn("build-adwaita-qt.sh", rpm_spec)
+        self.assertIn("BuildArch:      noarch", rpm_spec)
+        debian_control = (PROJECT_ROOT / "packaging" / "debian" / "control").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn("Architecture: all", debian_control)
+        self.assertNotIn("qt6-base-dev", debian_control)
 
     def test_register_bundled_qt_plugins_is_noop_without_tree(self):
         from jottr.qt_style import register_bundled_qt_plugins
@@ -174,10 +178,10 @@ class ImportAndPackagingTests(unittest.TestCase):
         self.assertIn('--add-data "icons:icons"', appimage_script)
         self.assertIn('--add-data "translations:translations"', workflow)
         self.assertIn('--add-data "translations:translations"', appimage_script)
-        self.assertIn('--add-data "src/jottr/qt_plugins:jottr/qt_plugins"', workflow)
-        self.assertIn('--add-data "src/jottr/qt_plugins:jottr/qt_plugins"', appimage_script)
-        self.assertIn("build-adwaita-qt.sh", workflow)
-        self.assertIn("build-adwaita-qt.sh", appimage_script)
+        self.assertNotIn("qt_plugins", workflow)
+        self.assertNotIn("qt_plugins", appimage_script)
+        self.assertNotIn("build-adwaita-qt.sh", workflow)
+        self.assertNotIn("build-adwaita-qt.sh", appimage_script)
 
     def test_symbolic_icons_use_qt_resources(self):
         from PyQt6.QtWidgets import QApplication

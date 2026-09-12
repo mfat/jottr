@@ -12,12 +12,9 @@ In Settings > Appearance, **Widget Style** lists every Qt style available on you
 - System: Keep the platform default style
 - Built-in styles such as Fusion and Windows
 - Platform styles such as WindowsVista, windows11, or macos when provided by Qt
-- Bundled [Adwaita](https://github.com/FedoraQt/adwaita-qt) styles on Linux packages and AppImage/Flatpak builds (`Adwaita`, `Adwaita-Dark`, HighContrast variants)
 - Desktop or plugin styles installed on your system (for example Breeze, Oxygen, or [Darkly](https://github.com/Bali10050/Darkly))
 
-The dropdown is filled from Qt's style factory, so everything your Qt build can create is offered. Color Scheme drives Qt's application palette hint; Jottr still styles its own chrome (toolbar, tabs, workspace) to match the effective light or dark appearance. Choosing `Adwaita` or `Adwaita-Dark` (or the HighContrast pair) automatically uses the light or dark plugin that matches Color Scheme.
-
-From a source checkout, build the bundled Adwaita plugin with `./scripts/build-adwaita-qt.sh` (cmake + Qt6 development packages).
+The dropdown is filled from Qt's style factory, so everything your Qt build can create is offered. Color Scheme drives Qt's application palette hint; Jottr still styles its own chrome (toolbar, tabs, workspace) to match the effective light or dark appearance. Paired light/dark styles (when both are installed) automatically follow Color Scheme.
 
 To create a custom editor theme:
 1. Open Settings > Appearance

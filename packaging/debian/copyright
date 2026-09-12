@@ -4,10 +4,3 @@ Source: https://github.com/mfat/jottr
 Files: *
 Copyright: 2024 mFat <newmfat@gmail.com>
 License: GPL-3.0+
-
-Files: vendor/adwaita-qt/*
-Copyright: 2014 Hugo Pereira Da Costa <hugo.pereira@free.fr>
-           2019-2023 Fedora Qt Team and contributors
-License: GPL-2.0+ or LGPL-2.0+
-Comment: Vendored from https://github.com/FedoraQt/adwaita-qt
- (unmaintained upstream). See vendor/adwaita-qt/ATTRIBUTION.md.

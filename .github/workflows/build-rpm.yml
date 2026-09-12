@@ -29,13 +29,8 @@ jobs:
           python3-enchant \
           python3-pyxdg \
           qt6-qtsvg \
-          qt6-qtbase-devel \
-          cmake \
-          ninja-build \
-          patchelf \
           rpmdevtools \
           gcc \
-          gcc-c++ \
           make
 
     - name: Set up RPM build environment
@@ -52,7 +47,7 @@ jobs:
     - name: Create source tarball
       run: |
         mkdir -p /tmp/jottr-${{ steps.get_version.outputs.version }}
-        cp -r src LICENSE README.md icons translations scripts vendor \
+        cp -r src LICENSE README.md icons translations \
           /tmp/jottr-${{ steps.get_version.outputs.version }}/
         cd /tmp
         tar czf ~/rpmbuild/SOURCES/jottr-${{ steps.get_version.outputs.version }}.tar.gz jottr-${{ steps.get_version.outputs.version }}/
