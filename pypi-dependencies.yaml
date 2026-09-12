@@ -1,4 +1,4 @@
-# Generated for Flatpak with org.kde.Sdk//6.10 (PyQt BaseApp provides PyQt6).
+# Generated for Flatpak with org.kde.Sdk//6.11 (PyQt BaseApp provides PyQt6).
 # Covers runtime-requirements.txt: pyenchant, feedparser, requests, Markdown,
 # pyspellchecker, langdetect (+ transitive deps).
 name: pypi-dependencies
