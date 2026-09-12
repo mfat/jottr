@@ -23,10 +23,11 @@
 
   <!-- Release information -->
   <releases>
-    <release version="2.3.2" date="2025-03-01">
+    <release version="2.3.2" date="2026-09-12">
       <description>
-        <p>Bug fixes and improvements</p>
-        <p>Context menu reordered</p>
+        <p>Fix AppImage/frozen entry point import crash</p>
+        <p>Remove bundled Adwaita-Qt; simplify package builds</p>
+        <p>Update Flatpak packaging to PyQt6 / KDE 6.10</p>
       </description>
     </release>
   </releases>

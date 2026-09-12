@@ -7,7 +7,7 @@ base-version: '6.10'
 command: jottr
 separate-locales: false
 cleanup-commands:
-    - /app/cleanup-BaseApp.sh
+  - /app/cleanup-BaseApp.sh
 finish-args:
   # Open/save/directory pickers use native QFileDialog so Qt can talk to
   # org.freedesktop.portal.FileChooser. Avoid DontUseNativeDialog and do not
@@ -47,6 +47,6 @@ modules:
       - install -D -m644 io.github.mfat.jottr.metainfo.xml -t ${FLATPAK_DEST}/share/metainfo/
     sources:
       - type: git
-        url: "https://github.com/mfat/jottr.git"
-        tag: v1.4.3
-        commit: ae78bb0d7f35e8ed49ad3e3d510cb569d86c16e2
+        url: https://github.com/mfat/jottr.git
+        tag: v2.3.2
+        commit: 9a13115b16253d2626b1845b9cf0cc678aabd8a2
