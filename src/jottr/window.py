@@ -1198,11 +1198,17 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
         self.cut_action.setEnabled(has_selection)
         self.copy_action.setEnabled(has_selection)
         self.paste_action.setEnabled(can_paste)
+        capitalization = getattr(self, "capitalization_menu_action", None)
+        if capitalization is not None:
+            capitalization.setEnabled(has_selection)
 
     def _on_copy_available(self, available):
         """QTextEdit.copyAvailable tracks selection for cut/copy."""
         self.cut_action.setEnabled(available)
         self.copy_action.setEnabled(available)
+        capitalization = getattr(self, "capitalization_menu_action", None)
+        if capitalization is not None:
+            capitalization.setEnabled(available)
         
     def undo(self):
         editor = self.get_current_editor()
@@ -1346,8 +1352,10 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
         capitalization_menu.setAccessibleName(
             _("{title} menu").format(title=_("Capitalization"))
         )
-        capitalization_menu.menuAction().setProperty("text_key", "Capitalization")
-        self.translatable_actions.append(capitalization_menu.menuAction())
+        self.capitalization_menu_action = capitalization_menu.menuAction()
+        self.capitalization_menu_action.setProperty("text_key", "Capitalization")
+        self.capitalization_menu_action.setEnabled(False)
+        self.translatable_actions.append(self.capitalization_menu_action)
         self.translatable_menus.append((capitalization_menu, "Capitalization"))
         capitalization_menu.addAction(self.uppercase_action)
         capitalization_menu.addAction(self.lowercase_action)

@@ -857,8 +857,9 @@ class EditorTab(
         paste_action.setEnabled(self.editor.canPaste())
         menu.addSeparator()
 
-        # Kate Selection ▸ Capitalization
+        # Kate Selection ▸ Capitalization (context menu: selection only, like Cut/Copy)
         capitalization_menu = menu.addMenu(_("Capitalization"))
+        capitalization_menu.menuAction().setEnabled(has_selection)
         capitalization_menu.addAction(_("Uppercase"), lambda: apply_uppercase(self.editor))
         capitalization_menu.addAction(_("Lowercase"), lambda: apply_lowercase(self.editor))
         capitalization_menu.addAction(_("Capitalize"), lambda: apply_capitalize(self.editor))
@@ -1170,18 +1171,19 @@ class EditorTab(
         
         menu.addSeparator()
         capitalization_menu = menu.addMenu(_("Capitalization"))
+        capitalization_menu.menuAction().setEnabled(has_selection)
         capitalization_menu.addAction(_("Uppercase"), lambda: apply_uppercase(self.editor))
         capitalization_menu.addAction(_("Lowercase"), lambda: apply_lowercase(self.editor))
         capitalization_menu.addAction(_("Capitalize"), lambda: apply_capitalize(self.editor))
-        
+
         # Add separator before Select All
         menu.addSeparator()
-        
+
         # Add Select All action
         select_all_action = menu.addAction(_("Select All"))
         select_all_action.triggered.connect(self.editor.selectAll)
         select_all_action.setShortcut("Ctrl+A")
-        
+
         # Show menu at cursor position
         menu.exec(self.editor.mapToGlobal(position))
 
