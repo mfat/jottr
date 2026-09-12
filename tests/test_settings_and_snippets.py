@@ -154,6 +154,35 @@ class SettingsAndSnippetTests(unittest.TestCase):
         self.assertEqual(reloaded.get_font("editor").family(), "Mono")
         self.assertEqual(reloaded.get_font("editor").pointSize(), 14)
 
+    def test_settings_manager_defaults_ui_font_to_system_and_coerces_qt5_weight(self):
+        manager = SettingsManager()
+        system = SettingsManager.system_ui_font()
+        ui = manager.get_font("ui")
+        self.assertEqual(ui.family(), system.family())
+        self.assertGreaterEqual(int(ui.weight()), 100)
+        self.assertEqual(SettingsManager.coerce_font_weight(50), int(QFont.Weight.Normal))
+        self.assertEqual(SettingsManager.coerce_font_weight(400), 400)
+
+        # Persisted legacy DejaVu UI default migrates to the system font.
+        Path(manager.settings_file).write_text(
+            json.dumps({
+                "ui_font_family": "DejaVu Sans",
+                "ui_font_size": 10,
+                "ui_font_weight": 50,
+                "ui_font_italic": False,
+                "font_family": "DejaVu Sans Mono",
+                "font_size": 12,
+                "font_weight": 50,
+                "font_italic": False,
+            }),
+            encoding="utf-8",
+        )
+        reloaded = SettingsManager()
+        self.assertEqual(reloaded.get_font("ui").family(), system.family())
+        self.assertGreaterEqual(int(reloaded.get_font("ui").weight()), 100)
+        self.assertEqual(int(reloaded.get_font("editor").weight()), int(QFont.Weight.Normal))
+        self.assertEqual(reloaded.get_font("editor").family(), "DejaVu Sans Mono")
+
     def test_settings_manager_persists_custom_themes(self):
         manager = SettingsManager()
         manager.save_custom_themes({

@@ -1,7 +1,7 @@
 import json
 import os
 from contextlib import contextmanager
-from PyQt6.QtGui import QFont
+from PyQt6.QtGui import QFont, QFontDatabase, QGuiApplication
 import time
 import sys
 
@@ -17,18 +17,53 @@ DEFAULT_PLUGIN_CHANNELS = [
         "verified": True,
     }
 ]
+# Former baked-in UI default (Qt5 Normal weight=50). Migrate to the system UI font.
+_LEGACY_DEFAULT_UI_FONT = ("DejaVu Sans", 10, 50, False)
+
 
 class SettingsManager:
+    @staticmethod
+    def system_ui_font():
+        """Desktop UI font from the platform (Plasma/GNOME/etc.), with sane fallbacks."""
+        font = QFont(QFontDatabase.systemFont(QFontDatabase.SystemFont.GeneralFont))
+        if font.pointSize() <= 0 and font.pointSizeF() <= 0:
+            app = QGuiApplication.instance()
+            if app is not None:
+                font = QFont(app.font())
+        if font.pointSize() <= 0 and font.pointSizeF() <= 0:
+            font.setPointSize(10)
+        if int(font.weight()) < 100:
+            font.setWeight(QFont.Weight.Normal)
+        return font
+
+    @staticmethod
+    def coerce_font_weight(weight):
+        """Map legacy Qt5 0–99 weights to Qt6 100–900 (50→400 Normal)."""
+        try:
+            value = int(weight)
+        except (TypeError, ValueError):
+            return int(QFont.Weight.Normal)
+        if value <= 0:
+            return int(QFont.Weight.Normal)
+        if value < 100:
+            # Qt5 Normal=50, Bold=75 → Qt6 Normal=400, Bold≈600.
+            return max(100, min(900, round(value * 8)))
+        return max(1, min(1000, value))
+
     def __init__(self):
+        ui_font = self.system_ui_font()
+        ui_size = ui_font.pointSize()
+        if ui_size <= 0:
+            ui_size = round(ui_font.pointSizeF()) if ui_font.pointSizeF() > 0 else 10
         # Initialize default settings
         self.settings = {
-            "ui_font_family": "DejaVu Sans",
-            "ui_font_size": 10,
-            "ui_font_weight": 50,
-            "ui_font_italic": False,
+            "ui_font_family": ui_font.family(),
+            "ui_font_size": ui_size,
+            "ui_font_weight": int(ui_font.weight()),
+            "ui_font_italic": bool(ui_font.italic()),
             "font_family": "DejaVu Sans Mono",
             "font_size": 12,
-            "font_weight": 50,
+            "font_weight": int(QFont.Weight.Normal),
             "font_italic": False,
             "ui_theme": "System",
             "theme": "default",
@@ -95,7 +130,10 @@ class SettingsManager:
         
         # Create snippets directory
         os.makedirs(self.snippets_dir, exist_ok=True)
-        
+
+        self._save_depth = 0
+        self._save_pending = False
+
         # Initialize settings
         self.load_settings()
         
@@ -135,9 +173,6 @@ class SettingsManager:
         #     except:
         #         pass
 
-        self._save_depth = 0
-        self._save_pending = False
-
     def load_settings(self):
         """Load settings from file"""
         settings_path = os.path.join(self.config_dir, 'settings.json')
@@ -147,8 +182,47 @@ class SettingsManager:
                     saved_settings = json.load(f)
                     self.settings.update(saved_settings)
                     self.settings["custom_themes"] = self.get_custom_themes()
+                    self.migrate_legacy_font_settings()
             except Exception as e:
                 print(f"Error loading settings: {str(e)}")
+
+    def migrate_legacy_font_settings(self):
+        """Replace the old DejaVu UI default and coerce Qt5 font weights."""
+        changed = False
+        family = self.settings.get("ui_font_family")
+        size = self.settings.get("ui_font_size")
+        weight = self.settings.get("ui_font_weight")
+        italic = bool(self.settings.get("ui_font_italic", False))
+        legacy_family, legacy_size, legacy_weight, legacy_italic = _LEGACY_DEFAULT_UI_FONT
+        if (
+            family == legacy_family
+            and size == legacy_size
+            and weight == legacy_weight
+            and italic == legacy_italic
+        ):
+            ui_font = self.system_ui_font()
+            ui_size = ui_font.pointSize()
+            if ui_size <= 0:
+                ui_size = round(ui_font.pointSizeF()) if ui_font.pointSizeF() > 0 else 10
+            self.settings["ui_font_family"] = ui_font.family()
+            self.settings["ui_font_size"] = ui_size
+            self.settings["ui_font_weight"] = int(ui_font.weight())
+            self.settings["ui_font_italic"] = bool(ui_font.italic())
+            changed = True
+        else:
+            coerced = self.coerce_font_weight(weight)
+            if weight != coerced:
+                self.settings["ui_font_weight"] = coerced
+                changed = True
+
+        editor_weight = self.settings.get("font_weight")
+        coerced_editor = self.coerce_font_weight(editor_weight)
+        if editor_weight != coerced_editor:
+            self.settings["font_weight"] = coerced_editor
+            changed = True
+
+        if changed:
+            self.save_settings()
 
     @contextmanager
     def defer_saves(self):
@@ -182,20 +256,24 @@ class SettingsManager:
     def get_font(self, role="editor"):
         prefix = self.font_setting_prefix(role)
         legacy_prefix = "font"
-        font = QFont(
-            self.settings.get(f"{prefix}_family", self.settings[f"{legacy_prefix}_family"]),
-            self.settings.get(f"{prefix}_size", self.settings[f"{legacy_prefix}_size"]),
+        family = self.settings.get(f"{prefix}_family", self.settings[f"{legacy_prefix}_family"])
+        size = self.settings.get(f"{prefix}_size", self.settings[f"{legacy_prefix}_size"])
+        weight = self.coerce_font_weight(
             self.settings.get(f"{prefix}_weight", self.settings[f"{legacy_prefix}_weight"])
         )
+        font = QFont(family, size, weight)
         font.setItalic(self.settings.get(f"{prefix}_italic", self.settings[f"{legacy_prefix}_italic"]))
         return font
 
     def save_font(self, font, role="editor"):
         prefix = self.font_setting_prefix(role)
+        point_size = font.pointSize()
+        if point_size <= 0:
+            point_size = round(font.pointSizeF()) if font.pointSizeF() > 0 else 10
         self.settings.update({
             f"{prefix}_family": font.family(),
-            f"{prefix}_size": font.pointSize(),
-            f"{prefix}_weight": font.weight(),
+            f"{prefix}_size": point_size,
+            f"{prefix}_weight": self.coerce_font_weight(font.weight()),
             f"{prefix}_italic": font.italic()
         })
         self.save_settings()
