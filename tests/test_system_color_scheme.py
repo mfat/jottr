@@ -13,7 +13,7 @@ sys.path.insert(0, str(SRC_ROOT))
 
 from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QStyleHints
-from PyQt6.QtWidgets import QApplication
+from PyQt6.QtWidgets import QApplication, QStyleFactory
 
 import jottr.system_color_scheme as system_color_scheme_module
 from jottr.system_color_scheme import (
@@ -269,6 +269,39 @@ class QtColorSchemePinTests(unittest.TestCase):
         with patch.object(QStyleHints, "colorScheme", lambda _self: Qt.ColorScheme.Dark):
             with self._desktop(Qt.ColorScheme.Light):
                 self.assertEqual(system_color_scheme(app()), Qt.ColorScheme.Light)
+
+    def test_chrome_theme_realigns_when_platform_ignores_light_pin(self):
+        """Flatpak/KDE may keep Dark after setColorScheme(Light); avoid white-on-white."""
+        from jottr.qt_style import reconcile_chrome_theme_with_color_scheme
+        from jottr.theme_manager import ThemeManager
+
+        light = ThemeManager.get_ui_theme("Light", app())
+        with patch.object(QStyleHints, "colorScheme", lambda _self: Qt.ColorScheme.Dark):
+            reconciled = reconcile_chrome_theme_with_color_scheme(
+                light, "Light", app()
+            )
+        self.assertTrue(ThemeManager.theme_is_dark(reconciled))
+        with patch.object(QStyleHints, "colorScheme", lambda _self: Qt.ColorScheme.Light):
+            unchanged = reconcile_chrome_theme_with_color_scheme(
+                light, "Light", app()
+            )
+        self.assertFalse(ThemeManager.theme_is_dark(unchanged))
+
+    def test_adwaita_variant_follows_immutable_color_scheme(self):
+        from jottr.qt_style import resolve_qt_style_key
+        from jottr.theme_manager import ThemeManager
+
+        if QStyleFactory.create("Adwaita") is None:
+            self.skipTest("Adwaita style unavailable")
+        if QStyleFactory.create("Adwaita-Dark") is None:
+            self.skipTest("Adwaita-Dark style unavailable")
+
+        light = ThemeManager.get_ui_theme("Light", app())
+        with patch.object(QStyleHints, "colorScheme", lambda _self: Qt.ColorScheme.Dark):
+            self.assertEqual(
+                resolve_qt_style_key("Adwaita", theme=light, application=app()),
+                "Adwaita-Dark",
+            )
 
 
 if __name__ == "__main__":

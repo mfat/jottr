@@ -485,6 +485,7 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
         Window Color Scheme (Kate / KColorSchemeManager) installs a QPalette
         from a ``.colors`` file when selected; Default follows System/Light/Dark.
         """
+        from jottr.qt_style import reconcile_chrome_theme_with_color_scheme
         from jottr.window_color_scheme import (
             activate_window_color_scheme,
             clear_effective_chrome_theme_cache,
@@ -509,8 +510,25 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
             theme = effective_chrome_theme(
                 window_scheme_id, scheme_setting, application
             )
+            # Qt ColorScheme hint: explicit Window Color Scheme forces Light/Dark;
+            # Default uses the Appearance System/Light/Dark setting.
+            if window_scheme.path:
+                color_scheme_setting = (
+                    "Dark" if scheme_is_dark(window_scheme.path) else "Light"
+                )
+                apply_qt_color_scheme(color_scheme_setting, application)
+            else:
+                color_scheme_setting = scheme_setting
+                apply_qt_color_scheme(scheme_setting, application)
+            # Flatpak/KDE platform may ignore Light/Dark pins; realign chrome so
+            # Adwaita does not paint light text onto a light palette.
+            theme = reconcile_chrome_theme_with_color_scheme(
+                theme, color_scheme_setting, application
+            )
             next_key = resolve_qt_style_key(
-                self.settings_manager.get_qt_style(), theme=theme
+                self.settings_manager.get_qt_style(),
+                theme=theme,
+                application=application,
             )
             if application.property("_jottr_style_key") != next_key:
                 # Drop stylesheets before setStyle so the widget style can take effect.
@@ -519,15 +537,6 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
                 application.setStyleSheet("")
                 self.setStyleSheet("")
                 self._applied_app_stylesheet = None
-            # Qt ColorScheme hint: explicit Window Color Scheme forces Light/Dark;
-            # Default uses the Appearance System/Light/Dark setting.
-            if window_scheme.path:
-                apply_qt_color_scheme(
-                    "Dark" if scheme_is_dark(window_scheme.path) else "Light",
-                    application,
-                )
-            else:
-                apply_qt_color_scheme(scheme_setting, application)
             previous_key = application.property("_jottr_style_key")
             apply_qt_style(
                 self.settings_manager.get_qt_style(),
@@ -589,10 +598,15 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
         application = QApplication.instance()
         if application is None:
             return None
+        from jottr.qt_style import reconcile_chrome_theme_with_color_scheme
         from jottr.window_color_scheme import effective_chrome_theme
 
-        theme = effective_chrome_theme(
-            self.settings_manager.get_window_color_scheme(),
+        theme = reconcile_chrome_theme_with_color_scheme(
+            effective_chrome_theme(
+                self.settings_manager.get_window_color_scheme(),
+                self.settings_manager.get_ui_theme(),
+                application,
+            ),
             self.settings_manager.get_ui_theme(),
             application,
         )

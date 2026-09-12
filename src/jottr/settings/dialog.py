@@ -266,7 +266,10 @@ class SettingsDialog(
     def apply_dialog_style(self):
         # Palette + QStyle for colors; font-only QSS so group titles / labels
         # follow Main UI Font without restyling controls.
-        from jottr.qt_style import apply_qt_color_scheme
+        from jottr.qt_style import (
+            apply_qt_color_scheme,
+            reconcile_chrome_theme_with_color_scheme,
+        )
         from jottr.window_color_scheme import (
             activate_window_color_scheme,
             effective_chrome_theme,
@@ -278,12 +281,17 @@ class SettingsDialog(
         window_scheme_id = self.selected_window_color_scheme()
         window_scheme = find_window_color_scheme(window_scheme_id)
         if window_scheme.path:
-            apply_qt_color_scheme(
+            color_scheme_setting = (
                 "Dark" if scheme_is_dark(window_scheme.path) else "Light"
             )
+            apply_qt_color_scheme(color_scheme_setting)
         else:
+            color_scheme_setting = scheme
             apply_qt_color_scheme(scheme)
-        theme = effective_chrome_theme(window_scheme_id, scheme)
+        theme = reconcile_chrome_theme_with_color_scheme(
+            effective_chrome_theme(window_scheme_id, scheme),
+            color_scheme_setting,
+        )
         activate_window_color_scheme(window_scheme_id)
         if not window_scheme.path:
             ThemeManager.apply_app_palette(self, theme)

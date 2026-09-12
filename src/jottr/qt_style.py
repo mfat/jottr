@@ -189,6 +189,10 @@ def apply_qt_color_scheme(scheme_name, application=None):
     no opinion — a sandboxed plugin that cannot read the host config — pin the
     scheme the desktop portal reports instead, so the widget style does not
     stay light while the chrome goes dark.
+
+    Some platform themes (notably org.kde.Platform under a dark GNOME host)
+    report Dark and ignore ``setColorScheme(Light)``. Callers must then align
+    chrome and paired styles via ``reconcile_chrome_theme_with_color_scheme``.
     """
     from jottr.system_color_scheme import (
         desktop_color_scheme,
@@ -219,6 +223,38 @@ def apply_qt_color_scheme(scheme_name, application=None):
     return hints.colorScheme()
 
 
+def actual_qt_color_scheme(application=None):
+    """Return the ColorScheme QStyleHints currently reports, or Unknown."""
+    app = application or QGuiApplication.instance()
+    if app is None or not hasattr(app, "styleHints"):
+        return Qt.ColorScheme.Unknown
+    return app.styleHints().colorScheme()
+
+
+def reconcile_chrome_theme_with_color_scheme(theme, scheme_setting, application=None):
+    """Align chrome colors when the platform refuses an explicit Light/Dark pin.
+
+    Adwaita (and other paired styles) paint from ``QStyleHints.colorScheme()``.
+    If the user picks Light chrome while the platform keeps Dark — common in the
+    Flatpak/KDE runtime on a dark GNOME host — light backgrounds get light text.
+    Prefer the scheme the style will actually use.
+    """
+    from jottr.theme_manager import ThemeManager
+
+    requested = ThemeManager.ui_theme_color_scheme(scheme_setting)
+    if requested not in (Qt.ColorScheme.Light, Qt.ColorScheme.Dark):
+        return theme
+
+    actual = actual_qt_color_scheme(application)
+    if actual not in (Qt.ColorScheme.Light, Qt.ColorScheme.Dark):
+        return theme
+    if actual == requested:
+        return theme
+
+    forced = "Dark" if actual == Qt.ColorScheme.Dark else "Light"
+    return ThemeManager.get_ui_theme(forced, application)
+
+
 def match_style_variant_to_theme(style_key, dark_theme):
     """Map paired light/dark style keys to the variant matching a theme."""
     key = (style_key or "").strip()
@@ -236,7 +272,7 @@ def match_style_variant_to_theme(style_key, dark_theme):
     return key
 
 
-def resolve_qt_style_key(style_name, theme=None):
+def resolve_qt_style_key(style_name, theme=None, application=None):
     """Resolve System/user style, then pick light/dark variant for the UI theme."""
     capture_platform_qt_style()
     resolved = normalize_qt_style(style_name)
@@ -250,7 +286,15 @@ def resolve_qt_style_key(style_name, theme=None):
 
     from jottr.theme_manager import ThemeManager
 
-    return match_style_variant_to_theme(key, ThemeManager.theme_is_dark(theme))
+    dark = ThemeManager.theme_is_dark(theme)
+    # Paired styles also key off ColorScheme; if the platform pinned a scheme
+    # that disagrees with the chrome theme dict, follow the scheme.
+    actual = actual_qt_color_scheme(application)
+    if actual == Qt.ColorScheme.Dark:
+        dark = True
+    elif actual == Qt.ColorScheme.Light:
+        dark = False
+    return match_style_variant_to_theme(key, dark)
 
 
 def apply_qt_style(style_name, application=None, theme=None):
@@ -263,7 +307,7 @@ def apply_qt_style(style_name, application=None, theme=None):
     if app is None:
         return None
 
-    key = resolve_qt_style_key(style_name, theme=theme)
+    key = resolve_qt_style_key(style_name, theme=theme, application=app)
     # style().objectName() is not reliable across platforms (often empty),
     # so remember the key we applied on the application object itself.
     if app.property("_jottr_style_key") == key:
