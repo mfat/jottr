@@ -1,5 +1,17 @@
 # Changelog
 
+## [2.3.2](https://github.com/mfat/jottr/compare/v2.3.1...v2.3.2) (2026-09-12)
+
+
+### Bug Fixes
+
+* make frozen AppImage entry point import jottr.main ([4651705](https://github.com/mfat/jottr/commit/4651705cc2bf5e5549da7df11e2aa9c0097bbcc7))
+
+
+### CI
+
+* drop PyQt packages from Debian build images ([59d0a87](https://github.com/mfat/jottr/commit/59d0a8741744033827f0d4fdd8b572ac1a0daa65))
+
 ## [2.3.1](https://github.com/mfat/jottr/compare/v2.3.0...v2.3.1) (2026-09-12)
 
 
