@@ -1639,7 +1639,10 @@ class EditorAndMainTests(unittest.TestCase):
             self.assertEqual(
                 window.settings_manager.get_toolbar_style(), TOOLBAR_STYLE_DEFAULT
             )
-            self.assertNotIn("QToolBar#mainToolBar", QApplication.instance().styleSheet())
+            default_sheet = QApplication.instance().styleSheet()
+            self.assertIn("QToolBar#mainToolBar", default_sheet)
+            self.assertNotIn("padding: 6px 10px", default_sheet)
+            self.assertNotIn("QToolBar#mainToolBar QToolButton", default_sheet)
             self.assertTrue(labels["Default"].isChecked())
             self.assertFalse(labels["Comfy"].isChecked())
 

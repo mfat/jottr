@@ -634,17 +634,19 @@ class ThemeManager:
         # Style Jottr chrome by object name only. Do not style QMainWindow:
         # cascading color/background onto QMenuBar breaks some widget styles
         # (e.g. Breeze) so menu titles go missing in dark mode. Style the
-        # in-window menubar (#appMenuBar) explicitly. Toolbar chrome is optional
-        # (Comfy QSS vs Default widget-style metrics).
+        # in-window menubar (#appMenuBar) explicitly. Toolbar always gets the
+        # chrome surface color (otherwise Default falls back to Window/scheme
+        # grey under Breeze/Oxygen). Comfy adds padded QSS button metrics;
+        # Default leaves QToolButton painting to the widget style.
         # Do not put font rules on QMenu — Qt stylesheets claim the font
         # property without reliably applying it, which also blocks setFont.
-        toolbar_block = ""
         if toolbar_style == TOOLBAR_STYLE_COMFY:
             toolbar_block = f"""
             QToolBar#mainToolBar {{
                 background: {app['surface']};
                 border: none;
                 border-bottom: 1px solid {app['border']};
+                color: {app['text']};
                 padding: 6px 10px;
                 spacing: 4px;
             }}
@@ -681,6 +683,15 @@ class ThemeManager:
                 background: {app['border']};
                 width: 1px;
                 margin: 6px 8px;
+            }}
+            """
+        else:
+            toolbar_block = f"""
+            QToolBar#mainToolBar {{
+                background: {app['surface']};
+                border: none;
+                border-bottom: 1px solid {app['border']};
+                color: {app['text']};
             }}
             """
         return f"""

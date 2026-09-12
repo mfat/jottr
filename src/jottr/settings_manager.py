@@ -344,7 +344,7 @@ class SettingsManager:
 
     @staticmethod
     def normalize_toolbar_style(style_name):
-        """Map a saved value to comfy (padded QSS) or default (widget style)."""
+        """Map a saved value to comfy (padded QSS) or default (chrome color, native buttons)."""
         name = (style_name or TOOLBAR_STYLE_COMFY).strip().casefold()
         if name in {TOOLBAR_STYLE_DEFAULT, "system", "native"}:
             return TOOLBAR_STYLE_DEFAULT

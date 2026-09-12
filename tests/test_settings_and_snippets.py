@@ -520,7 +520,10 @@ class SettingsAndSnippetTests(unittest.TestCase):
         default_toolbar = ThemeManager.build_app_stylesheet(
             dracula, toolbar_style="default"
         )
-        self.assertNotIn("QToolBar#mainToolBar", default_toolbar)
+        self.assertIn("QToolBar#mainToolBar", default_toolbar)
+        self.assertIn(dracula["app"]["surface"], default_toolbar)
+        self.assertNotIn("padding: 6px 10px", default_toolbar)
+        self.assertNotIn("QToolBar#mainToolBar QToolButton", default_toolbar)
         self.assertNotIn("QScrollBar:vertical", app_style)
         self.assertNotIn("QComboBox {", app_style)
         self.assertNotIn("QToolTip", app_style)
