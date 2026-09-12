@@ -217,6 +217,35 @@ class SettingsAndSnippetTests(unittest.TestCase):
         manager.save_ui_theme("default")
         self.assertEqual(manager.get_ui_theme(), "System")
 
+    def test_settings_manager_persists_window_color_scheme(self):
+        from jottr.window_color_scheme import (
+            DEFAULT_WINDOW_COLOR_SCHEME,
+            discover_window_color_schemes,
+            create_application_palette,
+        )
+
+        schemes = discover_window_color_schemes()
+        self.assertEqual(schemes[0].scheme_id, DEFAULT_WINDOW_COLOR_SCHEME)
+        self.assertEqual(schemes[0].name, "Default")
+
+        manager = SettingsManager()
+        self.assertEqual(manager.get_window_color_scheme(), DEFAULT_WINDOW_COLOR_SCHEME)
+
+        named = next((s for s in schemes if s.path), None)
+        if named is None:
+            self.skipTest("no KDE .colors schemes installed")
+
+        manager.save_window_color_scheme(named.scheme_id)
+        reloaded = SettingsManager()
+        self.assertEqual(reloaded.get_window_color_scheme(), named.scheme_id)
+
+        palette = create_application_palette(named.path)
+        self.assertTrue(palette.color(palette.ColorRole.Window).isValid())
+        self.assertTrue(palette.color(palette.ColorRole.Base).isValid())
+
+        manager.save_window_color_scheme("NotARealScheme")
+        self.assertEqual(manager.get_window_color_scheme(), DEFAULT_WINDOW_COLOR_SCHEME)
+
     def test_settings_manager_persists_qt_style(self):
         from PyQt6.QtWidgets import QStyleFactory
 
