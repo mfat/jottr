@@ -348,6 +348,18 @@ class SettingsAndSnippetTests(unittest.TestCase):
         manager.save_toolbar_style("nope")
         self.assertEqual(manager.get_toolbar_style(), TOOLBAR_STYLE_COMFY)
 
+    def test_settings_manager_persists_menubar_visibility(self):
+        from jottr.settings_manager import SettingsManager
+
+        manager = SettingsManager()
+        self.assertTrue(manager.get_menubar_visible())
+
+        manager.save_menubar_visible(False)
+        self.assertFalse(SettingsManager().get_menubar_visible())
+
+        manager.save_menubar_visible(True)
+        self.assertTrue(SettingsManager().get_menubar_visible())
+
     def test_apply_qt_style_switches_application_style(self):
         from PyQt6.QtWidgets import QStyleFactory
 

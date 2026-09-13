@@ -961,6 +961,8 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
         if handler:
             action.triggered.connect(handler)
         self.translatable_actions.append(action)
+        # Also attach to the window so shortcuts still fire while the menubar is hidden.
+        self.addAction(action)
         return action
 
     def create_shared_actions(self):
@@ -1123,6 +1125,20 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
         self.line_numbers_action.setChecked(
             bool(self.settings_manager.get_setting("editor_line_numbers", True))
         )
+        self.show_menubar_action = self._make_action(
+            "Show Menubar",
+            self.toggle_menubar,
+            shortcut=QKeySequence("Ctrl+M"),
+            tooltip="Show or hide the menubar",
+            checkable=True,
+        )
+        self.show_menubar_action.setChecked(self.settings_manager.get_menubar_visible())
+        # Hamburger at the far right of the toolbar, shown while the menubar is hidden.
+        self.menu_button_action = self._make_action(
+            "Menu", self.show_menu_button_popup, icon_name="menu", tooltip="Menu"
+        )
+        self.menu_button_menu = QMenu(self)
+        self.menu_button_menu.aboutToShow.connect(self.populate_menu_button_menu)
         self.zoom_in_action = self._make_action(
             "Zoom In",
             self.zoom_in,
@@ -1247,6 +1263,7 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
         self.toolbar.addWidget(spacer)
         self.toolbar.addAction(self.snippets_action)
         self.toolbar.addAction(self.browser_action)
+        self.toolbar.addAction(self.menu_button_action)
 
         def update_overflow_button():
             overflow_button = self.toolbar.findChild(QToolButton, "qt_toolbar_ext_button")
@@ -1509,6 +1526,7 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
         view_menu.addAction(self.markdown_action)
         view_menu.addAction(self.focus_mode_action)
         view_menu.addAction(self.line_numbers_action)
+        view_menu.addAction(self.show_menubar_action)
         view_menu.addSeparator()
         view_menu.addAction(self.zoom_in_action)
         view_menu.addAction(self.zoom_out_action)
@@ -1640,6 +1658,57 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
         help_menu = add_menu("&Help")
         help_menu.addAction(self.help_action)
         help_menu.addAction(self.about_action)
+
+        self.apply_menubar_visibility()
+
+    def toggle_menubar(self, _checked=False):
+        """Persist Show Menubar and apply it."""
+        self.settings_manager.save_menubar_visible(self.show_menubar_action.isChecked())
+        self.apply_menubar_visibility()
+
+    def apply_menubar_visibility(self):
+        """Show or hide the menubar; the toolbar hamburger stands in while it is hidden."""
+        visible = self.settings_manager.get_menubar_visible()
+        # The native macOS menubar lives outside the window and cannot be hidden.
+        if self.menuBar().isNativeMenuBar():
+            visible = True
+        if hasattr(self, "show_menubar_action"):
+            self.show_menubar_action.blockSignals(True)
+            self.show_menubar_action.setChecked(visible)
+            self.show_menubar_action.blockSignals(False)
+        if hasattr(self, "menu_button_action"):
+            self.menu_button_action.setVisible(not visible)
+        # Focus mode hides all chrome and restores the menubar itself on exit.
+        current_tab = self.tab_widget.currentWidget() if hasattr(self, "tab_widget") else None
+        if not getattr(current_tab, "focus_mode", False):
+            self.menuBar().setVisible(visible)
+
+    def populate_menu_button_menu(self):
+        """Mirror the menubar menus inside the toolbar hamburger."""
+        menu = self.menu_button_menu
+        menu.clear()
+        for action in self.menuBar().actions():
+            menu.addAction(action)
+        menu.addSeparator()
+        menu.addAction(self.show_menubar_action)
+
+    def show_menu_button_popup(self, _checked=False):
+        """Open the hamburger menu under its toolbar button."""
+        button = self.toolbar.widgetForAction(self.menu_button_action)
+        if button is not None:
+            self.menu_button_menu.popup(button.mapToGlobal(button.rect().bottomLeft()))
+        else:
+            from PyQt6.QtGui import QCursor
+
+            self.menu_button_menu.popup(QCursor.pos())
+
+    def createPopupMenu(self):
+        """Right-click on the menubar: Qt's toolbar toggles plus Show Menubar."""
+        menu = super().createPopupMenu() or QMenu(self)
+        if hasattr(self, "show_menubar_action"):
+            menu.addSeparator()
+            menu.addAction(self.show_menubar_action)
+        return menu
 
     def show_editor_theme_popup(self, _checked=False):
         """Open the Editor Theme palette under the toolbar button."""
@@ -1884,13 +1953,15 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
         self.sync_toolbar_style_menu()
 
     def show_toolbar_context_menu(self, pos):
-        """Right-click on the main toolbar: Comfy / Compact density."""
+        """Right-click on the main toolbar: Comfy / Compact density and Show Menubar."""
         self.setup_toolbar_style_actions()
         self.sync_toolbar_style_menu()
         menu = QMenu(self)
         menu.setTitle(_("Toolbar Style"))
         for action in self.toolbar_style_actions.actions():
             menu.addAction(action)
+        menu.addSeparator()
+        menu.addAction(self.show_menubar_action)
         menu.exec(self.toolbar.mapToGlobal(pos))
 
     def set_window_color_scheme(self, scheme_id):
@@ -2326,6 +2397,9 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
         """Reload icons and rebuild toolbar + menu bar (extracted from full apply)."""
         self.icons = load_bundled_icon_paths(self.settings_manager.get_icon_theme())
         self._themed_icon_cache = {}
+        # Shared actions are recreated below; detach the old ones to avoid ambiguous shortcuts.
+        for action in self.actions():
+            self.removeAction(action)
         self.removeToolBar(self.toolbar)
         self.toolbar.deleteLater()
         self.setup_toolbar()

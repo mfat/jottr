@@ -79,6 +79,7 @@ class SettingsManager:
             "icon_theme": "bootstrap",
             "icon_contrast": "auto",
             "toolbar_style": TOOLBAR_STYLE_COMFY,
+            "show_menubar": True,
             "enable_animations": True,
             "spell_check": True,
             "document_language": "auto",
@@ -402,6 +403,13 @@ class SettingsManager:
 
     def save_toolbar_style(self, style_name):
         self.settings["toolbar_style"] = self.normalize_toolbar_style(style_name)
+        self.save_settings()
+
+    def get_menubar_visible(self):
+        return bool(self.settings.get("show_menubar", True))
+
+    def save_menubar_visible(self, visible):
+        self.settings["show_menubar"] = bool(visible)
         self.save_settings()
 
     def get_pane_visibility(self):

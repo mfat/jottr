@@ -1444,7 +1444,7 @@ class EditorAndMainTests(unittest.TestCase):
             self.assertEqual(toolbar_tooltips["Zoom Out"], "Zoom Out (Ctrl+-)")
             self.assertEqual(toolbar_tooltips["Reset Zoom"], "Reset Zoom (Ctrl+0)")
             self.assertNotIn("Preview Font", toolbar_tooltips)
-            self.assertNotIn("Menu", toolbar_tooltips)
+            self.assertFalse(window.menu_button_action.isVisible())
             self.assertTrue(all(toolbar_tooltips.values()))
             toolbar_actions = {
                 action.text(): action
@@ -1464,7 +1464,7 @@ class EditorAndMainTests(unittest.TestCase):
             )
             self.assertEqual(
                 all_toolbar_actions[spacer_index + 1:],
-                [window.snippets_action, window.browser_action],
+                [window.snippets_action, window.browser_action, window.menu_button_action],
             )
             self.assertEqual(
                 all_toolbar_actions.index(window.editor_theme_action),
@@ -1795,6 +1795,67 @@ class EditorAndMainTests(unittest.TestCase):
 
             window.set_toolbar_style(TOOLBAR_STYLE_COMFY)
             self.assertIn("QToolBar#mainToolBar", QApplication.instance().styleSheet())
+
+    def test_main_window_hides_menubar_behind_toolbar_hamburger(self):
+        class FakeEditorTab(QWidget):
+            def __init__(self, snippet_manager, settings_manager):
+                super().__init__()
+                self.editor = QTextEdit(self)
+                self.current_file = None
+                self.current_theme = "White"
+
+            def set_main_window(self, main_window):
+                self.main_window = main_window
+
+            def apply_theme(self, theme_name):
+                self.current_theme = theme_name
+
+        with patch.object(window_module, "EditorTab", FakeEditorTab):
+            window = TextEditorApp()
+            self.addCleanup(window.close)
+            self.addCleanup(window.deleteLater)
+            if window.menuBar().isNativeMenuBar():
+                self.skipTest("the native macOS menubar cannot be hidden")
+
+            menubar = window.menuBar()
+            self.assertFalse(menubar.isHidden())
+            self.assertFalse(window.menu_button_action.isVisible())
+            self.assertIs(window.toolbar.actions()[-1], window.menu_button_action)
+            self.assertIn(window.show_menubar_action, menubar.actions()[2].menu().actions())
+            self.assertIn(window.show_menubar_action, window.createPopupMenu().actions())
+            with patch.object(QMenu, "exec", lambda self, pos: captured.update(menu=self)):
+                captured = {}
+                window.show_toolbar_context_menu(window.toolbar.rect().center())
+            self.assertIn(window.show_menubar_action, captured["menu"].actions())
+
+            window.show_menubar_action.trigger()
+            self.assertTrue(menubar.isHidden())
+            self.assertTrue(window.menu_button_action.isVisible())
+            self.assertFalse(window.settings_manager.get_menubar_visible())
+
+            with patch.object(QMenu, "popup") as popup:
+                window.menu_button_action.trigger()
+            popup.assert_called_once()
+            window.menu_button_menu.aboutToShow.emit()
+            self.assertEqual(
+                [action.menu() for action in window.menu_button_menu.actions() if action.menu()],
+                [action.menu() for action in menubar.actions()],
+            )
+            self.assertIn(window.show_menubar_action, window.menu_button_menu.actions())
+
+            window.rebuild_chrome()
+            self.assertTrue(menubar.isHidden())
+            self.assertTrue(window.menu_button_action.isVisible())
+            self.assertFalse(window.show_menubar_action.isChecked())
+            self.assertEqual(
+                [action for action in window.actions() if action.shortcut().toString() == "Ctrl+M"],
+                [window.show_menubar_action],
+            )
+
+            window.show_menubar_action.trigger()
+            self.assertFalse(menubar.isHidden())
+            self.assertFalse(window.menu_button_action.isVisible())
+            self.assertTrue(window.settings_manager.get_menubar_visible())
 
     def test_editor_theme_domain_force_reapplies_same_named_theme(self):
         class FakeEditorTab(QWidget):
