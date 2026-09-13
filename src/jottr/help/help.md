@@ -98,6 +98,7 @@ The integrated browser panel allows quick web access:
 - Click ↗ next to the address bar to open the page in your default browser
 - Use for quick reference while writing
 - Default homepage can be set in Settings > Browser and Search
+- Choose whether searches open in the built-in browser or your default browser in Settings > Browser and Search
 
 ## Site-Specific Searches
 Quickly search selected text on specific news sites. You can add any website frm Settings, and Google-search inside that site from the context menu.

@@ -10,7 +10,10 @@ from jottr.translation_manager import _
 
 class BrowserPaneMixin:
     def search_in_browser(self, url):
-        """Search the given URL in the browser pane"""
+        """Open a search URL in the browser pane, or the default browser if set."""
+        if self.settings_manager.get_setting("search_open_in", "builtin") == "default":
+            self.open_url_in_default_browser(QUrl(url))
+            return
         # Store URL to load
         self._pending_url = url
         
@@ -296,6 +299,10 @@ class BrowserPaneMixin:
             return
         if url.isEmpty():
             return
+        self.open_url_in_default_browser(url)
+
+    def open_url_in_default_browser(self, url):
+        """Open a QUrl in the default browser, warning if the system cannot."""
         if not QDesktopServices.openUrl(url):
             QMessageBox.warning(
                 self,

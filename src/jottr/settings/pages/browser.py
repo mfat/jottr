@@ -2,12 +2,13 @@
 from PyQt6.QtCore import Qt
 from PyQt6.QtWidgets import (
     QVBoxLayout, QHBoxLayout, QLabel, QLineEdit, QPushButton, QListWidget,
-    QListWidgetItem, QWidget, QGroupBox, QFormLayout,
+    QListWidgetItem, QWidget, QGroupBox, QFormLayout, QComboBox,
 )
 
 from jottr.translation_manager import _
 
 from ..search_site import SearchSiteDialog, split_search_site, timeframe_choices
+from .appearance import select_combo_data
 
 DEFAULT_HOMEPAGE = "https://www.google.com/"
 DEFAULT_SEARCH_SITES = {
@@ -33,6 +34,11 @@ class BrowserPageMixin:
         general_layout = QFormLayout(general_box)
         general_layout.setContentsMargins(12, 10, 12, 12)
         general_layout.setSpacing(8)
+        self.search_open_in_combo = QComboBox()
+        self.search_open_in_combo.addItem(_("Built-in browser"), "builtin")
+        self.search_open_in_combo.addItem(_("Default browser"), "default")
+        self.search_open_in_combo.currentIndexChanged.connect(self._on_search_open_in_changed)
+        general_layout.addRow(QLabel(_("Open Searches In:")), self.search_open_in_combo)
         self.homepage_edit = QLineEdit()
         self.homepage_edit.setPlaceholderText(DEFAULT_HOMEPAGE)
         self.homepage_edit.editingFinished.connect(self._on_homepage_edited)
@@ -73,11 +79,23 @@ class BrowserPageMixin:
         return browser_tab
 
     def sync_browser_page(self):
+        if not select_combo_data(
+            self.search_open_in_combo,
+            self.settings_manager.get_setting("search_open_in", "builtin"),
+        ):
+            self.search_open_in_combo.setCurrentIndex(0)
         if not self.homepage_edit.hasFocus():
             self.homepage_edit.setText(
                 self.settings_manager.get_setting("homepage", DEFAULT_HOMEPAGE)
             )
         self.load_search_sites()
+
+    def _on_search_open_in_changed(self):
+        self._save_only(
+            lambda: self.settings_manager.save_setting(
+                "search_open_in", self.search_open_in_combo.currentData() or "builtin"
+            )
+        )
 
     def _on_homepage_edited(self):
         text = self.homepage_edit.text().strip()

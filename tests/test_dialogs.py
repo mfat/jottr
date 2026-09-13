@@ -118,6 +118,10 @@ class DialogTests(unittest.TestCase):
             )
         self.assertEqual(dialog.editor_theme_combo.currentText(), "Dracula")
         dialog.homepage_edit.setText("https://home.example")
+        self.assertEqual(dialog.search_open_in_combo.currentData(), "builtin")
+        dialog.search_open_in_combo.setCurrentIndex(
+            dialog.search_open_in_combo.findData("default")
+        )
         dialog.editor_theme_combo.setCurrentText("Monokai")
         self.assertGreaterEqual(dialog.window_color_scheme_combo.count(), 1)
         self.assertEqual(dialog.window_color_scheme_combo.itemData(0), "")
@@ -181,6 +185,8 @@ class DialogTests(unittest.TestCase):
         data = dialog.get_data()
 
         self.assertEqual(data["homepage"], "https://home.example")
+        self.assertEqual(data["search_open_in"], "default")
+        self.assertEqual(manager.get_setting("search_open_in"), "default")
         self.assertEqual(data["language"], "en_US")
         self.assertGreaterEqual(dialog.language_combo.count(), 1)
         self.assertEqual(data["search_sites"], {"News": "site:news.example"})

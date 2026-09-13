@@ -623,6 +623,18 @@ msgstr "Browser"
 msgid "Browser and Search"
 msgstr "Browser and Search"
 
+#: src/jottr/settings/pages/browser.py
+msgid "Open Searches In:"
+msgstr "Open Searches In:"
+
+#: src/jottr/settings/pages/browser.py
+msgid "Built-in browser"
+msgstr "Built-in browser"
+
+#: src/jottr/settings/pages/browser.py
+msgid "Default browser"
+msgstr "Default browser"
+
 #: src/jottr/main.py:789
 msgid "Toggle Browser (Ctrl+Shift+B)"
 msgstr "Toggle Browser (Ctrl+Shift+B)"

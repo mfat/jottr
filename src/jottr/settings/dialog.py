@@ -458,6 +458,7 @@ class SettingsDialog(
         """Snapshot of the values shown in the window."""
         return {
             'homepage': self.homepage_edit.text(),
+            'search_open_in': self.search_open_in_combo.currentData(),
             'search_sites': self.get_search_sites(),
             'user_dictionary': self.get_user_dictionary(),
             'spell_check': self.spell_check_enabled.isChecked(),

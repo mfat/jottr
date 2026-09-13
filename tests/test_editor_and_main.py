@@ -171,6 +171,29 @@ class EditorAndMainTests(unittest.TestCase):
             editor.open_external_btn.click()
         desktop.openUrl.assert_not_called()
 
+    def test_searches_follow_open_in_setting(self):
+        from PyQt6.QtCore import QUrl
+        import jottr.editor.browser as editor_browser_module
+
+        editor = self.make_editor()
+        url = "https://www.google.com/search?q=jottr"
+
+        self.settings.save_setting("search_open_in", "default")
+        with patch.object(editor_browser_module, "QDesktopServices") as desktop, \
+                patch.object(editor, "toggle_pane") as toggle_pane:
+            desktop.openUrl.return_value = True
+            editor.search_in_browser(url)
+        desktop.openUrl.assert_called_once_with(QUrl(url))
+        toggle_pane.assert_not_called()
+
+        self.settings.save_setting("search_open_in", "builtin")
+        with patch.object(editor_browser_module, "QDesktopServices") as desktop, \
+                patch.object(editor, "toggle_pane") as toggle_pane:
+            editor.search_in_browser(url)
+        desktop.openUrl.assert_not_called()
+        toggle_pane.assert_called_once_with("browser")
+        self.assertEqual(editor._pending_url, url)
+
     def test_markdown_helpers_cover_tables_tasks_math_and_shortcodes(self):
         editor = self.make_editor()
 

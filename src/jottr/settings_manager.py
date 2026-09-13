@@ -94,6 +94,7 @@ class SettingsManager:
                 "Reuters": "site:reuters.com",
                 "BBC News": "site:bbc.com/news"
             },
+            "search_open_in": "builtin",
             "show_snippets": False,
             "show_browser": False,
             "workspace_path": "",

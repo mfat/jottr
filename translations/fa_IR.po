@@ -623,6 +623,18 @@ msgstr "مرورگر"
 msgid "Browser and Search"
 msgstr "مرورگر و جستجو"
 
+#: src/jottr/settings/pages/browser.py
+msgid "Open Searches In:"
+msgstr "باز کردن جستجوها در:"
+
+#: src/jottr/settings/pages/browser.py
+msgid "Built-in browser"
+msgstr "مرورگر داخلی"
+
+#: src/jottr/settings/pages/browser.py
+msgid "Default browser"
+msgstr "مرورگر پیش‌فرض"
+
 #: src/jottr/main.py:789
 msgid "Toggle Browser (Ctrl+Shift+B)"
 msgstr "تغییر وضعیت مرورگر (Ctrl+Shift+B)"
