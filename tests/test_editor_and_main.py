@@ -1456,6 +1456,20 @@ class EditorAndMainTests(unittest.TestCase):
             self.assertTrue(window.icons["theme"].startswith(":/icons/bootstrap/"))
             self.assertIs(toolbar_actions["Editor Theme"], window.editor_theme_action)
             self.assertIs(toolbar_actions["Toggle Browser Pane"], window.browser_action)
+            all_toolbar_actions = window.toolbar.actions()
+            spacer_index = next(
+                index
+                for index, action in enumerate(all_toolbar_actions)
+                if not action.isSeparator() and not action.text()
+            )
+            self.assertEqual(
+                all_toolbar_actions[spacer_index + 1:],
+                [window.snippets_action, window.browser_action],
+            )
+            self.assertEqual(
+                all_toolbar_actions.index(window.editor_theme_action),
+                all_toolbar_actions.index(window.editor_font_action) + 1,
+            )
             self.assertFalse(window.browser_action.icon().isNull())
             self.assertEqual(window.icons["browser"], ":/icons/bootstrap/browser.svg")
             self.assertFalse(toolbar_actions["Zoom In"].icon().isNull())
