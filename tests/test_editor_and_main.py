@@ -2038,9 +2038,8 @@ class EditorAndMainTests(unittest.TestCase):
         self.addCleanup(window.deleteLater)
         self.addCleanup(lambda: QApplication.instance().setStyleSheet(""))
 
-        window.set_ui_color_scheme("Dark")
-        self.assertEqual(window.settings_manager.get_ui_theme(), "Dark")
         self.assertEqual(window.settings_manager.get_window_color_scheme(), "")
+        window.sync_window_color_scheme_menu()
         scheme_grid = window.color_scheme_grid
         self.assertIsInstance(scheme_grid, window_module.WindowColorSchemeGrid)
         self.assertIn("", scheme_grid._cards)

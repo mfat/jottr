@@ -1896,22 +1896,6 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
             menu.addAction(action)
         menu.exec(self.toolbar.mapToGlobal(pos))
 
-    def set_ui_color_scheme(self, scheme):
-        """Persist Follow system/Light/Dark (Default Window Color Scheme mode)."""
-        scheme = ThemeManager.normalize_ui_theme(scheme)
-        # Choosing System/Light/Dark implies Kate's Default window scheme.
-        if self.settings_manager.get_window_color_scheme():
-            self.settings_manager.save_window_color_scheme("")
-        if scheme == self.settings_manager.get_ui_theme():
-            self.sync_window_color_scheme_menu()
-            self.refresh_settings_dialog()
-            return
-        self.settings_manager.save_ui_theme(scheme)
-        self.apply_app_style()
-        self.sync_window_color_scheme_menu()
-        self.sync_toolbar_style_menu()
-        self.refresh_settings_dialog()
-
     def set_window_color_scheme(self, scheme_id):
         """Persist Window Color Scheme (Kate) and restyle the app."""
         from jottr.window_color_scheme import normalize_window_color_scheme
