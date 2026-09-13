@@ -256,6 +256,13 @@ class DialogAndRssTests(unittest.TestCase):
 
         self.assertGreaterEqual(dialog.plugin_channel_filter_combo.findData("Community"), 0)
         self.assertEqual(dialog.plugin_channel_filter_combo.currentData(), "Community")
+        listed = lambda: [
+            dialog.plugin_list.item(index).data(Qt.ItemDataRole.UserRole)
+            for index in range(dialog.plugin_list.count())
+        ]
+        # Filtering hides other channels in the list without dropping them.
+        self.assertNotIn("browser-panel", listed())
+        self.assertIn("browser-panel", dialog.plugin_manager.plugins)
         data = dialog.get_data()
         self.assertEqual(data["plugin_channel_filter"], "Community")
         self.assertTrue(any(channel["name"] == "Community" for channel in data["plugin_channels"]))
@@ -265,6 +272,7 @@ class DialogAndRssTests(unittest.TestCase):
 
         dialog.remove_plugin_channel()
         self.assertEqual(dialog.plugin_channel_filter_combo.currentData(), "all")
+        self.assertIn("browser-panel", listed())
         self.assertEqual(dialog.plugin_channel_filter_combo.findData("Community"), -1)
         self.assertFalse(any(channel["name"] == "Community" for channel in dialog.get_data()["plugin_channels"]))
 

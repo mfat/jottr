@@ -236,9 +236,8 @@ class PluginsTabMixin:
             return
         self.plugin_manager.set_plugin_channel_filter(self.plugin_channel_filter_combo.currentData() or "all")
         self.update_plugin_channel_action_state()
-        self.plugin_manager.refresh()
+        # The filter only narrows this list; the app's plugin set is unchanged.
         self.refresh_plugin_list()
-        # Filter is UI-only for the settings list; host plugin set is unchanged.
 
     def plugin_source_label(self, plugin):
         if plugin.source == "remote":
@@ -363,7 +362,7 @@ class PluginsTabMixin:
         current = self.selected_plugin()
         current_name = current.name if current else None
         self.plugin_list.clear()
-        for plugin in self.plugin_manager.plugins.values():
+        for plugin in self.plugin_manager.visible_plugins():
             item = QListWidgetItem()
             item.setData(Qt.ItemDataRole.UserRole, plugin.name)
             item.setSizeHint(QSize(240, 92))

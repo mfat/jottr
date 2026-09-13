@@ -153,8 +153,50 @@ class PluginManagerTests(unittest.TestCase):
         manager.set_plugin_channel_filter("Community")
         manager.refresh()
 
-        self.assertIn("community-tool", manager.plugins)
-        self.assertNotIn("browser-panel", manager.plugins)
+        # The filter narrows the settings list only; discovery keeps every channel.
+        self.assertIn("browser-panel", manager.plugins)
+        visible = [plugin.name for plugin in manager.visible_plugins()]
+        self.assertIn("community-tool", visible)
+        self.assertNotIn("browser-panel", visible)
+        self.assertIn("browser-panel", [plugin.name for plugin in manager.visible_plugins("all")])
+
+    def test_refresh_keeps_python_registrations_without_rerunning_entries(self):
+        plugins_dir = Path(self.temp_dir.name) / "plugins"
+        exec_log = Path(self.temp_dir.name) / "exec.log"
+        plugin_dir = self.write_plugin(
+            plugins_dir,
+            "counter-tool",
+            manifest={"entry": "index.py", "contributes": {}},
+            entry=(
+                f"with open({str(exec_log)!r}, 'a') as log:\n"
+                "    log.write('x')\n"
+                "def register(api):\n"
+                "    api.register_command('counter-tool.run', 'Run', lambda: None)\n"
+            ),
+        )
+        self.settings.save_setting("plugins_directory", str(plugins_dir))
+
+        manager = PluginManager(self.settings)
+        manager.refresh()
+        manager.set_enabled("counter-tool", True)
+        manager.activate_enabled_plugins()
+        self.assertIn("counter-tool.run", manager.registry.command_callbacks)
+
+        manager.refresh()
+        self.assertIn("counter-tool.run", manager.registry.command_callbacks)
+        manager.activate_enabled_plugins()
+        self.assertEqual(exec_log.read_text(encoding="utf-8"), "x")
+
+        # A changed entry file runs again.
+        entry = plugin_dir / "index.py"
+        stat = entry.stat()
+        os.utime(entry, ns=(stat.st_atime_ns, stat.st_mtime_ns + 1_000_000_000))
+        manager.activate_enabled_plugins()
+        self.assertEqual(exec_log.read_text(encoding="utf-8"), "xx")
+
+        manager.set_enabled("counter-tool", False)
+        self.assertNotIn("counter-tool.run", manager.registry.command_callbacks)
+        self.assertNotIn("counter-tool", manager.loaded_modules)
 
     def test_registry_catalog_entries_are_lightweight_until_manifest_is_available(self):
         manager = PluginManager(self.settings)

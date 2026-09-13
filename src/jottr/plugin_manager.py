@@ -215,6 +215,8 @@ class PluginManager:
         self.registry_plugins = {}
         self.registry = PluginContributionRegistry()
         self.loaded_modules = {}
+        # plugin name -> entry fingerprint the loaded module was executed from.
+        self._module_fingerprints = {}
 
     def plugin_state(self):
         return self.settings_manager.get_setting("plugin_state", {})
@@ -342,11 +344,10 @@ class PluginManager:
         if "load_plugin_registry" in self.__dict__:
             return [self.load_plugin_registry()]
         registries = []
-        selected_channel = self.plugin_channel_filter()
+        # Every enabled channel is loaded; the channel filter only narrows
+        # what the Plugins settings page lists (see visible_plugins).
         for channel in self.plugin_channels():
             if not channel.get("enabled", True):
-                continue
-            if selected_channel != "all" and channel.get("name") != selected_channel:
                 continue
             registry = self.load_plugin_registry(channel=channel)
             registry["_channel"] = channel
@@ -701,14 +702,52 @@ class PluginManager:
         return True
 
     def rebuild_registry(self, include_entries=True):
+        """Rebuild contributions from enabled plugins.
+
+        Python entries that already ran register again from their loaded
+        module, so a refresh never drops their commands or panels. With
+        include_entries, enabled plugins whose entry has not run yet (or
+        changed on disk) are executed.
+        """
         self.registry.clear()
+        enabled = set()
         for plugin in self.plugins.values():
             if not plugin.enabled:
                 continue
+            enabled.add(plugin.name)
             self.registry.add_manifest_contributions(plugin, plugin.contributes)
             if include_entries:
                 self.activate_plugin(plugin)
+            elif self.is_plugin_loaded(plugin):
+                self.register_loaded_plugin(plugin)
+        for name in list(self.loaded_modules):
+            if name not in enabled:
+                self.loaded_modules.pop(name, None)
+                self._module_fingerprints.pop(name, None)
         return self.registry
+
+    def plugin_entry_fingerprint(self, plugin):
+        entry_path = Path(plugin.path) / plugin.entry
+        try:
+            modified = entry_path.stat().st_mtime_ns
+        except OSError:
+            modified = None
+        return (str(entry_path), plugin.version, modified)
+
+    def is_plugin_loaded(self, plugin):
+        return (
+            plugin.name in self.loaded_modules
+            and self._module_fingerprints.get(plugin.name) == self.plugin_entry_fingerprint(plugin)
+        )
+
+    def register_loaded_plugin(self, plugin):
+        register = getattr(self.loaded_modules[plugin.name], "register", None)
+        if not callable(register):
+            return
+        try:
+            register(PluginAPI(plugin, self.registry))
+        except Exception as exc:
+            plugin.error = str(exc)
 
     def activate_enabled_plugins(self):
         return self.rebuild_registry(include_entries=True)
@@ -723,6 +762,9 @@ class PluginManager:
         if entry_path.suffix != ".py" or not entry_path.exists():
             plugin.error = "Only Python plugin entry files are supported in this version."
             return
+        if self.is_plugin_loaded(plugin):
+            self.register_loaded_plugin(plugin)
+            return
         module_name = f"jottr_plugin_{plugin.name.replace('-', '_')}"
         spec = importlib.util.spec_from_file_location(module_name, entry_path)
         if not spec or not spec.loader:
@@ -736,6 +778,7 @@ class PluginManager:
         try:
             spec.loader.exec_module(module)
             self.loaded_modules[plugin.name] = module
+            self._module_fingerprints[plugin.name] = self.plugin_entry_fingerprint(plugin)
             register = getattr(module, "register", None)
             if callable(register):
                 register(PluginAPI(plugin, self.registry))
@@ -751,3 +794,14 @@ class PluginManager:
 
     def get_enabled_plugins(self):
         return [plugin for plugin in self.plugins.values() if plugin.enabled]
+
+    def visible_plugins(self, channel_filter=None):
+        """Plugins to list for a channel filter; non-registry plugins always show."""
+        if channel_filter is None:
+            channel_filter = self.plugin_channel_filter()
+        return [
+            plugin for plugin in self.plugins.values()
+            if channel_filter in ("", "all")
+            or plugin.source != "registry"
+            or plugin.channel_name == channel_filter
+        ]

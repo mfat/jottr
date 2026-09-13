@@ -63,7 +63,14 @@ class SettingsDialog(
         self.setWindowTitle(_("Settings"))
         apply_dialog_window_icon(self, "settings", self.settings_manager)
         self.setMinimumSize(640, 460)
-        self.plugin_manager = PluginManager(self.settings_manager)
+        # Share the host's PluginManager so the Plugins page and the running
+        # app never disagree; standalone windows get their own.
+        host_plugin_manager = getattr(self.host, "plugin_manager", None)
+        self.plugin_manager = (
+            host_plugin_manager
+            if host_plugin_manager is not None
+            else PluginManager(self.settings_manager)
+        )
         self.plugin_manager.refresh()
 
         self.setup_ui()

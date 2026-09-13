@@ -300,6 +300,8 @@ api.register_background_service(service)
 
 The `factory` passed to `register_panel()` must return a Qt widget.
 
+`register(api)` can run more than once in a session. When the set of enabled plugins changes, Jottr calls `register()` again on the already-loaded module; it re-executes the entry file only when that file changed on disk. Keep `register()` free of one-time side effects and register the same ids each time.
+
 ## Permissions
 
 Plugins must declare every capability they require. Permission names are strings so the app can add new capabilities without changing the manifest format.

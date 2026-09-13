@@ -1372,7 +1372,23 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
         if self.tab_widget.count() == 0:
             self.new_editor_tab()
             
+    def plugin_chrome_signature(self):
+        """Plugin toolbar/menu contributions, to detect when chrome must rebuild."""
+        import json
+
+        registry = getattr(self.plugin_manager, "registry", None)
+        return json.dumps(
+            [
+                getattr(registry, name, [])
+                for name in ("toolbar_actions", "commands", "panels", "sidebar_items")
+            ],
+            sort_keys=True,
+            default=repr,
+        )
+
     def create_menu_bar(self):
+        # Toolbar and menus are always rebuilt together (see rebuild_chrome).
+        self._plugin_chrome_signature = self.plugin_chrome_signature()
         menubar = self.menuBar()
         menubar.clear()
         menubar.setObjectName("appMenuBar")
@@ -2295,8 +2311,8 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
     def apply_settings_domain(self, domain):
         """Apply one settings domain immediately (instant-apply path).
 
-        The settings tab persists each control to SettingsManager first, then
-        calls here so only the affected subsystem rebuilds.
+        The Settings window persists each control to SettingsManager first,
+        then calls here so only the affected subsystem rebuilds.
         """
         sm = self.settings_manager
         if domain == "language":
@@ -2337,13 +2353,16 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
         elif domain == "autosave":
             self.apply_autosave_settings()
         elif domain == "plugins":
-            self.plugin_manager = PluginManager(sm)
-            self.plugin_manager.refresh()
+            # The Settings window shares this PluginManager and has already
+            # refreshed it; run newly enabled entries in place, then rebuild
+            # chrome only if the plugin toolbar/menu items differ from the
+            # ones it was built with.
             self.plugin_manager.activate_enabled_plugins()
-            self.rebuild_chrome()
-            self.apply_app_style()
-            self.sync_color_scheme_menu()
-            self.sync_toolbar_style_menu()
+            if self.plugin_chrome_signature() != getattr(self, "_plugin_chrome_signature", None):
+                self.rebuild_chrome()
+                self.apply_app_style()
+                self.sync_color_scheme_menu()
+                self.sync_toolbar_style_menu()
 
     def show_settings(self):
         """Open the Settings window, or raise it when it is already open."""

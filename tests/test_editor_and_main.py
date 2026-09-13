@@ -1460,6 +1460,7 @@ class EditorAndMainTests(unittest.TestCase):
             settings_tab = window.show_settings()
             plugin_manager = window.plugin_manager
             toolbar = window.toolbar
+            self.assertIs(settings_tab.plugin_manager, plugin_manager)
 
             settings_tab.homepage_edit.setText("https://instant.example/")
             settings_tab.homepage_edit.editingFinished.emit()
@@ -1473,11 +1474,20 @@ class EditorAndMainTests(unittest.TestCase):
             self.assertIs(window.plugin_manager, plugin_manager)
             self.assertIs(window.toolbar, toolbar)
 
-            with patch.object(window_module.PluginManager, "activate_enabled_plugins", return_value=[]) as activate:
+            # Same plugin contributions: activate in place, keep the chrome.
+            with patch.object(window_module.PluginManager, "activate_enabled_plugins", return_value=None) as activate:
                 window.apply_settings_domain("plugins")
                 activate.assert_called_once()
-            self.assertIsNot(window.plugin_manager, plugin_manager)
+            self.assertIs(window.plugin_manager, plugin_manager)
+            self.assertIs(window.toolbar, toolbar)
+
+            # Changed contributions rebuild toolbar and menus.
+            plugin_manager.registry.toolbar_actions.append({"id": "test.toolbar", "title": "Test Tool"})
+            with patch.object(window_module.PluginManager, "activate_enabled_plugins", return_value=None):
+                window.apply_settings_domain("plugins")
+            self.assertIs(window.plugin_manager, plugin_manager)
             self.assertIsNot(window.toolbar, toolbar)
+            self.assertTrue(any("Test Tool" in action.text() for action in window.toolbar.actions()))
 
     def test_style_domain_rebuilds_toolbar_icons_with_explicit_modes(self):
         from PyQt6.QtGui import QIcon
