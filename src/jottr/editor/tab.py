@@ -266,7 +266,6 @@ class EditorTab(
         # Restore pane states
         states = self.settings_manager.get_setting('pane_states', {
             'snippets_visible': False,
-            'browser_visible': False,
             'markdown_preview_visible': False,
             'markdown_sizes': [600, 600],
             'sizes': [700, 300, 300]
@@ -274,7 +273,7 @@ class EditorTab(
         
         # Apply visibility
         self.snippet_widget.setVisible(states.get('snippets_visible', False))
-        self.browser_widget.setVisible(states.get('browser_visible', False))
+        # The browser pane always starts closed (hidden above) and is not restored.
         self.set_markdown_preview_visible(False, save_state=False)
         
         # Apply sizes
@@ -1261,7 +1260,6 @@ class EditorTab(
         """Save pane visibility and sizes"""
         states = {
             'snippets_visible': self.intended_widget_visibility(self.snippet_widget),
-            'browser_visible': self.intended_widget_visibility(self.browser_widget),
             'markdown_preview_visible': self.markdown_preview_visible if hasattr(self, 'markdown_preview') else False,
             'markdown_sizes': self.markdown_splitter.sizes() if hasattr(self, 'markdown_splitter') else [600, 600],
             'sizes': self.splitter.sizes()

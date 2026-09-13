@@ -1467,6 +1467,32 @@ class EditorAndMainTests(unittest.TestCase):
         self.assertTrue(states["snippets_visible"])
         self.assertIn("sizes", states)
 
+    def test_browser_pane_always_starts_closed(self):
+        # Settings saved by older versions may still record the pane as open.
+        self.settings.save_setting("pane_states", {
+            "snippets_visible": False,
+            "browser_visible": True,
+            "markdown_preview_visible": False,
+            "markdown_sizes": [600, 600],
+            "sizes": [700, 300, 300],
+        })
+        self.assertNotIn("browser_visible", SettingsManager().get_setting("pane_states"))
+        editor = self.make_editor()
+        editor.show()
+        app().processEvents()
+        self.assertFalse(editor.browser_widget.isVisible())
+
+        self.addCleanup(setattr, editor, "web_view", None)
+        with patch.object(
+            editor, "create_web_view",
+            side_effect=lambda: setattr(editor, "web_view", MagicMock()),
+        ):
+            editor.toggle_pane("browser")
+        animation = editor.ui_animations.get(editor.browser_widget)
+        if animation is not None:
+            animation.stop()
+        self.assertNotIn("browser_visible", self.settings.get_setting("pane_states"))
+
     def test_editor_disables_animated_visibility_when_requested(self):
         self.settings.save_setting("enable_animations", False)
         editor = self.make_editor()

@@ -97,8 +97,6 @@ class SettingsManager:
             },
             "search_open_in": "builtin",
             "browser_remember_data": False,
-            "show_snippets": False,
-            "show_browser": False,
             "workspace_path": "",
             "recent_workspaces": [],
             "workspace_sessions": {},
@@ -113,7 +111,6 @@ class SettingsManager:
             "plugin_state": {},
             "pane_states": {
                 "snippets_visible": False,
-                "browser_visible": False,
                 "markdown_preview_visible": False,
                 "markdown_sizes": [600, 600],
                 "sizes": [700, 300, 300]
@@ -194,6 +191,13 @@ class SettingsManager:
                     self.settings.update(saved_settings)
                     # Custom editor themes are no longer supported.
                     self.settings.pop("custom_themes", None)
+                    # The browser pane always starts closed, so its open state
+                    # is no longer saved.
+                    self.settings.pop("show_browser", None)
+                    self.settings.pop("show_snippets", None)
+                    pane_states = self.settings.get("pane_states")
+                    if isinstance(pane_states, dict):
+                        pane_states.pop("browser_visible", None)
                     self.migrate_legacy_font_settings(had_follow_flag=had_follow_flag)
                     self.migrate_default_window_scheme_follows_system()
             except Exception as e:
@@ -411,16 +415,6 @@ class SettingsManager:
 
     def save_menubar_visible(self, visible):
         self.settings["show_menubar"] = bool(visible)
-        self.save_settings()
-
-    def get_pane_visibility(self):
-        return (self.settings["show_snippets"], self.settings["show_browser"])
-
-    def save_pane_visibility(self, show_snippets, show_browser):
-        self.settings.update({
-            "show_snippets": show_snippets,
-            "show_browser": show_browser
-        })
         self.save_settings()
 
     # def save_last_files(self, files):

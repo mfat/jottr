@@ -44,15 +44,6 @@ class BrowserPaneMixin:
         self.web_view.stop()
         self.web_view.setUrl(QUrl(url))
 
-    def ensure_browser_visible(self):
-        """Ensure browser pane is visible"""
-        if not self.browser_widget.isVisible():
-            self.browser_widget.setVisible(True)
-            self.settings_manager.save_pane_visibility(
-                self.snippet_widget.isVisible(),
-                True
-            )
-
     def search_google(self, text):
         """Search Google in browser pane"""
         url = f"https://www.google.com/search?q={quote(text)}"
