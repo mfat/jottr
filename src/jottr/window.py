@@ -1095,6 +1095,7 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
         self.browser_action = self._make_action(
             "Toggle Browser Pane",
             self.toggle_browser,
+            icon_name="browser",
             shortcut=QKeySequence("Ctrl+Shift+B"),
             tooltip="Toggle Browser Pane",
         )
@@ -1245,6 +1246,7 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
         self.toolbar.addWidget(spacer)
         self.toolbar.addAction(self.editor_theme_action)
         self.toolbar.addAction(self.snippets_action)
+        self.toolbar.addAction(self.browser_action)
 
         def update_overflow_button():
             overflow_button = self.toolbar.findChild(QToolButton, "qt_toolbar_ext_button")
