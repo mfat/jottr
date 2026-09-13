@@ -461,8 +461,6 @@ class SettingsDialog(
             'search_sites': self.get_search_sites(),
             'user_dictionary': self.get_user_dictionary(),
             'spell_check': self.spell_check_enabled.isChecked(),
-            'document_language': self.get_document_language(),
-            'spell_languages': self._spell_languages_for_document(),
             'ui_theme': self.selected_ui_theme(),
             'window_color_scheme': self.selected_window_color_scheme(),
             'theme': self.editor_theme_combo.currentText(),

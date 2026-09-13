@@ -2,17 +2,10 @@
 from PyQt6.QtCore import Qt
 from PyQt6.QtWidgets import (
     QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QListWidget,
-    QWidget, QCheckBox, QComboBox, QGroupBox, QFormLayout, QInputDialog,
+    QWidget, QCheckBox, QGroupBox, QFormLayout, QInputDialog,
 )
 
-from jottr.editor.spellcheck import (
-    DOCUMENT_LANGUAGE_AUTO,
-    get_document_language,
-    list_available_spell_languages,
-    list_document_language_choices,
-    match_dictionary_for_language,
-    missing_dictionary_message,
-)
+from jottr.editor.spellcheck import list_available_spell_languages
 from jottr.translation_manager import _, format_language_label
 
 
@@ -33,24 +26,9 @@ class DictionaryPageMixin:
         self.spell_check_enabled.toggled.connect(self._on_spell_toggled)
         spell_form.addRow(self.spell_check_enabled)
 
-        self.document_language_combo = QComboBox()
-        self.document_language_combo.setMinimumContentsLength(28)
-        self.document_language_combo.currentIndexChanged.connect(
-            self._on_document_language_changed
-        )
-        self.document_language_combo.currentIndexChanged.connect(
-            self.update_document_language_status
-        )
-        spell_form.addRow(_("Document language:"), self.document_language_combo)
-
-        self.document_language_status = QLabel()
-        self.document_language_status.setWordWrap(True)
-        spell_form.addRow(self.document_language_status)
-
         spell_langs_hint = QLabel(
-            _("Choose a language, or Auto-detect from the text. "
-              "Jottr loads a matching installed dictionary and warns if none is available. "
-              "Also available from Tools → Document Language and the status bar.")
+            _("Set the document language from Tools → Document Language "
+              "or the status bar.")
         )
         spell_langs_hint.setWordWrap(True)
         spell_form.addRow(spell_langs_hint)
@@ -103,20 +81,12 @@ class DictionaryPageMixin:
         self.spell_check_enabled.setChecked(
             bool(self.settings_manager.get_setting("spell_check", True))
         )
-        self.load_document_languages()
-        self.update_document_language_status()
         self.load_user_dict()
 
     def _save_spell_settings(self):
-        sm = self.settings_manager
-        sm.save_setting('spell_check', self.spell_check_enabled.isChecked())
-        sm.save_setting('document_language', self.get_document_language())
-        sm.save_setting('spell_languages', self._spell_languages_for_document())
+        self.settings_manager.save_setting('spell_check', self.spell_check_enabled.isChecked())
 
     def _on_spell_toggled(self):
-        self._commit("spell", self._save_spell_settings)
-
-    def _on_document_language_changed(self):
         self._commit("spell", self._save_spell_settings)
 
     def _save_user_dictionary(self):
@@ -156,64 +126,6 @@ class DictionaryPageMixin:
 
     def _update_dict_buttons(self):
         self.delete_word_button.setEnabled(self.dict_list.currentItem() is not None)
-
-    def load_document_languages(self):
-        """Populate the document-language combo, including languages without dictionaries."""
-        current = get_document_language(self.settings_manager)
-        self.document_language_combo.blockSignals(True)
-        self.document_language_combo.clear()
-        for language in list_document_language_choices(extra=[current]):
-            self.document_language_combo.addItem(format_language_label(language), language)
-        index = self.document_language_combo.findData(current)
-        if index < 0:
-            self.document_language_combo.addItem(format_language_label(current), current)
-            index = self.document_language_combo.findData(current)
-        self.document_language_combo.setCurrentIndex(max(0, index))
-        self.document_language_combo.blockSignals(False)
-
-    def update_document_language_status(self, *args):
-        """Show whether a dictionary is installed for the selected document language."""
-        from jottr.editor.spellcheck import USE_LANGDETECT
-
-        language = (
-            self.document_language_combo.currentData()
-            or self.document_language_combo.currentText()
-            or get_document_language(self.settings_manager)
-        )
-        if language == DOCUMENT_LANGUAGE_AUTO:
-            if USE_LANGDETECT:
-                self.document_language_status.setText(
-                    _("Auto-detects language from the document, then loads a matching "
-                      "installed dictionary. Short text may be unreliable.")
-                )
-            else:
-                self.document_language_status.setText(
-                    _("Auto-detect requires the langdetect package.")
-                )
-            return
-
-        matched = match_dictionary_for_language(language)
-        if matched:
-            self.document_language_status.setText(
-                _("Dictionary ready: {dictionary}").format(dictionary=matched)
-            )
-        else:
-            self.document_language_status.setText(missing_dictionary_message(language))
-
-    def get_document_language(self):
-        """Return the selected document language tag."""
-        return (
-            self.document_language_combo.currentData()
-            or self.document_language_combo.currentText()
-            or "en_US"
-        )
-
-    def _spell_languages_for_document(self):
-        language = self.get_document_language()
-        if language == DOCUMENT_LANGUAGE_AUTO:
-            return []
-        matched = match_dictionary_for_language(language)
-        return [matched] if matched else []
 
     def add_dict_word(self, word=None):
         """Add a word to the user dictionary (prompts when no word is given)."""

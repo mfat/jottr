@@ -46,7 +46,7 @@ Enter distraction-free writing mode:
 Jottr underlines misspelled words while you type:
 
 - Toggle from Tools > Automatic Spell Checking (Ctrl+Shift+O), or in Settings > Spellcheck
-- Set the document language under Tools > Document Language, or in Settings > Spellcheck
+- Set the document language under Tools > Document Language, or from the status bar
 - Choose a specific language, or Auto-detect (uses `langdetect` on the document text)
 - Jottr loads the matching installed Enchant/hunspell dictionary; if none is installed it shows a warning instead of guessing
 - Settings > Spellcheck lists dictionaries detected on this system
