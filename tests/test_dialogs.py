@@ -6,7 +6,8 @@ import threading
 import time
 import unittest
 from pathlib import Path
-from unittest.mock import patch
+from types import SimpleNamespace
+from unittest.mock import MagicMock, patch
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
@@ -413,21 +414,45 @@ class DialogTests(unittest.TestCase):
         manager = SettingsManager()
         dialog = SettingsDialog(manager)
         self.addCleanup(dialog.deleteLater)
+        restart = MagicMock()
+        dialog.host = SimpleNamespace(
+            apply_settings_domain=MagicMock(), restart_application=restart
+        )
         self.assertFalse(dialog.browser_remember_data_check.isChecked())
 
-        with patch.object(dialog, "_notify_now") as notify:
+        # Turning remembering on applies at once and leaves saved data alone.
+        with patch.object(QMessageBox, "question") as question:
             dialog.browser_remember_data_check.setChecked(True)
         self.assertTrue(manager.get_setting("browser_remember_data"))
-        notify.assert_called_once_with("browser")
+        dialog.host.apply_settings_domain.assert_called_once_with("browser")
+        question.assert_not_called()
+        self.assertFalse(manager.get_setting("browser_wipe_pending", False))
 
-        with patch("jottr.editor.web_profile.clear_browsing_data") as clear:
+        # Turning it off schedules a wipe and offers a restart.
+        with patch.object(
+            QMessageBox, "question", return_value=QMessageBox.StandardButton.No
+        ) as question:
+            dialog.browser_remember_data_check.setChecked(False)
+        self.assertFalse(manager.get_setting("browser_remember_data"))
+        self.assertTrue(manager.get_setting("browser_wipe_pending"))
+        question.assert_called_once()
+        restart.assert_not_called()
+
+        manager.save_setting("browser_wipe_pending", False)
+        with patch("jottr.editor.web_profile.clear_browsing_data") as clear, \
+                patch.object(QMessageBox, "question",
+                             return_value=QMessageBox.StandardButton.Yes):
             dialog.clear_browsing_data()
         self.assertEqual(dialog.browser_clear_status.text(), "Clearing…")
-        clear.assert_called_once()
+        self.assertTrue(manager.get_setting("browser_wipe_pending"))
+        restart.assert_called_once_with()
         settings_manager, finished = clear.call_args.args
         self.assertIs(settings_manager, manager)
         finished()
-        self.assertEqual(dialog.browser_clear_status.text(), "Cookies and cache cleared.")
+        self.assertEqual(
+            dialog.browser_clear_status.text(),
+            "Cookies and cache cleared. Other site data is deleted when Jottr closes.",
+        )
 
     def test_uninstalled_registry_plugin_offers_enable(self):
         manager = SettingsManager()

@@ -15,15 +15,16 @@ if __package__ is None:
 
 import os
 
-from PyQt6.QtCore import QEvent, Qt, QTimer
+from PyQt6.QtCore import QEvent, QProcess, Qt, QTimer
 from PyQt6.QtWidgets import QApplication, QInputDialog, QMessageBox
 from PyQt6.QtGui import QFont
 from PyQt6.QtOpenGLWidgets import QOpenGLWidget
 
-from jottr.editor.web_profile import release_browser_profiles
+from jottr.editor.web_profile import release_browser_profiles, wipe_pending_data
 from jottr.font_dialog import FontSelectionDialog
 from jottr.icon_manager import load_app_icon
 from jottr.qt_style import capture_platform_qt_style, register_bundled_qt_plugins
+from jottr.settings_manager import SettingsManager
 from jottr.theme_manager import ThemeManager
 from jottr.ui import LeftAlignedDocumentTabBar, WorkspaceFileSystemModel, WorkspaceTreeView
 from jottr.window import (
@@ -57,6 +58,13 @@ def warmup_opengl(parent):
     QTimer.singleShot(0, cleanup)
 
 
+def restart_command():
+    """Program and arguments that start Jottr again, without reopening files."""
+    if getattr(sys, "frozen", False):
+        return sys.executable, []
+    return sys.executable, sys.argv[:1]
+
+
 def main():
     # Share GL contexts for Qt WebEngine (must be set before QApplication).
     QApplication.setAttribute(Qt.ApplicationAttribute.AA_ShareOpenGLContexts)
@@ -78,6 +86,11 @@ def main():
     app.setApplicationVersion(APP_VERSION)
     app.setOrganizationDomain("github.com/mfat/jottr")
     app.setWindowIcon(load_app_icon())
+
+    # Finish a browsing data wipe the last run could not complete. No browser
+    # profile exists yet, so nothing holds the files open. This only renames
+    # folders; deletion runs in the background after startup.
+    wipe_pending_data(SettingsManager())
     
     # Get file paths from command-line arguments
     file_paths = []
@@ -94,11 +107,17 @@ def main():
         window.open_file(file_path)
 
     exit_code = app.exec()
+    restart = getattr(window, "restart_requested", False)
+    settings_manager = window.settings_manager
     # Web pages must go before the disk-backed browser profile, which only
     # flushes cookies and site data to disk when it is deleted.
     window.deleteLater()
     QApplication.sendPostedEvents(None, QEvent.Type.DeferredDelete.value)
     release_browser_profiles()
+    # With the profiles gone, Chromium no longer holds the data files open.
+    wipe_pending_data(settings_manager, at_exit=True)
+    if restart:
+        QProcess.startDetached(*restart_command())
     return exit_code
 
 if __name__ == "__main__":

@@ -4,6 +4,7 @@ import tempfile
 import time
 import unittest
 from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
@@ -194,8 +195,7 @@ class EditorAndMainTests(unittest.TestCase):
         toggle_pane.assert_called_once_with("browser")
         self.assertEqual(editor._pending_url, url)
 
-    def test_browser_profile_keeps_data_only_when_opted_in(self):
-        from PyQt6.QtWebEngineCore import QWebEngineProfile
+    def isolate_browser_data_dirs(self):
         import jottr.editor.web_profile as web_profile
 
         # Qt resolves default data and cache locations from these at call time.
@@ -206,6 +206,12 @@ class EditorAndMainTests(unittest.TestCase):
         env.start()
         self.addCleanup(env.stop)
         self.addCleanup(web_profile.release_browser_profiles)
+        return web_profile
+
+    def test_browser_profile_keeps_data_only_when_opted_in(self):
+        from PyQt6.QtWebEngineCore import QWebEngineProfile
+
+        web_profile = self.isolate_browser_data_dirs()
         self.assertTrue(web_profile.browser_profile(self.settings).isOffTheRecord())
 
         self.settings.save_setting(web_profile.REMEMBER_DATA_SETTING, True)
@@ -220,6 +226,8 @@ class EditorAndMainTests(unittest.TestCase):
             QWebEngineProfile.PersistentCookiesPolicy.AllowPersistentCookies,
         )
         self.assertIs(web_profile.browser_profile(self.settings), profile)
+        self.assertEqual(profile.cachePath(), web_profile.cache_path())
+        self.assertTrue(profile.cachePath().startswith(self.temp_dir.name))
 
         self.settings.save_setting(web_profile.REMEMBER_DATA_SETTING, False)
         self.assertTrue(web_profile.browser_profile(self.settings).isOffTheRecord())
@@ -252,6 +260,133 @@ class EditorAndMainTests(unittest.TestCase):
                 patch.object(editor, "create_web_view") as create_view:
             editor.apply_browser_profile()
         create_view.assert_not_called()
+
+    def browser_data_folders(self, web_profile):
+        storage = Path(web_profile.storage_path(self.settings))
+        cache = Path(web_profile.cache_path())
+        for folder in (storage, cache):
+            (folder / "Local Storage").mkdir(parents=True)
+        return storage, cache
+
+    @staticmethod
+    def folders_being_deleted(*folders):
+        return [
+            entry for folder in folders for entry in folder.parent.iterdir()
+            if entry.name.startswith(folder.name + ".deleting-")
+        ]
+
+    def test_browser_data_wipe_waits_for_request_and_released_profile(self):
+        web_profile = self.isolate_browser_data_dirs()
+        storage, cache = self.browser_data_folders(web_profile)
+
+        self.assertFalse(web_profile.wipe_pending_data(self.settings, at_exit=True))
+        self.assertTrue(storage.exists())
+
+        web_profile.request_wipe(self.settings)
+        self.settings.save_setting(web_profile.REMEMBER_DATA_SETTING, True)
+        web_profile.browser_profile(self.settings)
+        # Chromium holds the files open while the profile exists.
+        self.assertFalse(web_profile.wipe_pending_data(self.settings, at_exit=True))
+        self.assertTrue(storage.exists())
+
+        web_profile.release_browser_profiles()
+        self.assertTrue(web_profile.wipe_pending_data(self.settings, at_exit=True))
+        self.assertFalse(storage.exists())
+        self.assertFalse(cache.exists())
+        self.assertEqual(self.folders_being_deleted(storage, cache), [])
+        self.assertFalse(self.settings.get_setting(web_profile.WIPE_PENDING_SETTING))
+
+    def test_browser_data_wipe_never_waits_for_deletion_at_startup(self):
+        import threading
+
+        web_profile = self.isolate_browser_data_dirs()
+        storage, cache = self.browser_data_folders(web_profile)
+        web_profile.request_wipe(self.settings)
+        release = threading.Event()
+        self.addCleanup(release.set)
+
+        def stuck_delete(_folders, _delay_seconds):
+            release.wait(10)
+
+        with patch.object(web_profile, "_delete_moved_folders", side_effect=stuck_delete) as delete:
+            started = time.perf_counter()
+            self.assertTrue(web_profile.wipe_pending_data(self.settings))
+            elapsed = time.perf_counter() - started
+        self.assertLess(elapsed, 0.5)
+        self.assertEqual(delete.call_args.args[1], web_profile._STARTUP_DELETE_DELAY_SECONDS)
+        # The live paths are free for a new profile before deletion finishes.
+        self.assertFalse(storage.exists())
+        self.assertFalse(cache.exists())
+        self.assertEqual(len(self.folders_being_deleted(storage, cache)), 2)
+
+        # The next wipe sweeps folders an interrupted run left behind.
+        web_profile._delete_moved_folders(
+            (str(storage), str(cache)), 0
+        )
+        self.assertEqual(self.folders_being_deleted(storage, cache), [])
+
+    def test_browser_data_wipe_skips_folders_another_jottr_has_open(self):
+        import subprocess
+
+        web_profile = self.isolate_browser_data_dirs()
+        storage, _cache = self.browser_data_folders(web_profile)
+        web_profile.request_wipe(self.settings)
+        holder = subprocess.Popen(
+            [sys.executable, "-c",
+             "import sys, time\n"
+             "from PyQt6.QtCore import QLockFile\n"
+             "lock = QLockFile(sys.argv[1]); lock.setStaleLockTime(0)\n"
+             "print(lock.tryLock(0), flush=True); time.sleep(60)\n",
+             web_profile.storage_path(self.settings) + ".lock"],
+            stdout=subprocess.PIPE, text=True,
+        )
+        self.addCleanup(holder.stdout.close)
+        self.addCleanup(holder.wait)
+        self.addCleanup(holder.kill)
+        self.assertEqual(holder.stdout.readline().strip(), "True")
+
+        started = time.perf_counter()
+        self.assertFalse(web_profile.wipe_pending_data(self.settings, at_exit=True))
+        self.assertLess(time.perf_counter() - started, 0.5)
+        self.assertTrue(storage.exists())
+        self.assertTrue(self.settings.get_setting(web_profile.WIPE_PENDING_SETTING))
+
+        # Once that process is gone its lock is stale and the wipe proceeds.
+        holder.kill()
+        holder.wait()
+        self.assertTrue(web_profile.wipe_pending_data(self.settings, at_exit=True))
+        self.assertFalse(storage.exists())
+
+    def test_main_wipes_browser_data_around_the_session_and_restarts(self):
+        source = Path(main_module.__file__).read_text(encoding="utf-8")
+        self.assertLess(
+            source.index("wipe_pending_data(SettingsManager())"),
+            source.index("window = TextEditorApp()"),
+        )
+        self.assertLess(
+            source.index("release_browser_profiles()"),
+            source.index("wipe_pending_data(settings_manager, at_exit=True)"),
+        )
+        self.assertLess(
+            source.index("wipe_pending_data(settings_manager, at_exit=True)"),
+            source.index("QProcess.startDetached(*restart_command())"),
+        )
+
+        with patch.object(sys, "argv", ["/usr/bin/jottr", "notes.md"]), \
+                patch.object(sys, "frozen", False, create=True):
+            self.assertEqual(main_module.restart_command(), (sys.executable, ["/usr/bin/jottr"]))
+        with patch.object(sys, "frozen", True, create=True), \
+                patch.object(sys, "executable", "/opt/Jottr/jottr"):
+            self.assertEqual(main_module.restart_command(), ("/opt/Jottr/jottr", []))
+
+    def test_restart_application_is_cancelled_with_the_close(self):
+        window = SimpleNamespace(close=lambda: False)
+        TextEditorApp.restart_application(window)
+        self.assertFalse(window.restart_requested)
+
+        window.close = lambda: True
+        TextEditorApp.restart_application(window)
+        self.assertTrue(window.restart_requested)
 
     def test_markdown_helpers_cover_tables_tasks_math_and_shortcodes(self):
         editor = self.make_editor()

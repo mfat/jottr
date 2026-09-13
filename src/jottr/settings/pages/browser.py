@@ -4,6 +4,7 @@ from PyQt6.QtCore import Qt
 from PyQt6.QtWidgets import (
     QVBoxLayout, QHBoxLayout, QLabel, QLineEdit, QPushButton, QListWidget,
     QListWidgetItem, QWidget, QGroupBox, QFormLayout, QComboBox, QCheckBox,
+    QMessageBox,
 )
 
 from jottr.editor import web_profile
@@ -55,11 +56,7 @@ class BrowserPageMixin:
             _("Remember cookies and logins between sessions")
         )
         self.browser_remember_data_check.toggled.connect(
-            lambda checked: self._commit_now(
-                "browser",
-                lambda: self.settings_manager.save_setting(
-                    web_profile.REMEMBER_DATA_SETTING, bool(checked))
-            )
+            self._on_browser_remember_data_toggled
         )
         privacy_layout.addWidget(self.browser_remember_data_check)
         remember_warning = QLabel(
@@ -132,16 +129,48 @@ class BrowserPageMixin:
             )
         )
 
+    def _on_browser_remember_data_toggled(self, checked):
+        if self._loading:
+            return
+        self._commit_now(
+            "browser",
+            lambda: self.settings_manager.save_setting(
+                web_profile.REMEMBER_DATA_SETTING, bool(checked))
+        )
+        if not checked:
+            web_profile.request_wipe(self.settings_manager)
+            self._offer_restart_for_wipe()
+
     def clear_browsing_data(self):
         self.browser_clear_status.setText(_("Clearing…"))
         web_profile.clear_browsing_data(
             self.settings_manager, self._on_browsing_data_cleared
         )
+        web_profile.request_wipe(self.settings_manager)
+        self._offer_restart_for_wipe()
 
     def _on_browsing_data_cleared(self):
         # The Settings window may have been closed (and deleted) meanwhile.
         if not sip.isdeleted(self.browser_clear_status):
-            self.browser_clear_status.setText(_("Cookies and cache cleared."))
+            self.browser_clear_status.setText(_(
+                "Cookies and cache cleared. Other site data is deleted "
+                "when Jottr closes."
+            ))
+
+    def _offer_restart_for_wipe(self):
+        # Site storage can only be deleted once no browser profile has it open.
+        restart = getattr(self.host, "restart_application", None)
+        if restart is None:
+            return
+        reply = QMessageBox.question(
+            self,
+            _("Restart Jottr"),
+            _("Some browsing data, such as site storage, is deleted only when "
+              "Jottr closes. Restart Jottr now?"),
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
+        )
+        if reply == QMessageBox.StandardButton.Yes:
+            restart()
 
     def _on_homepage_edited(self):
         text = self.homepage_edit.text().strip()

@@ -2272,6 +2272,13 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
         else:
             event.ignore()
 
+    def restart_application(self):
+        """Close Jottr and start it again once this process has exited."""
+        self.restart_requested = True
+        # Closing can still be cancelled from the unsaved changes prompt.
+        if not self.close():
+            self.restart_requested = False
+
     def open_external_url(self, url):
         """Open URL in system's default browser"""
         QDesktopServices.openUrl(QUrl(url))
