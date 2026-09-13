@@ -1,17 +1,16 @@
 """Resolve the desktop's light/dark preference, sandboxes included.
 
-``QStyleHints.colorScheme()`` is authoritative whenever Qt's platform theme
-knows the answer, but it reports ``Unknown`` when the plugin cannot read the
-host configuration. That is the normal case for the Flatpak build: the
-``org.kde.Platform`` runtime loads a KDE/generic platform theme that looks for
-``kdeglobals`` inside the sandbox, so a GNOME host in dark mode still resolves
-as light and the chrome stays light while the rest of the desktop is dark.
+``QStyleHints.colorScheme()`` is often wrong or empty for host appearance:
+the Flatpak ``org.kde.Platform`` theme looks for ``kdeglobals`` inside the
+sandbox (Unknown / stale), and native Qt on GNOME Wayland can report Light
+while the session is dark — it follows GTK ``settings.ini``, which GNOME no
+longer keeps in sync with ``org.gnome.desktop.interface color-scheme``.
 
-So fall back the way portals intend: read ``color-scheme`` from the
+The desktop portal is the source of truth: read ``color-scheme`` from the
 ``org.freedesktop.appearance`` namespace of ``org.freedesktop.portal.Settings``,
-which xdg-desktop-portal exposes to every Flatpak without extra permissions and
-which GNOME, Plasma and wlroots portals all implement. If no portal answers,
-fall back to the host GTK settings files.
+which xdg-desktop-portal exposes without extra Flatpak permissions and which
+GNOME, Plasma and wlroots portals implement. If no portal answers, fall back
+to host GTK settings files, then to Qt's platform theme.
 """
 
 from __future__ import annotations
@@ -179,21 +178,26 @@ def desktop_color_scheme():
 
 
 def system_color_scheme(application=None):
-    """Return the desktop's Qt.ColorScheme, falling back past the platform theme."""
+    """Return the desktop's Qt.ColorScheme, falling back past the platform theme.
+
+    Prefer the portal/GTK answer whenever it exists. Qt's platform theme is only
+    used when the desktop has no opinion — otherwise a wrong Light from GNOME's
+    GTK settings (or a sandboxed KDE default) masks a dark session.
+    """
     from PyQt6.QtGui import QGuiApplication
+
+    scheme = desktop_color_scheme()
+    if scheme != Qt.ColorScheme.Unknown:
+        return scheme
 
     app = application or QGuiApplication.instance()
     platform_scheme = Qt.ColorScheme.Unknown
     if app is not None and hasattr(app, "styleHints"):
         platform_scheme = app.styleHints().colorScheme()
     # A scheme we pinned ourselves says nothing new, and would go stale the
-    # moment the desktop switched, so re-derive instead of reading it back.
-    if platform_scheme not in (Qt.ColorScheme.Unknown, pinned_color_scheme()):
-        return platform_scheme
-
-    scheme = desktop_color_scheme()
-    if scheme != Qt.ColorScheme.Unknown:
-        return scheme
+    # moment the desktop switched, so treat our pin like Unknown here.
+    if platform_scheme == pinned_color_scheme():
+        return Qt.ColorScheme.Unknown
     return platform_scheme
 
 

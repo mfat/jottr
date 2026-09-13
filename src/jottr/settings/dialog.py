@@ -338,7 +338,7 @@ class SettingsDialog(
 
     def selected_ui_theme(self):
         # Window Color Scheme owns chrome colors; ui_theme remains the
-        # System/Light/Dark hint used only when the scheme is Default.
+        # System/Light/Dark hint used when the scheme is Default.
         return self.settings_manager.get_ui_theme()
 
     def selected_icon_theme(self):

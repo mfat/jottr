@@ -101,14 +101,15 @@ class SystemColorSchemeTests(unittest.TestCase):
         clear_system_color_scheme_cache()
         self.addCleanup(clear_system_color_scheme_cache)
 
-    def test_platform_theme_wins_when_it_knows(self):
+    def test_portal_wins_when_platform_theme_disagrees(self):
+        """Native GNOME: Qt reports Light from GTK settings while the portal is Dark."""
         with patch.object(QStyleHints, "colorScheme", lambda _self: Qt.ColorScheme.Light):
             with patch.object(
                 system_color_scheme_module,
                 "portal_color_scheme",
                 return_value=Qt.ColorScheme.Dark,
             ):
-                self.assertEqual(system_color_scheme(app()), Qt.ColorScheme.Light)
+                self.assertEqual(system_color_scheme(app()), Qt.ColorScheme.Dark)
 
     def test_portal_answers_when_platform_theme_is_unknown(self):
         """The Flatpak case: the sandboxed platform theme has no opinion."""
@@ -121,6 +122,19 @@ class SystemColorSchemeTests(unittest.TestCase):
                 self.assertEqual(system_color_scheme(app()), Qt.ColorScheme.Dark)
                 self.assertTrue(system_prefers_dark(app()))
 
+    def test_platform_theme_used_when_desktop_is_silent(self):
+        with patch.object(QStyleHints, "colorScheme", lambda _self: Qt.ColorScheme.Dark):
+            with patch.object(
+                system_color_scheme_module,
+                "portal_color_scheme",
+                return_value=Qt.ColorScheme.Unknown,
+            ):
+                with patch.object(
+                    system_color_scheme_module,
+                    "gtk_color_scheme",
+                    return_value=Qt.ColorScheme.Unknown,
+                ):
+                    self.assertEqual(system_color_scheme(app()), Qt.ColorScheme.Dark)
     def test_gtk_settings_answer_when_portal_is_silent(self):
         with patch.object(QStyleHints, "colorScheme", lambda _self: Qt.ColorScheme.Unknown):
             with patch.object(
@@ -200,6 +214,7 @@ class SystemUiThemeTests(unittest.TestCase):
             self.skipTest("no dark .colors scheme installed")
         self.assertTrue(scheme_is_dark(auto.path))
 
+
 class QtColorSchemePinTests(unittest.TestCase):
     """System has to pin Qt's scheme too, or the widget style stays light."""
 
@@ -241,13 +256,20 @@ class QtColorSchemePinTests(unittest.TestCase):
             system_color_scheme_module.pinned_color_scheme(), Qt.ColorScheme.Dark
         )
 
-    def test_platform_opinion_keeps_system_following_qt(self):
-        requested = self._apply("System", Qt.ColorScheme.Dark, Qt.ColorScheme.Light)
+    def test_desktop_scheme_is_pinned_even_when_platform_disagrees(self):
+        """GNOME Wayland: Qt Light must not block pinning portal Dark."""
+        requested = self._apply("System", Qt.ColorScheme.Light, Qt.ColorScheme.Dark)
+        self.assertEqual(requested, [Qt.ColorScheme.Dark])
+        self.assertEqual(
+            system_color_scheme_module.pinned_color_scheme(), Qt.ColorScheme.Dark
+        )
+
+    def test_system_stays_unknown_when_desktop_is_silent(self):
+        requested = self._apply("System", Qt.ColorScheme.Dark, Qt.ColorScheme.Unknown)
         self.assertEqual(requested, [Qt.ColorScheme.Unknown])
         self.assertEqual(
             system_color_scheme_module.pinned_color_scheme(), Qt.ColorScheme.Unknown
         )
-
     def test_explicit_ui_theme_is_not_recorded_as_a_pin(self):
         requested = self._apply("Dark", Qt.ColorScheme.Unknown, Qt.ColorScheme.Light)
         self.assertEqual(requested, [Qt.ColorScheme.Dark])

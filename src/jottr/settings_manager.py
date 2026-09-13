@@ -193,8 +193,21 @@ class SettingsManager:
                     # Custom editor themes are no longer supported.
                     self.settings.pop("custom_themes", None)
                     self.migrate_legacy_font_settings(had_follow_flag=had_follow_flag)
+                    self.migrate_default_window_scheme_follows_system()
             except Exception as e:
                 print(f"Error loading settings: {str(e)}")
+
+    def migrate_default_window_scheme_follows_system(self):
+        """Default Window Color Scheme must follow the desktop (System ui_theme)."""
+        from jottr.window_color_scheme import find_window_color_scheme
+
+        scheme_id = self.settings.get("window_color_scheme", "")
+        if find_window_color_scheme(scheme_id).path:
+            return
+        if self.get_ui_theme() == "System":
+            return
+        self.settings["ui_theme"] = "System"
+        self.save_settings()
 
     def migrate_legacy_font_settings(self, had_follow_flag=True):
         """Replace the old DejaVu UI default and coerce Qt5 font weights."""
@@ -339,9 +352,17 @@ class SettingsManager:
         )
 
     def save_window_color_scheme(self, scheme_id):
-        from jottr.window_color_scheme import normalize_window_color_scheme
+        from jottr.window_color_scheme import (
+            find_window_color_scheme,
+            normalize_window_color_scheme,
+        )
 
-        self.settings["window_color_scheme"] = normalize_window_color_scheme(scheme_id)
+        scheme_id = normalize_window_color_scheme(scheme_id)
+        self.settings["window_color_scheme"] = scheme_id
+        # Default follows the desktop; drop a stale Light/Dark ui_theme so
+        # chrome matches GNOME/Plasma after the Appearance control was removed.
+        if not find_window_color_scheme(scheme_id).path:
+            self.settings["ui_theme"] = "System"
         self.save_settings()
 
     def get_qt_style(self):

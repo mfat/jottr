@@ -184,20 +184,19 @@ def normalize_qt_style(style_name):
 def apply_qt_color_scheme(scheme_name, application=None):
     """Apply Qt::ColorScheme from a System/Light/Dark UI setting.
 
-    ``System`` maps to ``Qt.ColorScheme.Unknown``, which follows the platform
-    appearance (see QStyleHints::setColorScheme). When the platform theme has
-    no opinion — a sandboxed plugin that cannot read the host config — pin the
-    scheme the desktop portal reports instead, so the widget style does not
-    stay light while the chrome goes dark.
+    ``System`` follows the desktop portal (then GTK), not Qt's platform theme.
+    Native GNOME Wayland and the Flatpak KDE runtime both mis-report Light or
+    Unknown while the session is dark; pinning the portal answer keeps Adwaita
+    and chrome aligned. When the desktop has no opinion, ``Unknown`` leaves
+    the widget style on Qt's platform default.
 
     Some platform themes (notably org.kde.Platform under a dark GNOME host)
-    report Dark and ignore ``setColorScheme(Light)``. Callers must then align
-    chrome and paired styles via ``reconcile_chrome_theme_with_color_scheme``.
+    ignore ``setColorScheme(Light)``. Callers must then align chrome and paired
+    styles via ``reconcile_chrome_theme_with_color_scheme``.
     """
     from jottr.system_color_scheme import (
         desktop_color_scheme,
         note_pinned_color_scheme,
-        pinned_color_scheme,
     )
     from jottr.theme_manager import ThemeManager
 
@@ -212,11 +211,8 @@ def apply_qt_color_scheme(scheme_name, application=None):
     scheme = ThemeManager.ui_theme_color_scheme(scheme_name)
     pinned = Qt.ColorScheme.Unknown
     if scheme == Qt.ColorScheme.Unknown:
-        # Ignore an override we installed earlier: only the platform theme's
-        # own answer means System can be left to follow Qt.
-        platform_scheme = hints.colorScheme()
-        if platform_scheme in (Qt.ColorScheme.Unknown, pinned_color_scheme()):
-            pinned = desktop_color_scheme()
+        pinned = desktop_color_scheme()
+        if pinned != Qt.ColorScheme.Unknown:
             scheme = pinned
     note_pinned_color_scheme(pinned)
     hints.setColorScheme(scheme)

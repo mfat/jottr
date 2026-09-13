@@ -228,7 +228,9 @@ class SettingsAndSnippetTests(unittest.TestCase):
 
         # Only built-in editor themes exist; a saved custom name falls back.
         self.assertEqual(reloaded.get_theme(), ThemeManager.DEFAULT_THEME_NAME)
-        self.assertEqual(reloaded.get_ui_theme(), "Dark")
+        # Default Window Color Scheme follows the desktop, so a stale Light/Dark
+        # ui_theme is migrated to System on load.
+        self.assertEqual(reloaded.get_ui_theme(), "System")
         self.assertNotIn("custom_themes", reloaded.settings)
         reloaded.save_theme("Forest")
         self.assertEqual(reloaded.get_theme(), ThemeManager.DEFAULT_THEME_NAME)
