@@ -261,7 +261,6 @@ class PluginsTabMixin:
             return
 
         self.set_plugin_busy(False)
-        self.sync_plugin_dependent_settings_pages()
         self.refresh_plugin_list()
         if changed:
             self._host_plugins_changed()
@@ -377,7 +376,7 @@ class PluginsTabMixin:
     def plugin_status_label(self, plugin):
         if plugin.enabled:
             return _("Enabled")
-        if not self.plugin_manager.is_installed(plugin) and not self.plugin_manager.is_builtin(plugin):
+        if not self.plugin_manager.is_installed(plugin):
             return _("Not installed")
         return _("Disabled")
 
@@ -505,7 +504,7 @@ class PluginsTabMixin:
         self.toggle_plugin_button.setEnabled(actionable)
         if has_plugin and plugin.enabled:
             self.toggle_plugin_button.setText(_("Disable"))
-        elif has_plugin and not installed and not self.plugin_manager.is_builtin(plugin):
+        elif has_plugin and not installed:
             self.toggle_plugin_button.setText(_("Install"))
         else:
             self.toggle_plugin_button.setText(_("Enable"))
@@ -598,7 +597,6 @@ class PluginsTabMixin:
             trusted = True
         try:
             self.plugin_manager.set_enabled(plugin.name, True, trusted=trusted)
-            self.sync_plugin_dependent_settings_pages()
             self.refresh_plugin_list()
             self._host_plugins_changed()
         except PermissionError as exc:
@@ -679,7 +677,6 @@ class PluginsTabMixin:
         if not plugin:
             return
         self.plugin_manager.set_enabled(plugin.name, False)
-        self.sync_plugin_dependent_settings_pages()
         self.refresh_plugin_list()
         self._host_plugins_changed()
 
@@ -708,7 +705,6 @@ class PluginsTabMixin:
             )
         else:
             manager.refresh()
-            self.sync_plugin_dependent_settings_pages()
             self.refresh_plugin_list()
             self._host_plugins_changed()
             self.plugin_task_status.setText(
@@ -781,7 +777,6 @@ class PluginsTabMixin:
             return
         try:
             self.plugin_manager.remove_plugin(plugin.name)
-            self.sync_plugin_dependent_settings_pages()
             self.refresh_plugin_list()
             self._host_plugins_changed()
         except Exception as exc:

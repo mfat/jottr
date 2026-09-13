@@ -34,14 +34,6 @@ def seed_official_plugin_registry(manager):
         "schemaVersion": 1,
         "plugins": [
             {
-                "id": "browser-panel",
-                "displayName": "Browser Panel",
-                "description": "Adds the integrated browser side panel and browser search commands.",
-                "latestVersion": "0.1.0",
-                "defaultEnabled": True,
-                "versions": [{"version": "0.1.0", "package": {"downloadUrl": "https://example.test/browser.zip", "sha256": "abc"}}],
-            },
-            {
                 "id": "rss-feed",
                 "displayName": "RSS Feed Reader",
                 "description": "Adds the RSS feed reader tab.",
@@ -143,9 +135,9 @@ class PluginManagerTests(unittest.TestCase):
 
         manager.refresh()
 
-        self.assertIn("browser-panel", manager.plugins)
-        self.assertTrue(manager.plugins["browser-panel"].channel_verified)
-        self.assertEqual(manager.plugins["browser-panel"].channel_name, "Official")
+        self.assertIn("rss-feed", manager.plugins)
+        self.assertTrue(manager.plugins["rss-feed"].channel_verified)
+        self.assertEqual(manager.plugins["rss-feed"].channel_name, "Official")
         self.assertIn("community-tool", manager.plugins)
         self.assertEqual(manager.plugins["community-tool"].channel_name, "Community")
         self.assertFalse(manager.plugins["community-tool"].channel_verified)
@@ -154,11 +146,11 @@ class PluginManagerTests(unittest.TestCase):
         manager.refresh()
 
         # The filter narrows the settings list only; discovery keeps every channel.
-        self.assertIn("browser-panel", manager.plugins)
+        self.assertIn("rss-feed", manager.plugins)
         visible = [plugin.name for plugin in manager.visible_plugins()]
         self.assertIn("community-tool", visible)
-        self.assertNotIn("browser-panel", visible)
-        self.assertIn("browser-panel", [plugin.name for plugin in manager.visible_plugins("all")])
+        self.assertNotIn("rss-feed", visible)
+        self.assertIn("rss-feed", [plugin.name for plugin in manager.visible_plugins("all")])
 
     def test_refresh_keeps_python_registrations_without_rerunning_entries(self):
         plugins_dir = Path(self.temp_dir.name) / "plugins"
@@ -203,13 +195,12 @@ class PluginManagerTests(unittest.TestCase):
         manager.refresh()
         registry = manager.activate_enabled_plugins()
 
-        self.assertEqual(manager.plugins["browser-panel"].source, "registry")
-        self.assertTrue(manager.plugins["browser-panel"].enabled)
+        self.assertEqual(manager.plugins["rss-feed"].source, "registry")
         # defaultEnabled alone does not enable a plugin that is not installed.
         self.assertFalse(manager.plugins["rss-feed"].enabled)
-        self.assertEqual(manager.plugins["browser-panel"].permissions, [])
-        self.assertEqual(manager.plugins["browser-panel"].contributes, {})
-        self.assertFalse(any(action.get("id") == "browser-panel.toolbar" for action in registry.toolbar_actions))
+        self.assertEqual(manager.plugins["rss-feed"].permissions, [])
+        self.assertEqual(manager.plugins["rss-feed"].contributes, {})
+        self.assertFalse(any(action.get("id") == "rss-feed.toolbar" for action in registry.toolbar_actions))
         self.assertEqual(manager.plugin_versions("rss-feed"), ["0.3.1", "0.1.0"])
 
     def test_registry_plugin_exposes_and_selects_multiple_versions(self):
@@ -281,7 +272,7 @@ class PluginManagerTests(unittest.TestCase):
         self.assertEqual(list(manager.download_cache_dir.glob(".versioned-tool-*")), [])
 
     def test_installed_registry_version_uses_recorded_release_not_manifest(self):
-        # browser-panel's package plugin.json says 0.0.1 while the registry
+        # The package's plugin.json says 0.0.1 while the registry
         # release is 0.1.0; that must not look outdated forever.
         plugin_source = Path(self.temp_dir.name) / "plugin-source"
         self.write_plugin(plugin_source, "drifting-tool", manifest={"version": "0.0.1"})

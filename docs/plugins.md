@@ -35,7 +35,6 @@ plugins/
 Each plugin is released from its own repository so plugin versions are independent from the main app version and tag history:
 
 ```text
-Jottrhq/browser-plugin
 Jottrhq/rss-feed-plugin
 Jottrhq/mermaid-charts-plugin
 ```
@@ -65,7 +64,6 @@ Prefer `plugin.json` for new plugins.
   "schemaVersion": 1,
   "defaultOwner": "Jottrhq",
   "plugins": [
-    "browser-plugin",
     "rss-feed-plugin",
     "mermaid-charts-plugin"
   ]

@@ -1208,7 +1208,6 @@ class EditorAndMainTests(unittest.TestCase):
     def test_browser_toggle_avoids_fade_over_webengine(self):
         editor = self.make_editor()
         editor.animations_enabled = lambda: True
-        editor.settings_manager.is_plugin_enabled = lambda name: name == "browser-panel"
         editor.show()
         app().processEvents()
 

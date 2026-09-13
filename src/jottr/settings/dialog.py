@@ -248,8 +248,12 @@ class SettingsDialog(
             "document",
         )
         self.build_browser_page()
-        if self.browser_settings_available():
-            self.add_browser_settings_page()
+        self.add_settings_page(
+            "browser",
+            _("Browser"),
+            self.browser_settings_page,
+            "browser",
+        )
         self.add_settings_page(
             "spellcheck",
             _("Spellcheck"),
@@ -288,9 +292,6 @@ class SettingsDialog(
         self.settings_nav.insertItem(index, item)
         self.settings_stack.insertWidget(index, widget)
 
-    def settings_page_index(self, widget):
-        return self.settings_stack.indexOf(widget)
-
     def settings_page_key_index(self, key):
         for index in range(self.settings_nav.count()):
             if self.settings_nav.item(index).data(_PAGE_KEY_ROLE) == key:
@@ -302,42 +303,6 @@ class SettingsDialog(
         if index >= 0:
             self.settings_nav.setCurrentRow(index)
         return index >= 0
-
-    def remove_settings_page(self, widget):
-        index = self.settings_page_index(widget)
-        if index < 0:
-            return
-        self.settings_nav.takeItem(index)
-        self.settings_stack.removeWidget(widget)
-        if self.settings_nav.count() and self.settings_nav.currentRow() < 0:
-            self.settings_nav.setCurrentRow(0)
-
-    def browser_settings_available(self):
-        plugin = self.plugin_manager.plugins.get("browser-panel")
-        return bool(plugin and plugin.enabled)
-
-    def add_browser_settings_page(self):
-        # Browser sits right after Editor so page order stays stable.
-        editor_index = self.settings_page_key_index("editor")
-        self.add_settings_page(
-            "browser",
-            _("Browser"),
-            self.browser_settings_page,
-            "browser",
-            index=editor_index + 1 if editor_index >= 0 else None,
-        )
-
-    def sync_plugin_dependent_settings_pages(self):
-        if not hasattr(self, "browser_settings_page"):
-            return
-        browser_index = self.settings_page_index(self.browser_settings_page)
-        if self.browser_settings_available() and browser_index < 0:
-            current = self.settings_nav.currentItem()
-            current_key = current.data(_PAGE_KEY_ROLE) if current is not None else ""
-            self.add_browser_settings_page()
-            self.show_settings_page(current_key)
-        elif not self.browser_settings_available() and browser_index >= 0:
-            self.remove_settings_page(self.browser_settings_page)
 
     def selected_ui_theme(self):
         # Window Color Scheme owns chrome colors; ui_theme remains the

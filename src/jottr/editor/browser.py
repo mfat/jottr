@@ -11,9 +11,6 @@ from jottr.translation_manager import _
 class BrowserPaneMixin:
     def search_in_browser(self, url):
         """Search the given URL in the browser pane"""
-        if not self.browser_panel_enabled():
-            return
-
         # Store URL to load
         self._pending_url = url
         
@@ -44,8 +41,6 @@ class BrowserPaneMixin:
 
     def ensure_browser_visible(self):
         """Ensure browser pane is visible"""
-        if not self.browser_panel_enabled():
-            return
         if not self.browser_widget.isVisible():
             self.browser_widget.setVisible(True)
             self.settings_manager.save_pane_visibility(
@@ -55,8 +50,6 @@ class BrowserPaneMixin:
 
     def search_google(self, text):
         """Search Google in browser pane"""
-        if not self.browser_panel_enabled():
-            return
         url = f"https://www.google.com/search?q={quote(text)}"
         
         # Store URL and ensure browser is visible
@@ -183,9 +176,6 @@ class BrowserPaneMixin:
         # Add to layout
         self.web_container.layout().addWidget(self.web_view)
 
-    def browser_panel_enabled(self):
-        return self.settings_manager.is_plugin_enabled("browser-panel")
-
     def toggle_pane(self, pane_type):
         """Toggle visibility of side panes"""
         if pane_type == "snippets":
@@ -200,8 +190,6 @@ class BrowserPaneMixin:
                     self.splitter.setSizes([new_editor_size, new_snippet_size, current_sizes[2]])
                     
         elif pane_type == "browser":
-            if not self.browser_panel_enabled():
-                return
             is_visible = self.browser_widget.isVisible()
             
             if is_visible:

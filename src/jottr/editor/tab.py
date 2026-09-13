@@ -776,67 +776,66 @@ class EditorTab(
         selected_text = self.editor.textCursor().selectedText()
 
         if selected_text:
-            if self.browser_panel_enabled():
-                # Add search submenu
-                search_menu = menu.addMenu(_("Search in..."))
+            # Add search submenu
+            search_menu = menu.addMenu(_("Search in..."))
 
-                # Get site-specific searches from settings
-                search_sites = self.settings_manager.get_setting('search_sites', {
-                    'AP News': 'site:apnews.com',
-                    'Reuters': 'site:reuters.com',
-                    'BBC News': 'site:bbc.com/news'
-                })
+            # Get site-specific searches from settings
+            search_sites = self.settings_manager.get_setting('search_sites', {
+                'AP News': 'site:apnews.com',
+                'Reuters': 'site:reuters.com',
+                'BBC News': 'site:bbc.com/news'
+            })
 
-                # Add search actions for each site
-                for name, site_query in search_sites.items():
-                    action = search_menu.addAction(name)
-                    search_url = f"https://www.google.com/search?q={quote(selected_text)}+{site_query}"
-                    action.triggered.connect(lambda checked, url=search_url:
-                        self.search_in_browser(url))
-
-                # Add separator and regular Google search
-                search_menu.addSeparator()
-                google_action = search_menu.addAction(_("Google"))
-                google_url = f"https://www.google.com/search?q={quote(selected_text)}"
-                google_action.triggered.connect(lambda checked, url=google_url:
-                    self.search_in_browser(url))
-                # Add Wikipedia search
-                wiki_action = search_menu.addAction(_("Wikipedia"))
-                wiki_url = f"https://en.wikipedia.org/w/index.php?search={quote(selected_text)}"
-                wiki_action.triggered.connect(lambda checked, url=wiki_url:
+            # Add search actions for each site
+            for name, site_query in search_sites.items():
+                action = search_menu.addAction(name)
+                search_url = f"https://www.google.com/search?q={quote(selected_text)}+{site_query}"
+                action.triggered.connect(lambda checked, url=search_url:
                     self.search_in_browser(url))
 
-                # Add Google Scholar search
-                scholar_action = search_menu.addAction(_("Google Scholar"))
-                scholar_url = f"https://scholar.google.com/scholar?q={quote(selected_text)}"
-                scholar_action.triggered.connect(lambda checked, url=scholar_url:
-                    self.search_in_browser(url))
+            # Add separator and regular Google search
+            search_menu.addSeparator()
+            google_action = search_menu.addAction(_("Google"))
+            google_url = f"https://www.google.com/search?q={quote(selected_text)}"
+            google_action.triggered.connect(lambda checked, url=google_url:
+                self.search_in_browser(url))
+            # Add Wikipedia search
+            wiki_action = search_menu.addAction(_("Wikipedia"))
+            wiki_url = f"https://en.wikipedia.org/w/index.php?search={quote(selected_text)}"
+            wiki_action.triggered.connect(lambda checked, url=wiki_url:
+                self.search_in_browser(url))
 
-                # Add Google Maps search
-                maps_action = search_menu.addAction(_("Google Maps"))
-                maps_url = f"https://www.google.com/maps/search/{quote(selected_text)}"
-                maps_action.triggered.connect(lambda checked, url=maps_url:
-                    self.search_in_browser(url))
+            # Add Google Scholar search
+            scholar_action = search_menu.addAction(_("Google Scholar"))
+            scholar_url = f"https://scholar.google.com/scholar?q={quote(selected_text)}"
+            scholar_action.triggered.connect(lambda checked, url=scholar_url:
+                self.search_in_browser(url))
 
-                # Add Google News search
-                news_action = search_menu.addAction(_("Google News"))
-                news_url = f"https://news.google.com/search?q={quote(selected_text)}"
-                news_action.triggered.connect(lambda checked, url=news_url:
-                    self.search_in_browser(url))
+            # Add Google Maps search
+            maps_action = search_menu.addAction(_("Google Maps"))
+            maps_url = f"https://www.google.com/maps/search/{quote(selected_text)}"
+            maps_action.triggered.connect(lambda checked, url=maps_url:
+                self.search_in_browser(url))
 
-                # add google translate search
-                translate_action = search_menu.addAction(_("Google Translate"))
-                translate_url = f"https://translate.google.com/?sl=auto&tl=en&text={quote(selected_text)}"
-                translate_action.triggered.connect(lambda checked, url=translate_url:
-                    self.search_in_browser(url))
+            # Add Google News search
+            news_action = search_menu.addAction(_("Google News"))
+            news_url = f"https://news.google.com/search?q={quote(selected_text)}"
+            news_action.triggered.connect(lambda checked, url=news_url:
+                self.search_in_browser(url))
 
-                # Add Google define search
-                dictionary_action = search_menu.addAction(_("Google Define"))
-                dictionary_url = f"https://www.google.com/search?q=define+{quote(selected_text)}"
-                dictionary_action.triggered.connect(lambda checked, url=dictionary_url:
-                    self.search_in_browser(url))
+            # add google translate search
+            translate_action = search_menu.addAction(_("Google Translate"))
+            translate_url = f"https://translate.google.com/?sl=auto&tl=en&text={quote(selected_text)}"
+            translate_action.triggered.connect(lambda checked, url=translate_url:
+                self.search_in_browser(url))
 
-                menu.addSeparator()
+            # Add Google define search
+            dictionary_action = search_menu.addAction(_("Google Define"))
+            dictionary_url = f"https://www.google.com/search?q=define+{quote(selected_text)}"
+            dictionary_action.triggered.connect(lambda checked, url=dictionary_url:
+                self.search_in_browser(url))
+
+            menu.addSeparator()
 
             # Spell-check for a single selected word
             if ' ' not in selected_text:

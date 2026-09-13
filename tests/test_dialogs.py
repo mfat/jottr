@@ -40,14 +40,6 @@ def seed_official_plugin_registry(manager):
         "schemaVersion": 1,
         "plugins": [
             {
-                "id": "browser-panel",
-                "displayName": "Browser Panel",
-                "description": "Adds the integrated browser side panel and browser search commands.",
-                "latestVersion": "0.1.0",
-                "defaultEnabled": True,
-                "versions": [{"version": "0.1.0", "package": {"downloadUrl": "https://example.test/browser.zip", "sha256": "abc"}}],
-            },
-            {
                 "id": "rss-feed",
                 "displayName": "RSS Feed Reader",
                 "description": "Adds the RSS feed reader tab.",
@@ -260,8 +252,8 @@ class DialogTests(unittest.TestCase):
             for index in range(dialog.plugin_list.count())
         ]
         # Filtering hides other channels in the list without dropping them.
-        self.assertNotIn("browser-panel", listed())
-        self.assertIn("browser-panel", dialog.plugin_manager.plugins)
+        self.assertNotIn("rss-feed", listed())
+        self.assertIn("rss-feed", dialog.plugin_manager.plugins)
         data = dialog.get_data()
         self.assertEqual(data["plugin_channel_filter"], "Community")
         self.assertTrue(any(channel["name"] == "Community" for channel in data["plugin_channels"]))
@@ -271,7 +263,7 @@ class DialogTests(unittest.TestCase):
 
         dialog.remove_plugin_channel()
         self.assertEqual(dialog.plugin_channel_filter_combo.currentData(), "all")
-        self.assertIn("browser-panel", listed())
+        self.assertIn("rss-feed", listed())
         self.assertEqual(dialog.plugin_channel_filter_combo.findData("Community"), -1)
         self.assertFalse(any(channel["name"] == "Community" for channel in dialog.get_data()["plugin_channels"]))
 
@@ -369,8 +361,9 @@ class DialogTests(unittest.TestCase):
             "Plugin index updated. All installed plugins are up to date.",
         )
 
-    def test_settings_hides_browser_page_when_browser_plugin_is_disabled(self):
+    def test_settings_always_shows_browser_page(self):
         manager = SettingsManager()
+        # State left over from the retired browser-panel plugin must not hide the page.
         manager.save_setting("plugin_state", {
             "browser-panel": {"enabled": False, "trusted": True, "version": "0.1.0"}
         })
@@ -382,27 +375,13 @@ class DialogTests(unittest.TestCase):
             dialog.settings_nav.item(index).text()
             for index in range(dialog.settings_nav.count())
         ]
-        self.assertNotIn("Browser", nav_items)
-
-    def test_disabling_browser_plugin_removes_browser_settings_page(self):
-        manager = SettingsManager()
-        dialog = SettingsDialog(manager)
-        self.addCleanup(dialog.deleteLater)
-
-        browser_rows = [
-            index for index in range(dialog.plugin_list.count())
-            if dialog.plugin_list.item(index).data(Qt.ItemDataRole.UserRole) == "browser-panel"
+        self.assertIn("Browser", nav_items)
+        self.assertEqual(nav_items.index("Browser"), nav_items.index("Editor") + 1)
+        listed = [
+            dialog.plugin_list.item(index).data(Qt.ItemDataRole.UserRole)
+            for index in range(dialog.plugin_list.count())
         ]
-        self.assertTrue(browser_rows)
-        self.assertIn("Browser", [dialog.settings_nav.item(index).text() for index in range(dialog.settings_nav.count())])
-
-        dialog.plugin_list.setCurrentRow(browser_rows[0])
-        self.assertEqual(dialog.toggle_plugin_button.text(), "Disable")
-        dialog.toggle_selected_plugin()
-
-        nav_items = [dialog.settings_nav.item(index).text() for index in range(dialog.settings_nav.count())]
-        self.assertNotIn("Browser", nav_items)
-        self.assertEqual(dialog.toggle_plugin_button.text(), "Enable")
+        self.assertNotIn("browser-panel", listed)
 
     def test_uninstalled_registry_plugin_offers_enable(self):
         manager = SettingsManager()

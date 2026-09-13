@@ -201,34 +201,33 @@ def main() -> int:
     wait_animation(tab, tab.markdown_preview, app)
 
     # --- browser ---
-    if tab.browser_panel_enabled():
-        # Avoid a file:// URL in the chrome; load HTML directly after the pane opens.
-        tab._pending_url = "about:blank"
-        if not tab.browser_widget.isVisible():
-            tab.toggle_pane("browser")
-        wait_animation(tab, tab.browser_widget, app)
-        sizes = tab.splitter.sizes()
-        total = sum(sizes) or WIDTH
-        tab.splitter.setSizes([int(total * 0.55), 0, int(total * 0.45)])
-        wait(app, 800)
-        if tab.web_view is not None:
-            loop = QEventLoop()
+    # Avoid a file:// URL in the chrome; load HTML directly after the pane opens.
+    tab._pending_url = "about:blank"
+    if not tab.browser_widget.isVisible():
+        tab.toggle_pane("browser")
+    wait_animation(tab, tab.browser_widget, app)
+    sizes = tab.splitter.sizes()
+    total = sum(sizes) or WIDTH
+    tab.splitter.setSizes([int(total * 0.55), 0, int(total * 0.45)])
+    wait(app, 800)
+    if tab.web_view is not None:
+        loop = QEventLoop()
 
-            def on_load(_ok: bool) -> None:
-                tab.url_bar.setText("https://www.apnews.com/")
-                QTimer.singleShot(350, loop.quit)
+        def on_load(_ok: bool) -> None:
+            tab.url_bar.setText("https://www.apnews.com/")
+            QTimer.singleShot(350, loop.quit)
 
-            tab.web_view.loadFinished.connect(on_load)
-            tab.web_view.setHtml(BROWSER_HTML, QUrl("https://www.apnews.com/"))
-            QTimer.singleShot(3000, loop.quit)
-            loop.exec()
-        wait(app, 300)
-        tab.url_bar.setText("https://www.apnews.com/")
-        wait(app, 50)
-        grab(window, "browser.png")
-        if tab.browser_widget.isVisible():
-            tab.toggle_pane("browser")
-        wait_animation(tab, tab.browser_widget, app)
+        tab.web_view.loadFinished.connect(on_load)
+        tab.web_view.setHtml(BROWSER_HTML, QUrl("https://www.apnews.com/"))
+        QTimer.singleShot(3000, loop.quit)
+        loop.exec()
+    wait(app, 300)
+    tab.url_bar.setText("https://www.apnews.com/")
+    wait(app, 50)
+    grab(window, "browser.png")
+    if tab.browser_widget.isVisible():
+        tab.toggle_pane("browser")
+    wait_animation(tab, tab.browser_widget, app)
 
     # --- focus mode (fullscreen by design) ---
     set_editor_text(window, FOCUS_SAMPLE)
