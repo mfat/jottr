@@ -45,6 +45,8 @@ from jottr.editor.find_replace import FindReplaceMixin
 # Lazily bound / test-patched WebEngine symbols used by markdown preview.
 QWebEngineView = None
 MarkdownPreviewPage = None
+# Lazily bound / test-patched page used for PDF export.
+QWebEnginePage = None
 
 
 class EditorTab(
@@ -596,6 +598,10 @@ class EditorTab(
             if temp_file:
                 temp_file.close()
 
+        global QWebEnginePage
+        if QWebEnginePage is None:
+            from PyQt6.QtWebEngineCore import QWebEnginePage as _QWebEnginePage
+            QWebEnginePage = _QWebEnginePage
         page = QWebEnginePage(self)
         self._pdf_export_page = page
         self._pdf_export_html_path = temp_file_path
