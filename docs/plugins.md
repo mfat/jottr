@@ -15,11 +15,10 @@ Plugins must not receive the main window object directly. They interact with Jot
 
 ## Starting a New Plugin
 
-Start from the template repository:
+There is no template repository yet. Copy an existing plugin repository as a starting point, including its `scripts/package-plugin.py`, `scripts/validate-plugin-json.py`, and release-please setup:
 
-```bash
-git clone git@github.com:Jottrhq/template-plugin.git my-plugin
-```
+- `Jottrhq/rss-feed-plugin` for a plugin that adds a panel.
+- `Jottrhq/mermaid-charts-plugin` for a markdown preview extension.
 
 Then rename the plugin id, package folder, command ids, panel ids, and release-please package name. Keep first plugin releases at `0.1.0`, validate `plugin.json`, and publish both the zip and `.zip.sha256` release assets before adding the plugin to `Jottrhq/plugins`.
 
@@ -59,17 +58,40 @@ Prefer `plugin.json` for new plugins.
 
 ## Plugin Index
 
-Validate the plugin index before release:
-
-```bash
-python scripts/validate-plugins-json.py plugins.json --checksum plugins.json.sha256
-```
-
-The index is the app-facing catalog. Keep it small: it should list where a plugin lives, what package version can be downloaded, and how to verify that package. Do not duplicate manifest-owned fields such as `permissions`, `entry`, `uiPanels`, `sidebarItems`, `toolbarActions`, or other `contributes` data in `plugins.json`. Jottr reads those from the installed plugin package's `plugin.json`.
+`plugins.json` is generated, so do not edit it by hand. The human-maintained file in `Jottrhq/plugins` is `plugin-sources.json`, which lists plugin repositories. A bare name uses `defaultOwner`; other owners use `owner/repo` or a GitHub URL:
 
 ```json
 {
   "schemaVersion": 1,
+  "defaultOwner": "Jottrhq",
+  "plugins": [
+    "browser-plugin",
+    "rss-feed-plugin",
+    "mermaid-charts-plugin"
+  ]
+}
+```
+
+The **Sync Plugin Index** workflow runs daily and on manual dispatch; pass `plugin=<repository>` to add a repository to `plugin-sources.json`. It runs `scripts/sync-plugin-index.py`, which:
+
+1. Reads each repository's published releases.
+2. Takes display metadata from the latest release's `plugin.json`.
+3. Indexes every release that has a `<plugin-id>-<version>.zip` asset and a matching `.zip.sha256` asset, verifying each zip against its checksum.
+4. Regenerates `plugins.json` and `plugins.json.sha256` and opens a PR.
+
+To sync or validate locally:
+
+```bash
+python scripts/sync-plugin-index.py   # set GITHUB_TOKEN for private repos or higher rate limits
+python scripts/validate-plugins-json.py plugins.json --checksum plugins.json.sha256
+```
+
+The index is the app-facing catalog: where a plugin lives, which package versions can be downloaded, and how to verify them. It does not carry manifest-owned fields such as `permissions`, `entry`, `uiPanels`, `sidebarItems`, `toolbarActions`, or other `contributes` data; Jottr reads those from the installed plugin package's `plugin.json`. The generated index looks like this:
+
+```json
+{
+  "schemaVersion": 1,
+  "updatedAt": "2026-05-30T07:50:18Z",
   "checksumAlgorithm": "sha256",
   "plugins": [
     {
@@ -144,7 +166,7 @@ Every plugin must include metadata:
 
 - `name`: Stable plugin identifier. Use lowercase kebab-case, for example `rss-feed`.
 - `displayName`: Human-readable name shown in settings.
-- `version`: Plugin version. Use semantic versioning when possible.
+- `version`: Plugin version, using semantic versioning. Bump it in the same change that cuts a release. The index takes each release's version from its zip asset name (`<plugin-id>-<version>.zip`), and Jottr tracks updates by that index version while Settings shows the manifest version as installed, so the two must match.
 - `description`: Short explanation shown in settings.
 - `permissions`: List of required capabilities. Use an empty list if none are needed.
 
@@ -300,7 +322,9 @@ api.register_background_service(service)
 
 The `factory` passed to `register_panel()` must return a Qt widget.
 
-`register(api)` can run more than once in a session. When the set of enabled plugins changes, Jottr calls `register()` again on the already-loaded module; it re-executes the entry file only when that file changed on disk. Keep `register()` free of one-time side effects and register the same ids each time.
+`register(api)` can run many times in one session. Jottr calls it again on the already-loaded module whenever it refreshes plugins, for example when Settings opens or a plugin is enabled, disabled, updated, or switched to another version. The entry file itself runs again only when it changed on disk, or when the plugin is enabled after being disabled (disabling unloads it). Keep `register()` free of one-time side effects and register the same ids each time.
+
+Modules imported by the entry file stay cached for the session, so changes to them take effect after restarting Jottr.
 
 ## Permissions
 
@@ -344,23 +368,47 @@ App maintainers should:
 - Continue to show permissions before enabling remote plugins.
 - Keep plugin APIs narrow.
 - Prefer manifest-only contributions when code execution is not needed.
-- Add signing or checksum verification before enabling automatic remote updates.
+- Keep index and package checksum verification, and add signing before enabling automatic updates.
 - Avoid giving plugins direct access to `TextEditorApp`.
 
-## Remote Sources
+## Channels and Updates
 
-Users configure remote repositories in Settings, then choose Update Sources. Jottr clones or pulls repositories into its config cache and scans the configured `plugins/` subdirectory.
-
-Remote source records use this shape in settings:
+Settings › Plugins manages plugin channels. A channel is a plugin index URL plus an optional checksum URL. The Official channel (`Jottrhq/plugins`) is always present and marked verified. Channels are stored in settings like this:
 
 ```json
 {
-  "plugin_registry_url": "https://raw.githubusercontent.com/Jottrhq/plugins/main/plugins.json",
-  "plugin_registry_checksum_url": "https://raw.githubusercontent.com/Jottrhq/plugins/main/plugins.json.sha256"
+  "plugin_channels": [
+    {
+      "name": "Official",
+      "url": "https://raw.githubusercontent.com/Jottrhq/plugins/main/plugins.json",
+      "checksumUrl": "https://raw.githubusercontent.com/Jottrhq/plugins/main/plugins.json.sha256",
+      "enabled": true,
+      "verified": true
+    }
+  ]
 }
 ```
 
-Index updates are manual in the first version. Jottr verifies `plugins.json.sha256` after fetching the index, downloads each package `.zip.sha256` release asset, and verifies the package before extracting it into the app config directory.
+- **Show channel** only filters the plugin list. Jottr always loads every enabled channel.
+- **Update Channel(s)** downloads the selected channel's index, or every enabled channel's when showing all, and verifies it against its checksum when the channel has one. When it finishes, the page lists installed plugins that have a newer release.
+- **Update** on a registry plugin refreshes that plugin's channel index and installs the index's `latestVersion`, or reports that the plugin is already up to date.
+- **Version** installs a specific release and keeps the plugin on it until you press **Update**.
+
+Updates are always manual; Jottr never updates plugins on its own. Downloads run in the background with a 30-second network timeout, and the page shows progress and the result. Jottr verifies each package zip against its `.zip.sha256` release asset before extracting it. A failed or unverified download keeps the previously cached index and the installed plugin.
+
+### Remote Git Sources
+
+Jottr can also load plugins from Git repositories, but there is no UI for adding them yet, and the app does not clone them. They are read from the `plugin_remote_sources` setting:
+
+```json
+{
+  "plugin_remote_sources": [
+    {"url": "https://github.com/example/jottr-plugins.git", "directory": "plugins"}
+  ]
+}
+```
+
+Jottr scans `<directory>` inside the repository's clone at `<Jottr config directory>/plugin_sources/<first 16 hex characters of the SHA-256 of the URL>/`. **Update** on a remote plugin runs `git pull --ff-only` in that clone; git is never allowed to prompt for credentials. Remote plugin code does not run until the user enables the plugin and accepts the trust warning.
 
 ## App Integration Checklist
 
@@ -376,9 +424,11 @@ When adding a new plugin contribution type to Jottr:
 When changing plugin settings:
 
 1. Keep the canonical settings in `SettingsManager`.
-2. Surface user controls in the Plugins settings tab.
+2. Surface user controls on the Plugins settings page.
 3. Persist each change immediately (enable/disable, channels, directory).
-4. Notify the host via the `plugins` settings domain so `PluginManager` and chrome rebuild.
+4. Use the main window's shared `PluginManager`; the Settings window must not create its own.
+5. Run network and slow disk work through `run_plugin_task()`. Its worker step may only do I/O; its apply step updates `PluginManager` on the GUI thread.
+6. Notify the host via the `plugins` settings domain. It runs newly enabled plugin entries in place and rebuilds the toolbar and menus only when plugin contributions changed.
 
 When moving an existing app feature into a registry plugin:
 
