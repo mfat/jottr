@@ -11,6 +11,7 @@ import zipfile
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from jottr.settings_manager import DEFAULT_ENABLED_PLUGIN_NAMES
 
 PLUGIN_MANIFEST_NAMES = ("plugin.json", "metadata.json", "manifest.json")
 REMOTE_WARNING = "Remote plugins can run code only after you review their permissions and trust the source."
@@ -685,7 +686,7 @@ class PluginManager:
                 "permissions": [],
                 "contributes": {},
             }
-            plugins[plugin_id] = PluginMetadata.from_manifest(
+            plugin = PluginMetadata.from_manifest(
                 manifest,
                 "",
                 source="registry",
@@ -693,6 +694,13 @@ class PluginManager:
                 state=state_entry,
                 registry_entry=entry,
             )
+            # Not installed: only plugins backed by built-in code (the browser
+            # pane) can be active; the rest stay off until Enable installs them.
+            plugin.enabled = (
+                plugin_id in DEFAULT_ENABLED_PLUGIN_NAMES
+                and bool(state_entry.get("enabled", True))
+            )
+            plugins[plugin_id] = plugin
         self.plugins = plugins
         self.rebuild_registry(include_entries=False)
         return list(self.plugins.values())
@@ -908,6 +916,10 @@ class PluginManager:
 
     def is_installed(self, plugin):
         return bool(plugin.path) and self.find_manifest(Path(plugin.path)) is not None
+
+    def is_builtin(self, plugin):
+        """Jottr ships this plugin's feature itself, so it works without installing."""
+        return plugin.name in DEFAULT_ENABLED_PLUGIN_NAMES
 
     def installed_registry_version(self, plugin):
         """Registry version installed for a plugin ("" when not installed).

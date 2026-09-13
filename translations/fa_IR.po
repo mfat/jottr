@@ -998,6 +998,10 @@ msgstr "نسخه"
 msgid "Installed"
 msgstr "نصب‌شده"
 
+#: src/jottr/settings/pages/plugins.py
+msgid "Available"
+msgstr "موجود"
+
 #: src/jottr/settings_dialog.py
 msgid "Source"
 msgstr "منبع"
@@ -1018,6 +1022,10 @@ msgstr "فعال"
 msgid "Disabled"
 msgstr "غیرفعال"
 
+#: src/jottr/settings/pages/plugins.py
+msgid "Not installed"
+msgstr "نصب‌نشده"
+
 #: src/jottr/settings_dialog.py
 msgid "Registry"
 msgstr "رجیستری"
@@ -1037,6 +1045,10 @@ msgstr "فعال‌سازی"
 #: src/jottr/settings_dialog.py
 msgid "Disable"
 msgstr "غیرفعال‌سازی"
+
+#: src/jottr/settings/pages/plugins.py
+msgid "Install"
+msgstr "نصب"
 
 #: src/jottr/settings_dialog.py
 msgid "Update"

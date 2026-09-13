@@ -404,6 +404,23 @@ class DialogTests(unittest.TestCase):
         self.assertNotIn("Browser", nav_items)
         self.assertEqual(dialog.toggle_plugin_button.text(), "Enable")
 
+    def test_uninstalled_registry_plugin_offers_enable(self):
+        manager = SettingsManager()
+        dialog = SettingsDialog(manager)
+        self.addCleanup(dialog.deleteLater)
+
+        rss_rows = [
+            index for index in range(dialog.plugin_list.count())
+            if dialog.plugin_list.item(index).data(Qt.ItemDataRole.UserRole) == "rss-feed"
+        ]
+        self.assertTrue(rss_rows)
+        dialog.plugin_list.setCurrentRow(rss_rows[0])
+        self.assertEqual(dialog.plugin_status_badge.text(), "Not installed")
+        self.assertEqual(dialog.toggle_plugin_button.text(), "Install")
+        self.assertFalse(dialog.update_plugin_button.isEnabled())
+        self.assertFalse(dialog.remove_plugin_button.isEnabled())
+        self.assertIn("Available: 0.3.1", dialog.plugin_details.text())
+
     def test_settings_dialog_autosave_interval_is_a_clamped_spinbox(self):
         manager = SettingsManager()
         manager.save_setting("autosave_interval_seconds", 45)

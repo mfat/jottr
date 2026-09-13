@@ -375,7 +375,11 @@ class PluginsTabMixin:
         return _("Local")
 
     def plugin_status_label(self, plugin):
-        return _("Enabled") if plugin.enabled else _("Disabled")
+        if plugin.enabled:
+            return _("Enabled")
+        if not self.plugin_manager.is_installed(plugin) and not self.plugin_manager.is_builtin(plugin):
+            return _("Not installed")
+        return _("Disabled")
 
     def create_plugin_list_card(self, plugin):
         card = QFrame()
@@ -497,10 +501,17 @@ class PluginsTabMixin:
     def set_plugin_action_state(self, plugin):
         has_plugin = plugin is not None
         actionable = has_plugin and not self.plugin_task_running()
+        installed = has_plugin and self.plugin_manager.is_installed(plugin)
         self.toggle_plugin_button.setEnabled(actionable)
-        self.toggle_plugin_button.setText(_("Disable") if has_plugin and plugin.enabled else _("Enable"))
-        self.update_plugin_button.setEnabled(actionable)
-        self.remove_plugin_button.setEnabled(actionable)
+        if has_plugin and plugin.enabled:
+            self.toggle_plugin_button.setText(_("Disable"))
+        elif has_plugin and not installed and not self.plugin_manager.is_builtin(plugin):
+            self.toggle_plugin_button.setText(_("Install"))
+        else:
+            self.toggle_plugin_button.setText(_("Enable"))
+        # Nothing to update or remove until the plugin is installed.
+        self.update_plugin_button.setEnabled(actionable and installed)
+        self.remove_plugin_button.setEnabled(actionable and installed)
 
     def refresh_plugin_list(self):
         current = self.selected_plugin()
@@ -548,9 +559,10 @@ class PluginsTabMixin:
         self.plugin_version_combo.blockSignals(False)
 
         source = plugin.source_url or plugin.path
+        version_label = _("Installed") if self.plugin_manager.is_installed(plugin) else _("Available")
         details = (
             f"{plugin.description}\n"
-            f"{_('Installed')}: {plugin.version}\n"
+            f"{version_label}: {plugin.version}\n"
             f"{_('Source')}: {source}"
         )
         if plugin.error:

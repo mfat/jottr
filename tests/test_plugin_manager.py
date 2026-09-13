@@ -205,6 +205,8 @@ class PluginManagerTests(unittest.TestCase):
 
         self.assertEqual(manager.plugins["browser-panel"].source, "registry")
         self.assertTrue(manager.plugins["browser-panel"].enabled)
+        # defaultEnabled alone does not enable a plugin that is not installed.
+        self.assertFalse(manager.plugins["rss-feed"].enabled)
         self.assertEqual(manager.plugins["browser-panel"].permissions, [])
         self.assertEqual(manager.plugins["browser-panel"].contributes, {})
         self.assertFalse(any(action.get("id") == "browser-panel.toolbar" for action in registry.toolbar_actions))
