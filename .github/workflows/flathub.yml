@@ -104,22 +104,11 @@ jobs:
           token: ${{ secrets.FLATHUB_TOKEN }}
           path: flathub
 
-      - name: Checkout release sources
-        uses: actions/checkout@v4
-        with:
-          ref: ${{ steps.release.outputs.tag }}
-          path: jottr
-
-      - name: Sync Flathub packaging from release
+      - name: Update pinned commit in manifest
         env:
           TAG: ${{ steps.release.outputs.tag }}
           SHA: ${{ steps.commit.outputs.sha }}
         run: |
-          set -euo pipefail
-          cp jottr/pypi-dependencies.yaml flathub/pypi-dependencies.yaml
-          cp jottr/io.github.mfat.jottr.metainfo.xml flathub/io.github.mfat.jottr.metainfo.xml
-          cp jottr/io.github.mfat.jottr.yml flathub/io.github.mfat.jottr.yml
-
           python3 - <<'PY'
           import os
           import pathlib
@@ -129,33 +118,24 @@ jobs:
           manifest = pathlib.Path("flathub/io.github.mfat.jottr.yml")
           text = manifest.read_text()
 
-          # In-tree packaging uses type: dir / path: . for local builds.
-          # Flathub needs a pinned git source plus a metainfo overlay.
+          # Target the jottr git source and rewrite its tag + pinned commit,
+          # preserving indentation. Also accept a #tag: comment form (sshpilot).
           pattern = re.compile(
-              r"(    sources:\n)"
-              r"      - type: dir\n"
-              r"(?:        #.*\n)*"
-              r"        path: \.\n"
-              r"(?:        skip:\n(?:          - .*\n)+)?",
-              re.MULTILINE,
+              r'(url:\s*"?https://github\.com/mfat/jottr\.git"?[ \t]*\n)'
+              r'(?:[ \t]*(?:#)?tag:[^\n]*\n)?'
+              r'([ \t]*)commit:[ \t]*[0-9a-fA-F]+'
           )
-          replacement = (
-              r"\1"
-              "      - type: git\n"
-              "        url: https://github.com/mfat/jottr.git\n"
-              f"        tag: {tag}\n"
-              f"        commit: {sha}\n"
-              "      - type: file\n"
-              "        path: io.github.mfat.jottr.metainfo.xml\n"
-          )
-          new_text, count = pattern.subn(replacement, text, count=1)
+
+          def repl(match):
+              indent = match.group(2)
+              return f"{match.group(1)}{indent}tag: {tag}\n{indent}commit: {sha}"
+
+          new_text, count = pattern.subn(repl, text, count=1)
           if count != 1:
-              raise SystemExit(
-                  "Failed to convert type: dir jottr source to pinned git for Flathub"
-              )
+              raise SystemExit("Failed to update the pinned commit in the manifest")
 
           manifest.write_text(new_text)
-          print(f"Synced Flathub packaging to {tag} ({sha})")
+          print(f"Updated manifest to {tag} ({sha})")
           PY
 
       - name: Open pull request on Flathub repo
@@ -169,6 +149,6 @@ jobs:
           commit-message: "Update to ${{ steps.release.outputs.tag }}"
           title: "Update to ${{ steps.release.outputs.tag }}"
           body: |
-            Automated packaging bump to ${{ steps.release.outputs.tag }}.
+            Automated manifest bump to ${{ steps.release.outputs.tag }}.
 
             commit: ${{ steps.commit.outputs.sha }}

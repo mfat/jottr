@@ -203,8 +203,10 @@ class ImportAndPackagingTests(unittest.TestCase):
         self.assertIn("secrets.FLATHUB_TOKEN", workflow)
         self.assertIn("peter-evans/create-pull-request@v6", workflow)
         self.assertIn("io.github.mfat.jottr.yml", workflow)
-        self.assertIn("pypi-dependencies.yaml", workflow)
-        self.assertIn("io.github.mfat.jottr.metainfo.xml", workflow)
+        self.assertIn("Update pinned commit in manifest", workflow)
+        self.assertNotIn("pypi-dependencies.yaml", workflow)
+        self.assertNotIn("io.github.mfat.jottr.metainfo.xml", workflow)
+        self.assertNotIn("type: dir", workflow)
 
     def test_symbolic_icons_use_qt_resources(self):
         from PyQt6.QtWidgets import QApplication
