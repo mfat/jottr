@@ -786,30 +786,10 @@ class EditorTab(
             # Add search submenu
             search_menu = menu.addMenu(_("Search in..."))
 
-            # Get site-specific searches from settings
-            search_sites = self.settings_manager.get_setting('search_sites', {
-                'AP News': 'site:apnews.com',
-                'Reuters': 'site:reuters.com',
-                'BBC News': 'site:bbc.com/news'
-            })
-
-            # Add search actions for each site
-            for name, site_query in search_sites.items():
-                action = search_menu.addAction(name)
-                search_url = f"https://www.google.com/search?q={quote(selected_text)}+{site_query}"
-                action.triggered.connect(lambda checked, url=search_url:
-                    self.search_in_browser(url))
-
-            # Add separator and regular Google search
-            search_menu.addSeparator()
+            # Add regular Google search
             google_action = search_menu.addAction(_("Google"))
             google_url = f"https://www.google.com/search?q={quote(selected_text)}"
             google_action.triggered.connect(lambda checked, url=google_url:
-                self.search_in_browser(url))
-            # Add Wikipedia search
-            wiki_action = search_menu.addAction(_("Wikipedia"))
-            wiki_url = f"https://en.wikipedia.org/w/index.php?search={quote(selected_text)}"
-            wiki_action.triggered.connect(lambda checked, url=wiki_url:
                 self.search_in_browser(url))
 
             # Add Google Scholar search
@@ -835,6 +815,26 @@ class EditorTab(
             translate_url = f"https://translate.google.com/?sl=auto&tl=en&text={quote(selected_text)}"
             translate_action.triggered.connect(lambda checked, url=translate_url:
                 self.search_in_browser(url))
+
+            # Add Wikipedia search
+            wiki_action = search_menu.addAction(_("Wikipedia"))
+            wiki_url = f"https://en.wikipedia.org/w/index.php?search={quote(selected_text)}"
+            wiki_action.triggered.connect(lambda checked, url=wiki_url:
+                self.search_in_browser(url))
+
+            # Add separator and site-specific (news) searches from settings
+            search_sites = self.settings_manager.get_setting('search_sites', {
+                'AP News': 'site:apnews.com',
+                'Reuters': 'site:reuters.com',
+                'BBC News': 'site:bbc.com/news'
+            })
+            if search_sites:
+                search_menu.addSeparator()
+            for name, site_query in search_sites.items():
+                action = search_menu.addAction(name)
+                search_url = f"https://www.google.com/search?q={quote(selected_text)}+{site_query}"
+                action.triggered.connect(lambda checked, url=search_url:
+                    self.search_in_browser(url))
 
             # Add Google define search
             dictionary_action = search_menu.addAction(_("Google Define"))
