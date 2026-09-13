@@ -619,6 +619,10 @@ msgstr "Toggle Snippets (Ctrl+Shift+N)"
 msgid "Browser"
 msgstr "Browser"
 
+#: src/jottr/settings/dialog.py
+msgid "Browser and Search"
+msgstr "Browser and Search"
+
 #: src/jottr/main.py:789
 msgid "Toggle Browser (Ctrl+Shift+B)"
 msgstr "Toggle Browser (Ctrl+Shift+B)"
@@ -978,6 +982,34 @@ msgstr "example.com"
 #: src/jottr/settings_dialog.py:450
 msgid "Enter the website domain without 'http://' or 'www.'"
 msgstr "Enter the website domain without 'http://' or 'www.'"
+
+#: src/jottr/settings/search_site.py
+msgid "Timeframe:"
+msgstr "Timeframe:"
+
+#: src/jottr/settings/search_site.py
+msgid "Any time"
+msgstr "Any time"
+
+#: src/jottr/settings/search_site.py
+msgid "Past hour"
+msgstr "Past hour"
+
+#: src/jottr/settings/search_site.py
+msgid "Past 24 hours"
+msgstr "Past 24 hours"
+
+#: src/jottr/settings/search_site.py
+msgid "Past week"
+msgstr "Past week"
+
+#: src/jottr/settings/search_site.py
+msgid "Past month"
+msgstr "Past month"
+
+#: src/jottr/settings/search_site.py
+msgid "Past year"
+msgstr "Past year"
 
 #: src/jottr/snippet_editor_dialog.py:16
 msgid "Title:"

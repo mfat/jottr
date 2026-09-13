@@ -97,7 +97,7 @@ The integrated browser panel allows quick web access:
 - Enter URLs directly in the address bar
 - Click ↗ next to the address bar to open the page in your default browser
 - Use for quick reference while writing
-- Default homepage can be set in Settings > Browser
+- Default homepage can be set in Settings > Browser and Search
 
 ## Site-Specific Searches
 Quickly search selected text on specific news sites. You can add any website frm Settings, and Google-search inside that site from the context menu.
@@ -111,8 +111,9 @@ Quickly search selected text on specific news sites. You can add any website frm
    - Or use regular Google search
 
 Configure search sites:
-1. Open Settings > Browser
+1. Open Settings > Browser and Search
 2. Add, edit, or delete sites under Site-Specific Searches
+3. Optionally pick a timeframe (past hour, 24 hours, week, month, or year) to limit a site's results
 
 ## Keyboard Shortcuts
 Common operations:

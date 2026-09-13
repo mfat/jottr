@@ -619,6 +619,10 @@ msgstr "تغییر وضعیت قطعه‌ها (Ctrl+Shift+N)"
 msgid "Browser"
 msgstr "مرورگر"
 
+#: src/jottr/settings/dialog.py
+msgid "Browser and Search"
+msgstr "مرورگر و جستجو"
+
 #: src/jottr/main.py:789
 msgid "Toggle Browser (Ctrl+Shift+B)"
 msgstr "تغییر وضعیت مرورگر (Ctrl+Shift+B)"
@@ -978,6 +982,34 @@ msgstr "example.com"
 #: src/jottr/settings_dialog.py:450
 msgid "Enter the website domain without 'http://' or 'www.'"
 msgstr ""
+
+#: src/jottr/settings/search_site.py
+msgid "Timeframe:"
+msgstr "بازهٔ زمانی:"
+
+#: src/jottr/settings/search_site.py
+msgid "Any time"
+msgstr "هر زمان"
+
+#: src/jottr/settings/search_site.py
+msgid "Past hour"
+msgstr "یک ساعت گذشته"
+
+#: src/jottr/settings/search_site.py
+msgid "Past 24 hours"
+msgstr "۲۴ ساعت گذشته"
+
+#: src/jottr/settings/search_site.py
+msgid "Past week"
+msgstr "هفتهٔ گذشته"
+
+#: src/jottr/settings/search_site.py
+msgid "Past month"
+msgstr "ماه گذشته"
+
+#: src/jottr/settings/search_site.py
+msgid "Past year"
+msgstr "سال گذشته"
 
 #: src/jottr/snippet_editor_dialog.py:16
 msgid "Title:"

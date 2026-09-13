@@ -19,6 +19,7 @@ from PyQt6.QtGui import QFont
 from PyQt6.QtWidgets import QApplication, QGroupBox, QLabel, QMessageBox, QScrollArea, QWidget
 
 from jottr.settings_dialog import SearchSiteDialog, SettingsDialog
+from jottr.settings.search_site import search_site_url
 from jottr.plugin_manager import PluginManager
 from jottr.settings_manager import SettingsManager
 from jottr.snippet_editor_dialog import SnippetEditorDialog
@@ -78,6 +79,24 @@ class DialogTests(unittest.TestCase):
         self.assertTrue(ok_button.isEnabled())
         dialog.site_edit.clear()
         self.assertFalse(ok_button.isEnabled())
+
+    def test_search_site_dialog_sets_optional_timeframe(self):
+        weekly = {"query": "site:news.example", "timeframe": "w"}
+        dialog = SearchSiteDialog(name="News", site=weekly)
+
+        self.assertEqual(dialog.timeframe_combo.currentData(), "w")
+        self.assertEqual(dialog.get_data(), ("News", weekly))
+        dialog.timeframe_combo.setCurrentIndex(0)
+        self.assertEqual(dialog.get_data(), ("News", "site:news.example"))
+
+        self.assertEqual(
+            search_site_url("red herring", {"query": "site:news.example", "timeframe": "d"}),
+            "https://www.google.com/search?q=red%20herring+site:news.example&tbs=qdr:d",
+        )
+        self.assertEqual(
+            search_site_url("x", "site:news.example"),
+            "https://www.google.com/search?q=x+site:news.example",
+        )
 
     def test_settings_dialog_round_trips_settings(self):
         manager = SettingsManager()
@@ -376,8 +395,8 @@ class DialogTests(unittest.TestCase):
             dialog.settings_nav.item(index).text()
             for index in range(dialog.settings_nav.count())
         ]
-        self.assertIn("Browser", nav_items)
-        self.assertEqual(nav_items.index("Browser"), nav_items.index("Editor") + 1)
+        self.assertIn("Browser and Search", nav_items)
+        self.assertEqual(nav_items.index("Browser and Search"), nav_items.index("Editor") + 1)
         listed = [
             dialog.plugin_list.item(index).data(Qt.ItemDataRole.UserRole)
             for index in range(dialog.plugin_list.count())

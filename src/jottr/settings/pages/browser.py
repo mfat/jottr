@@ -7,7 +7,7 @@ from PyQt6.QtWidgets import (
 
 from jottr.translation_manager import _
 
-from ..search_site import SearchSiteDialog
+from ..search_site import SearchSiteDialog, split_search_site, timeframe_choices
 
 DEFAULT_HOMEPAGE = "https://www.google.com/"
 DEFAULT_SEARCH_SITES = {
@@ -107,7 +107,11 @@ class BrowserPageMixin:
         self._update_search_site_buttons()
 
     def _set_search_site_item(self, item, name, site):
-        item.setText(f"{name} — {str(site).removeprefix('site:')}")
+        query, timeframe = split_search_site(site)
+        text = f"{name} — {query.removeprefix('site:')}"
+        if timeframe:
+            text += f" ({dict(timeframe_choices())[timeframe]})"
+        item.setText(text)
         item.setData(_SITE_NAME_ROLE, name)
         item.setData(_SITE_QUERY_ROLE, site)
         return item

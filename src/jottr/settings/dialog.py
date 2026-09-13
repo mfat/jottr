@@ -250,7 +250,7 @@ class SettingsDialog(
         self.build_browser_page()
         self.add_settings_page(
             "browser",
-            _("Browser"),
+            _("Browser and Search"),
             self.browser_settings_page,
             "browser",
         )

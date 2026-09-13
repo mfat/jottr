@@ -837,9 +837,10 @@ class EditorTab(
             })
             if search_sites:
                 search_menu.addSeparator()
-            for name, site_query in search_sites.items():
+            from jottr.settings.search_site import search_site_url
+            for name, site in search_sites.items():
                 action = search_menu.addAction(name)
-                search_url = f"https://www.google.com/search?q={quote(selected_text)}+{site_query}"
+                search_url = search_site_url(selected_text, site)
                 action.triggered.connect(lambda checked, url=search_url:
                     self.search_in_browser(url))
 
