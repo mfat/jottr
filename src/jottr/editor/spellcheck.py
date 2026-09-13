@@ -475,23 +475,17 @@ class SpellCheckHighlighter(QSyntaxHighlighter):
         document = self.document()
         if document is not None:
             document.contentsChange.connect(self._bump_edit_clock)
-        self.set_theme(
-            self.settings_manager.get_theme(),
-            self.settings_manager.get_custom_themes(),
-            rehighlight=False
-        )
+        self.set_theme(self.settings_manager.get_theme(), rehighlight=False)
         self.apply_spell_settings(rehighlight=False)
 
     def _bump_edit_clock(self, *_args):
         self._edit_clock += 1
 
-    def set_theme(self, theme_name=None, custom_themes=None, rehighlight=True):
+    def set_theme(self, theme_name=None, rehighlight=True):
         """Refresh Markdown syntax colors from the active editor theme."""
         resolved_name = theme_name or self.settings_manager.get_theme()
-        if custom_themes is None:
-            custom_themes = self.settings_manager.get_custom_themes()
-        theme_key = (resolved_name, custom_themes)
-        theme = ThemeManager.get_theme(resolved_name, custom_themes)
+        theme_key = resolved_name
+        theme = ThemeManager.get_theme(resolved_name)
         self.markdown_formats = self.build_markdown_formats(theme)
         # Theme switches from settings/VIEW menu re-fire for every tab; only
         # the first pass needs a full rehighlight.

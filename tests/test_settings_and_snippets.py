@@ -211,32 +211,29 @@ class SettingsAndSnippetTests(unittest.TestCase):
         self.assertEqual(custom.get_font("ui").family(), "Liberation Sans")
         self.assertEqual(custom.get_font("ui").pointSize(), 13)
 
-    def test_settings_manager_persists_custom_themes(self):
+    def test_settings_manager_drops_legacy_custom_themes(self):
         manager = SettingsManager()
-        manager.save_custom_themes({
+        manager.save_setting("custom_themes", {
             "Forest": {
                 "bg": "#102018",
                 "text": "#e8f5e9",
                 "selection": "#355e3b"
-            },
-            "Broken": {
-                "bg": "green",
-                "text": "#ffffff",
-                "selection": "#000000"
             }
         })
-        manager.save_theme("Forest")
+        manager.settings["theme"] = "Forest"
+        manager.save_settings()
         manager.save_ui_theme("Dark")
 
         reloaded = SettingsManager()
 
-        self.assertEqual(reloaded.get_theme(), "Forest")
+        # Only built-in editor themes exist; a saved custom name falls back.
+        self.assertEqual(reloaded.get_theme(), ThemeManager.DEFAULT_THEME_NAME)
         self.assertEqual(reloaded.get_ui_theme(), "Dark")
-        forest = reloaded.get_custom_themes()["Forest"]
-        self.assertEqual(forest["editor"]["background"], "#102018")
-        self.assertEqual(forest["editor"]["foreground"], "#e8f5e9")
-        self.assertEqual(forest["editor"]["selection"], "#355e3b")
-        self.assertNotIn("Broken", reloaded.get_custom_themes())
+        self.assertNotIn("custom_themes", reloaded.settings)
+        reloaded.save_theme("Forest")
+        self.assertEqual(reloaded.get_theme(), ThemeManager.DEFAULT_THEME_NAME)
+        reloaded.save_theme("Dracula")
+        self.assertEqual(reloaded.get_theme(), "Dracula")
 
         manager.save_ui_theme("Dracula")
         self.assertEqual(manager.get_ui_theme(), "Dark")
@@ -508,16 +505,7 @@ class SettingsAndSnippetTests(unittest.TestCase):
         self.assertEqual(image.pixelColor(8, 5).name(), "#f8f8f2")
         self.assertEqual(image.pixelColor(5, 10).name(), "#f8f8f2")
         self.assertEqual(image.pixelColor(13, 10).name(), "#282a36")
-        self.assertIn(
-            "Forest",
-            ThemeManager.get_themes({
-                "Forest": {
-                    "bg": "#102018",
-                    "text": "#e8f5e9",
-                    "selection": "#355e3b"
-                }
-            })
-        )
+        self.assertEqual(set(ThemeManager.get_themes()), set(ThemeManager.DEFAULT_THEMES))
 
         from PyQt6.QtWidgets import QTextEdit
 
@@ -531,14 +519,12 @@ class SettingsAndSnippetTests(unittest.TestCase):
         self.assertIn('font-family: "Liberation Serif"', style)
         self.assertIn("font-size: 15pt", style)
 
-        ThemeManager.apply_theme(editor, "Forest", {
-            "Forest": {
-                "bg": "#102018",
-                "text": "#e8f5e9",
-                "selection": "#355e3b"
-            }
-        })
-        self.assertIn("#102018", editor.styleSheet())
+        # Unknown (e.g. removed custom) theme names fall back to the default.
+        ThemeManager.apply_theme(editor, "Forest")
+        self.assertIn(
+            ThemeManager.get_theme(ThemeManager.DEFAULT_THEME_NAME)["editor"]["background"],
+            editor.styleSheet(),
+        )
 
         dracula = ThemeManager.get_theme("Dracula")
         self.assertEqual(dracula["editor"]["background"], "#282a36")

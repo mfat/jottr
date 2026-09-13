@@ -23,6 +23,7 @@ from jottr.settings_dialog import SearchSiteDialog, SettingsDialog
 from jottr.plugin_manager import PluginManager
 from jottr.settings_manager import SettingsManager
 from jottr.snippet_editor_dialog import SnippetEditorDialog
+from jottr.theme_manager import ThemeManager
 import jottr.translation_manager as translation_manager
 
 
@@ -79,9 +80,13 @@ class DialogAndRssTests(unittest.TestCase):
         seed_official_plugin_registry(PluginManager(SettingsManager()))
 
     def test_search_site_dialog_normalizes_site_queries(self):
-        dialog = SearchSiteDialog(name="Example", site="https://www.example.com")
+        dialog = SearchSiteDialog(name="Example", site="https://www.example.com/")
 
         self.assertEqual(dialog.get_data(), ("Example", "site:example.com"))
+        ok_button = dialog.button_box.button(dialog.button_box.StandardButton.Ok)
+        self.assertTrue(ok_button.isEnabled())
+        dialog.site_edit.clear()
+        self.assertFalse(ok_button.isEnabled())
 
     def test_settings_dialog_round_trips_settings(self):
         manager = SettingsManager()
@@ -91,14 +96,7 @@ class DialogAndRssTests(unittest.TestCase):
         manager.save_setting("autosave_interval_seconds", 12)
         manager.save_setting("plugin_registry_url", "https://example.test/plugins.json")
         manager.save_setting("plugin_registry_checksum_url", "https://example.test/plugins.json.sha256")
-        manager.save_custom_themes({
-            "Forest": {
-                "bg": "#102018",
-                "text": "#e8f5e9",
-                "selection": "#355e3b"
-            }
-        })
-        manager.save_theme("Forest")
+        manager.save_theme("Dracula")
         manager.save_ui_theme("Dark")
 
         dialog = SettingsDialog(manager)
@@ -108,15 +106,12 @@ class DialogAndRssTests(unittest.TestCase):
                 dialog.settings_nav.item(index).icon().isNull(),
                 msg=f"missing icon for {dialog.settings_nav.item(index).text()}",
             )
+        self.assertEqual(dialog.editor_theme_combo.currentText(), "Dracula")
         dialog.homepage_edit.setText("https://home.example")
-        dialog.editor_theme_combo.setCurrentText("Forest")
+        dialog.editor_theme_combo.setCurrentText("Monokai")
         self.assertGreaterEqual(dialog.window_color_scheme_combo.count(), 1)
         self.assertEqual(dialog.window_color_scheme_combo.itemData(0), "")
         self.assertEqual(dialog.selected_ui_theme(), "Dark")
-        self.assertIn("Forest", [
-            dialog.editor_theme_combo.itemText(i)
-            for i in range(dialog.editor_theme_combo.count())
-        ])
         self.assertIn("Dracula", [
             dialog.editor_theme_combo.itemText(i)
             for i in range(dialog.editor_theme_combo.count())
@@ -153,14 +148,16 @@ class DialogAndRssTests(unittest.TestCase):
         dialog.icon_theme_combo.setCurrentIndex(
             dialog.icon_theme_combo.findData("bootstrap")
         )
-        dialog.icon_contrast_combo.setCurrentText("light")
+        dialog.icon_contrast_combo.setCurrentIndex(
+            dialog.icon_contrast_combo.findData("light")
+        )
         dialog.markdown_scroll_sync_check.setChecked(False)
         dialog.settings_manager.save_setting("editor_line_numbers", False)
         dialog.double_click_empty_tab_bar_new_tab_check.setChecked(False)
         dialog.middle_click_tab_closes_tab_check.setChecked(False)
         dialog.enable_animations_check.setChecked(False)
         dialog.autosave_enabled_check.setChecked(True)
-        dialog.autosave_interval_combo.setCurrentText("15")
+        dialog.autosave_interval_spin.setValue(15)
         dialog.plugins_directory_edit.setText(str(Path(self.temp_dir.name) / "plugins"))
         dialog.spell_check_enabled.setChecked(False)
 
@@ -183,9 +180,9 @@ class DialogAndRssTests(unittest.TestCase):
         self.assertEqual(data["spell_languages"], [])
         self.assertEqual(data["ui_theme"], "Dark")
         self.assertEqual(data["window_color_scheme"], "")
-        self.assertEqual(data["theme"], "Forest")
+        self.assertEqual(data["theme"], "Monokai")
+        self.assertEqual(manager.get_theme(), "Monokai")
         self.assertEqual(data["qt_style"], fusion)
-        self.assertEqual(data["custom_themes"]["Forest"]["editor"]["background"], "#102018")
         self.assertEqual(data["icon_theme"], "bootstrap")
         self.assertEqual(data["icon_contrast"], "light")
         self.assertFalse(data["enable_animations"])
@@ -312,20 +309,23 @@ class DialogAndRssTests(unittest.TestCase):
         self.assertNotIn("Browser", nav_items)
         self.assertEqual(dialog.toggle_plugin_button.text(), "Enable")
 
-    def test_settings_dialog_autosave_seconds_uses_dropdown_values(self):
+    def test_settings_dialog_autosave_interval_is_a_clamped_spinbox(self):
         manager = SettingsManager()
         manager.save_setting("autosave_interval_seconds", 45)
 
         dialog = SettingsDialog(manager)
         self.addCleanup(dialog.deleteLater)
 
-        self.assertEqual(dialog.autosave_interval_combo.currentText(), "45")
-        self.assertIn("30", [dialog.autosave_interval_combo.itemText(i) for i in range(dialog.autosave_interval_combo.count())])
+        self.assertEqual(dialog.autosave_interval_spin.value(), 45)
+        self.assertFalse(dialog.autosave_interval_spin.isEnabled())
+        dialog.autosave_enabled_check.setChecked(True)
+        self.assertTrue(dialog.autosave_interval_spin.isEnabled())
 
-        dialog.autosave_interval_combo.setCurrentText("7200")
+        dialog.autosave_interval_spin.setValue(7200)
         self.assertEqual(dialog.get_data()["autosave_interval_seconds"], 3600)
+        self.assertEqual(manager.get_setting("autosave_interval_seconds"), 3600)
 
-        dialog.autosave_interval_combo.setCurrentText("bad")
+        dialog.set_autosave_interval("bad")
         self.assertEqual(dialog.get_data()["autosave_interval_seconds"], 30)
         # Settings uses font-only QSS so titles follow Main UI Font; no color chrome.
         stylesheet = dialog.styleSheet()
@@ -385,34 +385,56 @@ class DialogAndRssTests(unittest.TestCase):
 
         translation_manager.set_language("en_US")
 
-    def test_settings_dialog_creates_and_deletes_custom_theme(self):
+    def test_settings_dialog_offers_only_builtin_editor_themes(self):
         manager = SettingsManager()
+        manager.settings["theme"] = "Ink"
+        dialog = SettingsDialog(manager)
+        self.addCleanup(dialog.deleteLater)
+
+        names = [
+            dialog.editor_theme_combo.itemText(i)
+            for i in range(dialog.editor_theme_combo.count())
+        ]
+        self.assertEqual(names, list(ThemeManager.get_themes()))
+        self.assertEqual(dialog.editor_theme_combo.currentText(), ThemeManager.DEFAULT_THEME_NAME)
+        self.assertFalse(hasattr(dialog, "theme_json_edit"))
+        self.assertFalse(dialog.editor_theme_combo.itemIcon(0).isNull())
+
+    def test_settings_window_remembers_page_and_syncs_external_changes(self):
+        manager = SettingsManager()
+        manager.save_setting("search_sites", {"Ops: Daily": "site:ops.example"})
         dialog = SettingsDialog(manager)
 
-        dialog.theme_json_edit.setPlainText(json.dumps({
-            "name": "Ink",
-            "app": {
-                "background": "#fafafa",
-                "surface": "#ffffff",
-                "text": "#111111"
-            },
-            "editor": {
-                "background": "#fafafa",
-                "foreground": "#111111",
-                "selection": "#cccccc"
-            },
-            "syntax": {}
-        }))
-        dialog.save_custom_theme()
+        # Names containing ": " survive a round trip.
+        self.assertEqual(dialog.get_search_sites(), {"Ops: Daily": "site:ops.example"})
+        dialog.upsert_search_site("Ops: Daily", "site:ops2.example")
+        dialog.upsert_search_site("Wiki", "site:wiki.example")
+        self.assertEqual(manager.get_setting("search_sites"), {
+            "Ops: Daily": "site:ops2.example",
+            "Wiki": "site:wiki.example",
+        })
+        dialog.upsert_search_site("Wiki", "site:wiki2.example", row=0)
+        self.assertEqual(manager.get_setting("search_sites"), {"Wiki": "site:wiki2.example"})
 
-        self.assertIn("Ink", dialog.get_data()["custom_themes"])
-        self.assertEqual(dialog.selected_ui_theme(), "System")
-        self.assertEqual(dialog.editor_theme_combo.currentText(), "Ink")
+        dialog.add_dict_word(" jottr ")
+        dialog.add_dict_word("jottr")
+        self.assertEqual(manager.get_setting("user_dictionary"), ["jottr"])
 
-        dialog.custom_theme_list.setCurrentRow(0)
-        dialog.delete_custom_theme()
+        self.assertTrue(dialog.show_settings_page("spellcheck"))
+        dialog.reject()
+        self.assertIn("geometry", manager.get_setting("settings_window_state"))
 
-        self.assertNotIn("Ink", dialog.get_data()["custom_themes"])
+        reopened = SettingsDialog(manager)
+        self.addCleanup(reopened.deleteLater)
+        self.assertEqual(reopened.settings_nav.currentItem().text(), "Spellcheck")
+
+        manager.save_setting("spell_check", False)
+        manager.save_setting("user_dictionary", ["jottr", "kate"])
+        manager.save_theme("Monokai")
+        reopened.sync_from_settings()
+        self.assertFalse(reopened.spell_check_enabled.isChecked())
+        self.assertEqual(reopened.get_user_dictionary(), ["jottr", "kate"])
+        self.assertEqual(reopened.editor_theme_combo.currentText(), "Monokai")
 
     def test_settings_dialog_is_close_only_and_persists_plugins_directory(self):
         manager = SettingsManager()
@@ -430,33 +452,6 @@ class DialogAndRssTests(unittest.TestCase):
         dialog.plugins_directory_edit.setText(str(target))
         dialog.plugins_directory_edit.editingFinished.emit()
         self.assertEqual(manager.get_setting("plugins_directory"), str(target))
-
-    def test_settings_dialog_saves_advanced_theme_json(self):
-        manager = SettingsManager()
-        dialog = SettingsDialog(manager)
-
-        dialog.theme_json_edit.setPlainText(json.dumps({
-            "name": "Dracula Local",
-            "app": {
-                "background": "#282a36",
-                "surface": "#343746",
-                "accent": "#bd93f9"
-            },
-            "editor": {
-                "background": "#282a36",
-                "foreground": "#f8f8f2",
-                "selection": "#44475a"
-            },
-            "syntax": {
-                "keyword": "#ff79c6"
-            }
-        }))
-        dialog.save_custom_theme()
-
-        theme = dialog.get_data()["custom_themes"]["Dracula Local"]
-        self.assertEqual(theme["app"]["background"], "#282a36")
-        self.assertEqual(theme["editor"]["foreground"], "#f8f8f2")
-        self.assertEqual(theme["syntax"]["keyword"], "#ff79c6")
 
     def test_snippet_editor_dialog_returns_entered_data(self):
         dialog = SnippetEditorDialog("Title", "Body")

@@ -106,10 +106,9 @@ class EditorTab(
         ThemeManager.apply_theme(
             self.editor,
             self.current_theme,
-            self.settings_manager.get_custom_themes(),
             self.current_font
         )
-        
+
         # Track if content has been modified
         self.editor.document().modificationChanged.connect(self.handle_modification)
         self.editor.document().setModified(False)
@@ -334,10 +333,7 @@ class EditorTab(
 
     def apply_workspace_style(self):
         """Apply the editor workspace chrome."""
-        theme = ThemeManager.get_theme(
-            self.current_theme,
-            self.settings_manager.get_custom_themes()
-        )
+        theme = ThemeManager.get_theme(self.current_theme)
         self.setStyleSheet(ThemeManager.build_workspace_stylesheet(theme))
 
     def autosave_enabled(self):
@@ -951,14 +947,10 @@ class EditorTab(
         ThemeManager.apply_theme(
             self.editor,
             self.current_theme,
-            self.settings_manager.get_custom_themes(),
             self.current_font
         )
         if hasattr(self, "highlighter"):
-            self.highlighter.set_theme(
-                self.current_theme,
-                self.settings_manager.get_custom_themes()
-            )
+            self.highlighter.set_theme(self.current_theme)
         self.editor.update_line_number_area_width()
         self.editor.update_line_number_area()
         self.update_markdown_preview()
@@ -1000,11 +992,7 @@ class EditorTab(
     def apply_theme(self, theme_name):
         """Apply theme while preserving font properties"""
         self.current_theme = theme_name
-        ThemeManager.apply_theme(
-            self.editor,
-            theme_name,
-            self.settings_manager.get_custom_themes()
-        )
+        ThemeManager.apply_theme(self.editor, theme_name)
 
         # After applying theme, reapply font to ensure properties are preserved.
         # update_font already rehighlights with the new theme, so the final
@@ -1014,7 +1002,6 @@ class EditorTab(
         if hasattr(self, "highlighter"):
             self.highlighter.set_theme(
                 theme_name,
-                self.settings_manager.get_custom_themes(),
                 rehighlight=not hasattr(self, 'current_font'),
             )
         self.apply_workspace_style()

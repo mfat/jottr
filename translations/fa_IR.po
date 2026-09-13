@@ -1093,3 +1093,43 @@ msgstr "اعمال"
 #: src/jottr/settings_dialog.py src/jottr/main.py
 msgid "Settings applied"
 msgstr "تنظیمات اعمال شد"
+
+#: src/jottr/settings/dialog.py
+msgid "Close"
+msgstr "بستن"
+
+#: src/jottr/settings/dialog.py
+msgid "Editor"
+msgstr "ویرایشگر"
+
+#: src/jottr/settings/pages/editor.py
+msgid "Tabs"
+msgstr "زبانه‌ها"
+
+#: src/jottr/settings/pages/appearance.py
+msgid "Auto"
+msgstr "خودکار"
+
+#: src/jottr/settings/pages/appearance.py
+msgid "Light"
+msgstr "روشن"
+
+#: src/jottr/settings/pages/appearance.py
+msgid "Dark"
+msgstr "تیره"
+
+#: src/jottr/settings/pages/appearance.py
+msgid "Accent"
+msgstr "رنگ تأکیدی"
+
+#: src/jottr/settings/pages/browser.py
+msgid "Site-Specific Searches"
+msgstr "جستجوهای مخصوص سایت"
+
+#: src/jottr/settings/pages/browser.py
+msgid "Each site adds a Google search scoped to that site to the editor's context menu."
+msgstr "هر سایت یک جستجوی گوگل محدود به همان سایت را به منوی زمینهٔ ویرایشگر اضافه می‌کند."
+
+#: src/jottr/settings/pages/dictionary.py
+msgid "User Dictionary"
+msgstr "واژه‌نامهٔ کاربر"

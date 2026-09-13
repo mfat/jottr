@@ -416,7 +416,6 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
         self.tab_widget.tabBar().setExpanding(False)
         self.tab_widget.tabCloseRequested.connect(self.close_tab)
         self.tab_widget.currentChanged.connect(self.update_document_language_status)
-        self.tab_widget.currentChanged.connect(self.update_status_bar_visibility)
         self.tab_widget.currentChanged.connect(self.update_edit_actions)
         self.tab_widget.tabBar().tabs_changed.connect(self.refresh_tab_close_buttons)
         clipboard = QApplication.clipboard()
@@ -600,6 +599,11 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
         self._themed_icon_cache = {}
         self.update_action_icons()
         self.refresh_tab_icons()
+        # The Settings window is top-level, so it does not inherit this
+        # window's palette; refresh it the same way.
+        settings_dialog = getattr(self, "_settings_dialog", None)
+        if settings_dialog is not None:
+            settings_dialog.apply_dialog_palette()
 
     def apply_widget_style(self):
         """Kate/KStyleManager path: QApplication.setStyle without stylesheet wrap.
@@ -703,13 +707,13 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
                     child.setFont(app_font)
 
         if app is not None:
-            from jottr.settings_dialog import SettingsDialog
-
             for widget in app.allWidgets():
                 if isinstance(widget, QMenu):
                     widget.setFont(app_font)
-                elif isinstance(widget, SettingsDialog):
-                    widget.apply_ui_font(app_font)
+
+        settings_dialog = getattr(self, "_settings_dialog", None)
+        if settings_dialog is not None:
+            settings_dialog.apply_ui_font(app_font)
 
         if hasattr(self, "tab_widget") and self.tab_widget is not None:
             for index in range(self.tab_widget.count()):
@@ -754,8 +758,6 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
             action.setIcon(self.build_themed_icon(icon_name))
 
     def tab_icon_name_for_widget(self, tab):
-        if getattr(tab, "is_settings_tab", False):
-            return "settings"
         if isinstance(tab, EditorTab) or hasattr(tab, "current_file"):
             return "document"
         return ""
@@ -1669,7 +1671,7 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
         menu.clear()
         self.editor_theme_grid = None
 
-        themes = ThemeManager.get_themes(self.settings_manager.get_custom_themes())
+        themes = ThemeManager.get_themes()
         current = self.settings_manager.get_theme()
         if current not in themes and themes:
             current = next(iter(themes))
@@ -1812,15 +1814,7 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
         self.settings_manager.save_qt_style(style_name)
         self.apply_widget_style()
         self.sync_widget_style_menu()
-        # Keep an open Settings → Appearance combo in sync when present.
-        for index in range(self.tab_widget.count()):
-            tab = self.tab_widget.widget(index)
-            combo = getattr(tab, "qt_style_combo", None)
-            if combo is None:
-                continue
-            combo.blockSignals(True)
-            combo.setCurrentText(self.settings_manager.get_qt_style())
-            combo.blockSignals(False)
+        self.refresh_settings_dialog()
 
     def set_toolbar_style(self, style_name):
         """Persist Toolbar Style and restyle chrome."""
@@ -1852,11 +1846,13 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
             self.settings_manager.save_window_color_scheme("")
         if scheme == self.settings_manager.get_ui_theme():
             self.sync_window_color_scheme_menu()
+            self.refresh_settings_dialog()
             return
         self.settings_manager.save_ui_theme(scheme)
         self.apply_app_style()
         self.sync_window_color_scheme_menu()
         self.sync_toolbar_style_menu()
+        self.refresh_settings_dialog()
 
     def set_window_color_scheme(self, scheme_id):
         """Persist Window Color Scheme (Kate) and restyle the app."""
@@ -1870,21 +1866,11 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
         self.apply_app_style()
         self.sync_window_color_scheme_menu()
         self.sync_toolbar_style_menu()
-        for index in range(self.tab_widget.count()):
-            tab = self.tab_widget.widget(index)
-            wcombo = getattr(tab, "window_color_scheme_combo", None)
-            if wcombo is not None:
-                wcombo.blockSignals(True)
-                idx = wcombo.findData(scheme_id)
-                if idx >= 0:
-                    wcombo.setCurrentIndex(idx)
-                wcombo.blockSignals(False)
-            if hasattr(tab, "apply_dialog_style"):
-                tab.apply_dialog_style()
+        self.refresh_settings_dialog()
 
     def set_editor_theme(self, theme_name):
         """Persist Editor Theme from the View menu and apply it to open tabs."""
-        themes = ThemeManager.get_themes(self.settings_manager.get_custom_themes())
+        themes = ThemeManager.get_themes()
         if theme_name not in themes:
             theme_name = ThemeManager.DEFAULT_THEME_NAME
         if theme_name == self.settings_manager.get_theme():
@@ -1893,6 +1879,7 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
         self.settings_manager.save_theme(theme_name)
         self.apply_editor_theme_to_tabs(theme_name)
         self.sync_editor_theme_menu()
+        self.refresh_settings_dialog()
 
     def apply_spell_check_to_tabs(self):
         """Reload spell dictionaries and rehighlight tabs whose backend changed."""
@@ -1930,13 +1917,6 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
         language = self.document_language_combo.currentData()
         if language:
             self.set_document_language(language)
-
-    def update_status_bar_visibility(self, _index=None):
-        """Hide the status bar while the Settings tab is active."""
-        if not hasattr(self, "statusBar") or not hasattr(self, "tab_widget"):
-            return
-        tab = self.tab_widget.currentWidget()
-        self.statusBar.setVisible(not getattr(tab, "is_settings_tab", False))
 
     def update_document_language_status(self):
         """Show document language and missing-dictionary warnings in the status bar."""
@@ -2056,6 +2036,7 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
         if hasattr(self, "document_language_combo"):
             self._populate_document_language_combo(self.document_language_combo)
         self.apply_spell_check_to_tabs()
+        self.refresh_settings_dialog()
         if language != DOCUMENT_LANGUAGE_AUTO and not match_dictionary_for_language(language):
             QMessageBox.warning(
                 self,
@@ -2064,19 +2045,13 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
             )
 
     def sync_spell_check_ui(self, enabled):
-        """Keep the Tools menu action and open Settings tabs in sync."""
+        """Keep the Tools menu action and an open Settings window in sync."""
         enabled = bool(enabled)
         if hasattr(self, "spell_check_action") and self.spell_check_action is not None:
             self.spell_check_action.blockSignals(True)
             self.spell_check_action.setChecked(enabled)
             self.spell_check_action.blockSignals(False)
-        for index in range(self.tab_widget.count()):
-            tab = self.tab_widget.widget(index)
-            checkbox = getattr(tab, "spell_check_enabled", None)
-            if checkbox is not None:
-                checkbox.blockSignals(True)
-                checkbox.setChecked(enabled)
-                checkbox.blockSignals(False)
+        self.refresh_settings_dialog()
         self.update_document_language_status()
 
     def toggle_spell_check(self, checked=None):
@@ -2172,6 +2147,10 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
     def closeEvent(self, event):
         """Handle application close event"""
         if self.handle_unsaved_changes():
+            settings_dialog = getattr(self, "_settings_dialog", None)
+            if settings_dialog is not None:
+                # Flushes pending applies and remembers window geometry.
+                settings_dialog.close()
             self.save_workspace_markdown_files()
             self.save_workspace_open_files()
             # Save window state
@@ -2366,32 +2345,30 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
             self.sync_color_scheme_menu()
             self.sync_toolbar_style_menu()
 
-    def close_settings_tab(self, settings_view):
-        index = self.tab_widget.indexOf(settings_view)
-        if index >= 0:
-            self.tab_widget.removeTab(index)
-        if self.tab_widget.count() == 0:
-            self.new_editor_tab()
-
     def show_settings(self):
-        """Open settings as a workspace tab."""
+        """Open the Settings window, or raise it when it is already open."""
         from jottr.settings_dialog import SettingsDialog
 
-        for index in range(self.tab_widget.count()):
-            tab = self.tab_widget.widget(index)
-            if getattr(tab, "is_settings_tab", False):
-                self.tab_widget.setCurrentIndex(index)
-                return tab
-        settings_tab = SettingsDialog(
-            self.settings_manager,
-            self,
-            embedded=True,
-            close_callback=self.close_settings_tab,
-        )
-        settings_tab.is_settings_tab = True
-        self.tab_widget.addTab(settings_tab, self.build_themed_icon("settings"), _("Settings"))
-        self.tab_widget.setCurrentWidget(settings_tab)
-        return settings_tab
+        dialog = getattr(self, "_settings_dialog", None)
+        if dialog is None:
+            dialog = SettingsDialog(self.settings_manager, self)
+            dialog.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
+            dialog.finished.connect(self._on_settings_dialog_finished)
+            self._settings_dialog = dialog
+        dialog.show()
+        dialog.raise_()
+        dialog.activateWindow()
+        return dialog
+
+    def _on_settings_dialog_finished(self, _result=None):
+        # WA_DeleteOnClose deletes the window; a later open builds a fresh one.
+        self._settings_dialog = None
+
+    def refresh_settings_dialog(self):
+        """Reload an open Settings window after a change made elsewhere."""
+        dialog = getattr(self, "_settings_dialog", None)
+        if dialog is not None:
+            dialog.sync_from_settings()
 
     def trigger_plugin_action(self, action):
         builtin = action.get("builtin")

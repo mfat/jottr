@@ -4,8 +4,7 @@
 Jottr separates chrome and editor colors:
 
 - **Window Color Scheme** (View → Window Color Scheme, or Settings → Appearance): Kate-style chrome palette from installed KDE `.colors` schemes. **Default** follows the system (Breeze Light/Dark when available); picking a named scheme installs that palette.
-- **Editor Theme** (View → Editor Theme, or Settings → Appearance): White, Black, Sepia, Dracula, Monokai, Monaspace, Tokyo Night, Matcha, Darkly, or a custom theme — applied to the writing surface and syntax colors only. The View menu shows a palette grid of preview cards for each theme.
-- **Custom Editor Themes**: User-defined editor and syntax colors (they do not change Window Color Scheme).
+- **Editor Theme** (View → Editor Theme, or Settings → Appearance): White, Black, Sepia, Dracula, Monokai, Monaspace, Tokyo Night, Matcha, or Darkly — applied to the writing surface and syntax colors only. The View menu shows a palette grid of preview cards for each theme.
 
 ## Widget styles
 In Settings > Appearance, **Widget Style** lists every Qt style available on your system, including:
@@ -16,49 +15,6 @@ In Settings > Appearance, **Widget Style** lists every Qt style available on you
 
 The dropdown is filled from Qt's style factory, so everything your Qt build can create is offered. Window Color Scheme drives the application palette; Jottr still styles its own chrome (toolbar, tabs, workspace) to match the effective light or dark appearance. Paired light/dark styles (when both are installed) automatically follow the active scheme.
 
-To create a custom editor theme:
-1. Open Settings > Appearance
-2. Edit the theme JSON under Custom Editor Themes
-3. Put the theme name in the top-level `name` field
-4. Save the theme, then choose it as **Editor Theme**
-
-Theme standard (editor themes may still include an `app` block for compatibility; Window Color Scheme ignores it):
-```json
-{
-  "name": "My Theme",
-  "app": {
-    "background": "#282a36",
-    "surface": "#343746",
-    "surface_alt": "#424450",
-    "surface_hover": "#44475a",
-    "surface_active": "#6272a4",
-    "text": "#f8f8f2",
-    "muted": "#c6c8d1",
-    "border": "#6272a4",
-    "border_active": "#815cd6",
-    "accent": "#bd93f9",
-    "accent_text": "#f8f8f2",
-    "danger": "#ff5555"
-  },
-  "editor": {
-    "background": "#282a36",
-    "foreground": "#f8f8f2",
-    "selection": "#44475a",
-    "current_line": "#353747",
-    "border": "#6272a4"
-  },
-  "syntax": {
-    "comment": "#6272a4",
-    "keyword": "#ff79c6",
-    "string": "#f1fa8c",
-    "number": "#ffb86c",
-    "function": "#50fa7b",
-    "type": "#8be9fd",
-    "constant": "#bd93f9",
-    "error": "#ff5555"
-  }
-}
-```
 
 To change the editor theme:
 1. Click the Theme button in the toolbar, open View → Editor Theme (palette grid), or use Settings → Appearance
@@ -140,7 +96,7 @@ The integrated browser panel allows quick web access:
 - Toggle the browser with the Browser button
 - Enter URLs directly in the address bar
 - Use for quick reference while writing
-- Default homepage can be set in Settings
+- Default homepage can be set in Settings > Browser
 
 ## Site-Specific Searches
 Quickly search selected text on specific news sites. You can add any website frm Settings, and Google-search inside that site from the context menu.
@@ -154,8 +110,8 @@ Quickly search selected text on specific news sites. You can add any website frm
    - Or use regular Google search
 
 Configure search sites:
-1. Open Settings
-2. Add or modify sites in the Search Sites section
+1. Open Settings > Browser
+2. Add, edit, or delete sites under Site-Specific Searches
 
 ## Keyboard Shortcuts
 Common operations:

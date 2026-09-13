@@ -76,7 +76,6 @@ class SettingsManager:
             "window_color_scheme": "",
             "theme": "Sepia",
             "qt_style": "System",
-            "custom_themes": {},
             "language": "en_US",
             "icon_theme": "bootstrap",
             "icon_contrast": "auto",
@@ -191,7 +190,8 @@ class SettingsManager:
                     saved_settings = json.load(f)
                     had_follow_flag = "ui_font_follow_system" in saved_settings
                     self.settings.update(saved_settings)
-                    self.settings["custom_themes"] = self.get_custom_themes()
+                    # Custom editor themes are no longer supported.
+                    self.settings.pop("custom_themes", None)
                     self.migrate_legacy_font_settings(had_follow_flag=had_follow_flag)
             except Exception as e:
                 print(f"Error loading settings: {str(e)}")
@@ -381,19 +381,6 @@ class SettingsManager:
 
     def save_toolbar_style(self, style_name):
         self.settings["toolbar_style"] = self.normalize_toolbar_style(style_name)
-        self.save_settings()
-
-    def get_custom_themes(self):
-        from jottr.theme_manager import ThemeManager
-
-        return ThemeManager.normalize_custom_themes(
-            self.settings.get("custom_themes", {})
-        )
-
-    def save_custom_themes(self, custom_themes):
-        from jottr.theme_manager import ThemeManager
-
-        self.settings["custom_themes"] = ThemeManager.normalize_custom_themes(custom_themes)
         self.save_settings()
 
     def get_pane_visibility(self):

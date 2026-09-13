@@ -1393,7 +1393,7 @@ class EditorAndMainTests(unittest.TestCase):
             self.assertIs(window.new_action, file_menu.actions()[0])
             self.assertNotEqual(window.icons["snippets"], window.icons["menu"])
 
-    def test_settings_opens_as_reusable_workspace_tab(self):
+    def test_settings_opens_as_single_non_modal_window(self):
         class FakeEditorTab(QWidget):
             def __init__(self, snippet_manager, settings_manager):
                 super().__init__()
@@ -1409,29 +1409,29 @@ class EditorAndMainTests(unittest.TestCase):
             self.addCleanup(window.deleteLater)
 
             initial_count = window.tab_widget.count()
-            settings_tab = window.show_settings()
-            self.assertEqual(window.tab_widget.count(), initial_count + 1)
-            self.assertIs(window.tab_widget.currentWidget(), settings_tab)
-            self.assertFalse(window.tab_widget.tabIcon(window.tab_widget.currentIndex()).isNull())
-            self.assertTrue(getattr(settings_tab, "is_settings_tab", False))
-            self.assertTrue(window.statusBar.isHidden())
-            self.assertGreaterEqual(settings_tab.settings_nav.count(), 3)
-            self.assertEqual(settings_tab.settings_nav.item(0).text(), "Appearance")
+            dialog = window.show_settings()
+            self.assertEqual(window.tab_widget.count(), initial_count)
+            self.assertTrue(dialog.isWindow())
+            self.assertTrue(dialog.isVisible())
+            self.assertFalse(dialog.isModal())
+            self.assertFalse(window.statusBar.isHidden())
+            self.assertGreaterEqual(dialog.settings_nav.count(), 3)
+            self.assertEqual(dialog.settings_nav.item(0).text(), "Appearance")
+            self.assertIs(window.show_settings(), dialog)
 
-            settings_tab.keyPressEvent(QKeyEvent(
+            # Changes made from menus show up in the open window.
+            window.toggle_spell_check(False)
+            self.assertFalse(dialog.spell_check_enabled.isChecked())
+
+            dialog.keyPressEvent(QKeyEvent(
                 QEvent.Type.KeyPress,
                 Qt.Key.Key_Escape,
                 Qt.KeyboardModifier.NoModifier
             ))
-            self.assertEqual(window.tab_widget.count(), initial_count + 1)
-            self.assertIs(window.tab_widget.currentWidget(), settings_tab)
-            self.assertFalse(settings_tab.isHidden())
-
-            self.assertIs(window.show_settings(), settings_tab)
-            self.assertEqual(window.tab_widget.count(), initial_count + 1)
-
-            window.tab_widget.setCurrentIndex(0)
-            self.assertFalse(window.statusBar.isHidden())
+            self.assertFalse(dialog.isVisible())
+            self.assertIsNone(window._settings_dialog)
+            self.assertEqual(window.tab_widget.count(), initial_count)
+            self.assertIsNot(window.show_settings(), dialog)
 
     def test_instant_settings_persist_and_plugins_domain_reloads(self):
         class FakeEditorTab(QWidget):

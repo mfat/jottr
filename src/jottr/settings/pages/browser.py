@@ -1,109 +1,172 @@
-"""Browser page (moved from settings_dialog, plus instant-apply wiring)."""
+"""Browser page: homepage and site-specific searches."""
+from PyQt6.QtCore import Qt
 from PyQt6.QtWidgets import (
-    QVBoxLayout, QHBoxLayout, QLabel, QLineEdit, QPushButton,
-    QListWidget, QWidget,
+    QVBoxLayout, QHBoxLayout, QLabel, QLineEdit, QPushButton, QListWidget,
+    QListWidgetItem, QWidget, QGroupBox, QFormLayout,
 )
 
 from jottr.translation_manager import _
 
 from ..search_site import SearchSiteDialog
 
+DEFAULT_HOMEPAGE = "https://www.apnews.com/"
+DEFAULT_SEARCH_SITES = {
+    "AP News": "site:apnews.com",
+    "Reuters": "site:reuters.com",
+    "BBC News": "site:bbc.com/news",
+}
+_SITE_NAME_ROLE = Qt.ItemDataRole.UserRole
+_SITE_QUERY_ROLE = Qt.ItemDataRole.UserRole + 1
+
 
 class BrowserPageMixin:
-    """Builds the Browser tab and its helpers. Expects SettingsDialog host."""
+    """Builds the Browser page and its helpers. Expects SettingsDialog host."""
 
     def build_browser_page(self):
         browser_tab = QWidget()
         self.browser_settings_page = browser_tab
-        browser_layout = QVBoxLayout(browser_tab)
-        browser_layout.setSpacing(10)
+        layout = QVBoxLayout(browser_tab)
+        layout.setContentsMargins(12, 12, 12, 12)
+        layout.setSpacing(10)
 
-        # Homepage setting
-        homepage_layout = QHBoxLayout()
-        homepage_label = QLabel(_("Homepage:"))
+        general_box = QGroupBox(_("General"))
+        general_layout = QFormLayout(general_box)
+        general_layout.setContentsMargins(12, 10, 12, 12)
+        general_layout.setSpacing(8)
         self.homepage_edit = QLineEdit()
-        self.homepage_edit.setText(self.settings_manager.get_setting('homepage', 'https://www.apnews.com/'))
+        self.homepage_edit.setPlaceholderText(DEFAULT_HOMEPAGE)
         self.homepage_edit.editingFinished.connect(self._on_homepage_edited)
-        homepage_layout.addWidget(homepage_label)
-        homepage_layout.addWidget(self.homepage_edit)
-        browser_layout.addLayout(homepage_layout)
+        general_layout.addRow(QLabel(_("Homepage:")), self.homepage_edit)
+        layout.addWidget(general_box)
 
-        # Search sites
-        search_label = QLabel(_("Site-specific searches:"))
-        browser_layout.addWidget(search_label)
+        search_box = QGroupBox(_("Site-Specific Searches"))
+        search_layout = QVBoxLayout(search_box)
+        search_layout.setContentsMargins(12, 10, 12, 12)
+        search_layout.setSpacing(8)
+        search_hint = QLabel(
+            _("Each site adds a Google search scoped to that site "
+              "to the editor's context menu.")
+        )
+        search_hint.setWordWrap(True)
+        search_layout.addWidget(search_hint)
 
         self.search_list = QListWidget()
-        self.load_search_sites()
-        browser_layout.addWidget(self.search_list)
+        self.search_list.itemSelectionChanged.connect(self._update_search_site_buttons)
+        self.search_list.itemDoubleClicked.connect(lambda _item: self.edit_search_site())
+        search_layout.addWidget(self.search_list, 1)
 
-        # Search site buttons
         search_buttons = QHBoxLayout()
         add_search = QPushButton(_("Add"))
-        edit_search = QPushButton(_("Edit"))
-        delete_search = QPushButton(_("Delete"))
+        self.edit_search_button = QPushButton(_("Edit"))
+        self.delete_search_button = QPushButton(_("Delete"))
         add_search.clicked.connect(self.add_search_site)
-        edit_search.clicked.connect(self.edit_search_site)
-        delete_search.clicked.connect(self.delete_search_site)
+        self.edit_search_button.clicked.connect(self.edit_search_site)
+        self.delete_search_button.clicked.connect(self.delete_search_site)
         search_buttons.addWidget(add_search)
-        search_buttons.addWidget(edit_search)
-        search_buttons.addWidget(delete_search)
-        browser_layout.addLayout(search_buttons)
+        search_buttons.addWidget(self.edit_search_button)
+        search_buttons.addWidget(self.delete_search_button)
+        search_buttons.addStretch()
+        search_layout.addLayout(search_buttons)
+        layout.addWidget(search_box, 1)
+
+        self.sync_browser_page()
         return browser_tab
 
-    def _on_homepage_edited(self):
-        self._save_only(
-            lambda: self.settings_manager.save_setting(
-                'homepage', self.homepage_edit.text()
+    def sync_browser_page(self):
+        if not self.homepage_edit.hasFocus():
+            self.homepage_edit.setText(
+                self.settings_manager.get_setting("homepage", DEFAULT_HOMEPAGE)
             )
-        )
+        self.load_search_sites()
+
+    def _on_homepage_edited(self):
+        text = self.homepage_edit.text().strip()
+        if text == self.settings_manager.get_setting("homepage", DEFAULT_HOMEPAGE):
+            return
+        self._save_only(lambda: self.settings_manager.save_setting("homepage", text))
 
     def _save_search_sites(self):
         self._save_only(
             lambda: self.settings_manager.save_setting(
-                'search_sites', self.get_search_sites()
+                "search_sites", self.get_search_sites()
             )
         )
 
     def load_search_sites(self):
-        """Load search sites from settings"""
-        sites = self.settings_manager.get_setting('search_sites', {
-            'AP News': 'site:apnews.com',
-            'Reuters': 'site:reuters.com',
-            'BBC News': 'site:bbc.com/news'
-        })
-        for name, site in sites.items():
-            self.search_list.addItem(f"{name}: {site}")
+        """Load search sites from settings, keeping the current selection."""
+        current = self.search_list.currentItem()
+        current_name = current.data(_SITE_NAME_ROLE) if current is not None else None
+        sites = self.settings_manager.get_setting("search_sites", DEFAULT_SEARCH_SITES)
+        self.search_list.clear()
+        if isinstance(sites, dict):
+            for name, site in sites.items():
+                item = self._set_search_site_item(QListWidgetItem(), name, site)
+                self.search_list.addItem(item)
+                if name == current_name:
+                    self.search_list.setCurrentItem(item)
+        self._update_search_site_buttons()
+
+    def _set_search_site_item(self, item, name, site):
+        item.setText(f"{name} — {str(site).removeprefix('site:')}")
+        item.setData(_SITE_NAME_ROLE, name)
+        item.setData(_SITE_QUERY_ROLE, site)
+        return item
 
     def get_search_sites(self):
-        """Get search sites from list widget"""
+        """Get search sites from the list, in display order."""
         sites = {}
-        for i in range(self.search_list.count()):
-            name, site = self.search_list.item(i).text().split(': ', 1)
-            sites[name] = site
+        for index in range(self.search_list.count()):
+            item = self.search_list.item(index)
+            sites[item.data(_SITE_NAME_ROLE)] = item.data(_SITE_QUERY_ROLE)
         return sites
 
+    def _update_search_site_buttons(self):
+        has_selection = self.search_list.currentItem() is not None
+        self.edit_search_button.setEnabled(has_selection)
+        self.delete_search_button.setEnabled(has_selection)
+
+    def upsert_search_site(self, name, site, row=None):
+        """Add or update a site; a name already in the list is replaced."""
+        for index in range(self.search_list.count()):
+            if index == row:
+                continue
+            if self.search_list.item(index).data(_SITE_NAME_ROLE) == name:
+                if row is None:
+                    row = index
+                else:
+                    self.search_list.takeItem(index)
+                    if index < row:
+                        row -= 1
+                break
+        if row is None:
+            item = QListWidgetItem()
+            self.search_list.addItem(item)
+        else:
+            item = self.search_list.item(row)
+        self._set_search_site_item(item, name, site)
+        self.search_list.setCurrentItem(item)
+        self._save_search_sites()
+
     def add_search_site(self):
-        """Add new search site"""
         dialog = SearchSiteDialog(self)
         if dialog.exec():
             name, site = dialog.get_data()
-            self.search_list.addItem(f"{name}: {site}")
-            self._save_search_sites()
+            self.upsert_search_site(name, site)
 
     def edit_search_site(self):
-        """Edit selected search site"""
         current = self.search_list.currentItem()
-        if current:
-            name, site = current.text().split(': ', 1)
-            dialog = SearchSiteDialog(self, name, site)
-            if dialog.exec():
-                new_name, new_site = dialog.get_data()
-                current.setText(f"{new_name}: {new_site}")
-                self._save_search_sites()
+        if current is None:
+            return
+        dialog = SearchSiteDialog(
+            self, current.data(_SITE_NAME_ROLE), current.data(_SITE_QUERY_ROLE)
+        )
+        if dialog.exec():
+            name, site = dialog.get_data()
+            self.upsert_search_site(name, site, row=self.search_list.row(current))
 
     def delete_search_site(self):
-        """Delete selected search site"""
-        current = self.search_list.currentRow()
-        if current >= 0:
-            self.search_list.takeItem(current)
+        row = self.search_list.currentRow()
+        if row >= 0:
+            self.search_list.takeItem(row)
             self._save_search_sites()
+            self._update_search_site_buttons()

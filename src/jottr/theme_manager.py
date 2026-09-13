@@ -398,47 +398,33 @@ class ThemeManager:
         }
         return normalized
 
-    @staticmethod
-    def normalize_custom_themes(custom_themes):
-        if not isinstance(custom_themes, dict):
-            return {}
-
-        normalized = {}
-        for name, theme in custom_themes.items():
-            clean_name = str(name).strip()
-            clean_theme = ThemeManager.normalize_theme(theme)
-            if clean_theme and clean_theme.get("name"):
-                clean_name = clean_theme["name"]
-            if clean_name and clean_theme and clean_name not in ThemeManager.DEFAULT_THEMES:
-                clean_theme["name"] = clean_name
-                normalized[clean_name] = clean_theme
-        return normalized
-
     # Normalized built-in themes. DEFAULT_THEMES is a class-level constant, so
     # normalizing once (instead of on every get_themes call, each of which
     # validates thousands of colors) is safe; callers get deep copies.
     _normalized_default_themes = None
 
     @staticmethod
-    def get_themes(custom_themes=None):
+    def get_themes():
         if ThemeManager._normalized_default_themes is None:
             ThemeManager._normalized_default_themes = {
                 name: ThemeManager.normalize_theme(theme)
                 for name, theme in ThemeManager.DEFAULT_THEMES.items()
             }
-        themes = deepcopy(ThemeManager._normalized_default_themes)
-        themes.update(ThemeManager.normalize_custom_themes(custom_themes))
-        return themes
+        return deepcopy(ThemeManager._normalized_default_themes)
 
     @staticmethod
     def normalize_editor_theme_name(theme_name):
-        """Map a saved editor theme name to a current built-in or custom name."""
+        """Map a saved editor theme name to a built-in theme name."""
         name = str(theme_name or ThemeManager.DEFAULT_THEME_NAME).strip()
-        return ThemeManager.EDITOR_THEME_ALIASES.get(name, name) or ThemeManager.DEFAULT_THEME_NAME
+        name = ThemeManager.EDITOR_THEME_ALIASES.get(name, name)
+        # Unknown names (e.g. removed custom themes) fall back to the default.
+        if name not in ThemeManager.DEFAULT_THEMES:
+            return ThemeManager.DEFAULT_THEME_NAME
+        return name
 
     @staticmethod
-    def get_theme(theme_name, custom_themes=None):
-        themes = ThemeManager.get_themes(custom_themes)
+    def get_theme(theme_name):
+        themes = ThemeManager.get_themes()
         name = ThemeManager.normalize_editor_theme_name(theme_name)
         return themes.get(name) or themes[ThemeManager.DEFAULT_THEME_NAME]
 
@@ -1091,8 +1077,8 @@ class ThemeManager:
         return QIcon(pixmap)
 
     @staticmethod
-    def apply_theme(editor, theme_name, custom_themes=None, font=None):
-        theme = ThemeManager.get_theme(theme_name, custom_themes)
+    def apply_theme(editor, theme_name, font=None):
+        theme = ThemeManager.get_theme(theme_name)
         editor_theme = theme["editor"]
         palette = editor.palette()
         palette.setColor(QPalette.ColorRole.Base, QColor(editor_theme["background"]))
