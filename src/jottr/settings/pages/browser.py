@@ -2,9 +2,10 @@
 from PyQt6.QtCore import Qt
 from PyQt6.QtWidgets import (
     QVBoxLayout, QHBoxLayout, QLabel, QLineEdit, QPushButton, QListWidget,
-    QListWidgetItem, QWidget, QGroupBox, QFormLayout, QComboBox,
+    QListWidgetItem, QWidget, QGroupBox, QFormLayout, QComboBox, QCheckBox,
 )
 
+from jottr.editor import web_profile
 from jottr.translation_manager import _
 
 from ..search_site import SearchSiteDialog, split_search_site, timeframe_choices
@@ -45,6 +46,36 @@ class BrowserPageMixin:
         general_layout.addRow(QLabel(_("Homepage:")), self.homepage_edit)
         layout.addWidget(general_box)
 
+        privacy_box = QGroupBox(_("Privacy"))
+        privacy_layout = QVBoxLayout(privacy_box)
+        privacy_layout.setContentsMargins(12, 10, 12, 12)
+        privacy_layout.setSpacing(8)
+        self.browser_remember_data_check = QCheckBox(
+            _("Remember cookies and logins between sessions")
+        )
+        self.browser_remember_data_check.toggled.connect(
+            lambda checked: self._commit_now(
+                "browser",
+                lambda: self.settings_manager.save_setting(
+                    web_profile.REMEMBER_DATA_SETTING, bool(checked))
+            )
+        )
+        privacy_layout.addWidget(self.browser_remember_data_check)
+        remember_warning = QLabel(
+            _("Cookies are stored unencrypted in Jottr's config folder. Anyone "
+              "who can read your files can use them to sign in to your accounts.")
+        )
+        remember_warning.setWordWrap(True)
+        privacy_layout.addWidget(remember_warning)
+        clear_row = QHBoxLayout()
+        clear_button = QPushButton(_("Clear Cookies and Cache"))
+        clear_button.clicked.connect(self.clear_browsing_data)
+        self.browser_clear_status = QLabel()
+        clear_row.addWidget(clear_button)
+        clear_row.addWidget(self.browser_clear_status, 1)
+        privacy_layout.addLayout(clear_row)
+        layout.addWidget(privacy_box)
+
         search_box = QGroupBox(_("Site-Specific Searches"))
         search_layout = QVBoxLayout(search_box)
         search_layout.setContentsMargins(12, 10, 12, 12)
@@ -84,6 +115,9 @@ class BrowserPageMixin:
             self.settings_manager.get_setting("search_open_in", "builtin"),
         ):
             self.search_open_in_combo.setCurrentIndex(0)
+        self.browser_remember_data_check.setChecked(bool(
+            self.settings_manager.get_setting(web_profile.REMEMBER_DATA_SETTING, False)
+        ))
         if not self.homepage_edit.hasFocus():
             self.homepage_edit.setText(
                 self.settings_manager.get_setting("homepage", DEFAULT_HOMEPAGE)
@@ -96,6 +130,10 @@ class BrowserPageMixin:
                 "search_open_in", self.search_open_in_combo.currentData() or "builtin"
             )
         )
+
+    def clear_browsing_data(self):
+        web_profile.clear_browsing_data(self.settings_manager)
+        self.browser_clear_status.setText(_("Cookies and cache cleared."))
 
     def _on_homepage_edited(self):
         text = self.homepage_edit.text().strip()

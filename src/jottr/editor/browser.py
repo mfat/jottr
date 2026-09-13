@@ -7,6 +7,8 @@ from PyQt6.QtWidgets import QToolBar, QLineEdit, QLabel, QWidget, QHBoxLayout, Q
 
 from jottr.translation_manager import _
 
+from .web_profile import browser_profile, new_browser_page
+
 
 class BrowserPaneMixin:
     def search_in_browser(self, url):
@@ -159,7 +161,8 @@ class BrowserPaneMixin:
         from PyQt6.QtWebEngineWidgets import QWebEngineView
 
         self.web_view = QWebEngineView()
-        
+        self.web_view.setPage(new_browser_page(self.settings_manager, self.web_view))
+
         # Connect all web view signals
         self.web_view.urlChanged.connect(self.update_url)
         self.web_view.loadStarted.connect(lambda: self.url_bar.setEnabled(False))
@@ -172,6 +175,20 @@ class BrowserPaneMixin:
         
         # Add to layout
         self.web_container.layout().addWidget(self.web_view)
+
+    def apply_browser_profile(self):
+        """Reopen the current page on the profile the settings now select."""
+        if not self.web_view:
+            return
+        if self.web_view.page().profile() is browser_profile(self.settings_manager):
+            return
+        url = self.web_view.url()
+        self.web_view.stop()
+        self.web_view.setParent(None)
+        self.web_view.deleteLater()
+        self.web_view = None
+        self.create_web_view()
+        self.web_view.setUrl(url)
 
     def toggle_pane(self, pane_type):
         """Toggle visibility of side panes"""

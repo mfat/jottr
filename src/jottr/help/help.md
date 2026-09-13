@@ -99,6 +99,7 @@ The integrated browser panel allows quick web access:
 - Use for quick reference while writing
 - Default homepage can be set in Settings > Browser and Search
 - Choose whether searches open in the built-in browser or your default browser in Settings > Browser and Search
+- Cookies and logins are forgotten when Jottr closes. To stay signed in, turn on "Remember cookies and logins" under Privacy in Settings > Browser and Search. Remembered cookies are stored unencrypted in Jottr's config folder.
 
 ## Site-Specific Searches
 Quickly search selected text on specific news sites. You can add any website frm Settings, and Google-search inside that site from the context menu.

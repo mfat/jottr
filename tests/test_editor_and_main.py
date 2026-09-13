@@ -4,7 +4,7 @@ import tempfile
 import time
 import unittest
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 os.environ.setdefault("QTWEBENGINE_DISABLE_SANDBOX", "1")
@@ -193,6 +193,58 @@ class EditorAndMainTests(unittest.TestCase):
         desktop.openUrl.assert_not_called()
         toggle_pane.assert_called_once_with("browser")
         self.assertEqual(editor._pending_url, url)
+
+    def test_browser_profile_keeps_data_only_when_opted_in(self):
+        from PyQt6.QtWebEngineCore import QWebEngineProfile
+        import jottr.editor.web_profile as web_profile
+
+        self.addCleanup(web_profile.release_browser_profiles)
+        self.assertTrue(web_profile.browser_profile(self.settings).isOffTheRecord())
+
+        self.settings.save_setting(web_profile.REMEMBER_DATA_SETTING, True)
+        profile = web_profile.browser_profile(self.settings)
+        self.assertFalse(profile.isOffTheRecord())
+        self.assertEqual(
+            profile.persistentStoragePath(),
+            os.path.join(self.settings.config_dir, "browser"),
+        )
+        self.assertEqual(
+            profile.persistentCookiesPolicy(),
+            QWebEngineProfile.PersistentCookiesPolicy.AllowPersistentCookies,
+        )
+        self.assertIs(web_profile.browser_profile(self.settings), profile)
+
+        self.settings.save_setting(web_profile.REMEMBER_DATA_SETTING, False)
+        self.assertTrue(web_profile.browser_profile(self.settings).isOffTheRecord())
+
+    def test_browser_pane_reopens_page_on_changed_profile(self):
+        from PyQt6.QtCore import QUrl
+        import jottr.editor.browser as editor_browser_module
+
+        editor = self.make_editor()
+        old_profile, new_profile = object(), object()
+        old_view = MagicMock()
+        old_view.page.return_value.profile.return_value = old_profile
+        old_view.url.return_value = QUrl("https://example.com/")
+        new_view = MagicMock()
+        new_view.page.return_value.profile.return_value = new_profile
+        editor.web_view = old_view
+        self.addCleanup(setattr, editor, "web_view", None)
+
+        def create_web_view():
+            editor.web_view = new_view
+
+        with patch.object(editor_browser_module, "browser_profile", return_value=new_profile), \
+                patch.object(editor, "create_web_view", side_effect=create_web_view):
+            editor.apply_browser_profile()
+        old_view.deleteLater.assert_called_once()
+        self.assertIs(editor.web_view, new_view)
+        new_view.setUrl.assert_called_once_with(QUrl("https://example.com/"))
+
+        with patch.object(editor_browser_module, "browser_profile", return_value=new_profile), \
+                patch.object(editor, "create_web_view") as create_view:
+            editor.apply_browser_profile()
+        create_view.assert_not_called()
 
     def test_markdown_helpers_cover_tables_tasks_math_and_shortcodes(self):
         editor = self.make_editor()

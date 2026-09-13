@@ -15,11 +15,12 @@ if __package__ is None:
 
 import os
 
-from PyQt6.QtCore import Qt, QTimer
+from PyQt6.QtCore import QEvent, Qt, QTimer
 from PyQt6.QtWidgets import QApplication, QInputDialog, QMessageBox
 from PyQt6.QtGui import QFont
 from PyQt6.QtOpenGLWidgets import QOpenGLWidget
 
+from jottr.editor.web_profile import release_browser_profiles
 from jottr.font_dialog import FontSelectionDialog
 from jottr.icon_manager import load_app_icon
 from jottr.qt_style import capture_platform_qt_style, register_bundled_qt_plugins
@@ -91,8 +92,14 @@ def main():
     # Open files from command line
     for file_path in file_paths:
         window.open_file(file_path)
-    
-    return app.exec()
+
+    exit_code = app.exec()
+    # Web pages must go before the disk-backed browser profile, which only
+    # flushes cookies and site data to disk when it is deleted.
+    window.deleteLater()
+    QApplication.sendPostedEvents(None, QEvent.Type.DeferredDelete.value)
+    release_browser_profiles()
+    return exit_code
 
 if __name__ == "__main__":
     main()

@@ -96,6 +96,7 @@ class SettingsManager:
                 "BBC News": "site:bbc.com/news"
             },
             "search_open_in": "builtin",
+            "browser_remember_data": False,
             "show_snippets": False,
             "show_browser": False,
             "workspace_path": "",

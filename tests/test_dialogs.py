@@ -409,6 +409,22 @@ class DialogTests(unittest.TestCase):
         ]
         self.assertNotIn("browser-panel", listed)
 
+    def test_browser_page_privacy_controls(self):
+        manager = SettingsManager()
+        dialog = SettingsDialog(manager)
+        self.addCleanup(dialog.deleteLater)
+        self.assertFalse(dialog.browser_remember_data_check.isChecked())
+
+        with patch.object(dialog, "_notify_now") as notify:
+            dialog.browser_remember_data_check.setChecked(True)
+        self.assertTrue(manager.get_setting("browser_remember_data"))
+        notify.assert_called_once_with("browser")
+
+        with patch("jottr.editor.web_profile.clear_browsing_data") as clear:
+            dialog.clear_browsing_data()
+        clear.assert_called_once_with(manager)
+        self.assertEqual(dialog.browser_clear_status.text(), "Cookies and cache cleared.")
+
     def test_uninstalled_registry_plugin_offers_enable(self):
         manager = SettingsManager()
         dialog = SettingsDialog(manager)

@@ -2449,6 +2449,11 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
             self.apply_editor_line_numbers(visible)
         elif domain == "autosave":
             self.apply_autosave_settings()
+        elif domain == "browser":
+            for index in range(self.tab_widget.count()):
+                tab = self.tab_widget.widget(index)
+                if isinstance(tab, EditorTab):
+                    tab.apply_browser_profile()
         elif domain == "plugins":
             # The Settings window shares this PluginManager and has already
             # refreshed it; run newly enabled entries in place, then rebuild
@@ -2548,7 +2553,10 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
         if panel_type in {"browser", "web"}:
             from PyQt6.QtWebEngineWidgets import QWebEngineView
 
+            from jottr.editor.web_profile import new_browser_page
+
             view = QWebEngineView()
+            view.setPage(new_browser_page(self.settings_manager, view))
             url = panel.get("url") or panel.get("homepage") or "about:blank"
             view.load(QUrl(url))
             return view
