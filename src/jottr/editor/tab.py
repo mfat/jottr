@@ -816,7 +816,14 @@ class EditorTab(
             translate_action.triggered.connect(lambda checked, url=translate_url:
                 self.search_in_browser(url))
 
-            # Add Wikipedia search
+            # Add Google define search
+            dictionary_action = search_menu.addAction(_("Google Define"))
+            dictionary_url = f"https://www.google.com/search?q=define:{quote(selected_text)}"
+            dictionary_action.triggered.connect(lambda checked, url=dictionary_url:
+                self.search_in_browser(url))
+
+            # Add separator and Wikipedia search
+            search_menu.addSeparator()
             wiki_action = search_menu.addAction(_("Wikipedia"))
             wiki_url = f"https://en.wikipedia.org/w/index.php?search={quote(selected_text)}"
             wiki_action.triggered.connect(lambda checked, url=wiki_url:
@@ -835,12 +842,6 @@ class EditorTab(
                 search_url = f"https://www.google.com/search?q={quote(selected_text)}+{site_query}"
                 action.triggered.connect(lambda checked, url=search_url:
                     self.search_in_browser(url))
-
-            # Add Google define search
-            dictionary_action = search_menu.addAction(_("Google Define"))
-            dictionary_url = f"https://www.google.com/search?q=define+{quote(selected_text)}"
-            dictionary_action.triggered.connect(lambda checked, url=dictionary_url:
-                self.search_in_browser(url))
 
             menu.addSeparator()
 
