@@ -1909,6 +1909,67 @@ class EditorAndMainTests(unittest.TestCase):
             # Back again: a repolish must not restore the first theme's colors.
             self.assertLess(window_background("Dark").lightnessF(), 0.5)
 
+    def test_settings_window_palette_follows_menu_scheme_and_widget_style(self):
+        """The top-level Settings window must track restyles made elsewhere.
+
+        A View menu Window Color Scheme change restyles before the Settings
+        combo is synced, and a widget style swap repolishes without the main
+        window reapplying palettes; neither may leave Settings on stale colors.
+        """
+        from jottr.window_color_scheme import (
+            discover_window_color_schemes,
+            scheme_is_dark,
+        )
+
+        dark_scheme = next(
+            (
+                scheme.scheme_id
+                for scheme in discover_window_color_schemes()
+                if scheme.path and scheme_is_dark(scheme.path)
+            ),
+            None,
+        )
+        if dark_scheme is None:
+            self.skipTest("no dark .colors scheme installed")
+
+        class FakeEditorTab(QWidget):
+            def __init__(self, snippet_manager, settings_manager):
+                super().__init__()
+                self.editor = QTextEdit(self)
+                self.current_file = None
+
+            def set_main_window(self, main_window):
+                self.main_window = main_window
+
+        with patch.object(window_module, "EditorTab", FakeEditorTab):
+            window = TextEditorApp()
+            self.addCleanup(window.close)
+            self.addCleanup(window.deleteLater)
+            self.addCleanup(lambda: QApplication.instance().setStyleSheet(""))
+            previous_style = QApplication.instance().style().name()
+            self.addCleanup(QApplication.instance().setStyle, previous_style)
+            window.settings_manager.save_ui_theme("Light")
+            window.settings_manager.save_qt_style("Fusion")
+            window.apply_app_style()
+            dialog = window.show_settings()
+            self.addCleanup(dialog.close)
+
+            def settings_lightness():
+                QApplication.processEvents()
+                return dialog.palette().color(QPalette.ColorRole.Window).lightnessF()
+
+            self.assertGreater(settings_lightness(), 0.5)
+            window.set_window_color_scheme(dark_scheme)
+            self.assertLess(settings_lightness(), 0.5)
+
+            # Its own font stylesheet repolishes it too (Main UI Font picker).
+            dialog.apply_ui_font()
+            self.assertLess(settings_lightness(), 0.5)
+
+            window.settings_manager.save_qt_style("Windows")
+            window.apply_widget_style()
+            self.assertLess(settings_lightness(), 0.5)
+
     def test_cut_copy_paste_actions_follow_selection_and_clipboard(self):
         """Kate-style: cut/copy need selection; paste needs canPaste()."""
 

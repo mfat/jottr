@@ -167,13 +167,16 @@ class SettingsDialog(
 
     def changeEvent(self, event):
         super().changeEvent(event)
-        # Menus, the status bar, and the editor context menu can change
-        # settings while this window is open; pick those up on activation.
-        if (
-            event.type() == QEvent.Type.ActivationChange
-            and self.isActiveWindow()
-            and not self._loading
-        ):
+        if getattr(self, "_loading", True):
+            return
+        if event.type() == QEvent.Type.StyleChange:
+            # QStyleSheetStyle restores the palette this window had when it was
+            # first polished on every repolish (widget style swaps, a new app
+            # or font stylesheet), so reapply the current one afterwards.
+            self.apply_dialog_palette()
+        elif event.type() == QEvent.Type.ActivationChange and self.isActiveWindow():
+            # Menus, the status bar, and the editor context menu can change
+            # settings while this window is open; pick those up on activation.
             self.sync_from_settings()
 
     def save_window_state(self):
@@ -355,6 +358,17 @@ class SettingsDialog(
         self.apply_ui_font()
 
     def apply_dialog_palette(self):
+        # Reapplying can itself repolish (the standalone color scheme pin), and
+        # a repolish calls back in through changeEvent.
+        if getattr(self, "_applying_palette", False):
+            return
+        self._applying_palette = True
+        try:
+            self._apply_dialog_palette()
+        finally:
+            self._applying_palette = False
+
+    def _apply_dialog_palette(self):
         # A top-level window does not inherit the main window's palette, so
         # set it explicitly, the same way the main window does.
         from jottr.qt_style import (
@@ -370,7 +384,9 @@ class SettingsDialog(
         from PyQt6.QtWidgets import QApplication
 
         scheme = self.selected_ui_theme()
-        window_scheme_id = self.selected_window_color_scheme()
+        # Saved settings, not the combo: every control saves before it notifies,
+        # while a menu change restyles before the combo is synced.
+        window_scheme_id = self.settings_manager.get_window_color_scheme()
         window_scheme = find_window_color_scheme(window_scheme_id)
         if window_scheme.path:
             color_scheme_setting = (
