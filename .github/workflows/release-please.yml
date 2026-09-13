@@ -69,7 +69,8 @@ jobs:
     needs: release-please
     if: ${{ needs.release-please.outputs.release_created == 'true' }}
     runs-on: ubuntu-latest
-    container: ubuntu:22.04
+    # Jottr needs Qt >= 6.5 (Qt.ColorScheme); Ubuntu 24.04 ships Qt 6.4.
+    container: ubuntu:26.04
     steps:
       - uses: actions/checkout@v4
         with:
@@ -81,35 +82,36 @@ jobs:
           DEBIAN_FRONTEND=noninteractive apt-get install -y \
             devscripts \
             debhelper \
-            dh-python \
-            python3-all \
-            python3-setuptools \
-            python3-pip \
-            unzip \
             git
-
-      - name: Download pyspellchecker
-        run: |
-          mkdir -p src/jottr/vendor/
-          pip3 download pyspellchecker --no-deps -d src/jottr/vendor/
-          cd src/jottr/vendor/
-          unzip pyspellchecker*.whl
-          rm -rf pyspellchecker*.whl *.dist-info/
 
       - name: Create debian directory link
         run: |
           rm -rf debian
           ln -s packaging/debian debian
 
-      - name: Update changelog date
+      # debian/changelog is not managed by release-please; stamp the release
+      # version so the .deb's internal Version matches the tag.
+      - name: Set Debian package version
         run: |
-          sed -i "s/\$(LC_ALL=C date -R)/$(LC_ALL=C date -R)/" debian/changelog
+          version="$(sed -nE 's/^__version__ = "([^"]+)".*/\1/p' src/jottr/__init__.py)"
+          if [ -z "$version" ]; then
+            echo "Could not read __version__ from src/jottr/__init__.py"
+            exit 1
+          fi
+          DEBFULLNAME="mFat" DEBEMAIL="newmfat@gmail.com" \
+            dch --newversion "${version}-1" --distribution unstable "Release ${version}"
 
       - name: Build package
         run: |
-          dpkg-buildpackage -us -uc -b -d
+          dpkg-buildpackage -us -uc -b
           mkdir -p artifacts
           mv ../*.deb artifacts/
+
+      - name: Install and smoke-test package
+        run: |
+          DEBIAN_FRONTEND=noninteractive apt-get install -y ./artifacts/*.deb desktop-file-utils
+          desktop-file-validate /usr/share/applications/io.github.mfat.jottr.desktop
+          cd / && python3 "$GITHUB_WORKSPACE/packaging/check-installed.py"
 
       - name: Name Debian release package
         run: |
@@ -149,8 +151,14 @@ jobs:
     needs: release-please
     if: ${{ needs.release-please.outputs.release_created == 'true' }}
     runs-on: ubuntu-latest
+    # Pinned: a binary RPM requires the python(abi) of the Fedora it was built
+    # on. Add versions here to publish RPMs for more Fedora releases.
+    strategy:
+      fail-fast: false
+      matrix:
+        fedora: ['44']
     container:
-      image: fedora:latest
+      image: fedora:${{ matrix.fedora }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -160,20 +168,9 @@ jobs:
         run: |
           dnf install -y \
             rpm-build \
-            rpm-devel \
             rpmlint \
             python3-devel \
-            python3-setuptools \
-            python3-pyqt6 \
-            python3-pyqt6-webengine \
-            python3-feedparser \
-            python3-pyspellchecker \
-            python3-enchant \
-            python3-pyxdg \
-            qt6-qtsvg \
-            rpmdevtools \
-            gcc \
-            make
+            desktop-file-utils
 
       - name: Set up RPM build environment
         run: |
@@ -186,10 +183,19 @@ jobs:
           VERSION=$(grep "Version:" rpm.spec | awk '{print $2}')
           echo "version=$VERSION" >> $GITHUB_OUTPUT
 
+      # rpm.spec's %changelog is not managed by release-please; add an entry
+      # so the package changelog matches the release version.
+      - name: Add RPM changelog entry
+        run: |
+          version="${{ steps.get_version.outputs.version }}"
+          sed -i "/^%changelog$/a * $(LC_ALL=C date '+%a %b %d %Y') mFat <newmfat@gmail.com> - ${version}-1\n- Release ${version}\n" \
+            ~/rpmbuild/SPECS/rpm.spec
+
       - name: Create source tarball
         run: |
           mkdir -p /tmp/jottr-${{ steps.get_version.outputs.version }}
           cp -r src LICENSE README.md icons translations \
+            io.github.mfat.jottr.desktop io.github.mfat.jottr.metainfo.xml \
             /tmp/jottr-${{ steps.get_version.outputs.version }}/
           cd /tmp
           tar czf ~/rpmbuild/SOURCES/jottr-${{ steps.get_version.outputs.version }}.tar.gz jottr-${{ steps.get_version.outputs.version }}/
@@ -203,9 +209,11 @@ jobs:
         run: |
           rpmlint ~/rpmbuild/RPMS/noarch/jottr-*.rpm
 
-      - name: Test RPM installation
+      - name: Install and smoke-test package
         run: |
           dnf install -y ~/rpmbuild/RPMS/noarch/jottr-*.rpm
+          desktop-file-validate /usr/share/applications/io.github.mfat.jottr.desktop
+          cd / && python3 "$GITHUB_WORKSPACE/packaging/check-installed.py"
 
       - name: Collect RPM artifacts
         run: |
@@ -227,13 +235,13 @@ jobs:
             echo "Expected exactly one source RPM package, found $#"
             exit 1
           fi
-          cp "$binary_rpm" "release-assets/jottr-${{ needs.release-please.outputs.tag_name }}-linux-noarch.rpm"
-          cp "$1" "release-assets/jottr-${{ needs.release-please.outputs.tag_name }}-linux-noarch.src.rpm"
+          cp "$binary_rpm" "release-assets/jottr-${{ needs.release-please.outputs.tag_name }}-fedora${{ matrix.fedora }}-noarch.rpm"
+          cp "$1" "release-assets/jottr-${{ needs.release-please.outputs.tag_name }}-fedora${{ matrix.fedora }}-noarch.src.rpm"
 
       - name: Upload RPM workflow artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: rpm-release-packages
+          name: rpm-release-packages-fedora${{ matrix.fedora }}
           path: release-assets/*.rpm
           retention-days: 14
 

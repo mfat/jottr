@@ -3,17 +3,24 @@ Section: editors
 Priority: optional
 Maintainer: mFat <newmfat@gmail.com>
 Build-Depends: debhelper-compat (= 13)
+Standards-Version: 4.6.2
+Homepage: https://github.com/mfat/jottr
+Rules-Requires-Root: no
 
 Package: jottr
 Architecture: all
 Depends: ${misc:Depends},
          python3,
          python3-pyqt6,
+         libqt6core6t64 (>= 6.5),
          python3-pyqt6.qtwebengine,
          python3-feedparser,
          python3-enchant,
          python3-xdg,
-         python3-pyqt6.qtsvg
+         python3-pyqt6.qtsvg,
+         python3-requests
+Recommends: python3-markdown,
+            python3-langdetect
 Description: Modern text editor for writers and journalists
  Jottr is a feature-rich text editor designed specifically
  for writers and journalists, with features like smart

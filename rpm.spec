@@ -5,7 +5,7 @@ Version:        2.5.3
 Release:        1%{?dist}
 Summary:        A simple text editor for writers, journalists and researchers
 
-License:        GPLv3
+License:        GPL-3.0-or-later
 URL:            https://github.com/mfat/jottr
 Source0:        %{name}-%{version}.tar.gz
 BuildArch:      noarch
@@ -20,6 +20,10 @@ Requires:       python3-enchant
 Requires:       python3-pyqt6-sip
 Requires:       qt6-qtsvg
 Requires:       python3-pyxdg
+Requires:       python3-requests
+Recommends:     python3-markdown
+Recommends:     python3-langdetect
+Recommends:     python3-pyspellchecker
 
 %description
 Jottr is a simple text editor designed specifically for writers, journalists,
@@ -46,38 +50,19 @@ cp -a translations %{buildroot}%{_datadir}/%{name}/translations
 # Launcher
 mkdir -p %{buildroot}%{_bindir}
 cat > %{buildroot}%{_bindir}/%{name} << 'EOF'
-#!/bin/bash
-args=()
-for arg in "$@"; do
-    if [ -f "$arg" ]; then
-        args+=("$(readlink -f "$arg")")
-    else
-        args+=("$arg")
-    fi
-done
-exec python3 -m jottr "${args[@]}"
+#!/bin/sh
+exec %{python3} -m jottr "$@"
 EOF
 chmod 755 %{buildroot}%{_bindir}/%{name}
 
-# Desktop entry must match QGuiApplication.setDesktopFileName
-mkdir -p %{buildroot}%{_datadir}/applications
-cat > %{buildroot}%{_datadir}/applications/io.github.mfat.jottr.desktop << EOF
-[Desktop Entry]
-Name=Jottr
-Comment=Text editor for writers
-Exec=jottr %F
-Icon=io.github.mfat.jottr
-Terminal=false
-Type=Application
-Categories=Utility;TextEditor;
-MimeType=text/plain;text/markdown;text/x-markdown;
-StartupNotify=true
-StartupWMClass=Jottr
-EOF
+# Desktop entry basename must match QGuiApplication.setDesktopFileName
+install -p -D -m 644 io.github.mfat.jottr.desktop %{buildroot}%{_datadir}/applications/io.github.mfat.jottr.desktop
 
 # App icon (Freedesktop scalable SVG; basename matches Icon=)
-mkdir -p %{buildroot}%{_datadir}/icons/hicolor/scalable/apps/
-install -p -m 644 icons/jottr.svg %{buildroot}%{_datadir}/icons/hicolor/scalable/apps/io.github.mfat.jottr.svg
+install -p -D -m 644 icons/jottr.svg %{buildroot}%{_datadir}/icons/hicolor/scalable/apps/io.github.mfat.jottr.svg
+
+# AppStream metadata for software centers
+install -p -D -m 644 io.github.mfat.jottr.metainfo.xml %{buildroot}%{_metainfodir}/io.github.mfat.jottr.metainfo.xml
 
 %files
 %license LICENSE
@@ -87,6 +72,7 @@ install -p -m 644 icons/jottr.svg %{buildroot}%{_datadir}/icons/hicolor/scalable
 %{_bindir}/%{name}
 %{_datadir}/applications/io.github.mfat.jottr.desktop
 %{_datadir}/icons/hicolor/scalable/apps/io.github.mfat.jottr.svg
+%{_metainfodir}/io.github.mfat.jottr.metainfo.xml
 
 %changelog
 * Sat Mar 01 2025 mFat <newmfat@gmail.com> - 1.4.3-1

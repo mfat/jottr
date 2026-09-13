@@ -15,12 +15,6 @@ override_dh_auto_build:
 override_dh_auto_test:
 	# Skip Python tests
 
-override_dh_installdocs:
-	# Skip docs
-
-override_dh_installchangelogs:
-	# Skip changelogs
-
 override_dh_auto_install:
 	# Install the importable package
 	mkdir -p debian/jottr/usr/lib/python3/dist-packages
@@ -37,19 +31,14 @@ override_dh_auto_install:
 	# Desktop entry must match QGuiApplication.setDesktopFileName
 	# ("io.github.mfat.jottr") so GNOME/KDE can map the running window
 	# to this launcher instead of showing a generic dock icon.
-	mkdir -p debian/jottr/usr/share/applications
-	mkdir -p debian/jottr/usr/share/icons/hicolor/scalable/apps
-	cp packaging/debian/jottr.desktop \
+	install -D -m 644 io.github.mfat.jottr.desktop \
 		debian/jottr/usr/share/applications/io.github.mfat.jottr.desktop
-	if [ -f icons/jottr.svg ]; then \
-		cp icons/jottr.svg \
-			debian/jottr/usr/share/icons/hicolor/scalable/apps/io.github.mfat.jottr.svg; \
-	elif [ -f src/jottr/icons/jottr.svg ]; then \
-		cp src/jottr/icons/jottr.svg \
-			debian/jottr/usr/share/icons/hicolor/scalable/apps/io.github.mfat.jottr.svg; \
-	fi
+	install -D -m 644 icons/jottr.svg \
+		debian/jottr/usr/share/icons/hicolor/scalable/apps/io.github.mfat.jottr.svg
+	install -D -m 644 io.github.mfat.jottr.metainfo.xml \
+		debian/jottr/usr/share/metainfo/io.github.mfat.jottr.metainfo.xml
 
 	# Launcher
 	mkdir -p debian/jottr/usr/bin
-	printf '%s\n' '#!/bin/sh' 'exec python3 -m jottr "$$@"' > debian/jottr/usr/bin/jottr
+	printf '%s\n' '#!/bin/sh' 'exec /usr/bin/python3 -m jottr "$$@"' > debian/jottr/usr/bin/jottr
 	chmod +x debian/jottr/usr/bin/jottr
