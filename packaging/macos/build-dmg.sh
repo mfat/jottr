@@ -40,13 +40,26 @@ if [ -n "${EXPECTED_FILE_ARCH:-}" ] && [ "$FILE_ARCH" != "$EXPECTED_FILE_ARCH" ]
 fi
 
 python -m pip install -e ".[build]"
+
+# Intel runners skip Homebrew enchant (Homebrew Tier 3). Without libenchant,
+# PyInstaller's enchant hook fails at build time, so leave the module out; the
+# app falls back to pyspellchecker.
+EXTRA_PYINSTALLER_ARGS=()
+if ! python -c "import enchant" >/dev/null 2>&1; then
+  echo "libenchant not found; building without enchant (pyspellchecker fallback)"
+  EXTRA_PYINSTALLER_ARGS+=(--exclude-module enchant)
+fi
+
+# ${arr[@]+...} keeps an empty array safe under set -u in macOS's bash 3.2.
 pyinstaller \
   --noconfirm \
   --windowed \
   --name Jottr \
   --icon src/jottr/jottr_icon.icns \
   --paths src \
+  ${EXTRA_PYINSTALLER_ARGS[@]+"${EXTRA_PYINSTALLER_ARGS[@]}"} \
   --collect-submodules jottr \
+  --collect-data spellchecker \
   --hidden-import ctypes \
   --hidden-import ctypes.util \
   --hidden-import jottr \

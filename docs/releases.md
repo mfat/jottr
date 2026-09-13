@@ -85,7 +85,7 @@ The first supported release assets are Linux and unsigned macOS packages:
 - `jottr-vX.Y.Z-macos-aarch64-unsigned.dmg`
 - one matching `.sha256` checksum file per package
 
-macOS DMGs are built for Intel (`macos-15-intel`) and Apple Silicon (`macos-15`). Each `.app` is ad-hoc code-signed (no Apple Developer ID), so Gatekeeper still treats the download as unidentified; users may need to open it via right-click ▸ Open or clear quarantine. Notarized Developer ID builds are not enabled yet. Windows installers are not generated yet. Add a separate trusted release job before advertising `.exe` or `.msi` downloads.
+macOS DMGs are built for Intel (`macos-15-intel`) and Apple Silicon (`macos-15`). Both bundle pyspellchecker's dictionaries (`--collect-data spellchecker`) as the spell-check fallback. libenchant itself is not bundled: the Apple Silicon app uses enchant only when the user has Homebrew enchant installed, and the Intel build leaves enchant out entirely because Homebrew supports Intel macOS only as Tier 3 (no bottles). Each `.app` is ad-hoc code-signed (no Apple Developer ID), so Gatekeeper still treats the download as unidentified; users may need to open it via right-click ▸ Open or clear quarantine. Notarized Developer ID builds are not enabled yet. Windows installers are not generated yet. Add a separate trusted release job before advertising `.exe` or `.msi` downloads.
 
 Release packages are attached to the GitHub release page for the tag. Package jobs publish independently: if the Debian build succeeds, it uploads the Debian package even if RPM, AppImage, or macOS later fail. CI workflow artifacts are retained for 14 days for debugging; release assets remain available from the release page unless a maintainer deletes them.
 

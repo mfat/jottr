@@ -31,7 +31,9 @@ class ImportAndPackagingTests(unittest.TestCase):
         from jottr import theme_manager
 
         self.assertEqual(main.APP_NAME, "Jottr")
-        self.assertEqual(main.APP_VERSION, "2.3.0")
+        from jottr import __version__
+
+        self.assertEqual(main.APP_VERSION, __version__)
 
     def test_package_entry_points_exist(self):
         pyproject = (PROJECT_ROOT / "pyproject.toml").read_text(encoding="utf-8")
@@ -172,6 +174,13 @@ class ImportAndPackagingTests(unittest.TestCase):
 
         self.assertIn("--paths src", workflow)
         self.assertIn("--paths src", appimage_script)
+        # pyspellchecker has no PyInstaller hook; without this its dictionaries
+        # are missing and spell checking silently does nothing in frozen builds.
+        dmg_script = (PROJECT_ROOT / "packaging" / "macos" / "build-dmg.sh").read_text(
+            encoding="utf-8"
+        )
+        for text in (workflow, appimage_script, dmg_script):
+            self.assertIn("--collect-data spellchecker", text)
         self.assertIn("src/jottr/main.py", workflow)
         self.assertIn("src/jottr/main.py", appimage_script)
         self.assertNotIn("src/jottr/__main__.py", workflow)

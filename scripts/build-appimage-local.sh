@@ -142,6 +142,7 @@ echo "==> Building PyInstaller bundle"
     --name jottr \
     --paths src \
     --collect-submodules jottr \
+    --collect-data spellchecker \
     --hidden-import ctypes \
     --hidden-import ctypes.util \
     --hidden-import jottr \

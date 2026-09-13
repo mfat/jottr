@@ -39,10 +39,17 @@ jobs:
         with:
           python-version: '3.11'
 
-      - name: Install macOS build dependencies
+      # Homebrew treats Intel macOS as Tier 3 (no bottles): enchant's toolchain
+      # builds from source for ~30 min and fails. The Intel app spell-checks
+      # with the pyspellchecker fallback instead.
+      - name: Install enchant (Apple Silicon)
+        if: matrix.arch == 'aarch64'
         run: |
           brew update
           brew install enchant hunspell
+
+      - name: Install macOS build dependencies
+        run: |
           python -m pip install --upgrade pip
           python -m pip install -r requirements.txt
 
