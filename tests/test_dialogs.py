@@ -422,7 +422,11 @@ class DialogTests(unittest.TestCase):
 
         with patch("jottr.editor.web_profile.clear_browsing_data") as clear:
             dialog.clear_browsing_data()
-        clear.assert_called_once_with(manager)
+        self.assertEqual(dialog.browser_clear_status.text(), "Clearing…")
+        clear.assert_called_once()
+        settings_manager, finished = clear.call_args.args
+        self.assertIs(settings_manager, manager)
+        finished()
         self.assertEqual(dialog.browser_clear_status.text(), "Cookies and cache cleared.")
 
     def test_uninstalled_registry_plugin_offers_enable(self):

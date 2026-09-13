@@ -1,4 +1,5 @@
 """Browser page: homepage and site-specific searches."""
+from PyQt6 import sip
 from PyQt6.QtCore import Qt
 from PyQt6.QtWidgets import (
     QVBoxLayout, QHBoxLayout, QLabel, QLineEdit, QPushButton, QListWidget,
@@ -132,8 +133,15 @@ class BrowserPageMixin:
         )
 
     def clear_browsing_data(self):
-        web_profile.clear_browsing_data(self.settings_manager)
-        self.browser_clear_status.setText(_("Cookies and cache cleared."))
+        self.browser_clear_status.setText(_("Clearing…"))
+        web_profile.clear_browsing_data(
+            self.settings_manager, self._on_browsing_data_cleared
+        )
+
+    def _on_browsing_data_cleared(self):
+        # The Settings window may have been closed (and deleted) meanwhile.
+        if not sip.isdeleted(self.browser_clear_status):
+            self.browser_clear_status.setText(_("Cookies and cache cleared."))
 
     def _on_homepage_edited(self):
         text = self.homepage_edit.text().strip()

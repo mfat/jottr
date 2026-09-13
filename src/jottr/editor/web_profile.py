@@ -24,6 +24,9 @@ def _profile(storage_path):
         if storage_path is None:
             profile = QWebEngineProfile(app)
         else:
+            # The constructor leaves an empty default storage directory behind.
+            # QWebEngineProfileBuilder would avoid that, but PyQt6 cannot
+            # instantiate it.
             profile = QWebEngineProfile("jottr", app)
             profile.setPersistentStoragePath(storage_path)
             profile.setPersistentCookiesPolicy(
@@ -51,13 +54,32 @@ def new_browser_page(settings_manager, view):
     return QWebEnginePage(browser_profile(settings_manager), view)
 
 
-def clear_browsing_data(settings_manager):
-    """Delete cookies, cache, and visited links from every browser profile."""
+def clear_browsing_data(settings_manager, finished=None):
+    """Delete cookies, cache, and visited links from every browser profile.
+
+    Clearing is asynchronous; ``finished`` runs once every HTTP cache clear
+    has completed (immediately on Qt before 6.7, which cannot report it).
+    """
+    from PyQt6.QtCore import Qt
+
     _profile(storage_path(settings_manager))
-    for profile in _profiles.values():
+    profiles = list(_profiles.values())
+    remaining = [len(profiles)]
+
+    def cache_cleared():
+        remaining[0] -= 1
+        if remaining[0] == 0 and finished is not None:
+            finished()
+
+    for profile in profiles:
         profile.cookieStore().deleteAllCookies()
-        profile.clearHttpCache()
         profile.clearAllVisitedLinks()
+        completed = getattr(profile, "clearHttpCacheCompleted", None)
+        if completed is not None:
+            completed.connect(cache_cleared, Qt.ConnectionType.SingleShotConnection)
+        profile.clearHttpCache()
+        if completed is None:
+            cache_cleared()
 
 
 def release_browser_profiles():

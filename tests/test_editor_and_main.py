@@ -198,6 +198,13 @@ class EditorAndMainTests(unittest.TestCase):
         from PyQt6.QtWebEngineCore import QWebEngineProfile
         import jottr.editor.web_profile as web_profile
 
+        # Qt resolves default data and cache locations from these at call time.
+        env = patch.dict(os.environ, {
+            "XDG_DATA_HOME": str(Path(self.temp_dir.name) / "data"),
+            "XDG_CACHE_HOME": str(Path(self.temp_dir.name) / "cache"),
+        })
+        env.start()
+        self.addCleanup(env.stop)
         self.addCleanup(web_profile.release_browser_profiles)
         self.assertTrue(web_profile.browser_profile(self.settings).isOffTheRecord())
 
