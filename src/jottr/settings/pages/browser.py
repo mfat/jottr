@@ -9,7 +9,7 @@ from jottr.translation_manager import _
 
 from ..search_site import SearchSiteDialog
 
-DEFAULT_HOMEPAGE = "https://www.apnews.com/"
+DEFAULT_HOMEPAGE = "https://www.google.com/"
 DEFAULT_SEARCH_SITES = {
     "AP News": "site:apnews.com",
     "Reuters": "site:reuters.com",

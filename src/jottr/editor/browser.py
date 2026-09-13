@@ -225,7 +225,7 @@ class BrowserPaneMixin:
                         del self._pending_url
                     else:
                         homepage = self.settings_manager.get_setting(
-                            'homepage', 'https://www.apnews.com/'
+                            'homepage', 'https://www.google.com/'
                         )
                         self.web_view.setUrl(QUrl(homepage))
 
