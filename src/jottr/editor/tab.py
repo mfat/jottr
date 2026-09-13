@@ -747,6 +747,68 @@ class EditorTab(
         start, end = find_word_bounds(block.text(), cursor.positionInBlock())
         return block.text()[start:end]
 
+    def _add_search_menu(self, menu, text):
+        """Add the "Search in..." submenu for the given text."""
+        search_menu = menu.addMenu(_("Search in..."))
+
+        # Add regular Google search
+        google_action = search_menu.addAction(_("Google"))
+        google_url = f"https://www.google.com/search?q={quote(text)}"
+        google_action.triggered.connect(lambda checked, url=google_url:
+            self.search_in_browser(url))
+
+        # Add Google Scholar search
+        scholar_action = search_menu.addAction(_("Google Scholar"))
+        scholar_url = f"https://scholar.google.com/scholar?q={quote(text)}"
+        scholar_action.triggered.connect(lambda checked, url=scholar_url:
+            self.search_in_browser(url))
+
+        # Add Google Maps search
+        maps_action = search_menu.addAction(_("Google Maps"))
+        maps_url = f"https://www.google.com/maps/search/{quote(text)}"
+        maps_action.triggered.connect(lambda checked, url=maps_url:
+            self.search_in_browser(url))
+
+        # Add Google News search
+        news_action = search_menu.addAction(_("Google News"))
+        news_url = f"https://news.google.com/search?q={quote(text)}"
+        news_action.triggered.connect(lambda checked, url=news_url:
+            self.search_in_browser(url))
+
+        # add google translate search
+        translate_action = search_menu.addAction(_("Google Translate"))
+        translate_url = f"https://translate.google.com/?sl=auto&tl=en&text={quote(text)}"
+        translate_action.triggered.connect(lambda checked, url=translate_url:
+            self.search_in_browser(url))
+
+        # Add Google define search
+        dictionary_action = search_menu.addAction(_("Google Define"))
+        dictionary_url = f"https://www.google.com/search?q=define:{quote(text)}"
+        dictionary_action.triggered.connect(lambda checked, url=dictionary_url:
+            self.search_in_browser(url))
+
+        # Add separator and Wikipedia search
+        search_menu.addSeparator()
+        wiki_action = search_menu.addAction(_("Wikipedia"))
+        wiki_url = f"https://en.wikipedia.org/w/index.php?search={quote(text)}"
+        wiki_action.triggered.connect(lambda checked, url=wiki_url:
+            self.search_in_browser(url))
+
+        # Add separator and site-specific (news) searches from settings
+        search_sites = self.settings_manager.get_setting('search_sites', {
+            'AP News': 'site:apnews.com',
+            'Reuters': 'site:reuters.com',
+            'BBC News': 'site:bbc.com/news'
+        })
+        if search_sites:
+            search_menu.addSeparator()
+        from jottr.settings.search_site import search_site_url
+        for name, site in search_sites.items():
+            action = search_menu.addAction(name)
+            search_url = search_site_url(text, site)
+            action.triggered.connect(lambda checked, url=search_url:
+                self.search_in_browser(url))
+
     def _add_spelling_actions(self, menu, word):
         """Add spell-check actions for a single misspelled word."""
         if not word or ' ' in word or not self.highlighter.spell_check_enabled:
@@ -783,67 +845,7 @@ class EditorTab(
         selected_text = self.editor.textCursor().selectedText()
 
         if selected_text:
-            # Add search submenu
-            search_menu = menu.addMenu(_("Search in..."))
-
-            # Add regular Google search
-            google_action = search_menu.addAction(_("Google"))
-            google_url = f"https://www.google.com/search?q={quote(selected_text)}"
-            google_action.triggered.connect(lambda checked, url=google_url:
-                self.search_in_browser(url))
-
-            # Add Google Scholar search
-            scholar_action = search_menu.addAction(_("Google Scholar"))
-            scholar_url = f"https://scholar.google.com/scholar?q={quote(selected_text)}"
-            scholar_action.triggered.connect(lambda checked, url=scholar_url:
-                self.search_in_browser(url))
-
-            # Add Google Maps search
-            maps_action = search_menu.addAction(_("Google Maps"))
-            maps_url = f"https://www.google.com/maps/search/{quote(selected_text)}"
-            maps_action.triggered.connect(lambda checked, url=maps_url:
-                self.search_in_browser(url))
-
-            # Add Google News search
-            news_action = search_menu.addAction(_("Google News"))
-            news_url = f"https://news.google.com/search?q={quote(selected_text)}"
-            news_action.triggered.connect(lambda checked, url=news_url:
-                self.search_in_browser(url))
-
-            # add google translate search
-            translate_action = search_menu.addAction(_("Google Translate"))
-            translate_url = f"https://translate.google.com/?sl=auto&tl=en&text={quote(selected_text)}"
-            translate_action.triggered.connect(lambda checked, url=translate_url:
-                self.search_in_browser(url))
-
-            # Add Google define search
-            dictionary_action = search_menu.addAction(_("Google Define"))
-            dictionary_url = f"https://www.google.com/search?q=define:{quote(selected_text)}"
-            dictionary_action.triggered.connect(lambda checked, url=dictionary_url:
-                self.search_in_browser(url))
-
-            # Add separator and Wikipedia search
-            search_menu.addSeparator()
-            wiki_action = search_menu.addAction(_("Wikipedia"))
-            wiki_url = f"https://en.wikipedia.org/w/index.php?search={quote(selected_text)}"
-            wiki_action.triggered.connect(lambda checked, url=wiki_url:
-                self.search_in_browser(url))
-
-            # Add separator and site-specific (news) searches from settings
-            search_sites = self.settings_manager.get_setting('search_sites', {
-                'AP News': 'site:apnews.com',
-                'Reuters': 'site:reuters.com',
-                'BBC News': 'site:bbc.com/news'
-            })
-            if search_sites:
-                search_menu.addSeparator()
-            from jottr.settings.search_site import search_site_url
-            for name, site in search_sites.items():
-                action = search_menu.addAction(name)
-                search_url = search_site_url(selected_text, site)
-                action.triggered.connect(lambda checked, url=search_url:
-                    self.search_in_browser(url))
-
+            self._add_search_menu(menu, selected_text)
             menu.addSeparator()
 
             # Spell-check for a single selected word
@@ -853,8 +855,12 @@ class EditorTab(
             menu.addAction(_("Save as Snippet"), lambda: self.save_snippet(selected_text))
             menu.addSeparator()
         else:
-            # Like Kate: spelling for the word under the caret without selecting it
-            self._add_spelling_actions(menu, self._word_at_cursor())
+            # Like Kate: act on the word under the caret without selecting it
+            word = self._word_at_cursor()
+            if word:
+                self._add_search_menu(menu, word)
+                menu.addSeparator()
+            self._add_spelling_actions(menu, word)
 
         # Cut/Copy/Paste actions (Kate: cut/copy need selection; paste needs clipboard)
         has_selection = bool(selected_text)

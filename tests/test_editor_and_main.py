@@ -390,6 +390,32 @@ class EditorAndMainTests(unittest.TestCase):
         )
         self.assertTrue(capitalization.isEnabled())
 
+    def test_editor_context_menu_searches_word_under_caret_without_selection(self):
+        editor = self.make_editor()
+        editor.editor.setPlainText("hello world")
+        editor.editor.moveCursor(QTextCursor.MoveOperation.Start)
+
+        captured = {}
+
+        with patch.object(
+            editor_tab_impl.QMenu,
+            "exec",
+            lambda self, pos: captured.update(menu=self) or None,
+        ):
+            editor._show_context_menu_impl(QPoint(10, 10))
+
+        search_menu = next(
+            action.menu()
+            for action in captured["menu"].actions()
+            if action.text() == "Search in..."
+        )
+        google = next(action for action in search_menu.actions() if action.text() == "Google")
+        with patch.object(editor, "search_in_browser") as search_in_browser:
+            google.trigger()
+
+        search_in_browser.assert_called_once_with("https://www.google.com/search?q=hello")
+        self.assertFalse(editor.editor.textCursor().hasSelection())
+
     def test_editor_context_menu_keeps_existing_selection(self):
         editor = self.make_editor()
         editor.editor.setPlainText("hello world")
