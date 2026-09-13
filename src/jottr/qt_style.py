@@ -113,13 +113,26 @@ def capture_platform_qt_style(application=None):
         return None
 
     current = (app.style().objectName() or "").strip()
-    for key in creatable_qt_style_keys():
-        if key.casefold() == current.casefold():
-            _platform_style_key = key
-            break
-    else:
-        _platform_style_key = current or "Fusion"
+    # The running style exists, so a key the factory lists is enough; probing
+    # every installed style plugin is left for names it does not list.
+    key = None
+    if current:
+        key = _matching_style_key(current, QStyleFactory.keys()) or _matching_style_key(
+            current, creatable_qt_style_keys()
+        )
+    _platform_style_key = key or current or "Fusion"
     return _platform_style_key
+
+
+def _matching_style_key(name, keys):
+    """Return the entry of *keys* equal to *name* ignoring case, else None."""
+    folded = name.casefold()
+    return next((key for key in keys if key.casefold() == folded), None)
+
+
+# Style name -> result of _canonical_style_key. Each probe instantiates a
+# style object, and the available styles do not change at runtime.
+_canonical_style_key_cache = {}
 
 
 def _canonical_style_key(candidate):
@@ -127,6 +140,12 @@ def _canonical_style_key(candidate):
     name = (candidate or "").strip()
     if not name:
         return None
+    if name not in _canonical_style_key_cache:
+        _canonical_style_key_cache[name] = _probe_style_key(name)
+    return _canonical_style_key_cache[name]
+
+
+def _probe_style_key(name):
     style = QStyleFactory.create(name)
     if style is None:
         return None
@@ -174,9 +193,14 @@ def normalize_qt_style(style_name):
     name = (style_name or SYSTEM_QT_STYLE).strip()
     if not name or name.casefold() == SYSTEM_QT_STYLE.casefold():
         return SYSTEM_QT_STYLE
-    for key in creatable_qt_style_keys():
-        if key.casefold() == name.casefold():
-            return key
+    # Saved styles are nearly always keys the factory lists; probe just that
+    # one instead of every installed style plugin.
+    listed = _matching_style_key(name, QStyleFactory.keys())
+    if listed and _canonical_style_key(listed) == listed:
+        return listed
+    key = _matching_style_key(name, creatable_qt_style_keys())
+    if key:
+        return key
     created = _canonical_style_key(name)
     return created or SYSTEM_QT_STYLE
 
@@ -257,12 +281,14 @@ def match_style_variant_to_theme(style_key, dark_theme):
     if not key:
         return key
 
-    available = {name.casefold(): name for name in creatable_qt_style_keys()}
+    folded = key.casefold()
     for light_name, dark_name in STYLE_VARIANT_PAIRS:
+        if folded not in {light_name.casefold(), dark_name.casefold()}:
+            continue
+        # Only paired styles need the (slow to build) list of installed styles.
+        available = {name.casefold(): name for name in creatable_qt_style_keys()}
         light_key = available.get(light_name.casefold())
         dark_key = available.get(dark_name.casefold())
-        if key.casefold() not in {light_name.casefold(), dark_name.casefold()}:
-            continue
         preferred = dark_key if dark_theme else light_key
         return preferred or light_key or dark_key or key
     return key

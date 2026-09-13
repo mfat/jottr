@@ -635,7 +635,11 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
         else:
             self.setPalette(application.palette() if application else self.palette())
         # Rebuild icons so styles cannot keep synthesized Selected/Disabled tints.
-        self._themed_icon_cache = {}
+        # The first apply runs before the window is shown, when nothing has
+        # painted an icon yet, so the icons the toolbar just rendered are reused.
+        if getattr(self, "_app_style_applied", False):
+            self._themed_icon_cache = {}
+        self._app_style_applied = True
         self.update_action_icons()
         self.refresh_tab_icons()
         # The Settings window is top-level, so it does not inherit this
@@ -1558,7 +1562,9 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
         self.widget_style_actions = QActionGroup(self)
         self.widget_style_actions.setExclusive(True)
         self.widget_style_actions.triggered.connect(self._on_widget_style_menu_triggered)
-        self.sync_widget_style_menu()
+        # Listing styles creates every installed style plugin, so the menu is
+        # filled when opened instead of during startup.
+        widget_style_menu.aboutToShow.connect(self.sync_widget_style_menu)
 
         color_scheme_menu = view_menu.addMenu(_("Window Color Scheme"))
         color_scheme_menu.setAccessibleName(

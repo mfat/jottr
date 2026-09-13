@@ -1,4 +1,5 @@
 """Spell-checking helpers and markdown/syntax highlighter."""
+import importlib.util
 import re
 from functools import lru_cache
 
@@ -12,14 +13,23 @@ try:
 except (ImportError, ModuleNotFoundError):
     SpellChecker = None
 
-try:
-    from langdetect import DetectorFactory, LangDetectException, detect_langs
-    DetectorFactory.seed = 0
-    USE_LANGDETECT = True
-except (ImportError, ModuleNotFoundError):
-    detect_langs = None
-    LangDetectException = Exception
-    USE_LANGDETECT = False
+# langdetect is slow to import, so it loads on the first detection.
+USE_LANGDETECT = importlib.util.find_spec("langdetect") is not None
+_langdetect = None
+
+
+def _load_langdetect():
+    """Import langdetect on first use; None when it cannot be imported."""
+    global _langdetect, USE_LANGDETECT
+    if _langdetect is None and USE_LANGDETECT:
+        try:
+            import langdetect
+        except ImportError:
+            USE_LANGDETECT = False
+            return None
+        langdetect.DetectorFactory.seed = 0
+        _langdetect = langdetect
+    return _langdetect
 
 # Words may include internal apostrophes (shouldn't / don’t) and Arabic-script
 # joiners (ZWNJ/ZWJ) used in Persian orthography (می‌روم, کتاب‌ها).
@@ -248,14 +258,17 @@ def normalize_language_tag(language):
 def detect_language_code(text):
     """Detect ISO language code from text, or None if unreliable."""
     sample = " ".join((text or "").split())
-    if not USE_LANGDETECT or detect_langs is None:
+    if not USE_LANGDETECT:
         return None, None
     letter_count = sum(1 for ch in sample if ch.isalpha())
     if letter_count < MIN_LANGUAGE_DETECT_CHARS and len(sample) < MIN_LANGUAGE_DETECT_CHARS:
         return None, None
+    langdetect = _load_langdetect()
+    if langdetect is None:
+        return None, None
     try:
-        ranked = detect_langs(sample[:8000])
-    except LangDetectException:
+        ranked = langdetect.detect_langs(sample[:8000])
+    except langdetect.LangDetectException:
         return None, None
     if not ranked:
         return None, None

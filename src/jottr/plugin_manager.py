@@ -6,7 +6,6 @@ import shutil
 import subprocess
 import sys
 import tempfile
-import urllib.request
 import zipfile
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -23,6 +22,9 @@ GIT_TIMEOUT_SECONDS = 120
 
 def download_file(url, target, timeout=NETWORK_TIMEOUT_SECONDS):
     """Download url to target via a temp file, so a failure never leaves a partial file."""
+    # Imported here: urllib.request pulls in http.client, which slows startup.
+    import urllib.request
+
     target = Path(target)
     target.parent.mkdir(parents=True, exist_ok=True)
     handle, temp_name = tempfile.mkstemp(prefix=f".{target.name}.", dir=target.parent)

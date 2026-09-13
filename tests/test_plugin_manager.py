@@ -317,12 +317,12 @@ class PluginManagerTests(unittest.TestCase):
             def __exit__(self, *args):
                 self.close()
 
-        with patch.object(plugin_manager_module.urllib.request, "urlopen", return_value=Response(b"new")) as urlopen:
+        with patch("urllib.request.urlopen", return_value=Response(b"new")) as urlopen:
             plugin_manager_module.download_file("https://example.test/plugins.json", target)
         self.assertEqual(urlopen.call_args.kwargs["timeout"], plugin_manager_module.NETWORK_TIMEOUT_SECONDS)
         self.assertEqual(target.read_text(encoding="utf-8"), "new")
 
-        with patch.object(plugin_manager_module.urllib.request, "urlopen", side_effect=OSError("offline")):
+        with patch("urllib.request.urlopen", side_effect=OSError("offline")):
             with self.assertRaises(OSError):
                 plugin_manager_module.download_file("https://example.test/plugins.json", target)
         self.assertEqual(target.read_text(encoding="utf-8"), "new")

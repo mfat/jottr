@@ -1,6 +1,7 @@
 """Markdown preview rendering and scroll sync for EditorTab."""
 import base64
 import html
+import importlib.util
 import json
 import mimetypes
 import os
@@ -10,19 +11,31 @@ import time
 
 from PyQt6.QtCore import QTimer, QUrl, Qt, QPropertyAnimation, QEasingCurve
 from PyQt6.QtGui import QColor, QFont
-from PyQt6.QtWebEngineCore import QWebEnginePage
 
-try:
-    import markdown as markdown_lib
-    MARKDOWN_LIB_AVAILABLE = True
-except (ImportError, ModuleNotFoundError):
-    markdown_lib = None
-    MARKDOWN_LIB_AVAILABLE = False
+# Qt WebEngine and python-markdown are slow to import and only needed once a
+# preview renders, so both load on first use instead of at startup.
+MARKDOWN_LIB_AVAILABLE = importlib.util.find_spec("markdown") is not None
+_markdown_preview_page_class = None
 
 
-class MarkdownPreviewPage(QWebEnginePage):
-    def javaScriptConsoleMessage(self, level, message, line_number, source_id):
-        print(f"Markdown preview JS: {message} ({source_id}:{line_number})")
+def markdown_preview_page_class():
+    """Return the preview page class, importing Qt WebEngine on first use."""
+    global _markdown_preview_page_class
+    if _markdown_preview_page_class is None:
+        from PyQt6.QtWebEngineCore import QWebEnginePage
+
+        class MarkdownPreviewPage(QWebEnginePage):
+            def javaScriptConsoleMessage(self, level, message, line_number, source_id):
+                print(f"Markdown preview JS: {message} ({source_id}:{line_number})")
+
+        _markdown_preview_page_class = MarkdownPreviewPage
+    return _markdown_preview_page_class
+
+
+def __getattr__(name):
+    if name == "MarkdownPreviewPage":
+        return markdown_preview_page_class()
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 
 class MarkdownPreviewMixin:
@@ -41,8 +54,8 @@ class MarkdownPreviewMixin:
             tab_mod.QWebEngineView = ViewCls
         PageCls = tab_mod.MarkdownPreviewPage
         if PageCls is None:
-            tab_mod.MarkdownPreviewPage = MarkdownPreviewPage
-            PageCls = MarkdownPreviewPage
+            PageCls = markdown_preview_page_class()
+            tab_mod.MarkdownPreviewPage = PageCls
 
         placeholder = getattr(self, "markdown_preview", None)
         was_visible = bool(placeholder is not None and placeholder.isVisible())
@@ -959,6 +972,8 @@ class MarkdownPreviewMixin:
 
     def render_markdown_html_with_library(self, text, content_base_url="", initial_scroll_ratio=None):
         """Render markdown using Python-Markdown with local preview enhancements."""
+        import markdown as markdown_lib
+
         prepared_text = self.preprocess_markdown_extensions(text)
         extensions = [
             'extra',
