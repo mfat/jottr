@@ -703,6 +703,14 @@ msgstr "تغییر وضعیت مرورگر"
 msgid "Toggle Browser Pane"
 msgstr "تغییر وضعیت پنل مرورگر"
 
+#: src/jottr/editor/browser.py
+msgid "Open in Default Browser"
+msgstr "باز کردن در مرورگر پیش‌فرض"
+
+#: src/jottr/editor/browser.py
+msgid "Could not open {url} in the default browser."
+msgstr "باز کردن {url} در مرورگر پیش‌فرض ممکن نشد."
+
 #: src/jottr/main.py:962
 msgid "Toggle Markdown Preview"
 msgstr "تغییر وضعیت پیش‌نمایش Markdown"

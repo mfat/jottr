@@ -703,6 +703,14 @@ msgstr "Toggle Browser"
 msgid "Toggle Browser Pane"
 msgstr "Toggle Browser Pane"
 
+#: src/jottr/editor/browser.py
+msgid "Open in Default Browser"
+msgstr "Open in Default Browser"
+
+#: src/jottr/editor/browser.py
+msgid "Could not open {url} in the default browser."
+msgstr "Could not open {url} in the default browser."
+
 #: src/jottr/main.py:962
 msgid "Toggle Markdown Preview"
 msgstr "Toggle Markdown Preview"

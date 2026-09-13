@@ -93,8 +93,9 @@ To use snippets:
 ## Browser Panel
 The integrated browser panel allows quick web access:
 
-- Toggle the browser with the Browser button
+- Toggle the browser with the Browser button, View > Toggle Browser Pane, or Ctrl+Shift+B
 - Enter URLs directly in the address bar
+- Click ↗ next to the address bar to open the page in your default browser
 - Use for quick reference while writing
 - Default homepage can be set in Settings > Browser
 

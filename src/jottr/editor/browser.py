@@ -2,8 +2,8 @@
 from urllib.parse import quote
 
 from PyQt6.QtCore import QUrl, Qt, QSize
-from PyQt6.QtGui import QAction, QShortcut, QKeySequence, QIcon, QFont
-from PyQt6.QtWidgets import QToolBar, QLineEdit, QLabel, QWidget, QHBoxLayout, QPushButton
+from PyQt6.QtGui import QAction, QShortcut, QKeySequence, QIcon, QFont, QDesktopServices
+from PyQt6.QtWidgets import QToolBar, QLineEdit, QLabel, QWidget, QHBoxLayout, QPushButton, QMessageBox
 
 from jottr.translation_manager import _
 
@@ -126,13 +126,7 @@ class BrowserPaneMixin:
         if not url:
             return
             
-        # Add http:// if no protocol specified
-        if not url.startswith(('http://', 'https://')):
-            # Check if it's a search query
-            if ' ' in url or not '.' in url:
-                url = f"https://www.google.com/search?q={quote(url)}"
-            else:
-                url = 'http://' + url
+        url = self.address_to_url(url)
         
         # Check if browser is visible but too narrow
         if self.browser_widget.isVisible():
@@ -279,6 +273,36 @@ class BrowserPaneMixin:
         paste_action.triggered.connect(lambda: self.web_view.page().triggerAction(QWebEnginePage.WebAction.Paste))
         self.web_view.addAction(paste_action)
         
+    def address_to_url(self, address):
+        """Turn address bar text into a URL; bare words become a Google search."""
+        if address.startswith(('http://', 'https://')):
+            return address
+        if ' ' in address or '.' not in address:
+            return f"https://www.google.com/search?q={quote(address)}"
+        return 'http://' + address
+
+    def open_in_default_browser(self):
+        """Open the address bar URL in the system's default browser.
+
+        QDesktopServices uses the OpenURI portal inside Flatpak and Snap, and
+        xdg-open, ShellExecute or NSWorkspace outside a sandbox.
+        """
+        address = self.url_bar.text().strip()
+        if address:
+            url = QUrl(self.address_to_url(address))
+        elif self.web_view:
+            url = self.web_view.url()
+        else:
+            return
+        if url.isEmpty():
+            return
+        if not QDesktopServices.openUrl(url):
+            QMessageBox.warning(
+                self,
+                _("Browser"),
+                _("Could not open {url} in the default browser.").format(url=url.toString()),
+            )
+
     def update_url(self, url):
         self.url_bar.setText(url.toString())
 
@@ -310,6 +334,14 @@ class BrowserPaneMixin:
         self.url_bar.returnPressed.connect(self.navigate_to_url)
         toolbar_layout.addWidget(self.url_bar)
         
+        # Open the address in the system browser
+        self.open_external_btn = QPushButton("↗")
+        self.open_external_btn.setFixedSize(28, 28)
+        self.open_external_btn.setToolTip(_("Open in Default Browser"))
+        self.open_external_btn.setAccessibleName(_("Open in Default Browser"))
+        self.open_external_btn.clicked.connect(self.open_in_default_browser)
+        toolbar_layout.addWidget(self.open_external_btn)
+
         # Close button
         close_btn = QPushButton("×")
         close_btn.setFixedSize(28, 28)

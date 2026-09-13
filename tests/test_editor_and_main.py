@@ -138,6 +138,39 @@ class EditorAndMainTests(unittest.TestCase):
         self.addCleanup(editor.markdown_render_timer.stop)
         return editor
 
+    def test_browser_toolbar_opens_address_in_default_browser(self):
+        from PyQt6.QtCore import QUrl
+        import jottr.editor.browser as editor_browser_module
+
+        editor = self.make_editor()
+        toolbar = editor.browser_widget.findChild(QWidget, "browserToolbar")
+        layout = toolbar.layout()
+        widgets = [layout.itemAt(index).widget() for index in range(layout.count())]
+        # Address bar, then the default-browser button, then close.
+        self.assertIs(widgets[-3], editor.url_bar)
+        self.assertIs(widgets[-2], editor.open_external_btn)
+        self.assertEqual(widgets[-1].text(), "×")
+        self.assertEqual(editor.open_external_btn.toolTip(), "Open in Default Browser")
+
+        editor.url_bar.setText("example.com/page")
+        with patch.object(editor_browser_module, "QDesktopServices") as desktop:
+            desktop.openUrl.return_value = True
+            editor.open_external_btn.click()
+        desktop.openUrl.assert_called_once_with(QUrl("http://example.com/page"))
+
+        editor.url_bar.setText("jottr notes")
+        with patch.object(editor_browser_module, "QDesktopServices") as desktop, \
+                patch.object(editor_browser_module, "QMessageBox") as message_box:
+            desktop.openUrl.return_value = False
+            editor.open_external_btn.click()
+        desktop.openUrl.assert_called_once_with(QUrl("https://www.google.com/search?q=jottr%20notes"))
+        message_box.warning.assert_called_once()
+
+        editor.url_bar.clear()
+        with patch.object(editor_browser_module, "QDesktopServices") as desktop:
+            editor.open_external_btn.click()
+        desktop.openUrl.assert_not_called()
+
     def test_markdown_helpers_cover_tables_tasks_math_and_shortcodes(self):
         editor = self.make_editor()
 
