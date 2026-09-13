@@ -699,6 +699,10 @@ msgstr "Toggle Snippets"
 msgid "Toggle Browser"
 msgstr "Toggle Browser"
 
+#: src/jottr/window.py:1096
+msgid "Toggle Browser Pane"
+msgstr "Toggle Browser Pane"
+
 #: src/jottr/main.py:962
 msgid "Toggle Markdown Preview"
 msgstr "Toggle Markdown Preview"

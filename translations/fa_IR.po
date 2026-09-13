@@ -699,6 +699,10 @@ msgstr "تغییر وضعیت قطعه‌ها"
 msgid "Toggle Browser"
 msgstr "تغییر وضعیت مرورگر"
 
+#: src/jottr/window.py:1096
+msgid "Toggle Browser Pane"
+msgstr "تغییر وضعیت پنل مرورگر"
+
 #: src/jottr/main.py:962
 msgid "Toggle Markdown Preview"
 msgstr "تغییر وضعیت پیش‌نمایش Markdown"

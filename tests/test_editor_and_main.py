@@ -1760,6 +1760,14 @@ class EditorAndMainTests(unittest.TestCase):
             }
             self.assertIn("Window Color Scheme", view_items)
             self.assertIn("Editor Theme", view_items)
+            view_texts = list(view_items)
+            self.assertEqual(view_texts.index("Toggle Browser Pane"), view_texts.index("Toggle Snippets") + 1)
+            self.assertIs(view_items["Toggle Browser Pane"], window.browser_action)
+            self.assertEqual(window.browser_action.shortcut().toString(), "Ctrl+Shift+B")
+            toggled_panes = []
+            window.tab_widget.currentWidget().toggle_pane = toggled_panes.append
+            window.browser_action.trigger()
+            self.assertEqual(toggled_panes, ["browser"])
             color_scheme_menu = view_items["Window Color Scheme"].menu()
             editor_theme_menu = view_items["Editor Theme"].menu()
             self.assertIsNotNone(color_scheme_menu)

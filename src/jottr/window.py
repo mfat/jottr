@@ -1092,6 +1092,12 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
             shortcut=QKeySequence("Ctrl+Shift+N"),
             tooltip="Toggle Snippets",
         )
+        self.browser_action = self._make_action(
+            "Toggle Browser Pane",
+            self.toggle_browser,
+            shortcut=QKeySequence("Ctrl+Shift+B"),
+            tooltip="Toggle Browser Pane",
+        )
         self.markdown_action = self._make_action(
             "Toggle Markdown Preview",
             self.toggle_markdown_preview,
@@ -1497,6 +1503,7 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
         # View menu
         view_menu = add_menu("&View")
         view_menu.addAction(self.snippets_action)
+        view_menu.addAction(self.browser_action)
         view_menu.addAction(self.markdown_action)
         view_menu.addAction(self.focus_mode_action)
         view_menu.addAction(self.line_numbers_action)
