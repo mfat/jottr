@@ -1,14 +1,41 @@
-"""Plugins tab: manage sources/plugins and notify the host on changes."""
+"""Plugins tab: manage sources/plugins and notify the host on changes.
+
+Network and disk-heavy work (channel indexes, package downloads, git pulls)
+runs on a worker thread so the app stays responsive; results are applied to
+the shared PluginManager back on the GUI thread.
+"""
+import copy
+import threading
+
+from PyQt6 import sip
 from PyQt6.QtWidgets import (
     QVBoxLayout, QHBoxLayout, QLabel, QLineEdit, QPushButton,
     QListWidget, QListWidgetItem, QWidget, QComboBox, QGroupBox,
-    QFrame, QMessageBox,
+    QFrame, QMessageBox, QProgressBar,
 )
-from PyQt6.QtCore import Qt, QSize
+from PyQt6.QtCore import Qt, QObject, QSize, pyqtSignal, pyqtSlot
 
 from jottr.file_dialogs import get_existing_directory
 from jottr.plugin_manager import REMOTE_WARNING
 from jottr.translation_manager import _
+
+
+class _PluginTaskBridge(QObject):
+    """Hands a worker thread's result to a callback on the GUI thread."""
+
+    finished = pyqtSignal(object, object)
+
+    def __init__(self, callback, parent=None):
+        super().__init__(parent)
+        self._callback = callback
+        self.finished.connect(self._deliver, Qt.ConnectionType.QueuedConnection)
+
+    @pyqtSlot(object, object)
+    def _deliver(self, result, error):
+        try:
+            self._callback(result, error)
+        finally:
+            self.deleteLater()
 
 
 class PluginsTabMixin:
@@ -31,10 +58,10 @@ class PluginsTabMixin:
             self.settings_manager.get_setting("plugins_directory", self.plugin_manager.plugins_dir)
         )
         self.plugins_directory_edit.editingFinished.connect(self._on_plugins_directory_edited)
-        browse_plugins = QPushButton(_("Browse"))
-        browse_plugins.clicked.connect(self.browse_plugins_directory)
+        self.browse_plugins_button = QPushButton(_("Browse"))
+        self.browse_plugins_button.clicked.connect(self.browse_plugins_directory)
         local_layout.addWidget(self.plugins_directory_edit, 1)
-        local_layout.addWidget(browse_plugins)
+        local_layout.addWidget(self.browse_plugins_button)
         source_layout.addLayout(local_layout)
 
         self.plugin_channels = self.plugin_manager.plugin_channels()
@@ -44,11 +71,11 @@ class PluginsTabMixin:
         self.populate_plugin_channel_filter()
         self.plugin_channel_filter_combo.currentIndexChanged.connect(self.change_plugin_channel_filter)
         filter_layout.addWidget(self.plugin_channel_filter_combo, 1)
-        update_registry = QPushButton(_("Update Channel(s)"))
-        update_registry.clicked.connect(self.update_plugin_registry)
+        self.update_registry_button = QPushButton(_("Update Channel(s)"))
+        self.update_registry_button.clicked.connect(self.update_plugin_registry)
         self.remove_plugin_channel_button = QPushButton(_("Remove Channel"))
         self.remove_plugin_channel_button.clicked.connect(self.remove_plugin_channel)
-        filter_layout.addWidget(update_registry)
+        filter_layout.addWidget(self.update_registry_button)
         filter_layout.addWidget(self.remove_plugin_channel_button)
         source_layout.addLayout(filter_layout)
 
@@ -62,12 +89,12 @@ class PluginsTabMixin:
         self.plugin_registry_checksum_url_edit.setPlaceholderText(
             self.plugin_manager.registry_checksum_url() or _("Checksum URL")
         )
-        add_channel = QPushButton(_("Add Channel"))
-        add_channel.clicked.connect(self.add_plugin_channel)
+        self.add_plugin_channel_button = QPushButton(_("Add Channel"))
+        self.add_plugin_channel_button.clicked.connect(self.add_plugin_channel)
         registry_layout.addWidget(self.plugin_channel_name_edit, 1)
         registry_layout.addWidget(self.plugin_registry_url_edit, 2)
         registry_layout.addWidget(self.plugin_registry_checksum_url_edit, 2)
-        registry_layout.addWidget(add_channel)
+        registry_layout.addWidget(self.add_plugin_channel_button)
         source_layout.addLayout(registry_layout)
         layout.addWidget(source_box)
 
@@ -151,6 +178,20 @@ class PluginsTabMixin:
         manager_layout.addWidget(detail_panel, 3)
         layout.addWidget(manager_frame, 1)
 
+        status_row = QHBoxLayout()
+        self.plugin_task_progress = QProgressBar()
+        self.plugin_task_progress.setObjectName("pluginTaskProgress")
+        self.plugin_task_progress.setRange(0, 0)
+        self.plugin_task_progress.setTextVisible(False)
+        self.plugin_task_progress.setMaximumWidth(120)
+        self.plugin_task_progress.hide()
+        self.plugin_task_status = QLabel("")
+        self.plugin_task_status.setObjectName("pluginTaskStatus")
+        self.plugin_task_status.setWordWrap(True)
+        status_row.addWidget(self.plugin_task_progress)
+        status_row.addWidget(self.plugin_task_status, 1)
+        layout.addLayout(status_row)
+
         warning = QLabel(_("Remote plugins require permission review before they can run code."))
         warning.setObjectName("pluginWarningText")
         warning.setWordWrap(True)
@@ -161,6 +202,92 @@ class PluginsTabMixin:
     def _host_plugins_changed(self):
         """Ask the main window to reload plugins from SettingsManager."""
         self._notify("plugins")
+
+    # Background plugin tasks.
+
+    def plugin_task_running(self):
+        return getattr(self, "_plugin_task", None) is not None
+
+    def run_plugin_task(self, busy_text, work, apply, error_text):
+        """Run ``work`` on a worker thread, then ``apply`` its result here.
+
+        ``work`` may only do network/disk I/O: no widgets and no shared
+        PluginManager state. ``apply(result)`` runs on the GUI thread, even if
+        Settings was closed meanwhile, and returns ``(message, changed)``.
+        ``error_text`` is formatted with ``{error}`` when either step fails.
+        """
+        if self.plugin_task_running():
+            return False
+        host = self.host
+        bridge = _PluginTaskBridge(
+            lambda result, error: self._finish_plugin_task(host, apply, error_text, result, error),
+            host if host is not None else self,
+        )
+        self._plugin_task = bridge
+        self.set_plugin_busy(True, busy_text)
+
+        def run():
+            result = error = None
+            try:
+                result = work()
+            except Exception as exc:
+                error = exc
+            try:
+                bridge.finished.emit(result, error)
+            except RuntimeError:
+                pass  # The owning window was destroyed.
+
+        threading.Thread(target=run, name="jottr-plugin-task", daemon=True).start()
+        return True
+
+    def _finish_plugin_task(self, host, apply, error_text, result, error):
+        self._plugin_task = None
+        message, changed = "", False
+        if error is None:
+            try:
+                message, changed = apply(result)
+            except Exception as exc:
+                error = exc
+        if error is not None:
+            message = error_text.format(error=error)
+
+        if sip.isdeleted(self):
+            # Settings closed mid-task: still apply to the app and report there.
+            if changed and host is not None:
+                host.apply_settings_domain("plugins")
+            status_bar = getattr(host, "statusBar", None)
+            if message and hasattr(status_bar, "showMessage"):
+                status_bar.showMessage(message, 8000)
+            return
+
+        self.set_plugin_busy(False)
+        self.sync_plugin_dependent_settings_pages()
+        self.refresh_plugin_list()
+        if changed:
+            self._host_plugins_changed()
+        if error is not None:
+            self.plugin_task_status.clear()
+            QMessageBox.warning(self, _("Plugins"), message)
+        else:
+            self.plugin_task_status.setText(message)
+
+    def set_plugin_busy(self, busy, text=""):
+        for widget in (
+            self.plugins_directory_edit,
+            self.browse_plugins_button,
+            self.plugin_channel_filter_combo,
+            self.update_registry_button,
+            self.plugin_channel_name_edit,
+            self.plugin_registry_url_edit,
+            self.plugin_registry_checksum_url_edit,
+            self.add_plugin_channel_button,
+        ):
+            widget.setEnabled(not busy)
+        self.plugin_task_progress.setVisible(busy)
+        self.plugin_task_status.setText(text)
+        self.update_plugin_channel_action_state()
+        self.set_plugin_action_state(self.selected_plugin())
+        self.plugin_version_combo.setEnabled(not busy and self.plugin_version_combo.count() > 0)
 
     def populate_plugin_channel_filter(self):
         if not hasattr(self, "plugin_channel_filter_combo"):
@@ -189,7 +316,7 @@ class PluginsTabMixin:
         if not hasattr(self, "remove_plugin_channel_button"):
             return
         channel = self.selected_plugin_channel()
-        can_remove = bool(channel and not channel.get("verified"))
+        can_remove = bool(channel and not channel.get("verified")) and not self.plugin_task_running()
         self.remove_plugin_channel_button.setEnabled(can_remove)
 
     def add_plugin_channel(self):
@@ -314,17 +441,33 @@ class PluginsTabMixin:
         self._host_plugins_changed()
 
     def update_plugin_registry(self):
-        try:
-            selected_channel = self.plugin_channel_filter_combo.currentData() or "all"
-            self.plugin_manager.save_plugin_channels(self.plugin_channels)
-            self.settings_manager.save_setting("plugin_registry_url", self.plugin_registry_url_edit.text().strip())
-            self.settings_manager.save_setting("plugin_registry_checksum_url", self.plugin_registry_checksum_url_edit.text().strip())
-            self.plugin_manager.update_plugin_registry(channel_name=selected_channel)
-            self.plugin_manager.refresh()
-            self.refresh_plugin_list()
-            self._host_plugins_changed()
-        except Exception as exc:
-            QMessageBox.warning(self, _("Plugins"), _("Could not update plugin index: {error}").format(error=exc))
+        if self.plugin_task_running():
+            return
+        manager = self.plugin_manager
+        selected_channel = self.plugin_channel_filter_combo.currentData() or "all"
+        manager.save_plugin_channels(self.plugin_channels)
+        self.settings_manager.save_setting("plugin_registry_url", self.plugin_registry_url_edit.text().strip())
+        self.settings_manager.save_setting("plugin_registry_checksum_url", self.plugin_registry_checksum_url_edit.text().strip())
+        channels = manager.plugin_channels_to_update(channel_name=selected_channel)
+        if not channels:
+            self.plugin_task_status.setText(_("No plugin channels to update."))
+            return
+        legacy_url = manager.registry_url()
+
+        def apply(_result):
+            manager.refresh()
+            updates = manager.available_updates()
+            if updates:
+                names = ", ".join(plugin.display_name for plugin in updates)
+                return _("Plugin index updated. Updates available: {plugins}.").format(plugins=names), True
+            return _("Plugin index updated. All installed plugins are up to date."), True
+
+        self.run_plugin_task(
+            _("Updating plugin channels…"),
+            lambda: manager.download_plugin_registries(channels, legacy_url=legacy_url),
+            apply,
+            _("Could not update plugin index: {error}"),
+        )
 
     def selected_plugin(self):
         current = self.plugin_list.currentItem()
@@ -353,10 +496,11 @@ class PluginsTabMixin:
 
     def set_plugin_action_state(self, plugin):
         has_plugin = plugin is not None
-        self.toggle_plugin_button.setEnabled(has_plugin)
+        actionable = has_plugin and not self.plugin_task_running()
+        self.toggle_plugin_button.setEnabled(actionable)
         self.toggle_plugin_button.setText(_("Disable") if has_plugin and plugin.enabled else _("Enable"))
-        self.update_plugin_button.setEnabled(has_plugin)
-        self.remove_plugin_button.setEnabled(has_plugin)
+        self.update_plugin_button.setEnabled(actionable)
+        self.remove_plugin_button.setEnabled(actionable)
 
     def refresh_plugin_list(self):
         current = self.selected_plugin()
@@ -400,7 +544,7 @@ class PluginsTabMixin:
         selected_version = self.plugin_manager.selected_plugin_version(plugin.name) or plugin.version
         if selected_version and selected_version in versions:
             self.plugin_version_combo.setCurrentText(selected_version)
-        self.plugin_version_combo.setEnabled(bool(versions))
+        self.plugin_version_combo.setEnabled(bool(versions) and not self.plugin_task_running())
         self.plugin_version_combo.blockSignals(False)
 
         source = plugin.source_url or plugin.path
@@ -420,7 +564,10 @@ class PluginsTabMixin:
 
     def enable_selected_plugin(self):
         plugin = self.selected_plugin()
-        if not plugin:
+        if not plugin or self.plugin_task_running():
+            return
+        if self.plugin_manager.needs_registry_install(plugin):
+            self._install_and_enable_registry_plugin(plugin)
             return
         trusted = plugin.source in {"local", "registry"}
         if plugin.source == "remote":
@@ -445,6 +592,38 @@ class PluginsTabMixin:
         except PermissionError as exc:
             QMessageBox.warning(self, _("Plugins"), str(exc))
 
+    def _install_and_enable_registry_plugin(self, plugin):
+        manager = self.plugin_manager
+        name, display_name = plugin.name, plugin.display_name
+        entry = copy.deepcopy(manager.available_plugins.get(name))
+        if not entry:
+            QMessageBox.warning(
+                self, _("Plugins"),
+                _("{plugin} has no downloadable package.").format(plugin=display_name),
+            )
+            return
+        version = entry.get("version", "")
+
+        def work():
+            staging = manager.stage_plugin_package(name, entry)
+            if staging is None:
+                raise ValueError(_("{plugin} has no downloadable package.").format(plugin=display_name))
+            return staging
+
+        def apply(staging):
+            manager.install_staged_plugin(name, version, staging)
+            manager.set_enabled(name, True, trusted=True)
+            return _("{plugin} {version} installed and enabled.").format(
+                plugin=display_name, version=version
+            ), True
+
+        self.run_plugin_task(
+            _("Installing {plugin} {version}…").format(plugin=display_name, version=version),
+            work,
+            apply,
+            _("Could not install plugin: {error}"),
+        )
+
     def toggle_selected_plugin(self):
         plugin = self.selected_plugin()
         if not plugin:
@@ -456,15 +635,32 @@ class PluginsTabMixin:
 
     def change_selected_plugin_version(self, version):
         plugin = self.selected_plugin()
-        if not plugin or not version:
+        if not plugin or not version or self.plugin_task_running():
             return
-        if self.plugin_manager.set_plugin_version(plugin.name, version):
-            try:
-                self.plugin_manager.install_plugin_from_registry(plugin.name)
-            except Exception as exc:
-                QMessageBox.warning(self, _("Plugins"), _("Could not install plugin version: {error}").format(error=exc))
-            self.refresh_plugin_list()
-            self._host_plugins_changed()
+        manager = self.plugin_manager
+        if version == manager.installed_registry_version(plugin):
+            return
+        entry = copy.deepcopy(manager.registry_entry_for_version(plugin.name, version))
+        if not entry:
+            return
+        name, display_name, enabled = plugin.name, plugin.display_name, plugin.enabled
+
+        def work():
+            staging = manager.stage_plugin_package(name, entry)
+            if staging is None:
+                raise ValueError(_("{plugin} has no downloadable package.").format(plugin=display_name))
+            return staging
+
+        def apply(staging):
+            manager.install_staged_plugin(name, version, staging, enable=enabled)
+            return _("{plugin} switched to {version}.").format(plugin=display_name, version=version), True
+
+        self.run_plugin_task(
+            _("Installing {plugin} {version}…").format(plugin=display_name, version=version),
+            work,
+            apply,
+            _("Could not install plugin version: {error}"),
+        )
 
     def disable_selected_plugin(self):
         plugin = self.selected_plugin()
@@ -477,18 +673,87 @@ class PluginsTabMixin:
 
     def update_selected_plugin(self):
         plugin = self.selected_plugin()
-        if not plugin:
+        if not plugin or self.plugin_task_running():
             return
-        try:
-            if plugin.source in {"remote", "registry"}:
-                self.plugin_manager.update_plugin(plugin.name)
-            else:
-                self.plugin_manager.refresh()
+        manager = self.plugin_manager
+        display_name = plugin.display_name
+        if plugin.source == "registry":
+            self._update_registry_plugin(plugin)
+        elif plugin.source == "remote":
+            source_url = plugin.source_url
+
+            def apply(changed):
+                manager.refresh()
+                if changed:
+                    return _("{plugin} updated.").format(plugin=display_name), True
+                return _("{plugin} is up to date.").format(plugin=display_name), False
+
+            self.run_plugin_task(
+                _("Updating {plugin}…").format(plugin=display_name),
+                lambda: manager.pull_remote_plugin_source(source_url),
+                apply,
+                _("Could not update plugin: {error}"),
+            )
+        else:
+            manager.refresh()
             self.sync_plugin_dependent_settings_pages()
             self.refresh_plugin_list()
             self._host_plugins_changed()
-        except Exception as exc:
-            QMessageBox.warning(self, _("Plugins"), _("Could not update plugin: {error}").format(error=exc))
+            self.plugin_task_status.setText(
+                _("Reloaded {plugin} from disk.").format(plugin=display_name)
+            )
+
+    def _update_registry_plugin(self, plugin):
+        """Refresh the plugin's channel index, then install its latest release."""
+        manager = self.plugin_manager
+        name, display_name, enabled = plugin.name, plugin.display_name, plugin.enabled
+        installed_version = manager.installed_registry_version(plugin)
+        channel = next(
+            (
+                item for item in manager.plugin_channels()
+                if item.get("name") == plugin.channel_name and item.get("url")
+            ),
+            None,
+        )
+        legacy_url = manager.registry_url()
+        plugin_entry = copy.deepcopy(manager.registry_plugins.get(name, {}))
+
+        def work():
+            entry = plugin_entry
+            if channel is not None:
+                manager.download_plugin_registries([channel], legacy_url=legacy_url)
+                entry = manager.registry_plugin_entry(name, channel) or entry
+            latest = manager.latest_registry_entry(entry)
+            if not latest:
+                raise ValueError(
+                    _("{plugin} is no longer listed in its channel.").format(plugin=display_name)
+                )
+            version = latest.get("version", "")
+            if version and version == installed_version:
+                return version, None
+            staging = manager.stage_plugin_package(name, latest)
+            if staging is None:
+                raise ValueError(_("{plugin} has no downloadable package.").format(plugin=display_name))
+            return version, staging
+
+        def apply(result):
+            version, staging = result
+            manager.refresh()
+            if staging is None:
+                return _("{plugin} is up to date ({version}).").format(
+                    plugin=display_name, version=version
+                ), False
+            manager.install_staged_plugin(name, version, staging, enable=enabled)
+            return _("{plugin} updated to {version}.").format(
+                plugin=display_name, version=version
+            ), True
+
+        self.run_plugin_task(
+            _("Updating {plugin}…").format(plugin=display_name),
+            work,
+            apply,
+            _("Could not update plugin: {error}"),
+        )
 
     def remove_selected_plugin(self):
         plugin = self.selected_plugin()

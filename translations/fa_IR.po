@@ -1133,3 +1133,63 @@ msgstr "هر سایت یک جستجوی گوگل محدود به همان سای
 #: src/jottr/settings/pages/dictionary.py
 msgid "User Dictionary"
 msgstr "واژه‌نامهٔ کاربر"
+
+#: src/jottr/settings/pages/plugins.py
+msgid "Updating plugin channels…"
+msgstr "در حال به‌روزرسانی کانال‌های افزونه…"
+
+#: src/jottr/settings/pages/plugins.py
+msgid "No plugin channels to update."
+msgstr "کانالی برای به‌روزرسانی وجود ندارد."
+
+#: src/jottr/settings/pages/plugins.py
+msgid "Plugin index updated. All installed plugins are up to date."
+msgstr "فهرست افزونه‌ها به‌روز شد. همهٔ افزونه‌های نصب‌شده به‌روز هستند."
+
+#: src/jottr/settings/pages/plugins.py
+msgid "Plugin index updated. Updates available: {plugins}."
+msgstr "فهرست افزونه‌ها به‌روز شد. به‌روزرسانی موجود: {plugins}."
+
+#: src/jottr/settings/pages/plugins.py
+msgid "Updating {plugin}…"
+msgstr "در حال به‌روزرسانی {plugin}…"
+
+#: src/jottr/settings/pages/plugins.py
+msgid "{plugin} is up to date ({version})."
+msgstr "{plugin} به‌روز است ({version})."
+
+#: src/jottr/settings/pages/plugins.py
+msgid "{plugin} updated to {version}."
+msgstr "{plugin} به نسخهٔ {version} به‌روز شد."
+
+#: src/jottr/settings/pages/plugins.py
+msgid "{plugin} is up to date."
+msgstr "{plugin} به‌روز است."
+
+#: src/jottr/settings/pages/plugins.py
+msgid "{plugin} updated."
+msgstr "{plugin} به‌روز شد."
+
+#: src/jottr/settings/pages/plugins.py
+msgid "Reloaded {plugin} from disk."
+msgstr "{plugin} دوباره از دیسک بارگذاری شد."
+
+#: src/jottr/settings/pages/plugins.py
+msgid "Installing {plugin} {version}…"
+msgstr "در حال نصب {plugin} {version}…"
+
+#: src/jottr/settings/pages/plugins.py
+msgid "{plugin} switched to {version}."
+msgstr "{plugin} به نسخهٔ {version} تغییر کرد."
+
+#: src/jottr/settings/pages/plugins.py
+msgid "{plugin} {version} installed and enabled."
+msgstr "{plugin} {version} نصب و فعال شد."
+
+#: src/jottr/settings/pages/plugins.py
+msgid "{plugin} has no downloadable package."
+msgstr "{plugin} بستهٔ قابل دریافت ندارد."
+
+#: src/jottr/settings/pages/plugins.py
+msgid "{plugin} is no longer listed in its channel."
+msgstr "{plugin} دیگر در کانال خود فهرست نشده است."

@@ -253,6 +253,88 @@ class PluginManagerTests(unittest.TestCase):
         self.assertEqual(manager.selected_plugin_version("versioned-tool"), "0.1.0")
         self.assertEqual(manager.plugins["versioned-tool"].version, "0.1.0")
 
+        # Installing pins 0.1.0; Update moves to the latest release.
+        self.assertTrue(manager.install_plugin_from_registry("versioned-tool", "0.1.0"))
+        installed = manager.plugins["versioned-tool"]
+        self.assertEqual(installed.path, str(manager.plugins_dir / "versioned-tool"))
+        # The plugins folder scan must not re-label an installed registry plugin as local.
+        self.assertEqual(installed.source, "registry")
+        self.assertEqual(manager.installed_registry_version(installed), "0.1.0")
+        self.assertEqual([plugin.name for plugin in manager.available_updates()], ["versioned-tool"])
+        self.assertFalse(manager.needs_registry_install(installed))
+
+        self.assertTrue(manager.update_plugin("versioned-tool"))
+        self.assertEqual(manager.plugins["versioned-tool"].version, "0.2.0")
+        self.assertEqual(manager.selected_plugin_version("versioned-tool"), "0.2.0")
+        self.assertEqual(manager.available_updates(), [])
+        self.assertFalse(manager.update_plugin("versioned-tool"))
+
+        # A failed staging leaves the installed plugin and no staging dirs behind.
+        with self.assertRaises(FileNotFoundError):
+            manager.stage_plugin_package("versioned-tool", {
+                "version": "9.9.9",
+                "source": {"type": "path", "path": str(Path(self.temp_dir.name) / "missing")},
+            })
+        self.assertEqual(manager.plugins["versioned-tool"].version, "0.2.0")
+        self.assertEqual(list(manager.download_cache_dir.glob(".versioned-tool-*")), [])
+
+    def test_installed_registry_version_uses_recorded_release_not_manifest(self):
+        # browser-panel's package plugin.json says 0.0.1 while the registry
+        # release is 0.1.0; that must not look outdated forever.
+        plugin_source = Path(self.temp_dir.name) / "plugin-source"
+        self.write_plugin(plugin_source, "drifting-tool", manifest={"version": "0.0.1"})
+        registry_file = Path(self.temp_dir.name) / "plugins.json"
+        registry = {
+            "schemaVersion": 1,
+            "plugins": [{
+                "id": "drifting-tool",
+                "displayName": "Drifting Tool",
+                "latestVersion": "0.1.0",
+                "versions": [{
+                    "version": "0.1.0",
+                    "source": {"type": "path", "path": str(plugin_source / "drifting-tool")},
+                }],
+            }],
+        }
+        registry_file.write_text(json.dumps(registry), encoding="utf-8")
+        manager = PluginManager(self.settings)
+        manager.load_plugin_registry = lambda registry_file_override=None: {**registry, "_registry_file": str(registry_file)}
+        manager.refresh()
+
+        self.assertTrue(manager.install_plugin_from_registry("drifting-tool"))
+        plugin = manager.plugins["drifting-tool"]
+        self.assertEqual(plugin.version, "0.0.1")
+        self.assertEqual(manager.installed_registry_version(plugin), "0.1.0")
+        self.assertFalse(manager.needs_registry_install(plugin))
+        self.assertEqual(manager.available_updates(), [])
+        self.assertFalse(manager.update_plugin("drifting-tool"))
+
+    def test_download_file_uses_timeout_and_never_leaves_partial_files(self):
+        import io
+        import jottr.plugin_manager as plugin_manager_module
+
+        target = Path(self.temp_dir.name) / "cache" / "plugins.json"
+        target.parent.mkdir()
+        target.write_text("old", encoding="utf-8")
+
+        class Response(io.BytesIO):
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *args):
+                self.close()
+
+        with patch.object(plugin_manager_module.urllib.request, "urlopen", return_value=Response(b"new")) as urlopen:
+            plugin_manager_module.download_file("https://example.test/plugins.json", target)
+        self.assertEqual(urlopen.call_args.kwargs["timeout"], plugin_manager_module.NETWORK_TIMEOUT_SECONDS)
+        self.assertEqual(target.read_text(encoding="utf-8"), "new")
+
+        with patch.object(plugin_manager_module.urllib.request, "urlopen", side_effect=OSError("offline")):
+            with self.assertRaises(OSError):
+                plugin_manager_module.download_file("https://example.test/plugins.json", target)
+        self.assertEqual(target.read_text(encoding="utf-8"), "new")
+        self.assertEqual([path.name for path in target.parent.iterdir()], ["plugins.json"])
+
     def test_registry_source_reads_permissions_and_contributions_from_plugin_json(self):
         plugin_source = Path(self.temp_dir.name) / "plugin-source"
         self.write_plugin(plugin_source, "catalog-tool")

@@ -2,6 +2,8 @@ import json
 import os
 import sys
 import tempfile
+import threading
+import time
 import unittest
 from pathlib import Path
 from types import SimpleNamespace
@@ -281,6 +283,94 @@ class DialogAndRssTests(unittest.TestCase):
         self.assertFalse(dialog.remove_plugin_channel_button.isEnabled())
         dialog.remove_plugin_channel()
         self.assertGreaterEqual(dialog.plugin_channel_filter_combo.findData("Official"), 0)
+
+    def wait_for_plugin_task(self, dialog, timeout=10.0):
+        deadline = time.monotonic() + timeout
+        while dialog.plugin_task_running() and time.monotonic() < deadline:
+            QApplication.processEvents()
+            time.sleep(0.01)
+        self.assertFalse(dialog.plugin_task_running(), "plugin task did not finish")
+
+    def test_plugin_update_runs_in_background_and_reports_the_result(self):
+        manager = SettingsManager()
+        plugin_manager = PluginManager(manager)
+        sources = {}
+        for version in ("0.1.0", "0.2.0"):
+            plugin_dir = Path(self.temp_dir.name) / f"source-{version}" / "versioned-tool"
+            plugin_dir.mkdir(parents=True)
+            (plugin_dir / "plugin.json").write_text(json.dumps({
+                "name": "versioned-tool", "displayName": "Versioned Tool", "version": version,
+                "description": "Test", "permissions": [], "contributes": {},
+            }), encoding="utf-8")
+            sources[version] = plugin_dir
+        channel = plugin_manager.official_plugin_channel()
+        registry_path = plugin_manager.cached_registry_file(channel)
+        registry_path.write_text(json.dumps({"schemaVersion": 1, "plugins": [{
+            "id": "versioned-tool",
+            "displayName": "Versioned Tool",
+            "latestVersion": "0.2.0",
+            "versions": [
+                {"version": version, "source": {"type": "path", "path": str(path)}}
+                for version, path in sorted(sources.items(), reverse=True)
+            ],
+        }]}), encoding="utf-8")
+        plugin_manager.cached_registry_checksum_file(channel).write_text(
+            f"{plugin_manager.sha256_file(registry_path)}  plugins.json\n", encoding="utf-8"
+        )
+
+        dialog = SettingsDialog(manager)
+        self.addCleanup(dialog.deleteLater)
+        pm = dialog.plugin_manager
+        self.assertTrue(pm.install_plugin_from_registry("versioned-tool", "0.1.0"))
+        dialog.refresh_plugin_list()
+        dialog.select_plugin_by_name("versioned-tool")
+
+        started, release = threading.Event(), threading.Event()
+        real_stage = pm.stage_plugin_package
+
+        def slow_stage(name, entry):
+            started.set()
+            release.wait(10)
+            return real_stage(name, entry)
+
+        with patch.object(pm, "download_plugin_registries", return_value=[]), \
+                patch.object(pm, "stage_plugin_package", side_effect=slow_stage):
+            dialog.update_selected_plugin()
+            # The download runs on a worker while the GUI thread stays free.
+            self.assertTrue(started.wait(10))
+            self.assertTrue(dialog.plugin_task_running())
+            self.assertFalse(dialog.update_plugin_button.isEnabled())
+            self.assertFalse(dialog.update_registry_button.isEnabled())
+            self.assertFalse(dialog.plugin_task_progress.isHidden())
+            self.assertEqual(dialog.plugin_task_status.text(), "Updating Versioned Tool…")
+            release.set()
+            self.wait_for_plugin_task(dialog)
+
+        self.assertEqual(pm.plugins["versioned-tool"].version, "0.2.0")
+        self.assertEqual(dialog.plugin_task_status.text(), "Versioned Tool updated to 0.2.0.")
+        self.assertTrue(dialog.update_plugin_button.isEnabled())
+        self.assertTrue(dialog.plugin_task_progress.isHidden())
+
+        with patch.object(pm, "download_plugin_registries", return_value=[]):
+            dialog.update_selected_plugin()
+            self.wait_for_plugin_task(dialog)
+        self.assertEqual(dialog.plugin_task_status.text(), "Versioned Tool is up to date (0.2.0).")
+
+        with patch.object(pm, "download_plugin_registries", side_effect=OSError("offline")), \
+                patch.object(QMessageBox, "warning") as warning:
+            dialog.update_selected_plugin()
+            self.wait_for_plugin_task(dialog)
+        warning.assert_called_once()
+        self.assertIn("offline", warning.call_args.args[2])
+        self.assertTrue(dialog.update_plugin_button.isEnabled())
+
+        with patch.object(pm, "download_plugin_registries", return_value=[]):
+            dialog.update_plugin_registry()
+            self.wait_for_plugin_task(dialog)
+        self.assertEqual(
+            dialog.plugin_task_status.text(),
+            "Plugin index updated. All installed plugins are up to date.",
+        )
 
     def test_settings_hides_browser_page_when_browser_plugin_is_disabled(self):
         manager = SettingsManager()

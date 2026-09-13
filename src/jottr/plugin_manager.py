@@ -5,6 +5,7 @@ import os
 import shutil
 import subprocess
 import sys
+import tempfile
 import urllib.request
 import zipfile
 from dataclasses import dataclass, field
@@ -16,6 +17,38 @@ REMOTE_WARNING = "Remote plugins can run code only after you review their permis
 OFFICIAL_PLUGIN_CHANNEL_NAME = "Official"
 OFFICIAL_PLUGIN_REGISTRY_URL = "https://raw.githubusercontent.com/Jottrhq/plugins/main/plugins.json"
 OFFICIAL_PLUGIN_REGISTRY_CHECKSUM_URL = "https://raw.githubusercontent.com/Jottrhq/plugins/main/plugins.json.sha256"
+NETWORK_TIMEOUT_SECONDS = 30
+GIT_TIMEOUT_SECONDS = 120
+
+
+def download_file(url, target, timeout=NETWORK_TIMEOUT_SECONDS):
+    """Download url to target via a temp file, so a failure never leaves a partial file."""
+    target = Path(target)
+    target.parent.mkdir(parents=True, exist_ok=True)
+    handle, temp_name = tempfile.mkstemp(prefix=f".{target.name}.", dir=target.parent)
+    try:
+        with os.fdopen(handle, "wb") as output, urllib.request.urlopen(url, timeout=timeout) as response:
+            shutil.copyfileobj(response, output)
+        os.replace(temp_name, target)
+    except BaseException:
+        Path(temp_name).unlink(missing_ok=True)
+        raise
+    return target
+
+
+def run_git(*args):
+    """Run git without ever waiting on a credentials prompt."""
+    try:
+        return subprocess.run(
+            ["git", *args],
+            check=True,
+            capture_output=True,
+            text=True,
+            timeout=GIT_TIMEOUT_SECONDS,
+            env={**os.environ, "GIT_TERMINAL_PROMPT": "0"},
+        )
+    except subprocess.CalledProcessError as exc:
+        raise RuntimeError((exc.stderr or "").strip() or str(exc)) from exc
 
 
 @dataclass
@@ -418,7 +451,7 @@ class PluginManager:
         self.refresh()
         return True
 
-    def update_plugin_registry(self, registry_url=None, checksum_url=None, channel_name=None):
+    def plugin_channels_to_update(self, registry_url=None, checksum_url=None, channel_name=None):
         channels = self.plugin_channels()
         if registry_url:
             channels = [{"name": channel_name or "Plugin Channel", "url": registry_url, "checksumUrl": checksum_url or "", "enabled": True}]
@@ -426,29 +459,48 @@ class PluginManager:
             channels = [channel for channel in channels if channel.get("name") == channel_name]
         else:
             channels = [channel for channel in channels if channel.get("enabled", True)]
-        if not channels:
-            return False
+        return [channel for channel in channels if channel.get("url")]
+
+    def download_plugin_registries(self, channels, legacy_url=None):
+        """Fetch channel indexes into the cache.
+
+        Network and cache files only; it does not touch plugin state, so it
+        can run off the GUI thread. A failed or unverified download keeps the
+        previously cached index.
+        """
         self.registry_cache_dir.mkdir(parents=True, exist_ok=True)
         for channel in channels:
             if not channel.get("url"):
                 continue
             target = self.cached_registry_file(channel)
             checksum_target = self.cached_registry_checksum_file(channel)
-            target.parent.mkdir(parents=True, exist_ok=True)
-            urllib.request.urlretrieve(channel["url"], target)
-            checksum_url = channel.get("checksumUrl", "")
-            if checksum_url:
-                urllib.request.urlretrieve(checksum_url, checksum_target)
-                if not self.verify_checksum_file(target, checksum_target):
-                    target.unlink(missing_ok=True)
-                    checksum_target.unlink(missing_ok=True)
-                    raise ValueError("Plugin registry checksum verification failed.")
-            if channel.get("url") == self.registry_url():
-                legacy_target = self.cached_registry_file()
-                legacy_checksum = self.cached_registry_checksum_file()
-                shutil.copyfile(target, legacy_target)
+            channel_checksum_url = channel.get("checksumUrl", "")
+            if channel_checksum_url:
+                staged = target.with_name(target.name + ".download")
+                staged_checksum = checksum_target.with_name(checksum_target.name + ".download")
+                try:
+                    download_file(channel["url"], staged)
+                    download_file(channel_checksum_url, staged_checksum)
+                    if not self.verify_checksum_file(staged, staged_checksum):
+                        raise ValueError("Plugin registry checksum verification failed.")
+                    os.replace(staged, target)
+                    os.replace(staged_checksum, checksum_target)
+                finally:
+                    staged.unlink(missing_ok=True)
+                    staged_checksum.unlink(missing_ok=True)
+            else:
+                download_file(channel["url"], target)
+            if legacy_url and channel.get("url") == legacy_url:
+                shutil.copyfile(target, self.cached_registry_file())
                 if checksum_target.exists():
-                    shutil.copyfile(checksum_target, legacy_checksum)
+                    shutil.copyfile(checksum_target, self.cached_registry_checksum_file())
+        return channels
+
+    def update_plugin_registry(self, registry_url=None, checksum_url=None, channel_name=None):
+        channels = self.plugin_channels_to_update(registry_url, checksum_url, channel_name)
+        if not channels:
+            return False
+        self.download_plugin_registries(channels, legacy_url=self.registry_url())
         self.refresh()
         return True
 
@@ -461,22 +513,40 @@ class PluginManager:
                 continue
             cache_path = self.source_cache_path(url)
             if cache_path.exists():
-                subprocess.run(["git", "-C", str(cache_path), "pull", "--ff-only"], check=True)
+                run_git("-C", str(cache_path), "pull", "--ff-only")
             else:
-                subprocess.run(["git", "clone", "--depth", "1", url, str(cache_path)], check=True)
+                run_git("clone", "--depth", "1", url, str(cache_path))
             synced.append(cache_path)
         return synced
 
+    def pull_remote_plugin_source(self, source_url):
+        """git pull a remote plugin source; True when new commits arrived.
+
+        Runs git only, so it can run off the GUI thread.
+        """
+        cache_path = str(self.source_cache_path(source_url))
+        before = run_git("-C", cache_path, "rev-parse", "HEAD").stdout.strip()
+        run_git("-C", cache_path, "pull", "--ff-only")
+        return run_git("-C", cache_path, "rev-parse", "HEAD").stdout.strip() != before
+
     def update_plugin(self, plugin_name):
+        """Update a plugin to the newest version its source offers.
+
+        Returns False when there was nothing to update.
+        """
         plugin = self.plugins.get(plugin_name)
         if plugin and plugin.source == "registry":
-            return self.install_plugin_from_registry(plugin_name)
+            latest = self.latest_plugin_version(plugin_name)
+            if latest and latest == self.installed_registry_version(plugin):
+                return False
+            return self.install_plugin_from_registry(
+                plugin_name, latest or None, enable=plugin.enabled
+            )
         if not plugin or plugin.source != "remote":
             return False
-        cache_path = self.source_cache_path(plugin.source_url)
-        subprocess.run(["git", "-C", str(cache_path), "pull", "--ff-only"], check=True)
+        changed = self.pull_remote_plugin_source(plugin.source_url)
         self.refresh()
-        return True
+        return changed
 
     def remove_plugin(self, plugin_name):
         plugin = self.plugins.get(plugin_name)
@@ -542,13 +612,21 @@ class PluginManager:
             cache_path = self.source_cache_path(url)
             locations.append((cache_path / directory, "remote", url))
 
+        # Installed registry plugins live inside the local plugins folder; the
+        # first source that finds a directory owns it, so they stay "registry".
+        seen = set()
         for base_path, source, url in locations:
             if not base_path.exists():
                 continue
             candidates = [base_path] if self.find_manifest(base_path) else sorted(base_path.iterdir())
             for child in candidates:
-                if child.is_dir() and self.find_manifest(child):
-                    yield child, source, url
+                if not child.is_dir() or not self.find_manifest(child):
+                    continue
+                resolved = child.resolve()
+                if resolved in seen:
+                    continue
+                seen.add(resolved)
+                yield child, source, url
 
     def find_manifest(self, plugin_dir):
         for name in PLUGIN_MANIFEST_NAMES:
@@ -621,11 +699,9 @@ class PluginManager:
 
     def set_enabled(self, plugin_name, enabled, trusted=False):
         plugin = self.plugins[plugin_name]
-        if enabled and plugin.source == "registry":
-            selected_version = self.selected_plugin_version(plugin_name)
-            if not plugin.path or not self.find_manifest(Path(plugin.path)) or plugin.version != selected_version:
-                self.install_plugin_from_registry(plugin_name)
-                plugin = self.plugins[plugin_name]
+        if enabled and self.needs_registry_install(plugin):
+            self.install_plugin_from_registry(plugin_name)
+            plugin = self.plugins[plugin_name]
         if enabled and plugin.source == "remote" and not trusted and not plugin.trusted:
             raise PermissionError(REMOTE_WARNING)
         state = self.plugin_state()
@@ -652,54 +728,78 @@ class PluginManager:
         if not checksum_url:
             return ""
         checksum_path = archive_path.with_suffix(archive_path.suffix + ".sha256")
-        urllib.request.urlretrieve(checksum_url, checksum_path)
+        download_file(checksum_url, checksum_path)
         return self.read_checksum_text(checksum_path.read_text(encoding="utf-8"))
 
-    def install_plugin_from_registry(self, plugin_name):
-        entry = self.available_plugins.get(plugin_name)
-        if not entry:
-            return False
-        self.plugins_dir.mkdir(parents=True, exist_ok=True)
-        target = self.plugins_dir / plugin_name
+    def stage_plugin_package(self, plugin_name, entry):
+        """Download (or copy) and unpack a registry package into a staging dir.
+
+        Network and disk only; it does not touch plugin state, so it can run
+        off the GUI thread. Returns the staging directory, or None when the
+        entry has nothing to install.
+        """
         source = entry.get("source", {})
         package = entry.get("package", {})
-        selected_version = entry.get("version", "latest")
+        version = entry.get("version", "latest")
+        download_url = package.get("downloadUrl") or source.get("downloadUrl")
+        if source.get("type") != "path" and not download_url:
+            return None
+        self.download_cache_dir.mkdir(parents=True, exist_ok=True)
+        staging = Path(tempfile.mkdtemp(prefix=f".{plugin_name}-{version}-", dir=self.download_cache_dir))
+        try:
+            if source.get("type") == "path":
+                source_path = Path(source.get("path", ""))
+                registry_file = Path(entry.get("_registry_file") or self.cached_registry_file())
+                if not source_path.is_absolute():
+                    source_path = (registry_file.parent / source_path).resolve()
+                shutil.copytree(
+                    source_path,
+                    staging,
+                    dirs_exist_ok=True,
+                    ignore=shutil.ignore_patterns(".git", "dist", "__pycache__"),
+                )
+            else:
+                archive_path = self.download_cache_dir / f"{plugin_name}-{version}.zip"
+                download_file(download_url, archive_path)
+                expected_sha256 = self.fetch_package_checksum(package, archive_path)
+                if not expected_sha256:
+                    archive_path.unlink(missing_ok=True)
+                    raise ValueError(f"Missing checksum for {plugin_name}.")
+                if self.sha256_file(archive_path) != expected_sha256:
+                    archive_path.unlink(missing_ok=True)
+                    raise ValueError(f"Checksum verification failed for {plugin_name}.")
+                with zipfile.ZipFile(archive_path, "r") as archive:
+                    archive.extractall(staging)
+        except BaseException:
+            shutil.rmtree(staging, ignore_errors=True)
+            raise
+        return staging
 
-        if source.get("type") == "path":
-            source_path = Path(source.get("path", ""))
-            registry_file = Path(entry.get("_registry_file", self.cached_registry_file()))
-            if not source_path.is_absolute():
-                source_path = (registry_file.parent / source_path).resolve()
-            if target.exists():
-                shutil.rmtree(target)
-            shutil.copytree(source_path, target, ignore=shutil.ignore_patterns(".git", "dist", "__pycache__"))
-        else:
-            download_url = package.get("downloadUrl") or source.get("downloadUrl")
-            if not download_url:
-                return False
-            self.download_cache_dir.mkdir(parents=True, exist_ok=True)
-            archive_path = self.download_cache_dir / f"{plugin_name}-{selected_version}.zip"
-            urllib.request.urlretrieve(download_url, archive_path)
-            expected_sha256 = self.fetch_package_checksum(package, archive_path)
-            if not expected_sha256:
-                archive_path.unlink(missing_ok=True)
-                raise ValueError(f"Missing checksum for {plugin_name}.")
-            if self.sha256_file(archive_path) != expected_sha256:
-                archive_path.unlink(missing_ok=True)
-                raise ValueError(f"Checksum verification failed for {plugin_name}.")
-            if target.exists():
-                shutil.rmtree(target)
-            target.mkdir(parents=True)
-            with zipfile.ZipFile(archive_path, "r") as archive:
-                archive.extractall(target)
-
+    def install_staged_plugin(self, plugin_name, version, staging_dir, enable=True):
+        """Swap a staged package into the plugins folder and record its version."""
+        self.plugins_dir.mkdir(parents=True, exist_ok=True)
+        target = self.plugins_dir / plugin_name
+        if target.exists():
+            shutil.rmtree(target)
+        shutil.move(str(staging_dir), str(target))
         state = self.plugin_state()
         plugin_state = dict(state.get(plugin_name, {}))
-        plugin_state.update({"enabled": True, "trusted": True, "version": selected_version})
+        plugin_state.update({"enabled": bool(enable), "trusted": True, "version": version})
         state[plugin_name] = plugin_state
         self.save_plugin_state(state)
         self.refresh()
         return True
+
+    def install_plugin_from_registry(self, plugin_name, version=None, enable=True):
+        entry = self.registry_entry_for_version(plugin_name, version)
+        if not entry:
+            return False
+        staging = self.stage_plugin_package(plugin_name, entry)
+        if staging is None:
+            return False
+        return self.install_staged_plugin(
+            plugin_name, entry.get("version", "latest"), staging, enable=enable
+        )
 
     def rebuild_registry(self, include_entries=True):
         """Rebuild contributions from enabled plugins.
@@ -805,3 +905,77 @@ class PluginManager:
             or plugin.source != "registry"
             or plugin.channel_name == channel_filter
         ]
+
+    def is_installed(self, plugin):
+        return bool(plugin.path) and self.find_manifest(Path(plugin.path)) is not None
+
+    def installed_registry_version(self, plugin):
+        """Registry version installed for a plugin ("" when not installed).
+
+        Uses the version recorded at install time: a package's plugin.json
+        version can differ from the registry release it was published as.
+        """
+        if not self.is_installed(plugin):
+            return ""
+        return self.plugin_state().get(plugin.name, {}).get("version") or plugin.version
+
+    def needs_registry_install(self, plugin):
+        if plugin.source != "registry":
+            return False
+        if not self.is_installed(plugin):
+            return True
+        return self.installed_registry_version(plugin) != self.selected_plugin_version(plugin.name)
+
+    def latest_registry_entry(self, plugin_entry):
+        """Flattened entry for a catalog entry's latest version (no I/O)."""
+        if not plugin_entry:
+            return None
+        versions = plugin_entry.get("versions", [])
+        if not versions:
+            return self.flatten_registry_entry(plugin_entry, plugin_entry)
+        latest = plugin_entry.get("latestVersion")
+        selected = next((item for item in versions if item.get("version") == latest), versions[0])
+        return self.flatten_registry_entry(plugin_entry, selected)
+
+    def latest_plugin_version(self, plugin_name):
+        entry = self.latest_registry_entry(self.registry_plugins.get(plugin_name))
+        return entry.get("version", "") if entry else ""
+
+    def registry_entry_for_version(self, plugin_name, version=None):
+        """Flattened entry for a version; None means the selected version."""
+        if version is None:
+            return self.available_plugins.get(plugin_name)
+        plugin_entry = self.registry_plugins.get(plugin_name)
+        if not plugin_entry:
+            return None
+        versions = plugin_entry.get("versions", [])
+        if not versions:
+            if plugin_entry.get("version") == version:
+                return self.flatten_registry_entry(plugin_entry, plugin_entry)
+            return None
+        selected = next((item for item in versions if item.get("version") == version), None)
+        return self.flatten_registry_entry(plugin_entry, selected) if selected else None
+
+    def registry_plugin_entry(self, plugin_name, channel):
+        """Catalog entry for a plugin from a channel's cached index (file read only)."""
+        registry = self.load_plugin_registry(channel=channel)
+        for raw_entry in registry.get("plugins", []):
+            if raw_entry.get("id") == plugin_name:
+                entry = dict(raw_entry)
+                entry["channelName"] = channel.get("name", "")
+                entry["channelUrl"] = channel.get("url", "")
+                entry["channelVerified"] = bool(channel.get("verified", False))
+                entry["_registry_file"] = registry.get("_registry_file", "")
+                return entry
+        return None
+
+    def available_updates(self):
+        """Installed registry plugins whose channel lists a newer release."""
+        updates = []
+        for plugin in self.plugins.values():
+            if plugin.source != "registry" or not self.is_installed(plugin):
+                continue
+            latest = self.latest_plugin_version(plugin.name)
+            if latest and latest != self.installed_registry_version(plugin):
+                updates.append(plugin)
+        return updates
