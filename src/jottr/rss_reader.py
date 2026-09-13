@@ -9,19 +9,22 @@ import requests
 from jottr.feed_manager_dialog import FeedManagerDialog
 from jottr.translation_manager import _
 
+# Former defaults that no longer resolve or return usable feed content.
+_REMOVED_DEFAULT_FEED_URLS = {
+    "https://feeds.reuters.com/reuters/topNews",
+    "https://apnews.com/feed",
+    "https://apnews.com/hub/world-news/feed",
+    "https://apnews.com/hub/middle-east/feed",
+}
+
 
 class RSSReader(QWidget):
     def __init__(self, settings_manager=None, parent=None):
         super().__init__(parent)
         self.feeds = {
             "BBC World": "https://feeds.bbci.co.uk/news/world/rss.xml",
-            "Reuters Top News": "https://feeds.reuters.com/reuters/topNews",
             "Al Jazeera": "https://www.aljazeera.com/xml/rss/all.xml",
             "CNN Top Stories": "http://rss.cnn.com/rss/edition.rss",
-            # AP News feeds
-            "AP Top News": "https://apnews.com/feed",
-            "AP World News": "https://apnews.com/hub/world-news/feed",
-            "AP Middle East": "https://apnews.com/hub/middle-east/feed"
         }
         if settings_manager is None:
             from jottr.settings_manager import SettingsManager
@@ -82,7 +85,12 @@ class RSSReader(QWidget):
                     self.feeds.update(loaded_feeds)  # Merge with default feeds
             except:
                 pass  # Keep default feeds if file load fails
-        
+
+        self.feeds = {
+            title: url for title, url in self.feeds.items()
+            if url not in _REMOVED_DEFAULT_FEED_URLS
+        }
+
         self.save_feeds()  # Save combined feeds
         self.update_feed_selector()
         

@@ -609,6 +609,26 @@ class DialogAndRssTests(unittest.TestCase):
         self.assertGreater(reader.feed_selector.count(), 0)
         self.assertTrue(feeds_path.is_file())
 
+    def test_rss_reader_prunes_removed_default_feeds(self):
+        settings = SettingsManager()
+        feeds_path = Path(settings.config_dir) / "rss_feeds.json"
+        feeds_path.write_text(
+            json.dumps({
+                "Reuters Top News": "https://feeds.reuters.com/reuters/topNews",
+                "AP Top News": "https://apnews.com/feed",
+                "Keep Me": "https://keep.example/rss",
+            }),
+            encoding="utf-8",
+        )
+        reader = RSSReader(settings)
+
+        self.assertNotIn("Reuters Top News", reader.feeds)
+        self.assertNotIn("AP Top News", reader.feeds)
+        self.assertEqual(reader.feeds["Keep Me"], "https://keep.example/rss")
+        saved = json.loads(feeds_path.read_text(encoding="utf-8"))
+        self.assertNotIn("Reuters Top News", saved)
+        self.assertNotIn("AP Top News", saved)
+
     def test_rss_reader_refresh_populates_entries_and_content(self):
         reader = RSSReader(SettingsManager())
         reader.feeds = {"Local": "https://local.example/rss"}
