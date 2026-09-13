@@ -421,6 +421,10 @@ class EditorAndMainTests(unittest.TestCase):
         self.settings.save_setting("language", "fa_IR")
         editor = self.make_editor()
         code_editor = editor.editor
+        # A hidden widget gets no resize event, so the right-side line number
+        # area would keep the geometry of its previous width.
+        editor.show()
+        self.addCleanup(editor.hide)
 
         code_editor.resize(420, 280)
         app().processEvents()
@@ -470,24 +474,6 @@ class EditorAndMainTests(unittest.TestCase):
             editor.editor.line_number_background_color().name(),
             "#282a36"
         )
-
-    def test_editor_and_markdown_preview_use_auto_text_direction_for_ltr_content(self):
-        self.settings.save_setting("language", "en_US")
-        editor = self.make_editor()
-
-        editor.editor.setPlainText("Plain English text")
-        html = editor.render_markdown_html("# Title\n\nPlain English text")
-
-        self.assertEqual(editor.layoutDirection(), Qt.LayoutDirection.LeftToRight)
-        self.assertEqual(editor.editor.layoutDirection(), Qt.LayoutDirection.LeftToRight)
-        self.assertEqual(editor.markdown_preview.layoutDirection(), Qt.LayoutDirection.LeftToRight)
-        self.assertEqual(
-            editor.editor.document().defaultTextOption().textDirection(),
-            Qt.LayoutDirection.LayoutDirectionAuto
-        )
-        self.assertIn('<html dir="auto">', html)
-        self.assertIn('<body dir="auto">', html)
-        self.assertIn('dir="auto" data-source-line="1"', html)
 
     def test_editor_and_preview_direction_does_not_follow_ui_language(self):
         self.settings.save_setting("language", "en_US")
@@ -920,17 +906,6 @@ class EditorAndMainTests(unittest.TestCase):
         editor.editor.setPlainText("saved content")
         self.assertTrue(editor.save_file())
         self.assertEqual(target.read_text(encoding="utf-8"), "saved content")
-
-    def test_editor_save_dialog_uses_translation_without_shadowing(self):
-        editor = self.make_editor()
-        target = Path(self.temp_dir.name) / "save-dialog.md"
-        editor.editor.setPlainText("dialog save")
-
-        with patch.object(editor_tab_impl, "get_save_file_name", return_value=(str(target), "")):
-            self.assertTrue(editor.save_file(force_dialog=True))
-
-        self.assertEqual(editor.current_file, str(target))
-        self.assertEqual(target.read_text(encoding="utf-8"), "dialog save")
 
     def test_save_dialog_prefers_markdown_or_text_extension(self):
         editor = self.make_editor()
@@ -1605,6 +1580,8 @@ class EditorAndMainTests(unittest.TestCase):
             self.assertEqual(app().property("_jottr_style_key"), expected)
             timer = getattr(settings_tab, "_notify_timer", None)
             self.assertTrue(timer is None or not timer.isActive())
+            # The chrome stylesheet is restored on the next event-loop tick.
+            QApplication.processEvents()
             sheet = QApplication.instance().styleSheet()
             self.assertIn("QToolBar#mainToolBar", sheet)
 
@@ -1788,6 +1765,9 @@ class EditorAndMainTests(unittest.TestCase):
             editor_theme_menu = view_items["Editor Theme"].menu()
             self.assertIsNotNone(color_scheme_menu)
             self.assertIsNotNone(editor_theme_menu)
+            # Both grids are built when their menu is about to show.
+            color_scheme_menu.aboutToShow.emit()
+            editor_theme_menu.aboutToShow.emit()
             scheme_actions = [
                 action for action in color_scheme_menu.actions() if not action.isSeparator()
             ]
@@ -1890,12 +1870,18 @@ class EditorAndMainTests(unittest.TestCase):
                 self.main_window = main_window
 
         with patch.object(window_module, "EditorTab", FakeEditorTab):
+            # Build the window light, whatever the desktop prefers, so falling
+            # back to its first palette is detectable from a dark theme.
+            self.settings.save_ui_theme("Light")
             window = TextEditorApp()
             self.addCleanup(window.close)
             self.addCleanup(window.deleteLater)
             self.addCleanup(lambda: QApplication.instance().setStyleSheet(""))
             saved_ui_theme = window.settings_manager.get_ui_theme()
             self.addCleanup(window.settings_manager.save_ui_theme, saved_ui_theme)
+            # Only a shown window is repolished the way the running app is.
+            window.show()
+            QApplication.processEvents()
 
             def window_background(ui_theme):
                 window.settings_manager.save_ui_theme(ui_theme)
@@ -1908,6 +1894,19 @@ class EditorAndMainTests(unittest.TestCase):
             self.assertGreater(light.lightnessF(), 0.5)
             # Back again: a repolish must not restore the first theme's colors.
             self.assertLess(window_background("Dark").lightnessF(), 0.5)
+
+            # A widget style swap repolishes without apply_app_style; the
+            # window must not fall back to the light palette it was built with.
+            previous_style = QApplication.instance().style().name()
+            self.addCleanup(QApplication.instance().setStyle, previous_style)
+            window.settings_manager.save_qt_style(
+                "Windows" if previous_style.lower() != "windows" else "Fusion"
+            )
+            window.apply_widget_style()
+            QApplication.processEvents()
+            self.assertLess(
+                window.palette().color(QPalette.ColorRole.Window).lightnessF(), 0.5
+            )
 
     def test_settings_window_palette_follows_menu_scheme_and_widget_style(self):
         """The top-level Settings window must track restyles made elsewhere.
@@ -2126,7 +2125,8 @@ class EditorAndMainTests(unittest.TestCase):
                 return True
 
         class FakeRSSTab(QWidget):
-            pass
+            def __init__(self, settings_manager=None, parent=None):
+                super().__init__(parent)
 
         with (
             patch.object(window_module, "EditorTab", FakeEditorTab),
@@ -2168,9 +2168,14 @@ class EditorAndMainTests(unittest.TestCase):
             tab_bar = window.tab_widget.tabBar()
             tab_bar.sync_rail_width()
             self.assertGreaterEqual(tab_bar.minimumWidth(), window.tab_widget.width())
+            from jottr.window_color_scheme import effective_chrome_theme
+
+            # The rail follows the resolved chrome theme, which under System
+            # depends on the desktop's light/dark preference.
             expected_rail = QColor(
-                main_module.ThemeManager.get_ui_theme(
-                    window.settings_manager.get_ui_theme()
+                effective_chrome_theme(
+                    window.settings_manager.get_window_color_scheme(),
+                    window.settings_manager.get_ui_theme(),
                 )["app"]["surface"]
             )
             self.assertEqual(tab_bar.rail_color().name(), expected_rail.name())

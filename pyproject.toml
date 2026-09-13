@@ -47,6 +47,8 @@ build = [
 ]
 dev = [
   "jottr[build]",
+  "pytest",
+  "pytest-xdist",
 ]
 
 [project.gui-scripts]
@@ -67,3 +69,9 @@ jottr = [
   "help/**/*",
   "icons/**/*",
 ]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+# Tests use Qt's offscreen platform (tests/conftest.py), so pytest-xvfb's
+# virtual X server only adds startup time when that plugin is installed.
+addopts = "-p no:xvfb"

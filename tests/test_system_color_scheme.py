@@ -100,6 +100,11 @@ class SystemColorSchemeTests(unittest.TestCase):
         app()
         clear_system_color_scheme_cache()
         self.addCleanup(clear_system_color_scheme_cache)
+        # A pin left by another test would be mistaken for our own override.
+        system_color_scheme_module.note_pinned_color_scheme(Qt.ColorScheme.Unknown)
+        self.addCleanup(
+            system_color_scheme_module.note_pinned_color_scheme, Qt.ColorScheme.Unknown
+        )
 
     def test_portal_wins_when_platform_theme_disagrees(self):
         """Native GNOME: Qt reports Light from GTK settings while the portal is Dark."""
@@ -135,6 +140,7 @@ class SystemColorSchemeTests(unittest.TestCase):
                     return_value=Qt.ColorScheme.Unknown,
                 ):
                     self.assertEqual(system_color_scheme(app()), Qt.ColorScheme.Dark)
+
     def test_gtk_settings_answer_when_portal_is_silent(self):
         with patch.object(QStyleHints, "colorScheme", lambda _self: Qt.ColorScheme.Unknown):
             with patch.object(
@@ -270,6 +276,7 @@ class QtColorSchemePinTests(unittest.TestCase):
         self.assertEqual(
             system_color_scheme_module.pinned_color_scheme(), Qt.ColorScheme.Unknown
         )
+
     def test_explicit_ui_theme_is_not_recorded_as_a_pin(self):
         requested = self._apply("Dark", Qt.ColorScheme.Unknown, Qt.ColorScheme.Light)
         self.assertEqual(requested, [Qt.ColorScheme.Dark])

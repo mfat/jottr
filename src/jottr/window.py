@@ -486,6 +486,39 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
         # apply_app_style drops the chrome-theme cache before it resolves.
         self.apply_app_style()
 
+    def changeEvent(self, event):
+        super().changeEvent(event)
+        if (
+            event.type() == QEvent.Type.StyleChange
+            and not getattr(self, "_applying_app_style", True)
+        ):
+            # QStyleSheetStyle restores the palette this window had when it was
+            # first polished on every repolish (a widget style swap, the
+            # deferred stylesheet restore), so put the current one back.
+            self.apply_window_palette()
+
+    def apply_window_palette(self):
+        """Set this window's palette from the active Window Color Scheme."""
+        from jottr.qt_style import reconcile_chrome_theme_with_color_scheme
+        from jottr.window_color_scheme import (
+            effective_chrome_theme,
+            find_window_color_scheme,
+        )
+
+        application = QApplication.instance()
+        window_scheme_id = self.settings_manager.get_window_color_scheme()
+        if find_window_color_scheme(window_scheme_id).path:
+            if application is not None:
+                self.setPalette(application.palette())
+            return
+        ui_theme = self.settings_manager.get_ui_theme()
+        theme = reconcile_chrome_theme_with_color_scheme(
+            effective_chrome_theme(window_scheme_id, ui_theme, application),
+            ui_theme,
+            application,
+        )
+        ThemeManager.apply_app_palette(self, theme)
+
     def apply_app_style(self, font=None):
         """Apply widget style, Qt color scheme, UI font, and matching chrome.
 
@@ -496,6 +529,15 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
         Window Color Scheme (Kate / KColorSchemeManager) installs a QPalette
         from a ``.colors`` file when selected; Default follows System/Light/Dark.
         """
+        # changeEvent skips its palette refresh while this runs; the window
+        # palette is set last below.
+        self._applying_app_style = True
+        try:
+            self._apply_app_style(font)
+        finally:
+            self._applying_app_style = False
+
+    def _apply_app_style(self, font=None):
         from jottr.qt_style import reconcile_chrome_theme_with_color_scheme
         from jottr.window_color_scheme import (
             activate_window_color_scheme,

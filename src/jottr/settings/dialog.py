@@ -173,7 +173,7 @@ class SettingsDialog(
             # QStyleSheetStyle restores the palette this window had when it was
             # first polished on every repolish (widget style swaps, a new app
             # or font stylesheet), so reapply the current one afterwards.
-            self.apply_dialog_palette()
+            self.apply_dialog_palette(pin_app_scheme=False)
         elif event.type() == QEvent.Type.ActivationChange and self.isActiveWindow():
             # Menus, the status bar, and the editor context menu can change
             # settings while this window is open; pick those up on activation.
@@ -357,18 +357,23 @@ class SettingsDialog(
         self.apply_dialog_palette()
         self.apply_ui_font()
 
-    def apply_dialog_palette(self):
+    def apply_dialog_palette(self, pin_app_scheme=True):
+        """Set this window's palette; standalone, also pin app-wide colors.
+
+        *pin_app_scheme* False only repaints: a repolish must not push this
+        window's appearance onto the rest of the application.
+        """
         # Reapplying can itself repolish (the standalone color scheme pin), and
         # a repolish calls back in through changeEvent.
         if getattr(self, "_applying_palette", False):
             return
         self._applying_palette = True
         try:
-            self._apply_dialog_palette()
+            self._apply_dialog_palette(pin_app_scheme)
         finally:
             self._applying_palette = False
 
-    def _apply_dialog_palette(self):
+    def _apply_dialog_palette(self, pin_app_scheme=True):
         # A top-level window does not inherit the main window's palette, so
         # set it explicitly, the same way the main window does.
         from jottr.qt_style import (
@@ -401,7 +406,7 @@ class SettingsDialog(
             )
         # The host window owns app-wide color scheme state; only apply it
         # here when running standalone.
-        if self.host is None:
+        if self.host is None and pin_app_scheme:
             apply_qt_color_scheme(color_scheme_setting)
             activate_window_color_scheme(window_scheme_id)
         if not window_scheme.path:
