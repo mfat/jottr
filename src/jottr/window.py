@@ -54,9 +54,6 @@ from jottr import __version__
 from jottr.ui.workspace_controller import WorkspaceControllerMixin
 from jottr.ui.document_tab_bar import DocumentTabWidget
 
-# Lazy-loaded symbols (kept patchable for tests).
-RSSTab = None
-
 APP_NAME = "Jottr"
 APP_VERSION = __version__
 APP_HOMEPAGE = "https://github.com/mfat/jottr"
@@ -1680,15 +1677,6 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
         self.save_workspace_open_files()
         return editor_tab
         
-    def new_rss_tab(self):
-        global RSSTab
-        if RSSTab is None:
-            from jottr.rss_tab import RSSTab as _RSSTab
-            RSSTab = _RSSTab
-        rss_tab = RSSTab(self.settings_manager)
-        self.tab_widget.addTab(rss_tab, _("RSS Reader"))
-        self.tab_widget.setCurrentWidget(rss_tab)
-
     def apply_editor_font_to_tabs(self, font):
         """Apply the selected editor font to all open editor tabs."""
         for index in range(self.tab_widget.count()):
@@ -2437,7 +2425,6 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
         actions = {
             "toggle_browser": self.toggle_browser,
             "toggle_markdown_preview": self.toggle_markdown_preview,
-            "new_rss_tab": self.new_rss_tab,
         }
         handler = actions.get(action_id)
         if not handler:
@@ -2482,12 +2469,6 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
             url = panel.get("url") or panel.get("homepage") or "about:blank"
             view.load(QUrl(url))
             return view
-        if panel_type == "rss":
-            global RSSTab
-            if RSSTab is None:
-                from jottr.rss_tab import RSSTab as _RSSTab
-                RSSTab = _RSSTab
-            return RSSTab(self.settings_manager)
         label = QLabel(panel.get("content") or panel.get("description") or _("Plugin panel"))
         label.setWordWrap(True)
         label.setAlignment(Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignLeft)

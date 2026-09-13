@@ -77,7 +77,6 @@ pyinstaller \
   --hidden-import jottr.ui.workspace \
   --hidden-import jottr.ui.workspace_controller \
   --hidden-import jottr.window \
-  --hidden-import jottr.feed_manager_dialog \
   --hidden-import jottr.font_dialog \
   --hidden-import jottr.file_dialogs \
   --hidden-import jottr.icon_manager \
@@ -88,8 +87,6 @@ pyinstaller \
   --hidden-import jottr.plugin_manager \
   --hidden-import jottr.qt_style \
   --hidden-import jottr.window_color_scheme \
-  --hidden-import jottr.rss_reader \
-  --hidden-import jottr.rss_tab \
   --hidden-import jottr.settings_dialog \
   --hidden-import jottr.settings_manager \
   --hidden-import jottr.snippet_editor_dialog \
@@ -99,6 +96,8 @@ pyinstaller \
   --hidden-import pyenchant \
   --hidden-import pyspellchecker \
   --hidden-import spellchecker \
+  --hidden-import feedparser \
+  --hidden-import requests \
   --add-data "src/jottr/help:jottr/help" \
   --add-data "src/jottr/icons:jottr/icons" \
   --add-data "icons:icons" \

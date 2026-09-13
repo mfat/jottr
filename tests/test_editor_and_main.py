@@ -2110,7 +2110,7 @@ class EditorAndMainTests(unittest.TestCase):
             plugin_actions = [action.text() for action in plugins_menu.actions() if not action.isSeparator()]
             self.assertEqual(plugin_actions, ["Browser"])
 
-    def test_main_window_closes_rss_tabs_without_editor_assumption(self):
+    def test_main_window_closes_non_editor_tabs_without_editor_assumption(self):
         class FakeEditorTab(QWidget):
             def __init__(self, snippet_manager, settings_manager):
                 super().__init__()
@@ -2123,24 +2123,19 @@ class EditorAndMainTests(unittest.TestCase):
             def save_file(self, force_dialog=False):
                 return True
 
-        class FakeRSSTab(QWidget):
-            def __init__(self, settings_manager=None, parent=None):
-                super().__init__(parent)
-
-        with (
-            patch.object(window_module, "EditorTab", FakeEditorTab),
-            patch.object(window_module, "RSSTab", FakeRSSTab),
-        ):
+        with patch.object(window_module, "EditorTab", FakeEditorTab):
             window = TextEditorApp()
             self.addCleanup(window.close)
             self.addCleanup(window.deleteLater)
 
-            window.new_rss_tab()
-            self.assertIsInstance(window.tab_widget.currentWidget(), FakeRSSTab)
+            panel = QWidget()
+            window.tab_widget.addTab(panel, "Plugin panel")
+            window.tab_widget.setCurrentWidget(panel)
+            self.assertIs(window.tab_widget.currentWidget(), panel)
 
             window.close_current_tab()
 
-            self.assertNotIsInstance(window.tab_widget.currentWidget(), FakeRSSTab)
+            self.assertIsNot(window.tab_widget.currentWidget(), panel)
             self.assertTrue(window.handle_unsaved_changes())
 
     def test_main_window_left_aligns_document_tabs(self):

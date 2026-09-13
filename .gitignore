@@ -13,9 +13,6 @@ __pycache__/
 .benchmarks/
 .cursor/
 
-# Leftover CWD dumps from older RSSReader builds
-rss_feeds.json
-
 # Package build artifacts
 *.tar.gz
 /AppDir/

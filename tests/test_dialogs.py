@@ -6,8 +6,7 @@ import threading
 import time
 import unittest
 from pathlib import Path
-from types import SimpleNamespace
-from unittest.mock import Mock, patch
+from unittest.mock import patch
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
@@ -19,8 +18,6 @@ from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QFont
 from PyQt6.QtWidgets import QApplication, QGroupBox, QLabel, QMessageBox, QScrollArea, QWidget
 
-from jottr.feed_manager_dialog import FeedManagerDialog
-from jottr.rss_reader import RSSReader
 from jottr.settings_dialog import SearchSiteDialog, SettingsDialog
 from jottr.plugin_manager import PluginManager
 from jottr.settings_manager import SettingsManager
@@ -71,7 +68,7 @@ def seed_official_plugin_registry(manager):
     checksum_path.write_text(f"{manager.sha256_file(registry_path)}  plugins.json\n", encoding="utf-8")
 
 
-class DialogAndRssTests(unittest.TestCase):
+class DialogTests(unittest.TestCase):
     def setUp(self):
         app()
         self.temp_dir = tempfile.TemporaryDirectory()
@@ -557,110 +554,6 @@ class DialogAndRssTests(unittest.TestCase):
         dialog.content_edit.setPlainText("Updated body")
 
         self.assertEqual(dialog.get_data(), {"title": "Updated", "content": "Updated body"})
-
-    def test_feed_manager_dialog_edits_copy_without_mutating_original_until_read(self):
-        original = {"A": "https://a.example/rss"}
-        dialog = FeedManagerDialog(original)
-
-        dialog.feeds["B"] = "https://b.example/rss"
-        dialog.refresh_table()
-
-        self.assertEqual(original, {"A": "https://a.example/rss"})
-        self.assertEqual(dialog.get_feeds()["B"], "https://b.example/rss")
-        self.assertEqual(dialog.table.rowCount(), 2)
-
-    def test_feed_manager_test_feed_url_accepts_valid_feed(self):
-        dialog = FeedManagerDialog({})
-        response = Mock(text="<rss></rss>")
-        response.raise_for_status.return_value = None
-        feed = SimpleNamespace(entries=[SimpleNamespace(title="Item")])
-
-        with patch("jottr.feed_manager_dialog.requests.get", return_value=response) as get, \
-                patch("jottr.feed_manager_dialog.feedparser.parse", return_value=feed):
-            self.assertTrue(dialog.test_feed_url("https://example.test/rss"))
-
-        get.assert_called_once_with("https://example.test/rss", timeout=10)
-
-    def test_feed_manager_test_feed_url_rejects_empty_feed(self):
-        dialog = FeedManagerDialog({})
-        response = Mock(text="<rss></rss>")
-        response.raise_for_status.return_value = None
-        feed = SimpleNamespace(entries=[])
-
-        with patch("jottr.feed_manager_dialog.requests.get", return_value=response), \
-                patch("jottr.feed_manager_dialog.feedparser.parse", return_value=feed), \
-                patch("jottr.feed_manager_dialog.QMessageBox.warning") as warning:
-            self.assertFalse(dialog.test_feed_url("https://example.test/rss"))
-
-        warning.assert_called_once()
-
-    def test_rss_reader_loads_default_and_custom_feeds(self):
-        settings = SettingsManager()
-        feeds_path = Path(settings.config_dir) / "rss_feeds.json"
-        feeds_path.write_text(
-            json.dumps({"Local": "https://local.example/rss"}),
-            encoding="utf-8",
-        )
-        reader = RSSReader(settings)
-
-        self.assertEqual(Path(reader.feed_file), feeds_path)
-        self.assertIn("BBC World", reader.feeds)
-        self.assertEqual(reader.feeds["Local"], "https://local.example/rss")
-        self.assertGreater(reader.feed_selector.count(), 0)
-        self.assertTrue(feeds_path.is_file())
-
-    def test_rss_reader_prunes_removed_default_feeds(self):
-        settings = SettingsManager()
-        feeds_path = Path(settings.config_dir) / "rss_feeds.json"
-        feeds_path.write_text(
-            json.dumps({
-                "Reuters Top News": "https://feeds.reuters.com/reuters/topNews",
-                "AP Top News": "https://apnews.com/feed",
-                "Keep Me": "https://keep.example/rss",
-            }),
-            encoding="utf-8",
-        )
-        reader = RSSReader(settings)
-
-        self.assertNotIn("Reuters Top News", reader.feeds)
-        self.assertNotIn("AP Top News", reader.feeds)
-        self.assertEqual(reader.feeds["Keep Me"], "https://keep.example/rss")
-        saved = json.loads(feeds_path.read_text(encoding="utf-8"))
-        self.assertNotIn("Reuters Top News", saved)
-        self.assertNotIn("AP Top News", saved)
-
-    def test_rss_reader_refresh_populates_entries_and_content(self):
-        reader = RSSReader(SettingsManager())
-        reader.feeds = {"Local": "https://local.example/rss"}
-        reader.update_feed_selector()
-        response = Mock(text="<rss></rss>")
-        response.raise_for_status.return_value = None
-        entry = SimpleNamespace(
-            title="Headline",
-            published="Today",
-            description="Summary",
-            link="https://example.test/story",
-        )
-        feed = SimpleNamespace(entries=[entry])
-        with patch("jottr.rss_reader.requests.get", return_value=response), \
-                patch("jottr.rss_reader.feedparser.parse", return_value=feed):
-            reader.refresh_current_feed()
-            reader.entries_list.setCurrentRow(0)
-
-        self.assertEqual(reader.entries_list.count(), 1)
-        self.assertIn("Headline", reader.content_viewer.toHtml())
-
-    def test_rss_reader_remove_feed_respects_confirmation(self):
-        reader = RSSReader(SettingsManager())
-        reader.feeds = {"Local": "https://local.example/rss"}
-        reader.update_feed_selector()
-        with patch(
-            "jottr.rss_reader.QMessageBox.question",
-            return_value=QMessageBox.StandardButton.Yes,
-        ):
-            reader.remove_feed()
-
-        self.assertEqual(reader.feeds, {})
 
 
 if __name__ == "__main__":

@@ -21,9 +21,7 @@ class ImportAndPackagingTests(unittest.TestCase):
 
     def test_core_modules_import(self):
         from jottr import editor_tab
-        from jottr import feed_manager_dialog
         from jottr import main
-        from jottr import rss_reader
         from jottr import settings_dialog
         from jottr import settings_manager
         from jottr import snippet_editor_dialog
@@ -55,12 +53,9 @@ class ImportAndPackagingTests(unittest.TestCase):
         offenders = []
         flat_modules = (
             "editor_tab",
-            "feed_manager_dialog",
             "font_dialog",
             "icon_manager",
             "plugin_manager",
-            "rss_reader",
-            "rss_tab",
             "settings_dialog",
             "settings_manager",
             "snippet_editor_dialog",
@@ -140,7 +135,6 @@ class ImportAndPackagingTests(unittest.TestCase):
             "jottr.editor.tab",
             "jottr.editor.text_edit",
             "jottr.editor_tab",
-            "jottr.feed_manager_dialog",
             "jottr.font_dialog",
             "jottr.file_dialogs",
             "jottr.icon_manager",
@@ -151,8 +145,6 @@ class ImportAndPackagingTests(unittest.TestCase):
             "jottr.plugin_manager",
             "jottr.qt_style",
             "jottr.window_color_scheme",
-            "jottr.rss_reader",
-            "jottr.rss_tab",
             "jottr.settings_dialog",
             "jottr.settings_manager",
             "jottr.snippet_editor_dialog",
@@ -168,6 +160,13 @@ class ImportAndPackagingTests(unittest.TestCase):
         )
 
         for module in package_modules:
+            with self.subTest(module=module):
+                self.assertIn(f"--hidden-import {module}", workflow)
+                self.assertIn(f"--hidden-import {module}", appimage_script)
+
+        # The rss-feed plugin imports these from the host app; nothing in
+        # jottr does, so PyInstaller would otherwise leave them out.
+        for module in ("feedparser", "requests"):
             with self.subTest(module=module):
                 self.assertIn(f"--hidden-import {module}", workflow)
                 self.assertIn(f"--hidden-import {module}", appimage_script)

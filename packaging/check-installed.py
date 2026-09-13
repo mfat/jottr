@@ -30,7 +30,7 @@ import jottr  # noqa: E402
 if not jottr.__file__.startswith("/usr/lib/python3"):
     sys.exit(f"Imported jottr from {jottr.__file__}, not the installed package")
 
-# Import everything, including lazily imported modules (e.g. the RSS reader),
+# Import everything, including lazily imported modules,
 # so a missing runtime dependency fails here instead of on a user's machine.
 modules = [info.name for info in pkgutil.walk_packages(jottr.__path__, "jottr.")]
 for name in modules:

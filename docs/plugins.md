@@ -141,7 +141,7 @@ Every plugin must include metadata:
       {
         "id": "rss-feed.reader",
         "title": "RSS Reader",
-        "type": "rss"
+        "type": "python"
       }
     ],
     "commands": [
@@ -209,7 +209,7 @@ Supported manifest panel types:
 
 - `text`: Opens a simple read-only text panel using `content` or `description`.
 - `browser` or `web`: Opens a web panel using `url` or `homepage`.
-- `rss`: Opens Jottr's RSS reader panel.
+- `python`: Opens the widget the plugin's `entry` registers with `api.register_panel()`.
 
 ### Commands
 

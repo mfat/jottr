@@ -5,7 +5,7 @@ from PyQt6.QtGui import QFont, QFontDatabase, QGuiApplication
 import time
 import sys
 
-DEFAULT_ENABLED_PLUGIN_NAMES = {"browser-panel", "rss-feed"}
+DEFAULT_ENABLED_PLUGIN_NAMES = {"browser-panel"}
 DEFAULT_PLUGIN_REGISTRY_URL = "https://raw.githubusercontent.com/Jottrhq/plugins/main/plugins.json"
 DEFAULT_PLUGIN_REGISTRY_CHECKSUM_URL = "https://raw.githubusercontent.com/Jottrhq/plugins/main/plugins.json.sha256"
 DEFAULT_PLUGIN_CHANNELS = [
