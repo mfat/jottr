@@ -917,13 +917,15 @@ class ThemeManager:
                 color: {app['text']};
                 font-weight: 700;
             }}
-            QPushButton#panelCloseButton {{
+            QPushButton#panelCloseButton,
+            QPushButton#panelHeaderButton {{
                 background: {app['surface_alt']};
                 border: 1px solid transparent;
                 border-radius: 0px;
                 color: {app['muted']};
             }}
-            QPushButton#panelCloseButton:hover {{
+            QPushButton#panelCloseButton:hover,
+            QPushButton#panelHeaderButton:hover {{
                 background: {app['surface_hover']};
                 border-color: {app['border_active']};
                 color: {app['accent_text']};

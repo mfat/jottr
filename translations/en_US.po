@@ -187,6 +187,15 @@ msgstr "Save Snippet"
 msgid "Edit Snippet"
 msgstr "Edit Snippet"
 
+msgid "New Snippet"
+msgstr "New Snippet"
+
+msgid "New snippet"
+msgstr "New snippet"
+
+msgid "A snippet named \"{title}\" already exists. Replace it?"
+msgstr "A snippet named \"{title}\" already exists. Replace it?"
+
 #: src/jottr/editor_tab.py:1258
 msgid "Delete Snippet"
 msgstr "Delete Snippet"

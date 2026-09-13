@@ -417,6 +417,49 @@ class EditorAndMainTests(unittest.TestCase):
         self.assertEqual(menu_exec.call_args[0][0], expected)
         self.assertNotEqual(expected, wrong)
 
+    def test_snippet_context_menu_offers_new_snippet_on_empty_list(self):
+        editor = self.make_editor()
+        editor.snippet_list.resize(220, 300)
+
+        with patch.object(editor_tab_impl.QMenu, "exec") as menu_exec, \
+                patch.object(editor_tab_impl.QMenu, "addAction") as add_action:
+            editor.show_snippet_context_menu(QPoint(20, 20))
+
+        menu_exec.assert_called_once()
+        labels = [c.args[0] for c in add_action.call_args_list]
+        self.assertEqual(labels, ["New Snippet"])
+
+    def test_new_snippet_saves_dialog_data(self):
+        editor = self.make_editor()
+
+        with patch.object(editor_tab_impl.SnippetEditorDialog, "exec",
+                          return_value=editor_tab_impl.QDialog.DialogCode.Accepted), \
+                patch.object(editor_tab_impl.SnippetEditorDialog, "get_data",
+                             return_value={"title": " Sign-off ", "content": "Cheers"}):
+            editor.new_snippet()
+
+        self.assertEqual(editor.snippet_manager.get_snippet("Sign-off"), "Cheers")
+        self.assertEqual(editor.snippet_list.item(0).text(), "Sign-off")
+
+    def test_new_snippet_ignores_blank_title_and_keeps_existing_on_decline(self):
+        editor = self.make_editor()
+        editor.snippet_manager.add_snippet("sig", "Regards")
+
+        accepted = editor_tab_impl.QDialog.DialogCode.Accepted
+        with patch.object(editor_tab_impl.SnippetEditorDialog, "exec", return_value=accepted), \
+                patch.object(editor_tab_impl.SnippetEditorDialog, "get_data",
+                             return_value={"title": "   ", "content": "x"}):
+            editor.new_snippet()
+        self.assertEqual(editor.snippet_manager.get_snippets(), ["sig"])
+
+        with patch.object(editor_tab_impl.SnippetEditorDialog, "exec", return_value=accepted), \
+                patch.object(editor_tab_impl.SnippetEditorDialog, "get_data",
+                             return_value={"title": "sig", "content": "Other"}), \
+                patch.object(editor_tab_impl.QMessageBox, "question",
+                             return_value=editor_tab_impl.QMessageBox.StandardButton.No):
+            editor.new_snippet()
+        self.assertEqual(editor.snippet_manager.get_snippet("sig"), "Regards")
+
     def test_editor_font_updates_visible_editor_style_and_document(self):
         editor = self.make_editor()
         font = QFont("Liberation Serif", 16)

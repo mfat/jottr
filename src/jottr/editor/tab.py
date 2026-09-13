@@ -208,7 +208,14 @@ class EditorTab(
         snippet_title.setObjectName("panelTitle")
         header_layout.addWidget(snippet_title)
         header_layout.addStretch()
-        
+
+        snippet_new = QPushButton("+")
+        snippet_new.setObjectName("panelHeaderButton")
+        snippet_new.setFixedSize(24, 24)
+        snippet_new.setToolTip(_("New snippet"))
+        snippet_new.clicked.connect(self.new_snippet)
+        header_layout.addWidget(snippet_new)
+
         snippet_close = QPushButton("×")
         snippet_close.setObjectName("panelCloseButton")
         snippet_close.setFixedSize(24, 24)
@@ -879,6 +886,27 @@ class EditorTab(
             self.snippet_manager.add_snippet(title, text)
             self.update_snippet_list()
             
+    def new_snippet(self):
+        """Create a snippet from the Snippets panel, prefilled with any selection."""
+        dialog = SnippetEditorDialog("", self.editor.textCursor().selectedText().replace(' ', '\n'), self)
+        dialog.setWindowTitle(_("New Snippet"))
+        if dialog.exec() != QDialog.DialogCode.Accepted:
+            return
+        data = dialog.get_data()
+        title = data['title'].strip()
+        if not title:
+            return
+        if self.snippet_manager.get_snippet(title) is not None:
+            reply = QMessageBox.question(
+                self,
+                _("New Snippet"),
+                _("A snippet named \"{title}\" already exists. Replace it?").format(title=title),
+            )
+            if reply != QMessageBox.StandardButton.Yes:
+                return
+        self.snippet_manager.add_snippet(title, data['content'])
+        self.update_snippet_list()
+
     def edit_current_snippet(self):
         current_item = self.snippet_list.currentItem()
         if not current_item:
@@ -904,13 +932,17 @@ class EditorTab(
 
     def show_snippet_context_menu(self, position):
         menu = QMenu()
-        current_item = self.snippet_list.currentItem()
+        menu.addAction(_("New Snippet"), self.new_snippet)
+        # Only offer edit/delete when the click landed on a snippet
+        current_item = self.snippet_list.itemAt(position)
 
         if current_item:
+            self.snippet_list.setCurrentItem(current_item)
+            menu.addSeparator()
             menu.addAction(_("Edit Snippet"), self.edit_current_snippet)
             menu.addAction(_("Delete Snippet"), self.delete_current_snippet)
-            # customContextMenuRequested is viewport-relative; list has stylesheet padding
-            menu.exec(self.snippet_list.viewport().mapToGlobal(position))
+        # customContextMenuRequested is viewport-relative; list has stylesheet padding
+        menu.exec(self.snippet_list.viewport().mapToGlobal(position))
 
     def update_completer_model(self):
         """Update completer with current snippets"""

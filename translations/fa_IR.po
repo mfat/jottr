@@ -187,6 +187,15 @@ msgstr "ذخیرهٔ قطعه"
 msgid "Edit Snippet"
 msgstr "ویرایش قطعه"
 
+msgid "New Snippet"
+msgstr "قطعهٔ جدید"
+
+msgid "New snippet"
+msgstr "قطعهٔ جدید"
+
+msgid "A snippet named \"{title}\" already exists. Replace it?"
+msgstr "قطعه‌ای با نام «{title}» از قبل وجود دارد. جایگزین شود؟"
+
 #: src/jottr/editor_tab.py:1258
 msgid "Delete Snippet"
 msgstr "حذف قطعه"
