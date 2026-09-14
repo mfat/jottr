@@ -37,7 +37,15 @@ from jottr.editor.case_transform import (
     apply_uppercase,
 )
 from jottr.editor.text_edit import CompletingTextEdit
-from jottr.editor.text_format import apply_wrap_in_quotes
+from jottr.editor.text_format import (
+    apply_code_block,
+    apply_heading,
+    apply_line_prefix,
+    apply_link,
+    apply_numbered_list,
+    apply_wrap,
+    apply_wrap_in_quotes,
+)
 from jottr.editor.markdown import MarkdownPreviewMixin
 from jottr.editor.browser import BrowserPaneMixin
 from jottr.editor.focus_mode import FocusModeMixin
@@ -809,6 +817,37 @@ class EditorTab(
             action.triggered.connect(lambda checked, url=search_url:
                 self.search_in_browser(url))
 
+    def _add_formatting_menu(self, menu, has_inline_target):
+        """Add the Formatting submenu (quotes and common Markdown)."""
+        formatting_menu = menu.addMenu(_("Formatting"))
+        editor = self.editor
+
+        # Inline formats need a selection or a word under the caret
+        inline_actions = [
+            (_("Bold"), lambda: apply_wrap(editor, "**")),
+            (_("Italic"), lambda: apply_wrap(editor, "*")),
+            (_("Strikethrough"), lambda: apply_wrap(editor, "~~")),
+            (_("Inline Code"), lambda: apply_wrap(editor, "`")),
+            (_("Link"), lambda: apply_link(editor)),
+            (_("Wrap in Quotes"), lambda: apply_wrap_in_quotes(editor)),
+        ]
+        for label, callback in inline_actions:
+            formatting_menu.addAction(label, callback).setEnabled(has_inline_target)
+        formatting_menu.addSeparator()
+
+        # Line formats act on the selected lines or the current line
+        for level in (1, 2, 3):
+            formatting_menu.addAction(
+                _("Heading {level}").format(level=level),
+                lambda level=level: apply_heading(editor, level),
+            )
+        formatting_menu.addSeparator()
+        formatting_menu.addAction(_("Bulleted List"), lambda: apply_line_prefix(editor, "- "))
+        formatting_menu.addAction(_("Numbered List"), lambda: apply_numbered_list(editor))
+        formatting_menu.addAction(_("Task List"), lambda: apply_line_prefix(editor, "- [ ] "))
+        formatting_menu.addAction(_("Blockquote"), lambda: apply_line_prefix(editor, "> "))
+        formatting_menu.addAction(_("Code Block"), lambda: apply_code_block(editor))
+
     def _add_spelling_actions(self, menu, word):
         """Add spell-check actions for a single misspelled word."""
         if not word or ' ' in word or not self.highlighter.spell_check_enabled:
@@ -843,24 +882,17 @@ class EditorTab(
 
         # Get selected text (only real user selections; we never auto-select)
         selected_text = self.editor.textCursor().selectedText()
+        # Like Kate: without a selection, act on the word under the caret
+        target_text = selected_text or self._word_at_cursor()
 
-        if selected_text:
-            self._add_search_menu(menu, selected_text)
+        if target_text:
+            self._add_search_menu(menu, target_text)
             menu.addSeparator()
-
-            # Spell-check for a single selected word
-            if ' ' not in selected_text:
-                self._add_spelling_actions(menu, selected_text)
-            # Add "Save as Snippet" option
-            menu.addAction(_("Save as Snippet"), lambda: self.save_snippet(selected_text))
+        # Spell-check for a single word (skips multi-word selections)
+        self._add_spelling_actions(menu, target_text)
+        if target_text:
+            menu.addAction(_("Save as Snippet"), lambda: self.save_snippet(target_text))
             menu.addSeparator()
-        else:
-            # Like Kate: act on the word under the caret without selecting it
-            word = self._word_at_cursor()
-            if word:
-                self._add_search_menu(menu, word)
-                menu.addSeparator()
-            self._add_spelling_actions(menu, word)
 
         # Cut/Copy/Paste actions (Kate: cut/copy need selection; paste needs clipboard)
         has_selection = bool(selected_text)
@@ -881,9 +913,7 @@ class EditorTab(
         capitalization_menu.addAction(_("Lowercase"), lambda: apply_lowercase(self.editor))
         capitalization_menu.addAction(_("Capitalize"), lambda: apply_capitalize(self.editor))
 
-        formatting_menu = menu.addMenu(_("Formatting"))
-        formatting_menu.menuAction().setEnabled(has_selection)
-        formatting_menu.addAction(_("Wrap in Quotes"), lambda: apply_wrap_in_quotes(self.editor))
+        self._add_formatting_menu(menu, has_inline_target=bool(target_text))
         menu.addSeparator()
 
         # Top-left of the menu at the click (Kate: mapToGlobal(e->pos()))

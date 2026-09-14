@@ -1,4 +1,4 @@
-"""Tests for selection formatting transforms."""
+"""Tests for quote and Markdown formatting transforms."""
 import os
 import sys
 import unittest
@@ -13,7 +13,16 @@ sys.path.insert(0, str(SRC_ROOT))
 from PyQt6.QtGui import QTextCursor
 from PyQt6.QtWidgets import QApplication, QTextEdit
 
-from jottr.editor.text_format import apply_wrap_in_quotes, wrap_in_quotes
+from jottr.editor.text_format import (
+    apply_code_block,
+    apply_heading,
+    apply_line_prefix,
+    apply_link,
+    apply_numbered_list,
+    apply_wrap,
+    apply_wrap_in_quotes,
+    wrap_in_quotes,
+)
 
 
 _APP = None
@@ -29,17 +38,29 @@ class TextFormatTests(unittest.TestCase):
     def setUp(self):
         app()
 
+    def make_editor(self, text):
+        editor = QTextEdit()
+        self.addCleanup(editor.deleteLater)
+        editor.setPlainText(text)
+        return editor
+
+    def select(self, editor, start, end):
+        cursor = editor.textCursor()
+        cursor.setPosition(start)
+        cursor.setPosition(end, QTextCursor.MoveMode.KeepAnchor)
+        editor.setTextCursor(cursor)
+
+    def place_caret(self, editor, position):
+        cursor = editor.textCursor()
+        cursor.setPosition(position)
+        editor.setTextCursor(cursor)
+
     def test_wrap_in_quotes(self):
         self.assertEqual(wrap_in_quotes("hello"), '"hello"')
 
     def test_apply_wrap_in_quotes_selection(self):
-        editor = QTextEdit()
-        self.addCleanup(editor.deleteLater)
-        editor.setPlainText("say hello there")
-        cursor = editor.textCursor()
-        cursor.setPosition(4)
-        cursor.setPosition(9, QTextCursor.MoveMode.KeepAnchor)
-        editor.setTextCursor(cursor)
+        editor = self.make_editor("say hello there")
+        self.select(editor, 4, 9)
 
         self.assertTrue(apply_wrap_in_quotes(editor))
         self.assertEqual(editor.toPlainText(), 'say "hello" there')
@@ -48,12 +69,51 @@ class TextFormatTests(unittest.TestCase):
         editor.undo()
         self.assertEqual(editor.toPlainText(), "say hello there")
 
-    def test_apply_wrap_in_quotes_needs_selection(self):
-        editor = QTextEdit()
-        self.addCleanup(editor.deleteLater)
-        editor.setPlainText("hello")
+    def test_inline_wrap_uses_word_under_caret(self):
+        editor = self.make_editor("say hello there")
+        self.place_caret(editor, 6)
+        self.assertTrue(apply_wrap(editor, "**"))
+        self.assertEqual(editor.toPlainText(), "say **hello** there")
+
+    def test_inline_wrap_needs_selection_or_word(self):
+        editor = self.make_editor("")
         self.assertFalse(apply_wrap_in_quotes(editor))
-        self.assertEqual(editor.toPlainText(), "hello")
+        self.assertEqual(editor.toPlainText(), "")
+
+    def test_link_selects_url_placeholder(self):
+        editor = self.make_editor("see docs here")
+        self.select(editor, 4, 8)
+        self.assertTrue(apply_link(editor))
+        self.assertEqual(editor.toPlainText(), "see [docs](url) here")
+        self.assertEqual(editor.textCursor().selectedText(), "url")
+
+    def test_heading_on_current_line_replaces_existing_marker(self):
+        editor = self.make_editor("one\n## two\nthree")
+        self.place_caret(editor, 6)
+        self.assertTrue(apply_heading(editor, 1))
+        self.assertEqual(editor.toPlainText(), "one\n# two\nthree")
+
+    def test_line_prefix_on_selected_lines(self):
+        editor = self.make_editor("one\ntwo\nthree")
+        # Selection ending at the start of "three" leaves that line alone.
+        self.select(editor, 1, 8)
+        self.assertTrue(apply_line_prefix(editor, "- "))
+        self.assertEqual(editor.toPlainText(), "- one\n- two\nthree")
+
+        editor.undo()
+        self.assertEqual(editor.toPlainText(), "one\ntwo\nthree")
+
+    def test_numbered_list(self):
+        editor = self.make_editor("one\ntwo")
+        editor.selectAll()
+        self.assertTrue(apply_numbered_list(editor))
+        self.assertEqual(editor.toPlainText(), "1. one\n2. two")
+
+    def test_code_block(self):
+        editor = self.make_editor("a\nb\nc")
+        self.select(editor, 0, 3)
+        self.assertTrue(apply_code_block(editor))
+        self.assertEqual(editor.toPlainText(), "```\na\nb\n```\nc")
 
 
 if __name__ == "__main__":

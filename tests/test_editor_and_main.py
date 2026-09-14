@@ -584,38 +584,58 @@ class EditorAndMainTests(unittest.TestCase):
         )
         self.assertTrue(capitalization.isEnabled())
 
-    def test_editor_context_menu_formatting_wraps_selection_in_quotes(self):
+    def _capture_editor_context_menu(self, editor):
+        captured = {}
+        with patch.object(
+            editor_tab_impl.QMenu,
+            "exec",
+            lambda self, pos: captured.update(menu=self) or None,
+        ):
+            editor._show_context_menu_impl(QPoint(10, 10))
+        return captured["menu"]
+
+    def test_editor_context_menu_formatting_acts_on_word_under_caret(self):
         editor = self.make_editor()
         editor.editor.setPlainText("hello world")
         editor.editor.moveCursor(QTextCursor.MoveOperation.Start)
 
-        captured = {}
+        menu = self._capture_editor_context_menu(editor)
+        formatting = next(action for action in menu.actions() if action.text() == "Formatting")
+        actions = {action.text(): action for action in formatting.menu().actions()}
+        self.assertTrue(actions["Wrap in Quotes"].isEnabled())
 
-        def formatting_action():
-            with patch.object(
-                editor_tab_impl.QMenu,
-                "exec",
-                lambda self, pos: captured.update(menu=self) or None,
-            ):
-                editor._show_context_menu_impl(QPoint(10, 10))
-            return next(
-                action for action in captured["menu"].actions() if action.text() == "Formatting"
-            )
+        actions["Bold"].trigger()
+        self.assertEqual(editor.editor.toPlainText(), "**hello** world")
 
-        self.assertFalse(formatting_action().isEnabled())
+        editor.editor.selectAll()
+        menu = self._capture_editor_context_menu(editor)
+        formatting = next(action for action in menu.actions() if action.text() == "Formatting")
+        next(
+            action for action in formatting.menu().actions() if action.text() == "Heading 2"
+        ).trigger()
+        self.assertEqual(editor.editor.toPlainText(), "## **hello** world")
 
-        cursor = editor.editor.textCursor()
-        cursor.setPosition(0)
-        cursor.setPosition(5, QTextCursor.MoveMode.KeepAnchor)
-        editor.editor.setTextCursor(cursor)
-        formatting = formatting_action()
+    def test_editor_context_menu_formatting_inline_disabled_without_word(self):
+        editor = self.make_editor()
+        editor.editor.setPlainText("")
+
+        menu = self._capture_editor_context_menu(editor)
+        formatting = next(action for action in menu.actions() if action.text() == "Formatting")
+        actions = {action.text(): action for action in formatting.menu().actions()}
         self.assertTrue(formatting.isEnabled())
+        self.assertFalse(actions["Bold"].isEnabled())
+        self.assertTrue(actions["Bulleted List"].isEnabled())
 
-        wrap = next(
-            action for action in formatting.menu().actions() if action.text() == "Wrap in Quotes"
-        )
-        wrap.trigger()
-        self.assertEqual(editor.editor.toPlainText(), '"hello" world')
+    def test_editor_context_menu_save_snippet_uses_word_under_caret(self):
+        editor = self.make_editor()
+        editor.editor.setPlainText("hello world")
+        editor.editor.moveCursor(QTextCursor.MoveOperation.Start)
+
+        menu = self._capture_editor_context_menu(editor)
+        save = next(action for action in menu.actions() if action.text() == "Save as Snippet")
+        with patch.object(editor, "save_snippet") as save_snippet:
+            save.trigger()
+        save_snippet.assert_called_once_with("hello")
 
     def test_editor_context_menu_select_all_selects_document(self):
         editor = self.make_editor()
