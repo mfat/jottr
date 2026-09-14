@@ -1787,11 +1787,14 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
         editor_tab = EditorTab(self.snippet_manager, self.settings_manager)
         editor_tab.set_main_window(self)  # Set reference to main window
         
-        # Add tab with default title
+        # Named "Document N" until its first line gives it a title.
+        editor_tab.untitled_title = _("Document {number}").format(
+            number=self.tab_widget.count() + 1
+        )
         self.tab_widget.addTab(
             editor_tab,
             self.build_themed_icon("document"),
-            _("Document {number}").format(number=self.tab_widget.count() + 1)
+            editor_tab.untitled_title,
         )
         self.tab_widget.setCurrentWidget(editor_tab)
         editor_tab.editor.setFocus()
@@ -2459,11 +2462,13 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
         stash_id = entry.get("untitled")
         if not is_valid_stash_id(stash_id):
             return None
-        title = entry.get("title")
-        return self.restore_untitled_document(stash_id, title if isinstance(title, str) else "")
+        return self.restore_untitled_document(stash_id)
 
-    def restore_untitled_document(self, stash_id, title=""):
-        """Reopen a stashed untitled document; None when its stash is gone."""
+    def restore_untitled_document(self, stash_id):
+        """Reopen a stashed untitled document; None when its stash is gone.
+
+        Like any untitled tab, it is named after its first line.
+        """
         data = read_stash_file(stash_file_path(self.settings_manager, stash_id))
         if data is None:
             return None
@@ -2471,9 +2476,6 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
         tab.stash_id = stash_id
         tab.editor.setPlainText(data["text"])
         tab.editor.document().setModified(True)
-        index = self.tab_widget.indexOf(tab)
-        title = title or data["title"] or self.tab_widget.tabText(index).removesuffix("*")
-        self.tab_widget.setTabText(index, title + "*")
         return tab
 
     def restart_application(self):
@@ -2490,7 +2492,9 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
     def show_help(self):
         """Show help documentation"""
         help_tab = self.new_editor_tab()
-        
+        # Titled "Help" rather than after the first line of the help text.
+        help_tab.untitled_title = ""
+
         # Load help content
         try:
             help_path = find_data_file("help", "help.md")
@@ -2907,6 +2911,8 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
             editor_tab.set_main_window(self)
             self.tab_widget.addTab(editor_tab, self.build_themed_icon("document"), os.path.basename(file_path))
         else:
+            # The reused tab is named after the file, not the file's first line.
+            editor_tab.untitled_title = ""
             current_index = self.tab_widget.indexOf(editor_tab)
             self.tab_widget.setTabText(current_index, os.path.basename(file_path))
             self.update_tab_icon(current_index)

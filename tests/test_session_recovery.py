@@ -292,7 +292,7 @@ class SessionTests(SessionRecoveryTestCase):
         window = self.make_window()
         self.assertEqual(self.tab_summary(window), [
             ("first.txt", str(first), "first\n"),
-            ("Document 2*", None, "untitled draft"),
+            ("untitled*", None, "untitled draft"),
             ("second.txt", str(second), "second\n"),
         ])
         self.assertEqual(window.tab_widget.currentIndex(), 1)
@@ -446,7 +446,7 @@ class SessionTests(SessionRecoveryTestCase):
         reopened = self.make_window()
         self.assertEqual(self.tab_summary(reopened), [
             ("note.txt", str(note), "one\n"),
-            ("Document 2*", None, "draft"),
+            ("draft*", None, "draft"),
         ])
 
     def make_workspace(self, folder, *names):
@@ -558,8 +558,47 @@ class SessionTests(SessionRecoveryTestCase):
         write_stash_file(stash_file_path(self.settings, "1700000000-0000"), "Old draft", "kept")
 
         window = self.make_window()
-        self.assertEqual(self.tab_summary(window), [("Old draft*", None, "kept")])
+        # Restored untitled documents are named after their first line.
+        self.assertEqual(self.tab_summary(window), [("kept*", None, "kept")])
         self.assertEqual(window.tab_widget.widget(0).stash_id, "1700000000-0000")
+
+    def test_untitled_tabs_are_named_after_their_first_line(self):
+        window = self.make_window()
+        tab = window.tab_widget.widget(0)
+
+        def title(of=tab):
+            return window.tab_widget.tabText(window.tab_widget.indexOf(of))
+
+        def replace_text(text):
+            cursor = tab.editor.textCursor()
+            cursor.select(QTextCursor.SelectionType.Document)
+            cursor.insertText(text)
+
+        self.assertEqual(title(), "Document 1")
+        type_text(tab, "\n   Shopping   list  \nmilk\n")
+        self.assertEqual(title(), "Shopping*")
+        # Save dialogs suggest the title as the file name.
+        self.assertTrue(tab.suggested_save_path("txt").endswith("Shopping.txt"))
+
+        replace_text("# Weekly plan\n")
+        self.assertEqual(title(), "Weekly*")
+        replace_text("#hashtag")
+        self.assertEqual(title(), "#hashtag*")
+        replace_text("Tea and cakes")
+        self.assertEqual(title(), "Tea and*")
+        replace_text("x" * 60)
+        self.assertEqual(title(), "x" * 10 + "*")
+        replace_text("  \n\n")
+        self.assertEqual(title(), "Document 1*")
+
+        # Files keep their name, also when opened into an empty untitled tab.
+        note = self.write_note("first line\n")
+        window.new_editor_tab()
+        self.assertTrue(window.open_file(str(note)))
+        opened = window.tab_widget.currentWidget()
+        self.assertEqual(title(opened), "note.txt")
+        type_text(opened, "more\n")
+        self.assertEqual(title(opened), "note.txt*")
 
     def test_first_start_without_a_session_reopens_workspace_files(self):
         workspace = Path(self.temp_dir.name) / "workspace"

@@ -139,6 +139,7 @@ class EditorTab(
         self.selected_suggestion_index = -1
         self.current_suggestions = []
         self.editor.textChanged.connect(self.handle_text_changed)
+        self.editor.textChanged.connect(self.update_untitled_title)
         self.editor.textChanged.connect(self.mark_autosave_pending)
         self.editor.textChanged.connect(self.schedule_markdown_preview_update)
         self.editor.textChanged.connect(self.schedule_document_language_refresh)
@@ -721,6 +722,8 @@ class EditorTab(
         if file_name:
             with open(file_name, 'r', encoding='utf-8') as file:
                 content = file.read()
+            # The tab is named after the file, not the file's first line.
+            self.untitled_title = ""
             self.editor.setPlainText(content)
             self.current_file = file_name
             self.editor.document().setModified(False)
@@ -1193,6 +1196,43 @@ class EditorTab(
         if target is None:
             return widget.isVisible()
         return bool(target)
+
+    # Default "Document N" title of an untitled tab named after its text; "" otherwise.
+    untitled_title = ""
+    untitled_title_length = 10
+
+    def title_from_first_line(self):
+        """First non-blank line tidied into a tab title; "" for a blank document."""
+        block = self.editor.document().firstBlock()
+        while block.isValid():
+            text = block.text().strip()
+            heading = text.lstrip("#")
+            if text.startswith("#") and heading[:1].isspace():
+                text = heading
+            title = " ".join(text.split())
+            if title:
+                limit = self.untitled_title_length
+                if len(title) > limit:
+                    # Cut at a word boundary when the first word fits.
+                    shortened = title[:limit + 1].rsplit(" ", 1)[0]
+                    title = shortened if len(shortened) <= limit else title[:limit]
+                return title
+            block = block.next()
+        return ""
+
+    def update_untitled_title(self):
+        """Name an untitled tab after its first line, like GNOME Text Editor."""
+        if self.current_file or not self.untitled_title:
+            return
+        tab_widget = getattr(self.main_window, "tab_widget", None)
+        index = tab_widget.indexOf(self) if tab_widget is not None else -1
+        if index < 0:
+            return
+        title = self.title_from_first_line() or self.untitled_title
+        if self.editor.document().isModified():
+            title += "*"
+        if tab_widget.tabText(index) != title:
+            tab_widget.setTabText(index, title)
 
     def handle_modification(self, modified):
         """Update tab title to show modification status"""
