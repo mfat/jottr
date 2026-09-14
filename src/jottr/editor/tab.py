@@ -869,6 +869,8 @@ class EditorTab(
         copy_action.setEnabled(has_selection)
         paste_action = menu.addAction(_("Paste"), self.editor.paste)
         paste_action.setEnabled(self.editor.canPaste())
+        select_all_action = menu.addAction(_("Select All"), self.editor.selectAll)
+        select_all_action.setEnabled(not self.editor.document().isEmpty())
         menu.addSeparator()
 
         # Kate Selection ▸ Capitalization (context menu: selection only, like Cut/Copy)
@@ -1177,45 +1179,6 @@ class EditorTab(
         highlighter.refresh_detected_language(rehighlight=True)
         if self.main_window and hasattr(self.main_window, "update_document_language_status"):
             self.main_window.update_document_language_status()
-
-    def create_context_menu(self, position):
-        """Create context menu for editor"""
-        menu = QMenu(self)
-        
-        # Cut/Copy/Paste actions (Kate: cut/copy need selection; paste needs clipboard)
-        has_selection = self.editor.textCursor().hasSelection()
-        cut_action = menu.addAction(_("Cut"))
-        cut_action.triggered.connect(self.editor.cut)
-        cut_action.setShortcut("Ctrl+X")
-        cut_action.setEnabled(has_selection)
-        
-        copy_action = menu.addAction(_("Copy"))
-        copy_action.triggered.connect(self.editor.copy)
-        copy_action.setShortcut("Ctrl+C")
-        copy_action.setEnabled(has_selection)
-        
-        paste_action = menu.addAction(_("Paste"))
-        paste_action.triggered.connect(self.editor.paste)
-        paste_action.setShortcut("Ctrl+V")
-        paste_action.setEnabled(self.editor.canPaste())
-        
-        menu.addSeparator()
-        capitalization_menu = menu.addMenu(_("Capitalization"))
-        capitalization_menu.menuAction().setEnabled(has_selection)
-        capitalization_menu.addAction(_("Uppercase"), lambda: apply_uppercase(self.editor))
-        capitalization_menu.addAction(_("Lowercase"), lambda: apply_lowercase(self.editor))
-        capitalization_menu.addAction(_("Capitalize"), lambda: apply_capitalize(self.editor))
-
-        # Add separator before Select All
-        menu.addSeparator()
-
-        # Add Select All action
-        select_all_action = menu.addAction(_("Select All"))
-        select_all_action.triggered.connect(self.editor.selectAll)
-        select_all_action.setShortcut("Ctrl+A")
-
-        # Show menu at cursor position
-        menu.exec(self.editor.mapToGlobal(position))
 
     def handle_text_changed(self):
         """Handle text changes for autocompletion"""

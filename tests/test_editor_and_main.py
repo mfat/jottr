@@ -584,6 +584,27 @@ class EditorAndMainTests(unittest.TestCase):
         )
         self.assertTrue(capitalization.isEnabled())
 
+    def test_editor_context_menu_select_all_selects_document(self):
+        editor = self.make_editor()
+        editor.editor.setPlainText("hello world")
+        editor.editor.moveCursor(QTextCursor.MoveOperation.Start)
+
+        captured = {}
+
+        with patch.object(
+            editor_tab_impl.QMenu,
+            "exec",
+            lambda self, pos: captured.update(menu=self) or None,
+        ):
+            editor._show_context_menu_impl(QPoint(10, 10))
+
+        select_all = next(
+            action for action in captured["menu"].actions() if action.text() == "Select All"
+        )
+        self.assertTrue(select_all.isEnabled())
+        select_all.trigger()
+        self.assertEqual(editor.editor.textCursor().selectedText(), "hello world")
+
     def test_editor_context_menu_searches_word_under_caret_without_selection(self):
         editor = self.make_editor()
         editor.editor.setPlainText("hello world")
