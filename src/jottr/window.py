@@ -23,6 +23,12 @@ from jottr.snippet_manager import SnippetManager
 from jottr.theme_manager import ThemeManager
 from jottr.qt_style import apply_qt_color_scheme, apply_qt_style, refresh_styled_widgets, resolve_qt_style_key
 from jottr.settings_manager import SettingsManager
+from jottr.session_recovery import (
+    STASH_NEW_FILES_SETTING,
+    pop_stashed_documents,
+    remove_file,
+    stash_documents,
+)
 from jottr.translation_manager import _, format_language_label, is_rtl_language, set_language
 from jottr.font_dialog import FontSelectionDialog
 from jottr.plugin_manager import PluginManager
@@ -430,7 +436,8 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
         self.main_splitter.setSizes([260, 940])
         layout.addWidget(self.main_splitter)
         self.restore_workspace()
-        
+        self.restore_stashed_documents()
+
         # Create new tab if no tabs were restored
         if self.tab_widget.count() == 0:
             self.new_editor_tab()
@@ -1432,7 +1439,10 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
                     return
             elif reply == QMessageBox.StandardButton.Cancel:
                 return
-        
+
+        release_swap_file = getattr(tab, "release_swap_file", None)
+        if release_swap_file is not None:
+            release_swap_file()
         self.tab_widget.removeTab(index)
         self.save_workspace_open_files()
         
@@ -2262,13 +2272,20 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
 
     def closeEvent(self, event):
         """Handle application close event"""
-        if self.handle_unsaved_changes():
+        if getattr(self, "_close_accepted", False):
+            # Already stashed and saved; a second close must not stash again.
+            event.accept()
+            return
+        stashed_tabs, stash_files = self.stash_new_unsaved_files()
+        if self.handle_unsaved_changes(skip_tabs=stashed_tabs):
+            self._close_accepted = True
             settings_dialog = getattr(self, "_settings_dialog", None)
             if settings_dialog is not None:
                 # Flushes pending applies and remembers window geometry.
                 settings_dialog.close()
             self.save_workspace_markdown_files()
             self.save_workspace_open_files()
+            self.release_swap_files()
             # Save window state
             self.settings_manager.save_setting('window_state', {
                 'geometry': self.saveGeometry().toBase64().data().decode(),
@@ -2276,7 +2293,52 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
             })
             event.accept()
         else:
+            for path in stash_files:
+                if path:
+                    remove_file(path)
             event.ignore()
+
+    def stash_new_unsaved_files(self):
+        """Stash untitled documents with text instead of asking to save them.
+
+        Returns the stashed tabs and one stash file per candidate tab (None
+        where writing failed, so that tab is still offered for saving).
+        """
+        if not self.settings_manager.get_setting(STASH_NEW_FILES_SETTING, True):
+            return set(), []
+        tabs = []
+        for index in range(self.tab_widget.count()):
+            tab = self.tab_widget.widget(index)
+            if isinstance(tab, EditorTab) and not tab.current_file and tab.editor.toPlainText():
+                tabs.append(tab)
+        stash_files = stash_documents(self.settings_manager, [
+            (
+                self.tab_widget.tabText(self.tab_widget.indexOf(tab)).removesuffix("*"),
+                tab.editor.toPlainText(),
+            )
+            for tab in tabs
+        ])
+        stashed_tabs = {tab for tab, path in zip(tabs, stash_files) if path}
+        return stashed_tabs, stash_files
+
+    def restore_stashed_documents(self):
+        """Reopen untitled documents stashed when Jottr last closed."""
+        for title, text in pop_stashed_documents(self.settings_manager):
+            tab = self.new_editor_tab()
+            tab.editor.setPlainText(text)
+            tab.editor.document().setModified(True)
+            index = self.tab_widget.indexOf(tab)
+            title = title or self.tab_widget.tabText(index).removesuffix("*")
+            self.tab_widget.setTabText(index, title + "*")
+
+    def release_swap_files(self):
+        """Documents are closing: drop swap files nobody needs to recover."""
+        for index in range(self.tab_widget.count()):
+            release_swap_file = getattr(
+                self.tab_widget.widget(index), "release_swap_file", None
+            )
+            if release_swap_file is not None:
+                release_swap_file()
 
     def restart_application(self):
         """Close Jottr and start it again once this process has exited."""
@@ -2462,6 +2524,8 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
             self.apply_editor_line_numbers(visible)
         elif domain == "autosave":
             self.apply_autosave_settings()
+        elif domain == "sessions":
+            self.apply_session_settings()
         elif domain == "browser":
             for index in range(self.tab_widget.count()):
                 tab = self.tab_widget.widget(index)
@@ -2598,6 +2662,13 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
             if isinstance(tab, EditorTab):
                 tab.configure_autosave_timer()
 
+    def apply_session_settings(self):
+        """Apply swap file backup to all open editor tabs."""
+        for i in range(self.tab_widget.count()):
+            tab = self.tab_widget.widget(i)
+            if isinstance(tab, EditorTab):
+                tab.apply_swap_file_setting()
+
     def toggle_markdown_preview(self):
         """Toggle markdown preview in current editor tab"""
         current_tab = self.tab_widget.currentWidget()
@@ -2707,6 +2778,8 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
         editor_tab.editor.setPlainText(content)
         editor_tab.current_file = file_path
         editor_tab.editor.document().setModified(False)
+        if hasattr(editor_tab, "load_swap_file"):
+            editor_tab.load_swap_file(content)
         if editor_tab.is_markdown_file(file_path):
             editor_tab.set_markdown_preview_visible(True)
         else:
@@ -2732,12 +2805,12 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
 
     # Add a new method to set up the find shortcut
 
-    def handle_unsaved_changes(self):
-        """Handle unsaved changes before closing"""
+    def handle_unsaved_changes(self, skip_tabs=()):
+        """Handle unsaved changes before closing, except for *skip_tabs*."""
         unsaved_tabs = []
         for i in range(self.tab_widget.count()):
             tab = self.tab_widget.widget(i)
-            if self.is_editor_tab_modified(tab):
+            if tab not in skip_tabs and self.is_editor_tab_modified(tab):
                 unsaved_tabs.append(i)
         
         if unsaved_tabs:

@@ -615,6 +615,28 @@ class DialogTests(unittest.TestCase):
         dialog.plugins_directory_edit.editingFinished.emit()
         self.assertEqual(manager.get_setting("plugins_directory"), str(target))
 
+    def test_sessions_page_controls_swap_files_and_restoring_new_files(self):
+        manager = SettingsManager()
+        dialog = SettingsDialog(manager)
+        self.addCleanup(dialog.deleteLater)
+
+        self.assertTrue(dialog.show_settings_page("sessions"))
+        self.assertEqual(dialog.settings_nav.currentItem().text(), "Sessions")
+        self.assertTrue(dialog.swap_file_enabled_check.isChecked())
+        self.assertTrue(dialog.restore_unsaved_new_files_check.isChecked())
+
+        dialog.swap_file_enabled_check.setChecked(False)
+        dialog.restore_unsaved_new_files_check.setChecked(False)
+        self.assertFalse(manager.get_setting("swap_file_enabled"))
+        self.assertFalse(manager.get_setting("restore_unsaved_new_files"))
+        data = dialog.get_data()
+        self.assertFalse(data["swap_file_enabled"])
+        self.assertFalse(data["restore_unsaved_new_files"])
+
+        manager.save_setting("swap_file_enabled", True)
+        dialog.sync_from_settings()
+        self.assertTrue(dialog.swap_file_enabled_check.isChecked())
+
     def test_snippet_editor_dialog_returns_entered_data(self):
         dialog = SnippetEditorDialog("Title", "Body")
         dialog.title_edit.setText("Updated")

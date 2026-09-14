@@ -50,6 +50,7 @@ from jottr.editor.markdown import MarkdownPreviewMixin
 from jottr.editor.browser import BrowserPaneMixin
 from jottr.editor.focus_mode import FocusModeMixin
 from jottr.editor.find_replace import FindReplaceMixin
+from jottr.editor.swap_file import SwapFileMixin
 
 # Lazily bound / test-patched WebEngine symbols used by markdown preview.
 QWebEngineView = None
@@ -63,6 +64,7 @@ class EditorTab(
     BrowserPaneMixin,
     FocusModeMixin,
     FindReplaceMixin,
+    SwapFileMixin,
     QWidget,
 ):
     def __init__(self, snippet_manager, settings_manager):
@@ -142,6 +144,7 @@ class EditorTab(
         self.editor.textChanged.connect(self.schedule_document_language_refresh)
         self.editor.cursorPositionChanged.connect(self.schedule_markdown_cursor_sync)
         self.editor.verticalScrollBar().valueChanged.connect(self.schedule_markdown_scroll_sync)
+        self.setup_swap_file()
         self._document_language_timer = QTimer(self)
         self._document_language_timer.setSingleShot(True)
         self._document_language_timer.setInterval(400)
@@ -426,6 +429,7 @@ class EditorTab(
             return False
 
         self.changes_pending = False
+        self.mark_swap_file_saved(content)
         self.editor.document().setModified(False)
         if self.main_window and hasattr(self.main_window, 'save_workspace_open_files'):
             self.main_window.save_workspace_open_files()
@@ -516,9 +520,11 @@ class EditorTab(
                 return False
                 
         try:
+            content = self.editor.toPlainText()
             with open(self.current_file, 'w', encoding='utf-8') as f:
-                f.write(self.editor.toPlainText())
-            
+                f.write(content)
+            self.mark_swap_file_saved(content)
+
             # Update tab title
             if self.main_window:
                 current_index = self.main_window.tab_widget.indexOf(self)
@@ -707,6 +713,7 @@ class EditorTab(
             self.current_file = file_name
             self.editor.document().setModified(False)
             self.changes_pending = False
+            self.load_swap_file(content)
             if self.is_markdown_file(file_name):
                 self.set_markdown_preview_visible(True)
             

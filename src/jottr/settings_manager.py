@@ -86,6 +86,8 @@ class SettingsManager:
             "spell_languages": ["en_US"],
             "autosave_enabled": False,
             "autosave_interval_seconds": 30,
+            "swap_file_enabled": True,
+            "restore_unsaved_new_files": True,
             "markdown_scroll_sync": True,
             "editor_line_numbers": True,
             "double_click_empty_tab_bar_new_tab": True,

@@ -948,9 +948,14 @@ class ThemeManager:
                 background: {app['surface_hover']};
             }}
             QWidget#findToolbar,
+            QWidget#swapFileBar,
             QWidget#browserToolbar {{
                 background: {app['background']};
                 border-bottom: 1px solid {app['border']};
+            }}
+            QLabel#swapFileLabel {{
+                color: {app['text']};
+                font-weight: 700;
             }}
         """
 

@@ -368,6 +368,9 @@ class WorkspaceControllerMixin:
                         return False
                     if reply == QMessageBox.StandardButton.Cancel:
                         return False
+                release_swap_file = getattr(tab, "release_swap_file", None)
+                if release_swap_file is not None:
+                    release_swap_file()
                 self.tab_widget.removeTab(index)
                 tab.deleteLater()
             index -= 1
@@ -411,6 +414,9 @@ class WorkspaceControllerMixin:
                 index -= 1
                 continue
             if new_path is None:
+                release_swap_file = getattr(tab, "release_swap_file", None)
+                if release_swap_file is not None:
+                    release_swap_file()
                 self.tab_widget.removeTab(index)
                 tab.deleteLater()
             else:
@@ -419,6 +425,10 @@ class WorkspaceControllerMixin:
                 else:
                     relative = os.path.relpath(current, old_path)
                     tab.current_file = os.path.abspath(os.path.join(new_path, relative))
+                # Move unsaved changes to the swap file of the new name.
+                write_swap_file = getattr(tab, "write_swap_file", None)
+                if write_swap_file is not None:
+                    write_swap_file()
                 tab_index = self.tab_widget.indexOf(tab)
                 if tab_index >= 0:
                     title = os.path.basename(tab.current_file)

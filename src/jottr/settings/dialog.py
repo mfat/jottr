@@ -25,6 +25,7 @@ from .pages.browser import BrowserPageMixin
 from .pages.dictionary import DictionaryPageMixin
 from .pages.editor import EditorPageMixin
 from .pages.plugins import PluginsTabMixin
+from .pages.sessions import SessionsPageMixin
 from .search_site import SearchSiteDialog
 
 __all__ = ["SettingsDialog", "SearchSiteDialog"]
@@ -37,6 +38,7 @@ _PAGE_KEY_ROLE = Qt.ItemDataRole.UserRole + 1
 class SettingsDialog(
     AppearancePageMixin,
     EditorPageMixin,
+    SessionsPageMixin,
     BrowserPageMixin,
     DictionaryPageMixin,
     PluginsTabMixin,
@@ -206,6 +208,7 @@ class SettingsDialog(
         try:
             self.sync_appearance_page()
             self.sync_editor_page()
+            self.sync_sessions_page()
             self.sync_browser_page()
             self.sync_dictionary_page()
         finally:
@@ -259,6 +262,12 @@ class SettingsDialog(
             _("Spellcheck"),
             self.create_scrollable_tab(self.build_dictionary_page()),
             "insert-text",
+        )
+        self.add_settings_page(
+            "sessions",
+            _("Sessions"),
+            self.create_scrollable_tab(self.build_sessions_page()),
+            "save",
         )
         self.add_settings_page(
             "plugins", _("Plugins"), self.create_plugins_tab(), "applications-system"
@@ -479,6 +488,8 @@ class SettingsDialog(
             'middle_click_tab_closes_tab': self.middle_click_tab_closes_tab_check.isChecked(),
             'autosave_enabled': self.autosave_enabled_check.isChecked(),
             'autosave_interval_seconds': self.autosave_interval_seconds(),
+            'swap_file_enabled': self.swap_file_enabled_check.isChecked(),
+            'restore_unsaved_new_files': self.restore_unsaved_new_files_check.isChecked(),
             'plugins_directory': self.plugins_directory_edit.text().strip(),
             'plugin_registry_url': self.plugin_registry_url_edit.text().strip(),
             'plugin_registry_checksum_url': self.plugin_registry_checksum_url_edit.text().strip(),

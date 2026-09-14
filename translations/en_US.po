@@ -1170,3 +1170,51 @@ msgstr "Apply"
 #: src/jottr/settings_dialog.py src/jottr/main.py
 msgid "Settings applied"
 msgstr "Settings applied"
+
+#: src/jottr/settings/pages/sessions.py
+msgid "Sessions"
+msgstr "Sessions"
+
+#: src/jottr/settings/pages/sessions.py
+msgid "Unsaved Files"
+msgstr "Unsaved Files"
+
+#: src/jottr/settings/pages/sessions.py
+msgid "Back up unsaved files to swap files"
+msgstr "Back up unsaved files to swap files"
+
+#: src/jottr/settings/pages/sessions.py
+msgid "While a file has unsaved changes, a copy is kept so the changes can be recovered if Jottr does not close properly."
+msgstr "While a file has unsaved changes, a copy is kept so the changes can be recovered if Jottr does not close properly."
+
+#: src/jottr/settings/pages/sessions.py
+msgid "Restore newly-created unsaved files on startup"
+msgstr "Restore newly-created unsaved files on startup"
+
+#: src/jottr/settings/pages/sessions.py
+msgid "Untitled documents are kept when Jottr closes, without asking to save them, and reopened the next time it starts."
+msgstr "Untitled documents are kept when Jottr closes, without asking to save them, and reopened the next time it starts."
+
+#: src/jottr/editor/swap_file.py
+msgid "The file was not closed properly."
+msgstr "The file was not closed properly."
+
+#: src/jottr/editor/swap_file.py
+msgid "View Changes"
+msgstr "View Changes"
+
+#: src/jottr/editor/swap_file.py
+msgid "Recover Data"
+msgstr "Recover Data"
+
+#: src/jottr/editor/swap_file.py
+msgid "Discard"
+msgstr "Discard"
+
+#: src/jottr/editor/swap_file.py
+msgid "{name} (recovered)"
+msgstr "{name} (recovered)"
+
+#: src/jottr/editor/swap_file.py
+msgid "Close"
+msgstr "Close"

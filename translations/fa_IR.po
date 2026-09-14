@@ -1270,3 +1270,47 @@ msgstr "{plugin} بستهٔ قابل دریافت ندارد."
 #: src/jottr/settings/pages/plugins.py
 msgid "{plugin} is no longer listed in its channel."
 msgstr "{plugin} دیگر در کانال خود فهرست نشده است."
+
+#: src/jottr/settings/pages/sessions.py
+msgid "Sessions"
+msgstr "نشست‌ها"
+
+#: src/jottr/settings/pages/sessions.py
+msgid "Unsaved Files"
+msgstr "پرونده‌های ذخیره‌نشده"
+
+#: src/jottr/settings/pages/sessions.py
+msgid "Back up unsaved files to swap files"
+msgstr "پشتیبان‌گیری از پرونده‌های ذخیره‌نشده در پرونده‌های مبادله"
+
+#: src/jottr/settings/pages/sessions.py
+msgid "While a file has unsaved changes, a copy is kept so the changes can be recovered if Jottr does not close properly."
+msgstr "تا وقتی پرونده‌ای تغییرات ذخیره‌نشده دارد، رونوشتی از آن نگهداری می‌شود تا اگر Jottr به‌درستی بسته نشد، تغییرات قابل بازیابی باشند."
+
+#: src/jottr/settings/pages/sessions.py
+msgid "Restore newly-created unsaved files on startup"
+msgstr "بازگرداندن پرونده‌های تازه‌ساخته و ذخیره‌نشده هنگام شروع"
+
+#: src/jottr/settings/pages/sessions.py
+msgid "Untitled documents are kept when Jottr closes, without asking to save them, and reopened the next time it starts."
+msgstr "سندهای بی‌نام هنگام بستن Jottr بدون پرسش برای ذخیره نگهداری می‌شوند و در اجرای بعدی دوباره باز می‌شوند."
+
+#: src/jottr/editor/swap_file.py
+msgid "The file was not closed properly."
+msgstr "این پرونده به‌درستی بسته نشده بود."
+
+#: src/jottr/editor/swap_file.py
+msgid "View Changes"
+msgstr "مشاهدهٔ تغییرات"
+
+#: src/jottr/editor/swap_file.py
+msgid "Recover Data"
+msgstr "بازیابی داده‌ها"
+
+#: src/jottr/editor/swap_file.py
+msgid "Discard"
+msgstr "دور انداختن"
+
+#: src/jottr/editor/swap_file.py
+msgid "{name} (recovered)"
+msgstr "{name} (بازیابی‌شده)"
