@@ -584,6 +584,39 @@ class EditorAndMainTests(unittest.TestCase):
         )
         self.assertTrue(capitalization.isEnabled())
 
+    def test_editor_context_menu_formatting_wraps_selection_in_quotes(self):
+        editor = self.make_editor()
+        editor.editor.setPlainText("hello world")
+        editor.editor.moveCursor(QTextCursor.MoveOperation.Start)
+
+        captured = {}
+
+        def formatting_action():
+            with patch.object(
+                editor_tab_impl.QMenu,
+                "exec",
+                lambda self, pos: captured.update(menu=self) or None,
+            ):
+                editor._show_context_menu_impl(QPoint(10, 10))
+            return next(
+                action for action in captured["menu"].actions() if action.text() == "Formatting"
+            )
+
+        self.assertFalse(formatting_action().isEnabled())
+
+        cursor = editor.editor.textCursor()
+        cursor.setPosition(0)
+        cursor.setPosition(5, QTextCursor.MoveMode.KeepAnchor)
+        editor.editor.setTextCursor(cursor)
+        formatting = formatting_action()
+        self.assertTrue(formatting.isEnabled())
+
+        wrap = next(
+            action for action in formatting.menu().actions() if action.text() == "Wrap in Quotes"
+        )
+        wrap.trigger()
+        self.assertEqual(editor.editor.toPlainText(), '"hello" world')
+
     def test_editor_context_menu_select_all_selects_document(self):
         editor = self.make_editor()
         editor.editor.setPlainText("hello world")

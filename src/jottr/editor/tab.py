@@ -37,6 +37,7 @@ from jottr.editor.case_transform import (
     apply_uppercase,
 )
 from jottr.editor.text_edit import CompletingTextEdit
+from jottr.editor.text_format import apply_wrap_in_quotes
 from jottr.editor.markdown import MarkdownPreviewMixin
 from jottr.editor.browser import BrowserPaneMixin
 from jottr.editor.focus_mode import FocusModeMixin
@@ -879,6 +880,10 @@ class EditorTab(
         capitalization_menu.addAction(_("Uppercase"), lambda: apply_uppercase(self.editor))
         capitalization_menu.addAction(_("Lowercase"), lambda: apply_lowercase(self.editor))
         capitalization_menu.addAction(_("Capitalize"), lambda: apply_capitalize(self.editor))
+
+        formatting_menu = menu.addMenu(_("Formatting"))
+        formatting_menu.menuAction().setEnabled(has_selection)
+        formatting_menu.addAction(_("Wrap in Quotes"), lambda: apply_wrap_in_quotes(self.editor))
         menu.addSeparator()
 
         # Top-left of the menu at the click (Kate: mapToGlobal(e->pos()))
