@@ -2,6 +2,7 @@
 import os
 import sys
 import tempfile
+import time
 import unittest
 from pathlib import Path
 from unittest.mock import patch
@@ -15,6 +16,7 @@ sys.path.insert(0, str(SRC_ROOT))
 from PyQt6.QtGui import QCloseEvent, QTextCursor
 from PyQt6.QtWidgets import QApplication, QMessageBox
 
+import jottr.editor.tab as editor_tab_module
 import jottr.window as window_module
 from jottr.editor.tab import EditorTab
 from jottr.main import TextEditorApp
@@ -51,6 +53,24 @@ def type_text(tab, text):
     tab.editor.setTextCursor(cursor)
 
 
+def process_events_for(milliseconds):
+    """Run the event loop, so real timers fire."""
+    deadline = time.monotonic() + milliseconds / 1000
+    while time.monotonic() < deadline:
+        QApplication.processEvents()
+        time.sleep(0.01)
+
+
+def wait_until(predicate, timeout_ms):
+    deadline = time.monotonic() + timeout_ms / 1000
+    while time.monotonic() < deadline:
+        QApplication.processEvents()
+        if predicate():
+            return True
+        time.sleep(0.01)
+    return predicate()
+
+
 def stash_names(settings_manager):
     directory = stash_directory(settings_manager)
     return os.listdir(directory) if os.path.isdir(directory) else []
@@ -74,8 +94,6 @@ class SessionRecoveryTestCase(unittest.TestCase):
         path.write_text(text, encoding="utf-8")
         return path
 
-
-class SwapFileTests(SessionRecoveryTestCase):
     def make_tab(self):
         tab = EditorTab(self.snippets, self.settings)
         self.addCleanup(tab.deleteLater)
@@ -92,6 +110,31 @@ class SwapFileTests(SessionRecoveryTestCase):
         tab.editor.document().setModified(False)
         return tab, tab.load_swap_file(text)
 
+    def make_window(self):
+        window = TextEditorApp()
+        self.addCleanup(window.deleteLater)
+        return window
+
+    @staticmethod
+    def close_window(window):
+        event = QCloseEvent()
+        window.closeEvent(event)
+        return event.isAccepted()
+
+    @staticmethod
+    def tab_summary(window):
+        summary = []
+        for index in range(window.tab_widget.count()):
+            tab = window.tab_widget.widget(index)
+            summary.append((
+                window.tab_widget.tabText(index),
+                tab.current_file,
+                tab.editor.toPlainText(),
+            ))
+        return summary
+
+
+class SwapFileTests(SessionRecoveryTestCase):
     def test_swap_file_follows_unsaved_changes_and_is_removed_on_save(self):
         path = self.write_note()
         swap = swap_file_path(self.settings, path)
@@ -232,29 +275,6 @@ class SwapFileTests(SessionRecoveryTestCase):
 
 
 class SessionTests(SessionRecoveryTestCase):
-    def make_window(self):
-        window = TextEditorApp()
-        self.addCleanup(window.deleteLater)
-        return window
-
-    @staticmethod
-    def close_window(window):
-        event = QCloseEvent()
-        window.closeEvent(event)
-        return event.isAccepted()
-
-    @staticmethod
-    def tab_summary(window):
-        summary = []
-        for index in range(window.tab_widget.count()):
-            tab = window.tab_widget.widget(index)
-            summary.append((
-                window.tab_widget.tabText(index),
-                tab.current_file,
-                tab.editor.toPlainText(),
-            ))
-        return summary
-
     def test_open_files_and_untitled_documents_survive_a_crash(self):
         first = self.write_note("first\n", "first.txt")
         second = self.write_note("second\n", "second.txt", Path(self.temp_dir.name) / "elsewhere")
@@ -447,6 +467,146 @@ class SessionTests(SessionRecoveryTestCase):
         self.assertEqual(
             read_session(window.settings_manager)["tabs"], [{"file": str(note)}]
         )
+
+
+class AutosaveTests(SessionRecoveryTestCase):
+    """Settings > Editor autosave works on its own, next to the backups."""
+
+    def enable_autosave(self, seconds=30):
+        self.settings.save_setting("autosave_enabled", True)
+        self.settings.save_setting("autosave_interval_seconds", seconds)
+
+    def test_autosave_and_backup_timers_run_on_their_own_intervals(self):
+        self.enable_autosave(3)
+        self.settings.save_setting("swap_sync_interval_seconds", 1)
+        path = self.write_note()
+        swap = swap_file_path(self.settings, path)
+        tab, _shown = self.load_tab(path)
+        type_text(tab, "two\n")
+        self.assertEqual(tab.backup_timer.interval(), 3000)
+        self.assertEqual(tab.swap_timer.interval(), 1000)
+
+        # The swap file is written first, and autosave has not saved yet.
+        self.assertTrue(wait_until(lambda: os.path.exists(swap), 2500))
+        self.assertEqual(path.read_text(encoding="utf-8"), "one\n")
+
+        # Autosave then saves the file, which makes the swap file unnecessary.
+        self.assertTrue(wait_until(lambda: not tab.editor.document().isModified(), 4000))
+        self.assertEqual(path.read_text(encoding="utf-8"), "one\ntwo\n")
+        self.assertFalse(os.path.exists(swap))
+        process_events_for(1500)
+        self.assertFalse(os.path.exists(swap))
+        self.assertTrue(tab.backup_timer.isActive())
+
+    def test_backups_do_not_depend_on_autosave(self):
+        path = self.write_note()
+        swap = swap_file_path(self.settings, path)
+        tab, _shown = self.load_tab(path)
+        type_text(tab, "two\n")
+        self.assertFalse(tab.backup_timer.isActive())
+        self.assertFalse(tab.changes_pending)
+        self.assertTrue(tab.swap_timer.isActive())
+
+        self.assertTrue(tab.write_backup())
+        tab.force_save()
+        self.assertEqual(path.read_text(encoding="utf-8"), "one\n")
+        self.assertEqual(read_swap_file(swap)["text"], "one\ntwo\n")
+
+    def test_autosave_does_not_depend_on_backups(self):
+        self.enable_autosave()
+        self.settings.save_setting(SWAP_FILE_SETTING, False)
+        self.settings.save_setting(STASH_NEW_FILES_SETTING, False)
+        path = self.write_note()
+        tab, _shown = self.load_tab(path)
+        type_text(tab, "two\n")
+        self.assertFalse(tab.swap_timer.isActive())
+        self.assertTrue(tab.changes_pending)
+
+        tab.force_save()
+        self.assertEqual(path.read_text(encoding="utf-8"), "one\ntwo\n")
+        self.assertFalse(tab.editor.document().isModified())
+        self.assertFalse(os.path.exists(swap_file_path(self.settings, path)))
+        self.assertEqual(stash_names(self.settings), [])
+
+    def test_autosave_waits_for_a_recovery_choice(self):
+        self.enable_autosave()
+        path = self.write_note()
+        swap = swap_file_path(self.settings, path)
+        write_swap_file(swap, path, text_checksum("one\n"), "one\ntwo\n")
+        tab, shown = self.load_tab(path)
+        self.assertTrue(shown)
+
+        tab.force_save()
+        self.assertEqual(path.read_text(encoding="utf-8"), "one\n")
+        self.assertTrue(os.path.exists(swap))
+        self.assertIsNotNone(tab.swap_recovery)
+
+        self.assertTrue(tab.recover_swap_file())
+        self.assertTrue(tab.changes_pending)
+        tab.force_save()
+        self.assertEqual(path.read_text(encoding="utf-8"), "one\ntwo\n")
+        self.assertFalse(os.path.exists(swap))
+        self.assertFalse(tab.editor.document().isModified())
+
+    def test_failed_autosave_keeps_the_swap_file(self):
+        self.enable_autosave()
+        path = self.write_note()
+        swap = swap_file_path(self.settings, path)
+        tab, _shown = self.load_tab(path)
+        type_text(tab, "two\n")
+        self.assertTrue(tab.write_swap_file())
+
+        with patch.object(editor_tab_module.os, "replace", side_effect=OSError("denied")):
+            tab.force_save()
+        self.assertEqual(path.read_text(encoding="utf-8"), "one\n")
+        self.assertFalse(os.path.exists(str(path) + ".tmp"))
+        self.assertTrue(tab.changes_pending)
+        self.assertTrue(tab.editor.document().isModified())
+        self.assertEqual(read_swap_file(swap)["text"], "one\ntwo\n")
+
+    def test_autosave_leaves_untitled_documents_to_the_stash(self):
+        self.enable_autosave()
+        tab = self.make_tab()
+        type_text(tab, "draft")
+        self.assertFalse(tab.changes_pending)
+
+        tab.force_save()
+        self.assertIsNone(tab.current_file)
+        self.assertTrue(tab.editor.document().isModified())
+        self.assertTrue(tab.write_backup())
+        self.assertEqual(
+            read_stash_file(stash_file_path(self.settings, tab.stash_id))["text"], "draft"
+        )
+
+    def test_autosaved_file_reopens_after_a_crash_without_recovery(self):
+        self.enable_autosave()
+        path = self.write_note()
+        swap = swap_file_path(self.settings, path)
+        crashed = self.make_window()
+        crashed.open_file(str(path))
+        tab = crashed.tab_widget.currentWidget()
+        type_text(tab, "two\n")
+        self.assertTrue(tab.write_swap_file())
+
+        # Applying either settings page leaves the other feature alone.
+        crashed.settings_manager.save_setting("swap_sync_interval_seconds", 60)
+        crashed.apply_settings_domain("sessions")
+        self.assertTrue(tab.changes_pending)
+        self.assertTrue(tab.backup_timer.isActive())
+        crashed.settings_manager.save_setting("autosave_interval_seconds", 45)
+        crashed.apply_settings_domain("autosave")
+        self.assertEqual(tab.backup_timer.interval(), 45000)
+        self.assertTrue(tab.swap_timer.isActive())
+        self.assertEqual(tab.swap_timer.interval(), 60000)
+        self.assertTrue(os.path.exists(swap))
+
+        tab.force_save()
+        self.assertFalse(os.path.exists(swap))
+        # No closeEvent: the process dies here.
+
+        window = self.make_window()
+        self.assertEqual(self.tab_summary(window), [("note.txt", str(path), "one\ntwo\n")])
+        self.assertIsNone(window.tab_widget.widget(0).swap_recovery)
 
 
 if __name__ == "__main__":
