@@ -66,6 +66,23 @@ class FileDialogTests(unittest.TestCase):
         ):
             self.assertFalse(file_dialogs.is_flatpak())
 
+    def test_linux_desktops_use_the_portal_file_dialogs(self):
+        for desktop in ("ubuntu:GNOME", "GNOME", "XFCE", ""):
+            environ = {"XDG_CURRENT_DESKTOP": desktop}
+            self.assertTrue(file_dialogs.use_portal_file_dialogs(environ, "linux"))
+            self.assertEqual(environ["QT_QPA_PLATFORMTHEME"], "xdgdesktopportal")
+
+        # Plasma's theme, a theme the user chose, and other systems stay as they are.
+        for environ, platform in (
+            ({"XDG_CURRENT_DESKTOP": "KDE"}, "linux"),
+            ({"QT_QPA_PLATFORMTHEME": "gtk3"}, "linux"),
+            ({"XDG_CURRENT_DESKTOP": "GNOME"}, "win32"),
+            ({"XDG_CURRENT_DESKTOP": "GNOME"}, "darwin"),
+        ):
+            before = dict(environ)
+            self.assertFalse(file_dialogs.use_portal_file_dialogs(environ, platform))
+            self.assertEqual(environ, before)
+
     def test_source_never_forces_non_native_dialogs(self):
         src_root = PROJECT_ROOT / "src" / "jottr"
         offenders = []

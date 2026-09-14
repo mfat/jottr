@@ -21,6 +21,7 @@ from PyQt6.QtGui import QFont
 from PyQt6.QtOpenGLWidgets import QOpenGLWidget
 
 from jottr.editor.web_profile import release_browser_profiles, wipe_pending_data
+from jottr.file_dialogs import use_portal_file_dialogs
 from jottr.font_dialog import FontSelectionDialog
 from jottr.icon_manager import load_app_icon
 from jottr.qt_style import capture_platform_qt_style, register_bundled_qt_plugins
@@ -71,6 +72,9 @@ def main():
 
     # Register optional package-local Qt style plugins before any style lookup.
     register_bundled_qt_plugins()
+
+    # Open and save through the desktop portal's dialogs, as in Flatpak.
+    use_portal_file_dialogs()
 
     # Create application instance
     app = QApplication(sys.argv)

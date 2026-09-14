@@ -12,9 +12,34 @@ https://docs.flatpak.org/en/latest/portals.html
 from __future__ import annotations
 
 import os
+import sys
 
 from PyQt6.QtCore import QStandardPaths
 from PyQt6.QtWidgets import QFileDialog, QWidget
+
+PLATFORM_THEME_VARIABLE = "QT_QPA_PLATFORMTHEME"
+PORTAL_PLATFORM_THEME = "xdgdesktopportal"
+
+
+def use_portal_file_dialogs(environ=None, platform=None) -> bool:
+    """Ask Qt for the desktop portal's file dialogs; call before QApplication.
+
+    Qt only picks its xdgdesktopportal platform theme inside Flatpak and Snap.
+    Elsewhere on GNOME it loads the GTK3 theme, which draws GTK3's older file
+    chooser. The portal theme wraps the desktop's usual theme, and Qt falls
+    back to that theme when the plugin is not installed. A theme the user
+    chose is kept, and Plasma's own theme already shows KDE's dialogs.
+    Returns True when the portal theme was requested.
+    """
+    environ = os.environ if environ is None else environ
+    platform = sys.platform if platform is None else platform
+    if not platform.startswith("linux") or environ.get(PLATFORM_THEME_VARIABLE):
+        return False
+    desktops = environ.get("XDG_CURRENT_DESKTOP", "").casefold().split(":")
+    if "kde" in desktops:
+        return False
+    environ[PLATFORM_THEME_VARIABLE] = PORTAL_PLATFORM_THEME
+    return True
 
 
 def is_flatpak() -> bool:

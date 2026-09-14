@@ -20,7 +20,8 @@ Depends: ${misc:Depends},
          python3-pyqt6.qtsvg,
          python3-requests
 Recommends: python3-markdown,
-            python3-langdetect
+            python3-langdetect,
+            qt6-xdgdesktopportal-platformtheme
 Description: Modern text editor for writers and journalists
  Jottr is a feature-rich text editor designed specifically
  for writers and journalists, with features like smart
