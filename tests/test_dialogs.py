@@ -656,6 +656,56 @@ class DialogTests(unittest.TestCase):
         dialog.sync_from_settings()
         self.assertTrue(dialog.restore_session_always_radio.isChecked())
 
+    def test_sessions_page_picks_a_startup_workspace(self):
+        first = Path(self.temp_dir.name) / "notes"
+        second = Path(self.temp_dir.name) / "other" / "notes"
+        chosen = Path(self.temp_dir.name) / "chosen"
+        for folder in (first, second, chosen):
+            folder.mkdir(parents=True)
+        manager = SettingsManager()
+        manager.save_setting("recent_workspaces", [str(first), str(second)])
+        dialog = SettingsDialog(manager)
+        self.addCleanup(dialog.deleteLater)
+        combo = dialog.startup_workspace_combo
+
+        self.assertFalse(combo.isEnabled())
+        self.assertEqual(
+            [combo.itemText(index) for index in range(combo.count())],
+            [
+                "No workspace selected",
+                f"notes — {first.parent}",
+                f"notes — {second.parent}",
+                "Choose Folder…",
+            ],
+        )
+
+        dialog.restore_session_workspace_radio.setChecked(True)
+        self.assertTrue(combo.isEnabled())
+        self.assertEqual(manager.get_setting("session_restore_mode"), "workspace")
+        self.assertEqual(manager.get_setting("startup_workspace"), "")
+
+        combo.activated.emit(combo.findData(str(second)))
+        self.assertEqual(manager.get_setting("startup_workspace"), str(second))
+        self.assertEqual(combo.currentData(), str(second))
+        self.assertEqual(combo.findText("No workspace selected"), -1)
+
+        with patch(
+            "jottr.settings.pages.sessions.get_existing_directory", return_value=str(chosen)
+        ):
+            combo.activated.emit(combo.count() - 1)
+        self.assertEqual(manager.get_setting("startup_workspace"), str(chosen))
+        self.assertEqual(combo.currentText(), "chosen")
+        self.assertEqual(dialog.get_data()["startup_workspace"], str(chosen))
+
+        # Cancelling the folder picker keeps the workspace that was chosen.
+        with patch("jottr.settings.pages.sessions.get_existing_directory", return_value=""):
+            combo.activated.emit(combo.count() - 1)
+        self.assertEqual(manager.get_setting("startup_workspace"), str(chosen))
+        self.assertEqual(combo.currentData(), str(chosen))
+
+        dialog.restore_session_always_radio.setChecked(True)
+        self.assertFalse(combo.isEnabled())
+
     def test_snippet_editor_dialog_returns_entered_data(self):
         dialog = SnippetEditorDialog("Title", "Body")
         dialog.title_edit.setText("Updated")

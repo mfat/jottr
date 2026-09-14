@@ -27,6 +27,8 @@ from jottr.session_recovery import (
     SESSION_RESTORE_ALWAYS,
     SESSION_RESTORE_SETTING,
     SESSION_RESTORE_UNSAVED,
+    SESSION_RESTORE_WORKSPACE,
+    STARTUP_WORKSPACE_SETTING,
     STASH_NEW_FILES_SETTING,
     is_valid_stash_id,
     swap_file_has_changes,
@@ -444,12 +446,22 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
         self.main_splitter.setStretchFactor(1, 1)
         self.main_splitter.setSizes([260, 940])
         layout.addWidget(self.main_splitter)
-        self.restore_workspace(open_files=False)
-        self.restore_session()
+        startup_workspace = self.startup_workspace()
+        if startup_workspace:
+            self.set_workspace_path(startup_workspace, save=True)
+        else:
+            self.restore_workspace(open_files=False)
+        # Read before the session reopens tabs: each one saves the workspace's
+        # open files again, which would drop the tabs not reopened yet.
+        workspace_files = (
+            self.workspace_session_files(self.workspace_path) if self.workspace_path else []
+        )
+        # Opening a chosen workspace still brings back unsaved work from last time.
+        self.restore_session(only_unsaved=bool(startup_workspace))
         if self.workspace_path:
             # An open workspace always gets its tabs back, whichever session
             # restore mode is chosen; tabs the session reopened are kept as is.
-            self.restore_workspace_session(self.workspace_path)
+            self.restore_workspace_session(self.workspace_path, workspace_files)
 
         # Create new tab if no tabs were restored
         if self.tab_widget.count() == 0:
@@ -2374,13 +2386,24 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
             return
         self._saved_session = session
 
-    def restore_session(self):
+    def startup_workspace(self):
+        """Workspace the "Open a workspace" startup option opens, if it still exists."""
+        sm = self.settings_manager
+        if sm.get_setting(SESSION_RESTORE_SETTING, SESSION_RESTORE_ALWAYS) != SESSION_RESTORE_WORKSPACE:
+            return ""
+        path = sm.get_setting(STARTUP_WORKSPACE_SETTING, "")
+        if not isinstance(path, str) or not path or not os.path.isdir(path):
+            return ""
+        return os.path.abspath(path)
+
+    def restore_session(self, only_unsaved=False):
         """Reopen the tabs of the last run, whether it closed or crashed.
 
         Stash files the session does not list (a crash before it was saved,
         or an older Jottr) are reopened too. With the "unsaved changes"
         restore mode the session is only reopened when backups hold unsaved
-        text. Returns False when no session was saved yet.
+        text; *only_unsaved* reopens just the tabs with unsaved changes.
+        Returns False when no session was saved yet.
         """
         session = read_session(self.settings_manager)
         entries = session["tabs"] if session is not None else []
@@ -2394,6 +2417,8 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
         }
         current_tab = None
         for position, entry in enumerate(entries):
+            if only_unsaved and not self.session_entry_has_unsaved_changes(entry):
+                continue
             tab = self.restore_session_tab(entry)
             if tab is not None and position == session.get("current"):
                 current_tab = tab
@@ -2414,11 +2439,18 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
         for stash_id in stash_ids_on_disk(self.settings_manager):
             if read_stash_file(stash_file_path(self.settings_manager, stash_id)) is not None:
                 return True
-        return any(
-            isinstance(entry, dict)
-            and isinstance(entry.get("file"), str)
-            and swap_file_has_changes(self.settings_manager, entry["file"])
-            for entry in entries
+        return any(self.session_entry_has_unsaved_changes(entry) for entry in entries)
+
+    def session_entry_has_unsaved_changes(self, entry):
+        """Whether reopening the session *entry* would bring back unsaved text."""
+        if not isinstance(entry, dict):
+            return False
+        if isinstance(entry.get("file"), str):
+            return swap_file_has_changes(self.settings_manager, entry["file"])
+        stash_id = entry.get("untitled")
+        return (
+            is_valid_stash_id(stash_id)
+            and read_stash_file(stash_file_path(self.settings_manager, stash_id)) is not None
         )
 
     def restore_session_tab(self, entry):

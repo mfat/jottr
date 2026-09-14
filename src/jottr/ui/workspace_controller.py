@@ -310,18 +310,27 @@ class WorkspaceControllerMixin:
             for path in markdown_files
         ])
 
-    def restore_workspace_session(self, workspace):
-        """Open files remembered for a workspace that are not open yet."""
+    def workspace_session_files(self, workspace):
+        """Absolute paths of the files remembered as open in *workspace*."""
         sessions = self.get_workspace_sessions()
         session = sessions.get(os.path.abspath(workspace), {})
         open_files = session.get("open_files")
         if not open_files:
             open_files = self.settings_manager.get_setting("workspace_open_files", [])
+        return [self.workspace_absolute_path(path, workspace) for path in open_files]
+
+    def restore_workspace_session(self, workspace, files=None):
+        """Open files remembered for a workspace that are not open yet.
+
+        *files* is that list read earlier, before other tabs were opened:
+        every opened tab saves the workspace's open files again.
+        """
+        if files is None:
+            files = self.workspace_session_files(workspace)
 
         # Opening an already open file would switch to it and lose the current tab.
         already_open = {os.path.abspath(path) for path in self.get_open_files()}
-        for file_path in open_files:
-            absolute_path = self.workspace_absolute_path(file_path, workspace)
+        for absolute_path in files:
             if absolute_path in already_open:
                 continue
             if self.is_path_in_workspace(absolute_path) and os.path.isfile(absolute_path):

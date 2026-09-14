@@ -503,6 +503,50 @@ class SessionTests(SessionRecoveryTestCase):
         self.assertTrue(window.switch_workspace(str(first_workspace)))
         self.assertEqual([tab[1] for tab in self.tab_summary(window)], [str(first)])
 
+    def test_startup_workspace_opens_with_its_tabs_and_unsaved_documents(self):
+        chosen, (planned,) = self.make_workspace("chosen", "planned")
+        last, (recent,) = self.make_workspace("last", "recent")
+        outside = self.write_note("outside\n", "outside.txt")
+        crashed = self.make_window()
+        self.assertTrue(crashed.switch_workspace(str(chosen)))
+        crashed.open_file(str(planned))
+        self.assertTrue(crashed.switch_workspace(str(last)))
+        crashed.open_file(str(recent))
+        crashed.open_file(str(outside))
+        type_text(crashed.tab_widget.currentWidget(), "unsaved\n")
+        self.assertTrue(crashed.tab_widget.currentWidget().write_swap_file())
+        draft = crashed.new_editor_tab()
+        type_text(draft, "draft")
+        self.assertTrue(draft.write_backup())
+        crashed.settings_manager.save_setting("session_restore_mode", "workspace")
+        crashed.settings_manager.save_setting("startup_workspace", str(chosen))
+        # No closeEvent: the process dies here.
+
+        # The chosen workspace replaces the last one; only unsaved work comes along.
+        window = self.make_window()
+        self.assertEqual(window.workspace_path, str(chosen))
+        self.assertEqual(
+            [tab[1] for tab in self.tab_summary(window)],
+            [str(outside), None, str(planned)],
+        )
+        self.assertIsNotNone(window.tab_widget.widget(0).swap_recovery)
+        self.assertEqual(window.tab_widget.widget(1).editor.toPlainText(), "draft")
+
+    def test_missing_startup_workspace_restores_the_previous_session(self):
+        last, (recent,) = self.make_workspace("last", "recent")
+        window = self.make_window()
+        self.assertTrue(window.switch_workspace(str(last)))
+        window.open_file(str(recent))
+        window.settings_manager.save_setting("session_restore_mode", "workspace")
+        window.settings_manager.save_setting(
+            "startup_workspace", str(Path(self.temp_dir.name) / "gone")
+        )
+        self.assertTrue(self.close_window(window))
+
+        reopened = self.make_window()
+        self.assertEqual(reopened.workspace_path, str(last))
+        self.assertEqual([tab[1] for tab in self.tab_summary(reopened)], [str(recent)])
+
     def test_stash_files_missing_from_the_session_are_reopened(self):
         # Written by a Jottr that only stashed on quit, or before the session was saved.
         write_stash_file(stash_file_path(self.settings, "1700000000-0000"), "Old draft", "kept")

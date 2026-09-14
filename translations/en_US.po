@@ -1234,3 +1234,23 @@ msgstr "Always restore previous session"
 #: src/jottr/settings/pages/sessions.py
 msgid "Only restore if unsaved changes are detected"
 msgstr "Only restore if unsaved changes are detected"
+
+#: src/jottr/settings/pages/sessions.py
+msgid "Open a workspace:"
+msgstr "Open a workspace:"
+
+#: src/jottr/settings/pages/sessions.py
+msgid "Opens the workspace with its tabs, and reopens documents with unsaved changes from last time."
+msgstr "Opens the workspace with its tabs, and reopens documents with unsaved changes from last time."
+
+#: src/jottr/settings/pages/sessions.py
+msgid "No workspace selected"
+msgstr "No workspace selected"
+
+#: src/jottr/settings/pages/sessions.py
+msgid "Choose Folder…"
+msgstr "Choose Folder…"
+
+#: src/jottr/settings/pages/sessions.py
+msgid "Choose Workspace Folder"
+msgstr "Choose Workspace Folder"

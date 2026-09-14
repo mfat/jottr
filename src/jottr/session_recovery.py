@@ -31,6 +31,9 @@ SWAP_SYNC_MAX_SECONDS = 600
 SESSION_RESTORE_SETTING = "session_restore_mode"
 SESSION_RESTORE_ALWAYS = "always"
 SESSION_RESTORE_UNSAVED = "unsaved_changes"
+# Opens STARTUP_WORKSPACE_SETTING, plus documents with unsaved changes.
+SESSION_RESTORE_WORKSPACE = "workspace"
+STARTUP_WORKSPACE_SETTING = "startup_workspace"
 
 SWAP_FILE_VERSION = "Jottr Swap File 1"
 SWAP_FILE_SUFFIX = ".jottr-swp"

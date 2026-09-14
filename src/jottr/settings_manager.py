@@ -90,6 +90,7 @@ class SettingsManager:
             "restore_unsaved_new_files": True,
             "swap_sync_interval_seconds": 15,
             "session_restore_mode": "always",
+            "startup_workspace": "",
             "markdown_scroll_sync": True,
             "editor_line_numbers": True,
             "double_click_empty_tab_bar_new_tab": True,

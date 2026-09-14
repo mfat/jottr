@@ -1330,3 +1330,23 @@ msgstr "همیشه نشست قبلی بازیابی شود"
 #: src/jottr/settings/pages/sessions.py
 msgid "Only restore if unsaved changes are detected"
 msgstr "فقط در صورت یافتن تغییرات ذخیره‌نشده بازیابی شود"
+
+#: src/jottr/settings/pages/sessions.py
+msgid "Open a workspace:"
+msgstr "باز کردن فضای کاری:"
+
+#: src/jottr/settings/pages/sessions.py
+msgid "Opens the workspace with its tabs, and reopens documents with unsaved changes from last time."
+msgstr "فضای کاری با زبانه‌هایش باز می‌شود و سندهایی که از دفعهٔ قبل تغییرات ذخیره‌نشده دارند نیز دوباره باز می‌شوند."
+
+#: src/jottr/settings/pages/sessions.py
+msgid "No workspace selected"
+msgstr "هیچ فضای کاری انتخاب نشده"
+
+#: src/jottr/settings/pages/sessions.py
+msgid "Choose Folder…"
+msgstr "انتخاب پوشه…"
+
+#: src/jottr/settings/pages/sessions.py
+msgid "Choose Workspace Folder"
+msgstr "انتخاب پوشهٔ فضای کاری"
