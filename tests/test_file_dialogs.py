@@ -1,6 +1,7 @@
 """Tests for portal-aware file dialog helpers."""
 import os
 import sys
+import tempfile
 import unittest
 from pathlib import Path
 from unittest.mock import patch
@@ -42,6 +43,28 @@ class FileDialogTests(unittest.TestCase):
         for call in (open_dialog, save_dialog, dir_dialog):
             options = call.call_args.kwargs.get("options")
             self.assertIsNone(options)
+
+    def test_save_dialogs_start_in_the_documents_folder(self):
+        documents = Path(self.enterContext(tempfile.TemporaryDirectory()))
+        writable = "jottr.file_dialogs.QStandardPaths.writableLocation"
+        with patch.object(file_dialogs, "is_flatpak", return_value=False):
+            with patch(writable, return_value=str(documents)):
+                self.assertEqual(file_dialogs.default_save_directory(), str(documents))
+            # Qt may name a folder that does not exist, or none at all.
+            for location in (str(documents / "missing"), ""):
+                with patch(writable, return_value=location):
+                    self.assertEqual(
+                        file_dialogs.default_save_directory(), os.path.expanduser("~")
+                    )
+
+    def test_flatpak_leaves_the_save_folder_to_the_portal(self):
+        with patch.dict(os.environ, {"FLATPAK_ID": "io.github.mfat.jottr"}):
+            self.assertTrue(file_dialogs.is_flatpak())
+            self.assertEqual(file_dialogs.default_save_directory(), "")
+        with patch.dict(os.environ, {"FLATPAK_ID": ""}), patch(
+            "jottr.file_dialogs.os.path.exists", return_value=False
+        ):
+            self.assertFalse(file_dialogs.is_flatpak())
 
     def test_source_never_forces_non_native_dialogs(self):
         src_root = PROJECT_ROOT / "src" / "jottr"

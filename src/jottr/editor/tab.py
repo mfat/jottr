@@ -25,7 +25,7 @@ from PyQt6.QtGui import (
 from jottr.snippet_editor_dialog import SnippetEditorDialog
 from jottr.theme_manager import ThemeManager
 from jottr.translation_manager import _, is_rtl_language, localize_digits
-from jottr.file_dialogs import get_open_file_name, get_save_file_name
+from jottr.file_dialogs import default_save_directory, get_open_file_name, get_save_file_name
 
 from jottr.editor.spellcheck import (
     SpellCheckHighlighter,
@@ -503,7 +503,7 @@ class EditorTab(
         """Save file, optionally forcing Save As dialog"""
         if not self.current_file or force_dialog:
             filters, initial_filter = self.save_dialog_filters()
-            start_path = self.current_file or os.path.expanduser("~")
+            start_path = self.current_file or default_save_directory()
             fallback_suffix = self.preferred_save_suffix()
             file_name, selected_filter = get_save_file_name(
                 self,
@@ -546,7 +546,7 @@ class EditorTab(
         """Return a sensible default path for exporting the current document."""
         if self.current_file:
             return os.path.splitext(self.current_file)[0] + ".pdf"
-        return os.path.join(os.path.expanduser("~"), "document.pdf")
+        return os.path.join(default_save_directory(), "document.pdf")
 
     def prompt_pdf_export_path(self):
         """Show a native/portal save dialog for PDF export."""

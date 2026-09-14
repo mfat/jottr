@@ -11,7 +11,32 @@ https://docs.flatpak.org/en/latest/portals.html
 
 from __future__ import annotations
 
+import os
+
+from PyQt6.QtCore import QStandardPaths
 from PyQt6.QtWidgets import QFileDialog, QWidget
+
+
+def is_flatpak() -> bool:
+    """Whether Jottr runs inside a Flatpak sandbox."""
+    return bool(os.environ.get("FLATPAK_ID")) or os.path.exists("/.flatpak-info")
+
+
+def default_save_directory() -> str:
+    """Folder Save dialogs start in for documents that were never saved.
+
+    The user's Documents folder, or home when it cannot be determined or does
+    not exist. Inside Flatpak the portal file chooser picks the folder, since
+    the sandbox cannot see the host's Documents folder; returns "".
+    """
+    if is_flatpak():
+        return ""
+    documents = QStandardPaths.writableLocation(
+        QStandardPaths.StandardLocation.DocumentsLocation
+    )
+    if documents and os.path.isdir(documents):
+        return documents
+    return os.path.expanduser("~")
 
 
 def get_open_file_name(
