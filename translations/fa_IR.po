@@ -1292,8 +1292,8 @@ msgid "Restore newly-created unsaved files on startup"
 msgstr "بازگرداندن پرونده‌های تازه‌ساخته و ذخیره‌نشده هنگام شروع"
 
 #: src/jottr/settings/pages/sessions.py
-msgid "Untitled documents are backed up while you type and reopened the next time Jottr starts, even after a crash. Closing Jottr does not ask to save them."
-msgstr "از سندهای بی‌نام هنگام تایپ پشتیبان گرفته می‌شود و در اجرای بعدی Jottr، حتی پس از خرابی، دوباره باز می‌شوند. بستن Jottr برای ذخیرهٔ آن‌ها پرسشی نمی‌کند."
+msgid "Untitled documents are backed up while you type and reopened the next time Jottr starts if Jottr does not close properly. Closing Jottr asks to save them."
+msgstr "از سندهای بی‌نام هنگام تایپ پشتیبان گرفته می‌شود و اگر Jottr به‌درستی بسته نشود، در اجرای بعدی دوباره باز می‌شوند. هنگام بستن Jottr برای ذخیرهٔ آن‌ها پرسیده می‌شود."
 
 #: src/jottr/editor/swap_file.py
 msgid "The file was not closed properly."

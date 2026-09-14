@@ -331,24 +331,25 @@ class SessionTests(SessionRecoveryTestCase):
             [tab[1] for tab in self.tab_summary(reopened)], [str(first)]
         )
 
-    def test_new_unsaved_files_are_kept_on_close_and_restored_on_startup(self):
+    def test_closing_prompts_for_new_unsaved_files_and_discard_drops_them(self):
         window = self.make_window()
+        window.settings_manager.save_setting("session_restore_mode", "always")
         tab = window.tab_widget.widget(0)
         type_text(tab, "draft notes")
         window.tab_widget.setTabText(0, "Ideas*")
 
         with patch.object(
             window_module, "ask_themed_question",
-            side_effect=AssertionError("stashed documents must not prompt"),
-        ):
+            return_value=QMessageBox.StandardButton.Discard,
+        ) as ask:
             self.assertTrue(self.close_window(window))
-            # A repeated close must not change the session.
+            # A repeated close must not ask again or change the session.
             self.assertTrue(self.close_window(window))
-        self.assertEqual(len(stash_names(window.settings_manager)), 1)
+        ask.assert_called_once()
+        self.assertEqual(stash_names(window.settings_manager), [])
 
         restored = self.make_window()
-        self.assertEqual(self.tab_summary(restored), [("Ideas*", None, "draft notes")])
-        self.assertTrue(restored.tab_widget.widget(0).editor.document().isModified())
+        self.assertEqual(self.tab_summary(restored), [("Document 1", None, "")])
 
     def test_new_unsaved_files_prompt_when_restoring_is_disabled(self):
         window = self.make_window()
@@ -434,11 +435,13 @@ class SessionTests(SessionRecoveryTestCase):
 
     def test_restore_on_unsaved_changes_counts_untitled_drafts(self):
         note = self.write_note()
-        window = self.make_window()
-        window.settings_manager.save_setting("session_restore_mode", "unsaved_changes")
-        window.open_file(str(note))
-        type_text(window.new_editor_tab(), "draft")
-        self.assertTrue(self.close_window(window))
+        crashed = self.make_window()
+        crashed.settings_manager.save_setting("session_restore_mode", "unsaved_changes")
+        crashed.open_file(str(note))
+        draft = crashed.new_editor_tab()
+        type_text(draft, "draft")
+        self.assertTrue(draft.write_backup())
+        # No closeEvent: the process dies here.
 
         reopened = self.make_window()
         self.assertEqual(self.tab_summary(reopened), [

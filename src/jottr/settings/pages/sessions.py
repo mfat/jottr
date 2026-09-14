@@ -98,8 +98,8 @@ class SessionsPageMixin:
         box_layout.addWidget(self.restore_unsaved_new_files_check)
         box_layout.addWidget(self._sessions_hint_label(_(
             "Untitled documents are backed up while you type and reopened the "
-            "next time Jottr starts, even after a crash. Closing Jottr does not "
-            "ask to save them."
+            "next time Jottr starts if Jottr does not close properly. Closing "
+            "Jottr asks to save them."
         )))
 
         interval_row = QHBoxLayout()

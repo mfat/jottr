@@ -1192,8 +1192,8 @@ msgid "Restore newly-created unsaved files on startup"
 msgstr "Restore newly-created unsaved files on startup"
 
 #: src/jottr/settings/pages/sessions.py
-msgid "Untitled documents are backed up while you type and reopened the next time Jottr starts, even after a crash. Closing Jottr does not ask to save them."
-msgstr "Untitled documents are backed up while you type and reopened the next time Jottr starts, even after a crash. Closing Jottr does not ask to save them."
+msgid "Untitled documents are backed up while you type and reopened the next time Jottr starts if Jottr does not close properly. Closing Jottr asks to save them."
+msgstr "Untitled documents are backed up while you type and reopened the next time Jottr starts if Jottr does not close properly. Closing Jottr asks to save them."
 
 #: src/jottr/editor/swap_file.py
 msgid "The file was not closed properly."

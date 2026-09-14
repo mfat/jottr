@@ -2303,8 +2303,9 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
             # Already closed once; the session must not change any more.
             event.accept()
             return
-        stashed_tabs = self.stash_new_unsaved_files()
-        if self.handle_unsaved_changes(skip_tabs=stashed_tabs):
+        # Cancelling the prompt keeps untitled documents backed up as they are now.
+        self.stash_new_unsaved_files()
+        if self.handle_unsaved_changes():
             settings_dialog = getattr(self, "_settings_dialog", None)
             if settings_dialog is not None:
                 # Flushes pending applies and remembers window geometry.
@@ -2313,7 +2314,7 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
             # Also saves the session the next start reopens.
             self.save_workspace_open_files()
             self._close_accepted = True
-            self.release_backups(keep=stashed_tabs)
+            self.release_backups()
             # Save window state
             self.settings_manager.save_setting('window_state', {
                 'geometry': self.saveGeometry().toBase64().data().decode(),
@@ -2324,22 +2325,17 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
             event.ignore()
 
     def stash_new_unsaved_files(self):
-        """Write untitled documents to the stash now; return the tabs written.
-
-        Stashed documents are reopened on the next start, so closing does not
-        ask to save them.
-        """
-        stashed_tabs = set()
+        """Write untitled documents to the stash now."""
         for index in range(self.tab_widget.count()):
             tab = self.tab_widget.widget(index)
-            if isinstance(tab, EditorTab) and tab.write_stash_file():
-                stashed_tabs.add(tab)
-        return stashed_tabs
+            if isinstance(tab, EditorTab):
+                tab.write_stash_file()
 
-    def release_backups(self, keep=()):
+    def release_backups(self):
         """Documents are closing: drop backups nobody needs to recover.
 
-        Stashes of the *keep* tabs stay for the next start.
+        Closing already asked to save or discard every document, so untitled
+        stashes only survive a crash.
         """
         for index in range(self.tab_widget.count()):
             tab = self.tab_widget.widget(index)
@@ -2347,7 +2343,7 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
             if release_swap_file is not None:
                 release_swap_file()
             remove_stash_file = getattr(tab, "remove_stash_file", None)
-            if tab not in keep and remove_stash_file is not None:
+            if remove_stash_file is not None:
                 remove_stash_file()
 
     def session_tab_entry(self, tab):
@@ -2945,12 +2941,12 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
 
     # Add a new method to set up the find shortcut
 
-    def handle_unsaved_changes(self, skip_tabs=()):
-        """Handle unsaved changes before closing, except for *skip_tabs*."""
+    def handle_unsaved_changes(self):
+        """Handle unsaved changes before closing."""
         unsaved_tabs = []
         for i in range(self.tab_widget.count()):
             tab = self.tab_widget.widget(i)
-            if tab not in skip_tabs and self.is_editor_tab_modified(tab):
+            if self.is_editor_tab_modified(tab):
                 unsaved_tabs.append(i)
         
         if unsaved_tabs:
