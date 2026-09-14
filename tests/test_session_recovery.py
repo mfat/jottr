@@ -444,6 +444,65 @@ class SessionTests(SessionRecoveryTestCase):
             ("Document 2*", None, "draft"),
         ])
 
+    def make_workspace(self, folder, *names):
+        workspace = Path(self.temp_dir.name) / folder
+        notes = [self.write_note(f"{name}\n", f"{name}.txt", workspace) for name in names]
+        return workspace, notes
+
+    def test_workspace_tabs_restore_even_when_the_session_does_not(self):
+        workspace, (first, second) = self.make_workspace("workspace", "first", "second")
+        outside = self.write_note("outside\n", "outside.txt")
+        window = self.make_window()
+        window.settings_manager.save_setting("session_restore_mode", "unsaved_changes")
+        self.assertTrue(window.switch_workspace(str(workspace)))
+        window.open_file(str(first))
+        window.open_file(str(second))
+        window.open_file(str(outside))
+        self.assertTrue(self.close_window(window))
+
+        # Nothing unsaved, so the session stays closed, but the workspace does not.
+        reopened = self.make_window()
+        self.assertEqual(reopened.workspace_path, str(workspace))
+        self.assertEqual(
+            [tab[1] for tab in self.tab_summary(reopened)], [str(first), str(second)]
+        )
+
+    def test_restored_session_keeps_its_order_and_current_tab_in_a_workspace(self):
+        workspace, (first, second) = self.make_workspace("workspace", "first", "second")
+        outside = self.write_note("outside\n", "outside.txt")
+        crashed = self.make_window()
+        self.assertTrue(crashed.switch_workspace(str(workspace)))
+        crashed.open_file(str(second))
+        crashed.open_file(str(outside))
+        crashed.open_file(str(first))
+        crashed.tab_widget.setCurrentIndex(1)
+        # No closeEvent: the process dies here.
+
+        window = self.make_window()
+        self.assertEqual(
+            [tab[1] for tab in self.tab_summary(window)],
+            [str(second), str(outside), str(first)],
+        )
+        self.assertEqual(window.tab_widget.currentIndex(), 1)
+
+    def test_reopening_a_workspace_restores_its_tabs(self):
+        first_workspace, (first,) = self.make_workspace("first-workspace", "first")
+        second_workspace, (second,) = self.make_workspace("second-workspace", "second")
+        window = self.make_window()
+        self.assertTrue(window.switch_workspace(str(first_workspace)))
+        window.open_file(str(first))
+        self.assertTrue(window.switch_workspace(str(second_workspace)))
+        window.open_file(str(second))
+        self.assertEqual([tab[1] for tab in self.tab_summary(window)], [str(second)])
+
+        self.assertTrue(window.switch_workspace(str(first_workspace)))
+        self.assertEqual([tab[1] for tab in self.tab_summary(window)], [str(first)])
+
+        self.assertTrue(window.close_workspace())
+        self.assertEqual([tab[1] for tab in self.tab_summary(window)], [None])
+        self.assertTrue(window.switch_workspace(str(first_workspace)))
+        self.assertEqual([tab[1] for tab in self.tab_summary(window)], [str(first)])
+
     def test_stash_files_missing_from_the_session_are_reopened(self):
         # Written by a Jottr that only stashed on quit, or before the session was saved.
         write_stash_file(stash_file_path(self.settings, "1700000000-0000"), "Old draft", "kept")

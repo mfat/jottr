@@ -445,8 +445,10 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
         self.main_splitter.setSizes([260, 940])
         layout.addWidget(self.main_splitter)
         self.restore_workspace(open_files=False)
-        if not self.restore_session() and self.workspace_path:
-            # No session saved yet: reopen the workspace's files as before.
+        self.restore_session()
+        if self.workspace_path:
+            # An open workspace always gets its tabs back, whichever session
+            # restore mode is chosen; tabs the session reopened are kept as is.
             self.restore_workspace_session(self.workspace_path)
 
         # Create new tab if no tabs were restored
