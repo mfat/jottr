@@ -646,15 +646,16 @@ class DialogTests(unittest.TestCase):
         self.assertEqual(manager.get_setting("swap_sync_interval_seconds"), 600)
         self.assertEqual(dialog.get_data()["swap_sync_interval_seconds"], 600)
 
-        self.assertTrue(dialog.restore_session_always_radio.isChecked())
-        self.assertEqual(dialog.get_data()["session_restore_mode"], "always")
-        dialog.restore_session_unsaved_radio.setChecked(True)
-        self.assertFalse(dialog.restore_session_always_radio.isChecked())
-        self.assertEqual(manager.get_setting("session_restore_mode"), "unsaved_changes")
+        # Fresh installs only restore the session when unsaved changes are detected.
+        self.assertTrue(dialog.restore_session_unsaved_radio.isChecked())
         self.assertEqual(dialog.get_data()["session_restore_mode"], "unsaved_changes")
-        manager.save_setting("session_restore_mode", "always")
+        dialog.restore_session_always_radio.setChecked(True)
+        self.assertFalse(dialog.restore_session_unsaved_radio.isChecked())
+        self.assertEqual(manager.get_setting("session_restore_mode"), "always")
+        self.assertEqual(dialog.get_data()["session_restore_mode"], "always")
+        manager.save_setting("session_restore_mode", "unsaved_changes")
         dialog.sync_from_settings()
-        self.assertTrue(dialog.restore_session_always_radio.isChecked())
+        self.assertTrue(dialog.restore_session_unsaved_radio.isChecked())
 
     def test_sessions_page_picks_a_startup_workspace(self):
         first = Path(self.temp_dir.name) / "notes"

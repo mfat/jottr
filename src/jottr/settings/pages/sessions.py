@@ -201,7 +201,7 @@ class SessionsPageMixin:
 
     def sync_sessions_page(self):
         sm = self.settings_manager
-        mode = sm.get_setting(SESSION_RESTORE_SETTING, SESSION_RESTORE_ALWAYS)
+        mode = sm.get_setting(SESSION_RESTORE_SETTING, SESSION_RESTORE_UNSAVED)
         {
             SESSION_RESTORE_UNSAVED: self.restore_session_unsaved_radio,
             SESSION_RESTORE_WORKSPACE: self.restore_session_workspace_radio,

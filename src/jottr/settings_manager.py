@@ -89,7 +89,7 @@ class SettingsManager:
             "swap_file_enabled": True,
             "restore_unsaved_new_files": True,
             "swap_sync_interval_seconds": 15,
-            "session_restore_mode": "always",
+            "session_restore_mode": "unsaved_changes",
             "startup_workspace": "",
             "markdown_scroll_sync": True,
             "editor_line_numbers": True,

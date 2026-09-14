@@ -24,7 +24,6 @@ from jottr.theme_manager import ThemeManager
 from jottr.qt_style import apply_qt_color_scheme, apply_qt_style, refresh_styled_widgets, resolve_qt_style_key
 from jottr.settings_manager import SettingsManager
 from jottr.session_recovery import (
-    SESSION_RESTORE_ALWAYS,
     SESSION_RESTORE_SETTING,
     SESSION_RESTORE_UNSAVED,
     SESSION_RESTORE_WORKSPACE,
@@ -2389,7 +2388,7 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
     def startup_workspace(self):
         """Workspace the "Open a workspace" startup option opens, if it still exists."""
         sm = self.settings_manager
-        if sm.get_setting(SESSION_RESTORE_SETTING, SESSION_RESTORE_ALWAYS) != SESSION_RESTORE_WORKSPACE:
+        if sm.get_setting(SESSION_RESTORE_SETTING, SESSION_RESTORE_UNSAVED) != SESSION_RESTORE_WORKSPACE:
             return ""
         path = sm.get_setting(STARTUP_WORKSPACE_SETTING, "")
         if not isinstance(path, str) or not path or not os.path.isdir(path):
@@ -2408,7 +2407,7 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
         session = read_session(self.settings_manager)
         entries = session["tabs"] if session is not None else []
         restore_mode = self.settings_manager.get_setting(
-            SESSION_RESTORE_SETTING, SESSION_RESTORE_ALWAYS
+            SESSION_RESTORE_SETTING, SESSION_RESTORE_UNSAVED
         )
         if restore_mode == SESSION_RESTORE_UNSAVED and not self.session_has_unsaved_changes(entries):
             entries = []
