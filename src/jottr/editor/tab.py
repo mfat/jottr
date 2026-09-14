@@ -503,8 +503,8 @@ class EditorTab(
         """Save file, optionally forcing Save As dialog"""
         if not self.current_file or force_dialog:
             filters, initial_filter = self.save_dialog_filters()
-            start_path = self.current_file or default_save_directory()
             fallback_suffix = self.preferred_save_suffix()
+            start_path = self.current_file or self.suggested_save_path(fallback_suffix)
             file_name, selected_filter = get_save_file_name(
                 self,
                 _("Save File"),
@@ -542,11 +542,23 @@ class EditorTab(
             QMessageBox.critical(self, _("Error"), _("Could not save file: {error}").format(error=str(e)))
             return False
 
+    def suggested_save_path(self, suffix=""):
+        """Save dialog start path for a never-saved document, named after its tab.
+
+        The dialog selects the file name in the path; inside Flatpak the path
+        is only the name, and the portal picks the folder.
+        """
+        name = self.backup_title() or "document"
+        name = name.replace("/", "-").replace("\\", "-")
+        if suffix:
+            name = f"{name}.{suffix}"
+        return os.path.join(default_save_directory(), name)
+
     def suggested_pdf_export_path(self):
         """Return a sensible default path for exporting the current document."""
         if self.current_file:
             return os.path.splitext(self.current_file)[0] + ".pdf"
-        return os.path.join(default_save_directory(), "document.pdf")
+        return self.suggested_save_path("pdf")
 
     def prompt_pdf_export_path(self):
         """Show a native/portal save dialog for PDF export."""

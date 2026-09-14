@@ -1385,6 +1385,38 @@ class EditorAndMainTests(unittest.TestCase):
         self.assertTrue(save_dialog.call_args.args[3].startswith("فایل‌های PDF (*.pdf)"))
         self.assertEqual(save_dialog.call_args.args[4], "فایل‌های PDF (*.pdf)")
 
+    def test_save_dialogs_suggest_a_name_from_the_tab_title(self):
+        editor = self.make_editor()
+        documents = Path(self.temp_dir.name) / "Documents"
+        folder = patch.object(
+            editor_tab_impl, "default_save_directory", return_value=str(documents)
+        )
+        title = patch.object(editor, "backup_title", return_value="Document 1")
+        with folder, title, patch.object(
+            editor_tab_impl, "get_save_file_name", return_value=("", "")
+        ) as save_dialog:
+            self.assertFalse(editor.save_file())
+            self.assertEqual(save_dialog.call_args.args[2], str(documents / "Document 1.txt"))
+            self.assertEqual(
+                editor.suggested_pdf_export_path(), str(documents / "Document 1.pdf")
+            )
+
+        # Path separators in a tab title must not name folders.
+        with folder, patch.object(editor, "backup_title", return_value="Notes/Ideas"):
+            self.assertEqual(editor.suggested_save_path("md"), str(documents / "Notes-Ideas.md"))
+
+        # Inside Flatpak only the name is suggested; the portal picks the folder.
+        with title, patch.object(editor_tab_impl, "default_save_directory", return_value=""):
+            self.assertEqual(editor.suggested_save_path("txt"), "Document 1.txt")
+
+        saved = Path(self.temp_dir.name) / "saved.txt"
+        editor.current_file = str(saved)
+        with patch.object(
+            editor_tab_impl, "get_save_file_name", return_value=("", "")
+        ) as save_dialog:
+            self.assertFalse(editor.save_file(force_dialog=True))
+        self.assertEqual(save_dialog.call_args.args[2], str(saved))
+
     def test_pdf_export_replace_confirmation_uses_app_translations(self):
         self.settings.save_setting("language", "fa_IR")
         translation_manager.set_language("fa_IR")
