@@ -82,12 +82,13 @@ class WorkspaceControllerMixin:
         self.workspace_widget.hide()
         self.ui_animations = {}
 
-    def restore_workspace(self):
-        """Restore the last workspace and open workspace files."""
+    def restore_workspace(self, open_files=True):
+        """Restore the last workspace and, with *open_files*, its open files."""
         path = self.settings_manager.get_setting("workspace_path", "")
         if path and os.path.isdir(path):
             self.set_workspace_path(path, save=False)
-            self.restore_workspace_session(path)
+            if open_files:
+                self.restore_workspace_session(path)
 
     def set_workspace_path(self, path, save=True):
         """Set and display the active workspace directory."""
@@ -374,6 +375,7 @@ class WorkspaceControllerMixin:
                 self.tab_widget.removeTab(index)
                 tab.deleteLater()
             index -= 1
+        self.save_session()
         return True
 
     def is_path_in_workspace(self, path):
@@ -438,7 +440,8 @@ class WorkspaceControllerMixin:
             index -= 1
 
     def save_workspace_open_files(self):
-        """Persist open files that are inside the active workspace."""
+        """Persist the open tabs session and the active workspace's open files."""
+        self.save_session()
         if not self.workspace_path:
             self.settings_manager.save_setting("workspace_open_files", [])
             return

@@ -1192,8 +1192,8 @@ msgid "Restore newly-created unsaved files on startup"
 msgstr "Restore newly-created unsaved files on startup"
 
 #: src/jottr/settings/pages/sessions.py
-msgid "Untitled documents are kept when Jottr closes, without asking to save them, and reopened the next time it starts."
-msgstr "Untitled documents are kept when Jottr closes, without asking to save them, and reopened the next time it starts."
+msgid "Untitled documents are backed up while you type and reopened the next time Jottr starts, even after a crash. Closing Jottr does not ask to save them."
+msgstr "Untitled documents are backed up while you type and reopened the next time Jottr starts, even after a crash. Closing Jottr does not ask to save them."
 
 #: src/jottr/editor/swap_file.py
 msgid "The file was not closed properly."
@@ -1218,3 +1218,19 @@ msgstr "{name} (recovered)"
 #: src/jottr/editor/swap_file.py
 msgid "Close"
 msgstr "Close"
+
+#: src/jottr/settings/pages/sessions.py
+msgid "Back up unsaved text every:"
+msgstr "Back up unsaved text every:"
+
+#: src/jottr/settings/pages/sessions.py
+msgid "Session restore behavior on startup"
+msgstr "Session restore behavior on startup"
+
+#: src/jottr/settings/pages/sessions.py
+msgid "Always restore previous session"
+msgstr "Always restore previous session"
+
+#: src/jottr/settings/pages/sessions.py
+msgid "Only restore if unsaved changes are detected"
+msgstr "Only restore if unsaved changes are detected"

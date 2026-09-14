@@ -490,6 +490,8 @@ class SettingsDialog(
             'autosave_interval_seconds': self.autosave_interval_seconds(),
             'swap_file_enabled': self.swap_file_enabled_check.isChecked(),
             'restore_unsaved_new_files': self.restore_unsaved_new_files_check.isChecked(),
+            'swap_sync_interval_seconds': self.backup_interval_spin.value(),
+            'session_restore_mode': self.selected_session_restore_mode(),
             'plugins_directory': self.plugins_directory_edit.text().strip(),
             'plugin_registry_url': self.plugin_registry_url_edit.text().strip(),
             'plugin_registry_checksum_url': self.plugin_registry_checksum_url_edit.text().strip(),

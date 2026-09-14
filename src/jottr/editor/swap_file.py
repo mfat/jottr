@@ -1,6 +1,12 @@
-"""Swap file backup and crash recovery for an editor tab (Kate::SwapFile)."""
+"""Unsaved-text backup and crash recovery for an editor tab.
+
+A file on disk gets a swap file (Kate::SwapFile); an untitled document gets a
+stash file (Kate's KateStashManager), kept up to date while typing so it
+survives a crash as well.
+"""
 import difflib
 import os
+import uuid
 
 from PyQt6.QtCore import QTimer
 from PyQt6.QtGui import QFont, QFontDatabase, QTextCursor
@@ -10,24 +16,27 @@ from PyQt6.QtWidgets import (
 )
 
 from jottr.session_recovery import (
+    STASH_NEW_FILES_SETTING,
     SWAP_FILE_SETTING,
+    SWAP_SYNC_DEFAULT_SECONDS,
+    SWAP_SYNC_INTERVAL_SETTING,
+    SWAP_SYNC_MAX_SECONDS,
+    SWAP_SYNC_MIN_SECONDS,
     read_swap_file,
     remove_file,
+    stash_file_path,
     swap_file_path,
     text_checksum,
-    write_swap_file,
+    write_stash_file as write_stash_data,
+    write_swap_file as write_swap_data,
 )
 from jottr.translation_manager import _
 
-# Kate appends every edit to its swap file right away; a full copy is written
-# instead, at most this often while typing.
-SWAP_SYNC_INTERVAL_MS = 3000
-
 
 class SwapFileMixin:
-    """Keeps a swap file for the tab's file while it has unsaved changes.
+    """Keeps a backup of the tab's text while it is unsaved.
 
-    Expects EditorTab: editor, current_file, settings_manager.
+    Expects EditorTab: editor, current_file, settings_manager, main_window.
     """
 
     def setup_swap_file(self):
@@ -37,11 +46,15 @@ class SwapFileMixin:
         self.disk_checksum = None
         # Swap data found on load, while the recovery bar waits for a choice.
         self.swap_recovery = None
+        # Names this tab's stash file while it is an untitled document.
+        self.stash_id = uuid.uuid4().hex
 
+        # Syncs the swap file, or the stash file for an untitled document.
+        # Kate appends every edit to its swap file and syncs it on this
+        # interval; a full copy of the text is written instead.
         self.swap_timer = QTimer(self)
         self.swap_timer.setSingleShot(True)
-        self.swap_timer.setInterval(SWAP_SYNC_INTERVAL_MS)
-        self.swap_timer.timeout.connect(self.write_swap_file)
+        self.swap_timer.timeout.connect(self.write_backup)
         self.editor.textChanged.connect(self.schedule_swap_write)
         self.editor.document().modificationChanged.connect(
             self._on_swap_modification_changed
@@ -76,14 +89,34 @@ class SwapFileMixin:
     def swap_file_enabled(self):
         return bool(self.settings_manager.get_setting(SWAP_FILE_SETTING, True))
 
+    def stash_enabled(self):
+        return bool(self.settings_manager.get_setting(STASH_NEW_FILES_SETTING, True))
+
+    def backup_interval_ms(self):
+        try:
+            seconds = int(self.settings_manager.get_setting(
+                SWAP_SYNC_INTERVAL_SETTING, SWAP_SYNC_DEFAULT_SECONDS
+            ))
+        except (TypeError, ValueError):
+            seconds = SWAP_SYNC_DEFAULT_SECONDS
+        return min(SWAP_SYNC_MAX_SECONDS, max(SWAP_SYNC_MIN_SECONDS, seconds)) * 1000
+
     def schedule_swap_write(self):
-        if self.swap_recovery is not None or not self.current_file:
-            return
-        if not self.swap_file_enabled() or not self.editor.document().isModified():
+        if self.current_file:
+            if self.swap_recovery is not None or not self.swap_file_enabled():
+                return
+            if not self.editor.document().isModified():
+                return
+        elif not self.stash_enabled():
             return
         # Not restarted on each edit, so continuous typing still gets backed up.
         if not self.swap_timer.isActive():
-            self.swap_timer.start()
+            self.swap_timer.start(self.backup_interval_ms())
+
+    def write_backup(self):
+        if self.current_file:
+            return self.write_swap_file()
+        return self.write_stash_file()
 
     def write_swap_file(self):
         """Write the unsaved text of current_file to its swap file now."""
@@ -99,7 +132,7 @@ class SwapFileMixin:
         if self.disk_checksum is None:
             self.disk_checksum = self._checksum_on_disk()
         try:
-            write_swap_file(
+            write_swap_data(
                 path, self.current_file, self.disk_checksum, self.editor.toPlainText()
             )
         except OSError as error:
@@ -107,6 +140,34 @@ class SwapFileMixin:
             return False
         self.swap_file = path
         return True
+
+    def write_stash_file(self):
+        """Write this untitled document to its stash file now.
+
+        Returns True when the stash holds the current text.
+        """
+        self.swap_timer.stop()
+        if self.current_file or not self.stash_enabled():
+            return False
+        text = self.editor.toPlainText()
+        if not text:
+            self.remove_stash_file()
+            return False
+        path = stash_file_path(self.settings_manager, self.stash_id)
+        try:
+            write_stash_data(path, self.backup_title(), text)
+        except OSError as error:
+            print(f"Could not write to stash file {path}: {error}")
+            return False
+        return True
+
+    def backup_title(self):
+        main_window = getattr(self, "main_window", None)
+        tab_widget = getattr(main_window, "tab_widget", None)
+        if tab_widget is None:
+            return ""
+        index = tab_widget.indexOf(self)
+        return tab_widget.tabText(index).removesuffix("*") if index >= 0 else ""
 
     def _checksum_on_disk(self):
         try:
@@ -121,6 +182,9 @@ class SwapFileMixin:
             remove_file(self.swap_file)
             self.swap_file = None
 
+    def remove_stash_file(self):
+        remove_file(stash_file_path(self.settings_manager, self.stash_id))
+
     def release_swap_file(self):
         """The document is closing: drop its swap file.
 
@@ -131,7 +195,13 @@ class SwapFileMixin:
         if self.swap_recovery is None:
             self.remove_swap_file()
 
-    def apply_swap_file_setting(self):
+    def apply_backup_settings(self):
+        if not self.current_file:
+            if self.stash_enabled():
+                self.schedule_swap_write()
+            else:
+                self.remove_stash_file()
+            return
         if self.swap_recovery is not None:
             return
         if self.swap_file_enabled():
@@ -142,9 +212,11 @@ class SwapFileMixin:
     def mark_swap_file_saved(self, text):
         """current_file now holds *text* on disk."""
         self.disk_checksum = text_checksum(text)
+        # An untitled document saved to a file no longer needs its stash.
+        self.remove_stash_file()
 
     def _on_swap_modification_changed(self, modified):
-        if not modified and self.swap_recovery is None:
+        if not modified and self.swap_recovery is None and self.current_file:
             self.remove_swap_file()
 
     def load_swap_file(self, text):

@@ -633,9 +633,28 @@ class DialogTests(unittest.TestCase):
         self.assertFalse(data["swap_file_enabled"])
         self.assertFalse(data["restore_unsaved_new_files"])
 
+        # Both backups off: the sync interval has nothing to control.
+        self.assertFalse(dialog.backup_interval_spin.isEnabled())
+
         manager.save_setting("swap_file_enabled", True)
         dialog.sync_from_settings()
         self.assertTrue(dialog.swap_file_enabled_check.isChecked())
+        self.assertTrue(dialog.backup_interval_spin.isEnabled())
+
+        self.assertEqual(dialog.backup_interval_spin.value(), 15)
+        dialog.backup_interval_spin.setValue(900)
+        self.assertEqual(manager.get_setting("swap_sync_interval_seconds"), 600)
+        self.assertEqual(dialog.get_data()["swap_sync_interval_seconds"], 600)
+
+        self.assertTrue(dialog.restore_session_always_radio.isChecked())
+        self.assertEqual(dialog.get_data()["session_restore_mode"], "always")
+        dialog.restore_session_unsaved_radio.setChecked(True)
+        self.assertFalse(dialog.restore_session_always_radio.isChecked())
+        self.assertEqual(manager.get_setting("session_restore_mode"), "unsaved_changes")
+        self.assertEqual(dialog.get_data()["session_restore_mode"], "unsaved_changes")
+        manager.save_setting("session_restore_mode", "always")
+        dialog.sync_from_settings()
+        self.assertTrue(dialog.restore_session_always_radio.isChecked())
 
     def test_snippet_editor_dialog_returns_entered_data(self):
         dialog = SnippetEditorDialog("Title", "Body")

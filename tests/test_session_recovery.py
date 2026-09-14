@@ -1,4 +1,4 @@
-"""Swap file backup and restoring newly-created unsaved files."""
+"""Swap files, untitled document stashes, and reopening the last session."""
 import os
 import sys
 import tempfile
@@ -21,12 +21,14 @@ from jottr.main import TextEditorApp
 from jottr.session_recovery import (
     STASH_NEW_FILES_SETTING,
     SWAP_FILE_SETTING,
-    pop_stashed_documents,
+    read_session,
+    read_stash_file,
     read_swap_file,
     stash_directory,
-    stash_documents,
+    stash_file_path,
     swap_file_path,
     text_checksum,
+    write_stash_file,
     write_swap_file,
 )
 from jottr.settings_manager import SettingsManager
@@ -65,20 +67,26 @@ class SessionRecoveryTestCase(unittest.TestCase):
         self.settings = SettingsManager()
         self.snippets = SnippetManager(self.settings)
 
-    def write_note(self, text="one\n"):
-        path = Path(self.temp_dir.name) / "note.txt"
+    def write_note(self, text="one\n", name="note.txt", folder=None):
+        folder = Path(folder or self.temp_dir.name)
+        folder.mkdir(parents=True, exist_ok=True)
+        path = folder / name
         path.write_text(text, encoding="utf-8")
         return path
 
 
 class SwapFileTests(SessionRecoveryTestCase):
-    def load_tab(self, path):
-        """Open *path* in a new tab the way the window does."""
-        text = path.read_text(encoding="utf-8")
+    def make_tab(self):
         tab = EditorTab(self.snippets, self.settings)
         self.addCleanup(tab.deleteLater)
         self.addCleanup(tab.backup_timer.stop)
         self.addCleanup(tab.swap_timer.stop)
+        return tab
+
+    def load_tab(self, path):
+        """Open *path* in a new tab the way the window does."""
+        text = path.read_text(encoding="utf-8")
+        tab = self.make_tab()
         tab.editor.setPlainText(text)
         tab.current_file = str(path)
         tab.editor.document().setModified(False)
@@ -93,7 +101,7 @@ class SwapFileTests(SessionRecoveryTestCase):
 
         type_text(tab, "two\n")
         self.assertTrue(tab.swap_timer.isActive())
-        self.assertTrue(tab.write_swap_file())
+        self.assertTrue(tab.write_backup())
         data = read_swap_file(swap)
         self.assertEqual(data["text"], "one\ntwo\n")
         self.assertEqual(data["checksum"], text_checksum("one\n"))
@@ -169,15 +177,61 @@ class SwapFileTests(SessionRecoveryTestCase):
         self.assertTrue(tab.write_swap_file())
 
         self.settings.save_setting(SWAP_FILE_SETTING, False)
-        tab.apply_swap_file_setting()
+        tab.apply_backup_settings()
         self.assertFalse(os.path.exists(swap))
         type_text(tab, "three\n")
         self.assertFalse(tab.swap_timer.isActive())
         self.assertFalse(tab.write_swap_file())
         self.assertFalse(os.path.exists(swap))
 
+    def test_backups_follow_the_configured_sync_interval(self):
+        tab = self.make_tab()
+        type_text(tab, "draft")
+        # Kate's default "Save swap files every: 15s".
+        self.assertEqual(tab.swap_timer.interval(), 15000)
+        self.assertTrue(tab.write_backup())
 
-class StashTests(SessionRecoveryTestCase):
+        self.settings.save_setting("swap_sync_interval_seconds", 42)
+        type_text(tab, " more")
+        self.assertEqual(tab.swap_timer.interval(), 42000)
+        tab.swap_timer.stop()
+
+        self.settings.save_setting("swap_sync_interval_seconds", 0)
+        self.assertEqual(tab.backup_interval_ms(), 1000)
+        self.settings.save_setting("swap_sync_interval_seconds", "bad")
+        self.assertEqual(tab.backup_interval_ms(), 15000)
+
+    def test_untitled_document_is_stashed_while_typing(self):
+        tab = self.make_tab()
+        stash = stash_file_path(self.settings, tab.stash_id)
+        type_text(tab, "draft")
+        self.assertTrue(tab.swap_timer.isActive())
+        self.assertTrue(tab.write_backup())
+        self.assertEqual(read_stash_file(stash)["text"], "draft")
+
+        # Emptied documents have nothing to keep.
+        tab.editor.clear()
+        self.assertFalse(tab.write_backup())
+        self.assertFalse(os.path.exists(stash))
+
+        type_text(tab, "draft again")
+        self.assertTrue(tab.write_backup())
+        self.settings.save_setting(STASH_NEW_FILES_SETTING, False)
+        tab.apply_backup_settings()
+        self.assertFalse(os.path.exists(stash))
+        self.assertFalse(tab.write_backup())
+
+    def test_saving_an_untitled_document_removes_its_stash(self):
+        tab = self.make_tab()
+        stash = stash_file_path(self.settings, tab.stash_id)
+        type_text(tab, "draft")
+        self.assertTrue(tab.write_stash_file())
+        tab.current_file = str(Path(self.temp_dir.name) / "draft.txt")
+        self.assertTrue(tab.save_file())
+        self.assertFalse(os.path.exists(stash))
+
+
+class SessionTests(SessionRecoveryTestCase):
     def make_window(self):
         window = TextEditorApp()
         self.addCleanup(window.deleteLater)
@@ -189,16 +243,74 @@ class StashTests(SessionRecoveryTestCase):
         window.closeEvent(event)
         return event.isAccepted()
 
-    def test_stash_round_trip_keeps_order_and_empties_stash(self):
-        stash_documents(self.settings, [("First", "a"), ("Second", "b")])
-        stash_documents(self.settings, [("Third", "c")])
-        self.assertEqual(
-            pop_stashed_documents(self.settings),
-            [("First", "a"), ("Second", "b"), ("Third", "c")],
-        )
-        self.assertEqual(stash_names(self.settings), [])
+    @staticmethod
+    def tab_summary(window):
+        summary = []
+        for index in range(window.tab_widget.count()):
+            tab = window.tab_widget.widget(index)
+            summary.append((
+                window.tab_widget.tabText(index),
+                tab.current_file,
+                tab.editor.toPlainText(),
+            ))
+        return summary
 
-    def test_new_unsaved_files_are_stashed_on_close_and_restored_on_startup(self):
+    def test_open_files_and_untitled_documents_survive_a_crash(self):
+        first = self.write_note("first\n", "first.txt")
+        second = self.write_note("second\n", "second.txt", Path(self.temp_dir.name) / "elsewhere")
+        crashed = self.make_window()
+        self.assertEqual(crashed.workspace_path, "")
+        crashed.open_file(str(first))
+        type_text(crashed.new_editor_tab(), "untitled draft")
+        crashed.open_file(str(second))
+        type_text(crashed.tab_widget.currentWidget(), "unsaved line\n")
+        crashed.tab_widget.setCurrentIndex(1)
+        for index in range(crashed.tab_widget.count()):
+            crashed.tab_widget.widget(index).write_backup()
+        # No closeEvent: the process dies here.
+
+        window = self.make_window()
+        self.assertEqual(self.tab_summary(window), [
+            ("first.txt", str(first), "first\n"),
+            ("Document 2*", None, "untitled draft"),
+            ("second.txt", str(second), "second\n"),
+        ])
+        self.assertEqual(window.tab_widget.currentIndex(), 1)
+        self.assertTrue(window.tab_widget.widget(1).editor.document().isModified())
+        recovering = window.tab_widget.widget(2)
+        self.assertIsNotNone(recovering.swap_recovery)
+        self.assertTrue(recovering.recover_swap_file())
+        self.assertEqual(recovering.editor.toPlainText(), "second\nunsaved line\n")
+
+    def test_session_follows_closed_and_moved_tabs(self):
+        first = self.write_note("first\n", "first.txt")
+        second = self.write_note("second\n", "second.txt")
+        window = self.make_window()
+        window.open_file(str(first))
+        window.open_file(str(second))
+        draft = window.new_editor_tab()
+        type_text(draft, "gone")
+        self.assertTrue(draft.write_backup())
+        window.tab_widget.tabBar().moveTab(0, 1)
+        self.assertEqual(
+            [entry.get("file") for entry in read_session(window.settings_manager)["tabs"]],
+            [str(second), str(first), None],
+        )
+
+        with patch.object(
+            window_module, "ask_themed_question",
+            return_value=QMessageBox.StandardButton.Discard,
+        ):
+            window.close_tab(window.tab_widget.indexOf(draft))
+        window.close_tab(window.tab_widget.indexOf(window.tab_widget.widget(0)))
+        self.assertEqual(stash_names(window.settings_manager), [])
+
+        reopened = self.make_window()
+        self.assertEqual(
+            [tab[1] for tab in self.tab_summary(reopened)], [str(first)]
+        )
+
+    def test_new_unsaved_files_are_kept_on_close_and_restored_on_startup(self):
         window = self.make_window()
         tab = window.tab_widget.widget(0)
         type_text(tab, "draft notes")
@@ -209,22 +321,19 @@ class StashTests(SessionRecoveryTestCase):
             side_effect=AssertionError("stashed documents must not prompt"),
         ):
             self.assertTrue(self.close_window(window))
-            # A repeated close must not stash the documents twice.
+            # A repeated close must not change the session.
             self.assertTrue(self.close_window(window))
         self.assertEqual(len(stash_names(window.settings_manager)), 1)
 
         restored = self.make_window()
-        self.assertEqual(restored.tab_widget.count(), 1)
-        restored_tab = restored.tab_widget.widget(0)
-        self.assertEqual(restored_tab.editor.toPlainText(), "draft notes")
-        self.assertTrue(restored_tab.editor.document().isModified())
-        self.assertEqual(restored.tab_widget.tabText(0), "Ideas*")
-        self.assertEqual(stash_names(restored.settings_manager), [])
+        self.assertEqual(self.tab_summary(restored), [("Ideas*", None, "draft notes")])
+        self.assertTrue(restored.tab_widget.widget(0).editor.document().isModified())
 
     def test_new_unsaved_files_prompt_when_restoring_is_disabled(self):
         window = self.make_window()
         window.settings_manager.save_setting(STASH_NEW_FILES_SETTING, False)
         type_text(window.tab_widget.widget(0), "draft notes")
+        window.tab_widget.widget(0).write_backup()
 
         with patch.object(
             window_module, "ask_themed_question",
@@ -234,7 +343,10 @@ class StashTests(SessionRecoveryTestCase):
         ask.assert_called_once()
         self.assertEqual(stash_names(window.settings_manager), [])
 
-    def test_cancelled_close_drops_the_stash(self):
+        restored = self.make_window()
+        self.assertEqual(self.tab_summary(restored), [("Document 1", None, "")])
+
+    def test_cancelled_close_keeps_everything_open_and_backed_up(self):
         path = self.write_note()
         window = self.make_window()
         type_text(window.tab_widget.widget(0), "draft notes")
@@ -247,30 +359,94 @@ class StashTests(SessionRecoveryTestCase):
         ) as ask:
             self.assertFalse(self.close_window(window))
         ask.assert_called_once()
-        self.assertEqual(stash_names(window.settings_manager), [])
+        self.assertEqual(len(stash_names(window.settings_manager)), 1)
+        self.assertEqual(len(read_session(window.settings_manager)["tabs"]), 2)
 
-    def test_reopening_a_file_after_a_crash_offers_recovery(self):
+    def test_discarded_file_changes_reopen_the_file_without_them(self):
         path = self.write_note()
         swap = swap_file_path(self.settings, path)
-        crashed = self.make_window()
-        crashed.open_file(str(path))
-        type_text(crashed.tab_widget.currentWidget(), "two\n")
-        self.assertTrue(crashed.tab_widget.currentWidget().write_swap_file())
-
         window = self.make_window()
         window.open_file(str(path))
-        tab = window.tab_widget.currentWidget()
-        self.assertIsNotNone(tab.swap_recovery)
-        self.assertTrue(tab.recover_swap_file())
-        self.assertEqual(tab.editor.toPlainText(), "one\ntwo\n")
+        type_text(window.tab_widget.currentWidget(), "two\n")
+        self.assertTrue(window.tab_widget.currentWidget().write_swap_file())
 
-        # Closing with Discard removes the swap file along with the changes.
         with patch.object(
             window_module, "ask_themed_question",
             return_value=QMessageBox.StandardButton.Discard,
         ):
             self.assertTrue(self.close_window(window))
         self.assertFalse(os.path.exists(swap))
+
+        reopened = self.make_window()
+        self.assertEqual(self.tab_summary(reopened), [("note.txt", str(path), "one\n")])
+        self.assertIsNone(reopened.tab_widget.widget(0).swap_recovery)
+
+    def test_restore_on_unsaved_changes_starts_empty_without_them(self):
+        note = self.write_note()
+        window = self.make_window()
+        window.settings_manager.save_setting("session_restore_mode", "unsaved_changes")
+        window.open_file(str(note))
+        self.assertTrue(self.close_window(window))
+
+        reopened = self.make_window()
+        self.assertEqual(self.tab_summary(reopened), [("Document 1", None, "")])
+
+    def test_restore_on_unsaved_changes_reopens_whole_session_for_file_changes(self):
+        first = self.write_note("first\n", "first.txt")
+        second = self.write_note("second\n", "second.txt")
+        crashed = self.make_window()
+        crashed.settings_manager.save_setting("session_restore_mode", "unsaved_changes")
+        crashed.open_file(str(first))
+        crashed.open_file(str(second))
+        type_text(crashed.tab_widget.currentWidget(), "unsaved\n")
+        self.assertTrue(crashed.tab_widget.currentWidget().write_swap_file())
+        crashed.tab_widget.setCurrentIndex(0)
+        # No closeEvent: the process dies here.
+
+        window = self.make_window()
+        self.assertEqual(
+            [tab[1] for tab in self.tab_summary(window)], [str(first), str(second)]
+        )
+        self.assertEqual(window.tab_widget.currentIndex(), 0)
+        self.assertIsNotNone(window.tab_widget.widget(1).swap_recovery)
+
+    def test_restore_on_unsaved_changes_counts_untitled_drafts(self):
+        note = self.write_note()
+        window = self.make_window()
+        window.settings_manager.save_setting("session_restore_mode", "unsaved_changes")
+        window.open_file(str(note))
+        type_text(window.new_editor_tab(), "draft")
+        self.assertTrue(self.close_window(window))
+
+        reopened = self.make_window()
+        self.assertEqual(self.tab_summary(reopened), [
+            ("note.txt", str(note), "one\n"),
+            ("Document 2*", None, "draft"),
+        ])
+
+    def test_stash_files_missing_from_the_session_are_reopened(self):
+        # Written by a Jottr that only stashed on quit, or before the session was saved.
+        write_stash_file(stash_file_path(self.settings, "1700000000-0000"), "Old draft", "kept")
+
+        window = self.make_window()
+        self.assertEqual(self.tab_summary(window), [("Old draft*", None, "kept")])
+        self.assertEqual(window.tab_widget.widget(0).stash_id, "1700000000-0000")
+
+    def test_first_start_without_a_session_reopens_workspace_files(self):
+        workspace = Path(self.temp_dir.name) / "workspace"
+        note = self.write_note("in workspace\n", "note.txt", workspace)
+        self.settings.save_setting("workspace_path", str(workspace))
+        self.settings.save_setting("workspace_sessions", {
+            str(workspace): {"open_files": ["note.txt"], "markdown_files": []},
+        })
+
+        window = self.make_window()
+        self.assertEqual(
+            self.tab_summary(window), [("note.txt", str(note), "in workspace\n")]
+        )
+        self.assertEqual(
+            read_session(window.settings_manager)["tabs"], [{"file": str(note)}]
+        )
 
 
 if __name__ == "__main__":

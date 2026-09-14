@@ -88,6 +88,8 @@ class SettingsManager:
             "autosave_interval_seconds": 30,
             "swap_file_enabled": True,
             "restore_unsaved_new_files": True,
+            "swap_sync_interval_seconds": 15,
+            "session_restore_mode": "always",
             "markdown_scroll_sync": True,
             "editor_line_numbers": True,
             "double_click_empty_tab_bar_new_tab": True,

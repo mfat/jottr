@@ -24,10 +24,17 @@ from jottr.theme_manager import ThemeManager
 from jottr.qt_style import apply_qt_color_scheme, apply_qt_style, refresh_styled_widgets, resolve_qt_style_key
 from jottr.settings_manager import SettingsManager
 from jottr.session_recovery import (
+    SESSION_RESTORE_ALWAYS,
+    SESSION_RESTORE_SETTING,
+    SESSION_RESTORE_UNSAVED,
     STASH_NEW_FILES_SETTING,
-    pop_stashed_documents,
-    remove_file,
-    stash_documents,
+    is_valid_stash_id,
+    swap_file_has_changes,
+    read_session,
+    read_stash_file,
+    stash_file_path,
+    stash_ids_on_disk,
+    write_session,
 )
 from jottr.translation_manager import _, format_language_label, is_rtl_language, set_language
 from jottr.font_dialog import FontSelectionDialog
@@ -420,6 +427,8 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
         self.tab_widget.tabCloseRequested.connect(self.close_tab)
         self.tab_widget.currentChanged.connect(self.update_document_language_status)
         self.tab_widget.currentChanged.connect(self.update_edit_actions)
+        self.tab_widget.currentChanged.connect(self.save_session)
+        self.tab_widget.tabBar().tabMoved.connect(self.save_session)
         self.tab_widget.tabBar().tabs_changed.connect(self.refresh_tab_close_buttons)
         clipboard = QApplication.clipboard()
         if clipboard is not None:
@@ -435,8 +444,10 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
         self.main_splitter.setStretchFactor(1, 1)
         self.main_splitter.setSizes([260, 940])
         layout.addWidget(self.main_splitter)
-        self.restore_workspace()
-        self.restore_stashed_documents()
+        self.restore_workspace(open_files=False)
+        if not self.restore_session() and self.workspace_path:
+            # No session saved yet: reopen the workspace's files as before.
+            self.restore_workspace_session(self.workspace_path)
 
         # Create new tab if no tabs were restored
         if self.tab_widget.count() == 0:
@@ -1443,6 +1454,9 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
         release_swap_file = getattr(tab, "release_swap_file", None)
         if release_swap_file is not None:
             release_swap_file()
+        remove_stash_file = getattr(tab, "remove_stash_file", None)
+        if remove_stash_file is not None:
+            remove_stash_file()
         self.tab_widget.removeTab(index)
         self.save_workspace_open_files()
         
@@ -2273,19 +2287,20 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
     def closeEvent(self, event):
         """Handle application close event"""
         if getattr(self, "_close_accepted", False):
-            # Already stashed and saved; a second close must not stash again.
+            # Already closed once; the session must not change any more.
             event.accept()
             return
-        stashed_tabs, stash_files = self.stash_new_unsaved_files()
+        stashed_tabs = self.stash_new_unsaved_files()
         if self.handle_unsaved_changes(skip_tabs=stashed_tabs):
-            self._close_accepted = True
             settings_dialog = getattr(self, "_settings_dialog", None)
             if settings_dialog is not None:
                 # Flushes pending applies and remembers window geometry.
                 settings_dialog.close()
             self.save_workspace_markdown_files()
+            # Also saves the session the next start reopens.
             self.save_workspace_open_files()
-            self.release_swap_files()
+            self._close_accepted = True
+            self.release_backups(keep=stashed_tabs)
             # Save window state
             self.settings_manager.save_setting('window_state', {
                 'geometry': self.saveGeometry().toBase64().data().decode(),
@@ -2293,52 +2308,144 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
             })
             event.accept()
         else:
-            for path in stash_files:
-                if path:
-                    remove_file(path)
             event.ignore()
 
     def stash_new_unsaved_files(self):
-        """Stash untitled documents with text instead of asking to save them.
+        """Write untitled documents to the stash now; return the tabs written.
 
-        Returns the stashed tabs and one stash file per candidate tab (None
-        where writing failed, so that tab is still offered for saving).
+        Stashed documents are reopened on the next start, so closing does not
+        ask to save them.
         """
-        if not self.settings_manager.get_setting(STASH_NEW_FILES_SETTING, True):
-            return set(), []
-        tabs = []
+        stashed_tabs = set()
         for index in range(self.tab_widget.count()):
             tab = self.tab_widget.widget(index)
-            if isinstance(tab, EditorTab) and not tab.current_file and tab.editor.toPlainText():
-                tabs.append(tab)
-        stash_files = stash_documents(self.settings_manager, [
-            (
-                self.tab_widget.tabText(self.tab_widget.indexOf(tab)).removesuffix("*"),
-                tab.editor.toPlainText(),
-            )
-            for tab in tabs
-        ])
-        stashed_tabs = {tab for tab, path in zip(tabs, stash_files) if path}
-        return stashed_tabs, stash_files
+            if isinstance(tab, EditorTab) and tab.write_stash_file():
+                stashed_tabs.add(tab)
+        return stashed_tabs
 
-    def restore_stashed_documents(self):
-        """Reopen untitled documents stashed when Jottr last closed."""
-        for title, text in pop_stashed_documents(self.settings_manager):
-            tab = self.new_editor_tab()
-            tab.editor.setPlainText(text)
-            tab.editor.document().setModified(True)
-            index = self.tab_widget.indexOf(tab)
-            title = title or self.tab_widget.tabText(index).removesuffix("*")
-            self.tab_widget.setTabText(index, title + "*")
+    def release_backups(self, keep=()):
+        """Documents are closing: drop backups nobody needs to recover.
 
-    def release_swap_files(self):
-        """Documents are closing: drop swap files nobody needs to recover."""
+        Stashes of the *keep* tabs stay for the next start.
+        """
         for index in range(self.tab_widget.count()):
-            release_swap_file = getattr(
-                self.tab_widget.widget(index), "release_swap_file", None
-            )
+            tab = self.tab_widget.widget(index)
+            release_swap_file = getattr(tab, "release_swap_file", None)
             if release_swap_file is not None:
                 release_swap_file()
+            remove_stash_file = getattr(tab, "remove_stash_file", None)
+            if tab not in keep and remove_stash_file is not None:
+                remove_stash_file()
+
+    def session_tab_entry(self, tab):
+        """Session entry that reopens *tab*, or None when it is not kept."""
+        if not isinstance(tab, EditorTab):
+            return None
+        if tab.current_file:
+            return {"file": os.path.abspath(tab.current_file)}
+        stash_id = getattr(tab, "stash_id", None)
+        if stash_id and self.settings_manager.get_setting(STASH_NEW_FILES_SETTING, True):
+            title = self.tab_widget.tabText(self.tab_widget.indexOf(tab))
+            return {"untitled": stash_id, "title": title.removesuffix("*")}
+        return None
+
+    def save_session(self, *_args):
+        """Remember the open tabs, so the next start reopens them even after a crash."""
+        if not getattr(self, "_session_loaded", False) or getattr(self, "_close_accepted", False):
+            return
+        tabs = []
+        current = -1
+        for index in range(self.tab_widget.count()):
+            entry = self.session_tab_entry(self.tab_widget.widget(index))
+            if entry is None:
+                continue
+            if index == self.tab_widget.currentIndex():
+                current = len(tabs)
+            tabs.append(entry)
+        session = {"tabs": tabs, "current": current}
+        if session == getattr(self, "_saved_session", None):
+            return
+        try:
+            write_session(self.settings_manager, tabs, current)
+        except OSError as error:
+            print(f"Could not save the session: {error}")
+            return
+        self._saved_session = session
+
+    def restore_session(self):
+        """Reopen the tabs of the last run, whether it closed or crashed.
+
+        Stash files the session does not list (a crash before it was saved,
+        or an older Jottr) are reopened too. With the "unsaved changes"
+        restore mode the session is only reopened when backups hold unsaved
+        text. Returns False when no session was saved yet.
+        """
+        session = read_session(self.settings_manager)
+        entries = session["tabs"] if session is not None else []
+        restore_mode = self.settings_manager.get_setting(
+            SESSION_RESTORE_SETTING, SESSION_RESTORE_ALWAYS
+        )
+        if restore_mode == SESSION_RESTORE_UNSAVED and not self.session_has_unsaved_changes(entries):
+            entries = []
+        referenced = {
+            entry.get("untitled") for entry in entries if isinstance(entry, dict)
+        }
+        current_tab = None
+        for position, entry in enumerate(entries):
+            tab = self.restore_session_tab(entry)
+            if tab is not None and position == session.get("current"):
+                current_tab = tab
+        for stash_id in stash_ids_on_disk(self.settings_manager):
+            if stash_id not in referenced:
+                self.restore_untitled_document(stash_id)
+        if current_tab is not None:
+            self.tab_widget.setCurrentWidget(current_tab)
+        self._session_loaded = True
+        self.save_session()
+        return session is not None
+
+    def session_has_unsaved_changes(self, entries):
+        """Whether backups hold unsaved text for the session *entries*.
+
+        Any readable stash counts, since every stashed document is reopened.
+        """
+        for stash_id in stash_ids_on_disk(self.settings_manager):
+            if read_stash_file(stash_file_path(self.settings_manager, stash_id)) is not None:
+                return True
+        return any(
+            isinstance(entry, dict)
+            and isinstance(entry.get("file"), str)
+            and swap_file_has_changes(self.settings_manager, entry["file"])
+            for entry in entries
+        )
+
+    def restore_session_tab(self, entry):
+        if not isinstance(entry, dict):
+            return None
+        file_path = entry.get("file")
+        if isinstance(file_path, str):
+            if os.path.isfile(file_path) and self.open_file(file_path):
+                return self.tab_widget.currentWidget()
+            return None
+        stash_id = entry.get("untitled")
+        if not is_valid_stash_id(stash_id):
+            return None
+        title = entry.get("title")
+        return self.restore_untitled_document(stash_id, title if isinstance(title, str) else "")
+
+    def restore_untitled_document(self, stash_id, title=""):
+        """Reopen a stashed untitled document; None when its stash is gone."""
+        data = read_stash_file(stash_file_path(self.settings_manager, stash_id))
+        if data is None:
+            return None
+        tab = self.new_editor_tab()
+        tab.stash_id = stash_id
+        tab.editor.setPlainText(data["text"])
+        tab.editor.document().setModified(True)
+        index = self.tab_widget.indexOf(tab)
+        title = title or data["title"] or self.tab_widget.tabText(index).removesuffix("*")
+        self.tab_widget.setTabText(index, title + "*")
+        return tab
 
     def restart_application(self):
         """Close Jottr and start it again once this process has exited."""
@@ -2663,11 +2770,11 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
                 tab.configure_autosave_timer()
 
     def apply_session_settings(self):
-        """Apply swap file backup to all open editor tabs."""
+        """Apply swap file and untitled document backup to all open editor tabs."""
         for i in range(self.tab_widget.count()):
             tab = self.tab_widget.widget(i)
             if isinstance(tab, EditorTab):
-                tab.apply_swap_file_setting()
+                tab.apply_backup_settings()
 
     def toggle_markdown_preview(self):
         """Toggle markdown preview in current editor tab"""
