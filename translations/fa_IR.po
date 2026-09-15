@@ -1395,3 +1395,11 @@ msgstr "پاک کردن فهرست"
 #, python-brace-format
 msgid "\"{path}\" no longer exists and was removed from the recent files list."
 msgstr "«{path}» دیگر وجود ندارد و از فهرست فایل‌های اخیر حذف شد."
+
+#: src/jottr/editor/focus_mode.py
+msgid "Fill Screen"
+msgstr "پر کردن صفحه"
+
+#: src/jottr/editor/focus_mode.py
+msgid "Center Editor"
+msgstr "وسط‌چین کردن ویرایشگر"

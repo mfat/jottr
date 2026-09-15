@@ -64,11 +64,7 @@ class FocusModeMixin:
         self.editor_pane.setMaximumWidth(16777215)
         self.splitter.setSizes([1, 0, 0])
 
-        # Add exit button
-        self.exit_focus_btn = QPushButton(_("Exit Focus Mode"), self)
-        self.exit_focus_btn.clicked.connect(self.disable_focus_mode)
-        self.exit_focus_btn.adjustSize()
-        self.exit_focus_btn.show()
+        self._add_focus_mode_buttons()
 
         if not hasattr(self, '_focus_pane_resize_filter'):
             self._focus_pane_resize_filter = _FocusPaneResizeFilter(
@@ -111,11 +107,12 @@ class FocusModeMixin:
         self.editor_pane.setStyleSheet("")
         self.apply_workspace_style()
         
-        # Remove exit button
-        if hasattr(self, 'exit_focus_btn'):
-            self.exit_focus_btn.deleteLater()
-            del self.exit_focus_btn
-        
+        # Remove overlay buttons
+        for name in ('exit_focus_btn', 'focus_fill_btn'):
+            if hasattr(self, name):
+                getattr(self, name).deleteLater()
+                delattr(self, name)
+
         # Restore pane states
         if hasattr(self, 'pre_focus_states'):
             browser_should_be_visible = (self.pre_focus_states['browser_visible'] or
@@ -139,13 +136,46 @@ class FocusModeMixin:
             else:
                 self.splitter.setSizes(self.pre_focus_states['sizes'])
 
+    def _add_focus_mode_buttons(self):
+        """Create the Exit Focus Mode button and the Fill Screen toggle below it."""
+        self.exit_focus_btn = QPushButton(_("Exit Focus Mode"), self)
+        self.exit_focus_btn.clicked.connect(self.disable_focus_mode)
+        self.exit_focus_btn.adjustSize()
+        self.exit_focus_btn.show()
+
+        # The fill choice is kept on the tab for its next focus session.
+        self.focus_fill_btn = QPushButton(self)
+        self.focus_fill_btn.setCheckable(True)
+        self.focus_fill_btn.setChecked(getattr(self, 'focus_fill_screen', False))
+        self.focus_fill_btn.toggled.connect(self.set_focus_fill_screen)
+        self._update_focus_fill_button_text()
+        self.focus_fill_btn.show()
+
+    def set_focus_fill_screen(self, fill):
+        """Let the editor fill the screen instead of a centered writing column."""
+        self.focus_fill_screen = bool(fill)
+        self._update_focus_fill_button_text()
+        self._sync_focus_mode_chrome()
+
+    def _update_focus_fill_button_text(self):
+        if not hasattr(self, 'focus_fill_btn'):
+            return
+        if getattr(self, 'focus_fill_screen', False):
+            self.focus_fill_btn.setText(_("Center Editor"))
+        else:
+            self.focus_fill_btn.setText(_("Fill Screen"))
+        self.focus_fill_btn.adjustSize()
+
     def update_focus_column_layout(self):
         """Center a readable writing column within the full-width editor pane."""
         layout = self.editor_pane.layout()
         if layout is None:
             return
-        available = max(self.editor_pane.width(), 1)
-        side = max(0, (available - FOCUS_COLUMN_MAX_WIDTH) // 2)
+        if getattr(self, 'focus_fill_screen', False):
+            side = 0
+        else:
+            available = max(self.editor_pane.width(), 1)
+            side = max(0, (available - FOCUS_COLUMN_MAX_WIDTH) // 2)
         layout.setContentsMargins(side, 0, side, 10)
 
     def _restore_editor_pane_margins(self):
@@ -154,12 +184,20 @@ class FocusModeMixin:
             layout.setContentsMargins(*_EDITOR_PANE_DEFAULT_MARGINS)
 
     def update_exit_button_position(self):
-        """Update exit button position based on current window size"""
+        """Pin the exit button bottom-right with the Fill Screen toggle below it."""
+        margin = 20
+        spacing = 6
+        bottom = self.height() - margin
+        if hasattr(self, 'focus_fill_btn'):
+            self.focus_fill_btn.move(
+                self.width() - self.focus_fill_btn.width() - margin,
+                bottom - self.focus_fill_btn.height()
+            )
+            bottom -= self.focus_fill_btn.height() + spacing
         if hasattr(self, 'exit_focus_btn'):
-            margin = 20
             self.exit_focus_btn.move(
                 self.width() - self.exit_focus_btn.width() - margin,
-                self.height() - self.exit_focus_btn.height() - margin
+                bottom - self.exit_focus_btn.height()
             )
 
     def _sync_focus_mode_chrome(self):

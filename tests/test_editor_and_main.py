@@ -140,6 +140,30 @@ class EditorAndMainTests(unittest.TestCase):
         self.addCleanup(editor.markdown_render_timer.stop)
         return editor
 
+    def test_focus_mode_fill_screen_button_sits_below_exit_and_drops_column(self):
+        editor = self.make_editor()
+        editor.resize(1600, 900)
+        editor.editor_pane.resize(1600, 900)
+        editor.focus_mode = True
+        editor._add_focus_mode_buttons()
+        editor._sync_focus_mode_chrome()
+
+        margins = editor.editor_pane.layout().contentsMargins()
+        self.assertGreater(margins.left(), 0)
+        self.assertEqual(margins.left(), margins.right())
+        self.assertGreater(editor.focus_fill_btn.y(), editor.exit_focus_btn.y())
+        self.assertEqual(editor.focus_fill_btn.text(), "Fill Screen")
+
+        editor.focus_fill_btn.click()
+
+        margins = editor.editor_pane.layout().contentsMargins()
+        self.assertEqual((margins.left(), margins.right()), (0, 0))
+        self.assertEqual(editor.focus_fill_btn.text(), "Center Editor")
+
+        editor.focus_fill_btn.click()
+
+        self.assertGreater(editor.editor_pane.layout().contentsMargins().left(), 0)
+
     def test_browser_toolbar_opens_address_in_default_browser(self):
         from PyQt6.QtCore import QUrl
         import jottr.editor.browser as editor_browser_module
