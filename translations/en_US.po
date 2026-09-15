@@ -43,10 +43,6 @@ msgstr "All"
 msgid "Save File"
 msgstr "Save File"
 
-#: src/jottr/editor_tab.py:910 src/jottr/main.py:1334
-msgid "Markdown Files (*.md *.markdown);;Text Files (*.txt);;All Files (*.*)"
-msgstr "Markdown Files (*.md *.markdown);;Text Files (*.txt);;All Files (*.*)"
-
 #: src/jottr/editor_tab.py:934
 #, python-brace-format
 msgid "Could not save file: {error}"
@@ -116,8 +112,8 @@ msgid "Open File"
 msgstr "Open File"
 
 #: src/jottr/editor_tab.py:942
-msgid "Markdown Files (*.md *.markdown);;Text Files (*.txt);;All Files (*)"
-msgstr "Markdown Files (*.md *.markdown);;Text Files (*.txt);;All Files (*)"
+msgid "All Files (*);;Markdown Files (*.md *.markdown);;Text Files (*.txt)"
+msgstr "All Files (*);;Markdown Files (*.md *.markdown);;Text Files (*.txt)"
 
 #: src/jottr/editor_tab.py:1004
 msgid "Search in..."

@@ -43,10 +43,6 @@ msgstr "همه"
 msgid "Save File"
 msgstr "ذخیرهٔ فایل"
 
-#: src/jottr/editor_tab.py:910 src/jottr/main.py:1334
-msgid "Markdown Files (*.md *.markdown);;Text Files (*.txt);;All Files (*.*)"
-msgstr "فایل‌های Markdown (*.md *.markdown);;فایل‌های متنی (*.txt);;همهٔ فایل‌ها (*.*)"
-
 #: src/jottr/editor_tab.py:934
 #, python-brace-format
 msgid "Could not save file: {error}"
@@ -116,8 +112,8 @@ msgid "Open File"
 msgstr "باز کردن فایل"
 
 #: src/jottr/editor_tab.py:942
-msgid "Markdown Files (*.md *.markdown);;Text Files (*.txt);;All Files (*)"
-msgstr "فایل‌های Markdown (*.md *.markdown);;فایل‌های متنی (*.txt);;همهٔ فایل‌ها (*)"
+msgid "All Files (*);;Markdown Files (*.md *.markdown);;Text Files (*.txt)"
+msgstr "همهٔ فایل‌ها (*);;فایل‌های Markdown (*.md *.markdown);;فایل‌های متنی (*.txt)"
 
 #: src/jottr/editor_tab.py:1004
 msgid "Search in..."

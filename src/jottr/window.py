@@ -2970,7 +2970,7 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
                 self,
                 _("Open File"),
                 "",
-                _("Markdown Files (*.md *.markdown);;Text Files (*.txt);;All Files (*.*)")
+                _("All Files (*);;Markdown Files (*.md *.markdown);;Text Files (*.txt)")
             )
             if not file_path:  # User cancelled
                 return

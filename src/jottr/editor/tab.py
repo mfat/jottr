@@ -738,7 +738,7 @@ class EditorTab(
             self,
             _("Open File"),
             "",
-            _("Markdown Files (*.md *.markdown);;Text Files (*.txt);;All Files (*)")
+            _("All Files (*);;Markdown Files (*.md *.markdown);;Text Files (*.txt)")
         )
         if file_name:
             with open(file_name, 'r', encoding='utf-8') as file:
