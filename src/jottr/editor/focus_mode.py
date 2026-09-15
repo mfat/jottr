@@ -63,37 +63,11 @@ class FocusModeMixin:
         self.browser_widget.hide()
         self.editor_pane.setMaximumWidth(16777215)
         self.splitter.setSizes([1, 0, 0])
-        self.editor_pane.setStyleSheet("""
-            QWidget#editorPane {
-                background: #eef3f8;
-            }
-            QTextEdit#writingEditor {
-                background: #ffffff;
-                border: none;
-                border-radius: 0px;
-                padding: 36px 48px;
-                font-size: 15pt;
-            }
-        """)
-        
+
         # Add exit button
         self.exit_focus_btn = QPushButton(_("Exit Focus Mode"), self)
         self.exit_focus_btn.clicked.connect(self.disable_focus_mode)
-        self.exit_focus_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #ffffff;
-                border: 1px solid #cbd5e1;
-                border-radius: 0px;
-                padding: 9px 16px;
-                min-width: 120px;
-                min-height: 32px;
-                color: #17202a;
-            }
-            QPushButton:hover {
-                background: #eaf3ff;
-                border-color: #9fc8f7;
-            }
-        """)
+        self.exit_focus_btn.adjustSize()
         self.exit_focus_btn.show()
 
         if not hasattr(self, '_focus_pane_resize_filter'):

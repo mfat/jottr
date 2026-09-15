@@ -1764,14 +1764,10 @@ class EditorAndMainTests(unittest.TestCase):
             self.assertIsInstance(window.tab_widget.tabBar(), main_module.LeftAlignedDocumentTabBar)
             window.settings_manager.save_ui_theme("Dracula")
             self.assertEqual(window.settings_manager.get_ui_theme(), "Dark")
-            dark_app = main_module.ThemeManager.get_ui_theme("Dark")["app"]
             tab_bar = window.tab_widget.tabBar()
-            self.assertEqual(tab_bar.tab_text_color(True).name(), QColor(dark_app["text"]).name())
-            self.assertEqual(tab_bar.tab_text_color(False).name(), QColor(dark_app["muted"]).name())
             label_rect = tab_bar.label_contents_rect(QRect(0, 0, 160, 38))
-            self.assertEqual(label_rect.top(), 2)
+            self.assertEqual(label_rect.top(), 0)
             self.assertEqual(label_rect.bottom(), 37)
-            self.assertEqual(tab_bar.icon_vertical_offset, -1)
             self.assertFalse(window.tab_widget.tabIcon(0).isNull())
             close_button = tab_bar.tabButton(0, QTabBar.ButtonPosition.RightSide)
             self.assertIsNotNone(close_button)
@@ -1849,13 +1845,14 @@ class EditorAndMainTests(unittest.TestCase):
             self.assertEqual(first_tab.current_font.pointSize(), original_size + 1)
             toolbar_actions["Reset Zoom"].trigger()
             self.assertEqual(first_tab.current_font.pointSize(), original_size)
-            self.assertIn("QToolBar#mainToolBar QToolButton:focus", QApplication.instance().styleSheet())
-            self.assertIn("QToolBar#mainToolBar QToolButton:disabled", QApplication.instance().styleSheet())
-            self.assertIn("QTabWidget#documentTabs QTabBar::close-button", QApplication.instance().styleSheet())
-            self.assertIn("subcontrol-position: center right", QApplication.instance().styleSheet())
-            self.assertIn("margin-bottom: 2px", QApplication.instance().styleSheet())
-            self.assertIn("text-align: center", QApplication.instance().styleSheet())
-            self.assertIn("height: 38px", QApplication.instance().styleSheet())
+            # Comfy only spaces out the toolbar; the widget style draws it.
+            sheet = QApplication.instance().styleSheet()
+            self.assertIn("QToolBar#mainToolBar QToolButton", sheet)
+            self.assertNotIn(":hover", sheet)
+            self.assertNotIn("background", sheet)
+            self.assertNotIn("border", sheet)
+            self.assertNotIn("color", sheet)
+            self.assertNotIn("QTabBar::tab", sheet)
             file_menu = next(
                 action.menu()
                 for action in window.menuBar().actions()
@@ -2148,9 +2145,8 @@ class EditorAndMainTests(unittest.TestCase):
                 window.settings_manager.get_toolbar_style(), TOOLBAR_STYLE_COMPACT
             )
             compact_sheet = QApplication.instance().styleSheet()
-            self.assertIn("QToolBar#mainToolBar", compact_sheet)
+            self.assertNotIn("QToolBar#mainToolBar", compact_sheet)
             self.assertNotIn("padding: 6px 10px", compact_sheet)
-            self.assertNotIn("QToolBar#mainToolBar QToolButton", compact_sheet)
             self.assertTrue(labels["Compact"].isChecked())
             self.assertFalse(labels["Comfy"].isChecked())
 
@@ -2387,12 +2383,9 @@ class EditorAndMainTests(unittest.TestCase):
                 if child.objectName() == "editorThemeSwatchChip"
             ]
             self.assertEqual(len(chips), 0)
-            # In-window menubar is chrome-styled to match the toolbar. Do not
-            # style QMainWindow (cascades hide titles under Breeze dark) or
-            # popup QMenu (left to QStyle + palette; font via setFont).
+            # Menubar and menus are left to QStyle + palette; font via setFont.
             stylesheet = QApplication.instance().styleSheet()
-            self.assertIn("QMenuBar#appMenuBar", stylesheet)
-            self.assertIn("QMenuBar#appMenuBar::item", stylesheet)
+            self.assertNotIn("QMenuBar", stylesheet)
             self.assertNotIn("QMenu {", stylesheet)
             self.assertNotIn("QMenu::item", stylesheet)
             self.assertNotIn("data:image/svg+xml", stylesheet)
@@ -2736,22 +2729,12 @@ class EditorAndMainTests(unittest.TestCase):
             stylesheet = QApplication.instance().styleSheet()
             self.assertIn("QTabWidget#documentTabs::tab-bar", stylesheet)
             self.assertIn("alignment: left", stylesheet)
-            self.assertIn("QTabWidget#documentTabs QTabBar", stylesheet)
-            self.assertIn("border-bottom: 1px solid", stylesheet)
-            tab_bar = window.tab_widget.tabBar()
-            tab_bar.sync_rail_width()
-            self.assertGreaterEqual(tab_bar.minimumWidth(), window.tab_widget.width())
-            from jottr.window_color_scheme import effective_chrome_theme
-
-            # The rail follows the resolved chrome theme, which under System
-            # depends on the desktop's light/dark preference.
-            expected_rail = QColor(
-                effective_chrome_theme(
-                    window.settings_manager.get_window_color_scheme(),
-                    window.settings_manager.get_ui_theme(),
-                )["app"]["surface"]
+            # The widget style draws the tabs; no colors or borders of our own.
+            self.assertNotIn("QTabBar::tab", stylesheet)
+            self.assertNotIn("border", stylesheet)
+            self.assertNotIn(
+                "paintEvent", vars(type(window.tab_widget.tabBar()))
             )
-            self.assertEqual(tab_bar.rail_color().name(), expected_rail.name())
 
     def test_tab_bar_uses_configured_tab_actions(self):
         class FakeEditorTab(QWidget):
@@ -2997,10 +2980,12 @@ class EditorAndMainTests(unittest.TestCase):
 
             self.assertEqual(QApplication.instance().font().family(), "Liberation Sans")
             self.assertEqual(QApplication.instance().font().pointSize(), 13)
-            self.assertIn('font-family: "Liberation Sans"', QApplication.instance().styleSheet())
+            # Main UI Font reaches the chrome through setFont, not the stylesheet.
+            self.assertNotIn("font-family", QApplication.instance().styleSheet())
             self.assertNotIn("QMenu {", QApplication.instance().styleSheet())
             self.assertIn("QToolBar#mainToolBar", QApplication.instance().styleSheet())
             self.assertNotIn("QScrollBar:vertical", QApplication.instance().styleSheet())
+            self.assertEqual(window.toolbar.font().family(), "Liberation Sans")
             menus = [
                 action.menu()
                 for action in window.menuBar().actions()

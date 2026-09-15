@@ -543,30 +543,21 @@ class SettingsAndSnippetTests(unittest.TestCase):
         dracula = ThemeManager.get_theme("Dracula")
         self.assertEqual(dracula["editor"]["background"], "#282a36")
         self.assertEqual(dracula["syntax"]["keyword"], "#ff79c6")
-        self.assertIn("#282a36", ThemeManager.build_app_stylesheet(dracula))
-        app_style = ThemeManager.build_app_stylesheet(dracula, QFont("Liberation Serif", 15))
-        self.assertIn('font-family: "Liberation Serif"', app_style)
-        self.assertIn("font-size: 15pt", app_style)
-        self.assertIn("QToolBar#mainToolBar", app_style)
-        compact_toolbar = ThemeManager.build_app_stylesheet(
-            dracula, toolbar_style="compact"
-        )
-        self.assertIn("QToolBar#mainToolBar", compact_toolbar)
-        self.assertIn(dracula["app"]["surface"], compact_toolbar)
-        self.assertNotIn("padding: 6px 10px", compact_toolbar)
-        self.assertNotIn("QToolBar#mainToolBar QToolButton", compact_toolbar)
-        legacy_default = ThemeManager.build_app_stylesheet(
-            dracula, toolbar_style="default"
-        )
-        self.assertIn("QToolBar#mainToolBar", legacy_default)
-        self.assertNotIn("padding: 6px 10px", legacy_default)
-        self.assertNotIn("QScrollBar:vertical", app_style)
-        self.assertNotIn("QComboBox {", app_style)
-        self.assertNotIn("QToolTip", app_style)
-        self.assertNotIn("QMainWindow", app_style)
-        self.assertIn("QMenuBar#appMenuBar", app_style)
-        self.assertNotIn("QMenu {", app_style)
-        self.assertNotIn("QMenu::item", app_style)
+        # The main window stylesheet carries layout only: Comfy toolbar
+        # spacing and left-aligned tabs, never colors, borders or fonts.
+        app_style = ThemeManager.build_app_stylesheet()
+        self.assertIn("QToolBar#mainToolBar QToolButton", app_style)
+        self.assertIn("padding: 6px 10px", app_style)
+        self.assertIn("alignment: left", app_style)
+        for property_name in ("background", "border", "color", "font"):
+            self.assertNotIn(property_name, app_style)
+        compact_toolbar = ThemeManager.build_app_stylesheet(toolbar_style="compact")
+        self.assertNotIn("QToolBar#mainToolBar", compact_toolbar)
+        self.assertIn("alignment: left", compact_toolbar)
+        legacy_default = ThemeManager.build_app_stylesheet(toolbar_style="default")
+        self.assertEqual(legacy_default, compact_toolbar)
+        for selector in ("QMenuBar", "QMenu", "QStatusBar", "QTreeView", "QSplitter", "QMainWindow"):
+            self.assertNotIn(selector, app_style)
         from PyQt6.QtGui import QPalette
         palette = ThemeManager.build_app_palette(dracula)
         self.assertEqual(palette.color(QPalette.ColorRole.Window).name(), "#282a36")

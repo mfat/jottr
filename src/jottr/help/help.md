@@ -13,7 +13,7 @@ In Settings > Appearance, **Widget Style** lists every Qt style available on you
 - Platform styles such as WindowsVista, windows11, or macos when provided by Qt
 - Desktop or plugin styles installed on your system (for example Breeze, Oxygen, or [Darkly](https://github.com/Bali10050/Darkly))
 
-The dropdown is filled from Qt's style factory, so everything your Qt build can create is offered. Window Color Scheme drives the application palette; Jottr still styles its own chrome (toolbar, tabs, workspace) to match the effective light or dark appearance. Paired light/dark styles (when both are installed) automatically follow the active scheme.
+The dropdown is filled from Qt's style factory, so everything your Qt build can create is offered. Window Color Scheme drives the application palette; menus, toolbar, tabs and panels are drawn by the widget style in those colors, with no extra Jottr styling. Paired light/dark styles (when both are installed) automatically follow the active scheme.
 
 
 To change the editor theme:

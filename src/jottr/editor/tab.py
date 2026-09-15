@@ -356,9 +356,11 @@ class EditorTab(
         layout.addWidget(self.find_toolbar)
 
     def apply_workspace_style(self):
-        """Apply the editor workspace chrome."""
-        theme = ThemeManager.get_theme(self.current_theme)
-        self.setStyleSheet(ThemeManager.build_workspace_stylesheet(theme))
+        """Leave the panes around the editor to the widget style and palette.
+
+        Only the text area follows the Editor Theme, through its own stylesheet.
+        """
+        self.setStyleSheet("")
 
     def autosave_enabled(self):
         """Return whether autosave should write existing files."""

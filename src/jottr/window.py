@@ -642,8 +642,6 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
             theme = effective_chrome_theme(window_scheme_id, scheme_setting)
         self.setFont(app_font)
         stylesheet = ThemeManager.build_app_stylesheet(
-            theme,
-            app_font,
             toolbar_style=self.settings_manager.get_toolbar_style(),
         )
         if application:
@@ -1505,7 +1503,7 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
         menubar.clear()
         menubar.setObjectName("appMenuBar")
         menubar.setAccessibleName(_("Application menu"))
-        # Native bar on macOS (HIG); in-window elsewhere so chrome QSS can match the toolbar.
+        # Native bar on macOS (HIG); in-window elsewhere so it can be hidden.
         menubar.setNativeMenuBar(sys.platform == "darwin")
         menubar.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
         self.translatable_menus = []
