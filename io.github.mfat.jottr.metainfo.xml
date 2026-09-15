@@ -23,6 +23,12 @@
 
   <!-- Release information -->
   <releases>
+    <release version="2.5.8" date="2026-09-15">
+      <description>
+        <p>Opening another Jottr window while one is running starts with an empty document</p>
+        <p>Zoom the editor with Ctrl+mouse wheel (Cmd+wheel on macOS) or Ctrl++</p>
+      </description>
+    </release>
     <release version="2.5.7" date="2026-09-15">
       <description>
         <p>Jottr now automatically restores unsaved files after crash</p>
