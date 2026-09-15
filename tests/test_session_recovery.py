@@ -13,6 +13,7 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 SRC_ROOT = PROJECT_ROOT / "src"
 sys.path.insert(0, str(SRC_ROOT))
 
+from PyQt6.QtCore import QLockFile
 from PyQt6.QtGui import QCloseEvent, QTextCursor
 from PyQt6.QtWidgets import QApplication, QMessageBox
 
@@ -26,6 +27,8 @@ from jottr.session_recovery import (
     read_session,
     read_stash_file,
     read_swap_file,
+    release_session,
+    session_lock_path,
     stash_directory,
     stash_file_path,
     swap_file_path,
@@ -85,6 +88,7 @@ class SessionRecoveryTestCase(unittest.TestCase):
         self.env.start()
         self.addCleanup(self.env.stop)
         self.settings = SettingsManager()
+        self.addCleanup(release_session, self.settings)
         self.snippets = SnippetManager(self.settings)
 
     def write_note(self, text="one\n", name="note.txt", folder=None):
@@ -552,6 +556,35 @@ class SessionTests(SessionRecoveryTestCase):
         reopened = self.make_window()
         self.assertEqual(reopened.workspace_path, str(last))
         self.assertEqual([tab[1] for tab in self.tab_summary(reopened)], [str(recent)])
+
+    def test_instance_started_while_another_runs_opens_empty(self):
+        workspace, (note,) = self.make_workspace("workspace", "note")
+        other = self.write_note("other\n", "other.txt")
+        running = self.make_window()
+        running.settings_manager.save_setting("session_restore_mode", "always")
+        self.assertTrue(running.switch_workspace(str(workspace)))
+        running.open_file(str(note))
+        draft = running.new_editor_tab()
+        type_text(draft, "draft")
+        self.assertTrue(draft.write_backup())
+        session = read_session(self.settings)
+
+        # The running instance's lock, as if held by another process.
+        release_session(self.settings)
+        owner = QLockFile(session_lock_path(self.settings))
+        self.assertTrue(owner.tryLock(0))
+        self.addCleanup(owner.unlock)
+
+        second = self.make_window()
+        self.assertEqual(second.workspace_path, "")
+        self.assertEqual(self.tab_summary(second), [("Document 1", None, "")])
+        self.assertTrue(second.open_file(str(other)))
+        self.assertEqual(read_session(self.settings), session)
+
+        # Once the owner exits, the remaining instance saves its own tabs.
+        owner.unlock()
+        second.save_session()
+        self.assertEqual(read_session(self.settings)["tabs"], [{"file": str(other)}])
 
     def test_stash_files_missing_from_the_session_are_reopened(self):
         # Written by a Jottr that only stashed on quit, or before the session was saved.

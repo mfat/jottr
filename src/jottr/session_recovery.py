@@ -11,12 +11,15 @@ typing instead of only on quit, so untitled documents also survive a crash.
 
 The session lists the open tabs (files and stashed untitled documents) and is
 rewritten whenever they change, so the next start reopens exactly those tabs
-whether Jottr was closed or crashed.
+whether Jottr was closed or crashed. Only one running Jottr owns the session;
+instances started while it runs open empty and leave it alone.
 """
 import hashlib
 import json
 import os
 import re
+
+from PyQt6.QtCore import QLockFile
 
 SWAP_FILE_SETTING = "swap_file_enabled"
 STASH_NEW_FILES_SETTING = "restore_unsaved_new_files"
@@ -42,6 +45,9 @@ STASH_FILE_SUFFIX = ".json"
 SESSION_FILE_VERSION = "Jottr Session 1"
 
 _STASH_ID_PATTERN = re.compile(r"[A-Za-z0-9-]{1,64}")
+# Session locks held by this process, by lock file path. Held per process, not
+# per window, so every window of the owning process may save the session.
+_session_locks = {}
 
 
 def text_checksum(text):
@@ -58,6 +64,33 @@ def stash_directory(settings_manager):
 
 def session_file_path(settings_manager):
     return os.path.join(settings_manager.config_dir, "session.json")
+
+
+def session_lock_path(settings_manager):
+    return os.path.join(settings_manager.config_dir, "session.lock")
+
+
+def claim_session(settings_manager):
+    """Whether this process owns the session, taking it over when it is free.
+
+    The first running Jottr owns it. A crashed owner leaves a lock file behind
+    that is stale once its process is gone, so the next start claims it.
+    """
+    path = session_lock_path(settings_manager)
+    lock = _session_locks.get(path)
+    if lock is None:
+        lock = QLockFile(path)
+        # Held for a whole run: stale only when the owning process is gone.
+        lock.setStaleLockTime(0)
+        _session_locks[path] = lock
+    return lock.isLocked() or lock.tryLock(0)
+
+
+def release_session(settings_manager):
+    """Let the next Jottr started own the session."""
+    lock = _session_locks.pop(session_lock_path(settings_manager), None)
+    if lock is not None:
+        lock.unlock()
 
 
 def swap_file_path(settings_manager, file_path):

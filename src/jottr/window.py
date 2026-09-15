@@ -29,10 +29,12 @@ from jottr.session_recovery import (
     SESSION_RESTORE_WORKSPACE,
     STARTUP_WORKSPACE_SETTING,
     STASH_NEW_FILES_SETTING,
+    claim_session,
     is_valid_stash_id,
     swap_file_has_changes,
     read_session,
     read_stash_file,
+    release_session,
     stash_file_path,
     stash_ids_on_disk,
     write_session,
@@ -452,6 +454,27 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
         self.main_splitter.setStretchFactor(1, 1)
         self.main_splitter.setSizes([260, 940])
         layout.addWidget(self.main_splitter)
+        if claim_session(self.settings_manager):
+            self.restore_last_run()
+        else:
+            # Another running Jottr owns the last session: start empty, and
+            # save the session only once that instance has exited.
+            self._session_loaded = True
+
+        # Create new tab if no tabs were restored
+        if self.tab_widget.count() == 0:
+            self.new_editor_tab()
+        
+        # Open file if specified
+        if file_path:
+            self.open_file_path(file_path)
+
+        self.update_edit_actions()
+        self.apply_app_style()
+        self.watch_system_color_scheme()
+
+    def restore_last_run(self):
+        """Reopen the workspace and tabs of the previous run."""
         startup_workspace = self.startup_workspace()
         if startup_workspace:
             self.set_workspace_path(startup_workspace, save=True)
@@ -468,18 +491,6 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
             # An open workspace always gets its tabs back, whichever session
             # restore mode is chosen; tabs the session reopened are kept as is.
             self.restore_workspace_session(self.workspace_path, workspace_files)
-
-        # Create new tab if no tabs were restored
-        if self.tab_widget.count() == 0:
-            self.new_editor_tab()
-        
-        # Open file if specified
-        if file_path:
-            self.open_file_path(file_path)
-
-        self.update_edit_actions()
-        self.apply_app_style()
-        self.watch_system_color_scheme()
 
     def watch_system_color_scheme(self):
         """Re-theme chrome when the desktop switches between light and dark."""
@@ -2425,6 +2436,7 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
             # Also saves the session the next start reopens.
             self.save_workspace_open_files()
             self._close_accepted = True
+            release_session(self.settings_manager)
             self.release_backups()
             # Save window state
             self.settings_manager.save_setting('window_state', {
@@ -2472,6 +2484,8 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
     def save_session(self, *_args):
         """Remember the open tabs, so the next start reopens them even after a crash."""
         if not getattr(self, "_session_loaded", False) or getattr(self, "_close_accepted", False):
+            return
+        if not claim_session(self.settings_manager):
             return
         tabs = []
         current = -1
