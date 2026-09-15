@@ -996,7 +996,11 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
         action.setProperty("accessibility_label", tip)
         self._set_action_tooltip(action, tip)
         action.setCheckable(checkable)
-        if shortcut is not None:
+        if isinstance(shortcut, list):
+            # Platform standard bindings can repeat an explicit one; duplicates make shortcuts ambiguous.
+            unique = {seq.toString(): seq for seq in shortcut if not seq.isEmpty()}
+            action.setShortcuts(list(unique.values()))
+        elif shortcut is not None:
             action.setShortcut(shortcut)
         if handler:
             action.triggered.connect(handler)
@@ -1183,14 +1187,21 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
             "Zoom In",
             self.zoom_in,
             icon_name="zoom-in",
-            shortcut=QKeySequence("Ctrl+="),
+            # Ctrl+= is unshifted on US layouts; the standard binding adds Ctrl++ and keypad plus.
+            shortcut=[
+                QKeySequence("Ctrl+="),
+                *QKeySequence.keyBindings(QKeySequence.StandardKey.ZoomIn),
+            ],
             tooltip="Zoom In (Ctrl+=)",
         )
         self.zoom_out_action = self._make_action(
             "Zoom Out",
             self.zoom_out,
             icon_name="zoom-out",
-            shortcut=QKeySequence("Ctrl+-"),
+            shortcut=[
+                QKeySequence("Ctrl+-"),
+                *QKeySequence.keyBindings(QKeySequence.StandardKey.ZoomOut),
+            ],
             tooltip="Zoom Out (Ctrl+-)",
         )
         self.zoom_reset_action = self._make_action(

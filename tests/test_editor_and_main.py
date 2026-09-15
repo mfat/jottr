@@ -140,6 +140,34 @@ class EditorAndMainTests(unittest.TestCase):
         self.addCleanup(editor.markdown_render_timer.stop)
         return editor
 
+    def test_ctrl_wheel_zooms_editor(self):
+        from PyQt6.QtCore import QPointF
+        from PyQt6.QtGui import QWheelEvent
+
+        editor = self.make_editor()
+        calls = []
+        editor.main_window = SimpleNamespace(
+            zoom_in=lambda: calls.append("in"), zoom_out=lambda: calls.append("out")
+        )
+
+        def wheel(dy, modifiers):
+            pos = QPointF(editor.editor.viewport().rect().center())
+            event = QWheelEvent(
+                pos, pos, QPoint(), QPoint(0, dy), Qt.MouseButton.NoButton,
+                modifiers, Qt.ScrollPhase.NoScrollPhase, False,
+            )
+            QApplication.sendEvent(editor.editor.viewport(), event)
+
+        wheel(120, Qt.KeyboardModifier.ControlModifier)
+        wheel(-240, Qt.KeyboardModifier.ControlModifier)
+        # Trackpad-sized deltas zoom once they add up to a full notch.
+        wheel(60, Qt.KeyboardModifier.ControlModifier)
+        self.assertEqual(calls, ["in", "out", "out"])
+        wheel(60, Qt.KeyboardModifier.ControlModifier)
+        self.assertEqual(calls, ["in", "out", "out", "in"])
+        wheel(120, Qt.KeyboardModifier.NoModifier)
+        self.assertEqual(len(calls), 4)
+
     def test_focus_mode_fill_screen_button_sits_below_exit_and_drops_column(self):
         editor = self.make_editor()
         editor.resize(1600, 900)
@@ -1865,6 +1893,11 @@ class EditorAndMainTests(unittest.TestCase):
             self.assertFalse(toolbar_actions["Zoom Out"].icon().isNull())
             self.assertFalse(toolbar_actions["Reset Zoom"].icon().isNull())
             self.assertEqual(toolbar_actions["Reset Zoom"].shortcut().toString(), "Ctrl+0")
+            zoom_in_keys = [seq.toString() for seq in toolbar_actions["Zoom In"].shortcuts()]
+            zoom_out_keys = [seq.toString() for seq in toolbar_actions["Zoom Out"].shortcuts()]
+            self.assertEqual(zoom_in_keys[0], "Ctrl+=")
+            self.assertIn("Ctrl++", zoom_in_keys)
+            self.assertEqual(zoom_out_keys.count("Ctrl+-"), 1)
             toolbar_actions["Zoom In"].trigger()
             self.assertEqual(first_tab.current_font.pointSize(), original_size + 1)
             toolbar_actions["Reset Zoom"].trigger()

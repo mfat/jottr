@@ -92,6 +92,7 @@ class CompletingTextEdit(QTextEdit):
         self.completion_start = None
         self.suppress_completion = False
         self.line_numbers_visible = False
+        self._zoom_wheel_delta = 0
         self.line_number_area = LineNumberArea(self)
         self.line_number_area.hide()
         self.document().blockCountChanged.connect(self.update_line_number_area_width)
@@ -218,6 +219,21 @@ class CompletingTextEdit(QTextEdit):
                 return
 
         super().keyPressEvent(event)
+
+    def wheelEvent(self, event):
+        """Ctrl+wheel zooms (ControlModifier is the Command key on macOS)."""
+        main_window = getattr(self.parent_tab, "main_window", None)
+        if main_window and event.modifiers() & Qt.KeyboardModifier.ControlModifier:
+            # Trackpads send small deltas; zoom one step per 120 units (one wheel notch).
+            self._zoom_wheel_delta += event.angleDelta().y()
+            steps = int(self._zoom_wheel_delta / 120)
+            self._zoom_wheel_delta -= steps * 120
+            zoom = main_window.zoom_in if steps > 0 else main_window.zoom_out
+            for _ in range(abs(steps)):
+                zoom()
+            event.accept()
+            return
+        super().wheelEvent(event)
 
     def insertFromMimeData(self, source):
         """Override paste to always use plain text"""
