@@ -23,6 +23,13 @@
 
   <!-- Release information -->
   <releases>
+    <release version="2.5.7" date="2026-09-15">
+      <description>
+        <p>Jottr now automatically restores unsaved files after crash</p>
+        <p>Rename a tab by double-clicking it; saved files are renamed too</p>
+        <p>Right-click a tab to reveal the file in file manager</p>
+      </description>
+    </release>
     <release version="2.5.6" date="2026-09-15">
       <description>
         <p>Jottr now automatically restores unaved files after crash</p>
