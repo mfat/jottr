@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.5.6](https://github.com/mfat/jottr/compare/v2.5.4...v2.5.6) (2026-09-15)
+
+
+### Miscellaneous
+
+* release 2.5.6 ([c30a863](https://github.com/mfat/jottr/commit/c30a8638471a9af68a386646d51e5f6a4c0b5fbd))
+
 ## [2.5.4](https://github.com/mfat/jottr/compare/v2.5.3...v2.5.4) (2026-09-13)
 
 
