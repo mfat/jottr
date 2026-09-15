@@ -41,6 +41,7 @@ from jottr.translation_manager import _, format_language_label, is_rtl_language,
 from jottr.font_dialog import FontSelectionDialog
 from jottr.plugin_manager import PluginManager
 from jottr.file_dialogs import get_open_file_name
+from jottr.file_manager import show_in_file_manager
 from jottr.editor.case_transform import (
     apply_capitalize,
     apply_lowercase,
@@ -438,6 +439,8 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
         # Install event filters on both the tab bar and its containing tab strip.
         self.tab_widget.tabBar().installEventFilter(self)
         self.tab_widget.installEventFilter(self)
+        self.tab_widget.tabBar().setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
+        self.tab_widget.tabBar().customContextMenuRequested.connect(self.show_tab_context_menu)
         
         self.main_splitter.addWidget(self.workspace_widget)
         self.main_splitter.addWidget(self.tab_widget)
@@ -2009,6 +2012,19 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
         menu.addSeparator()
         menu.addAction(self.show_menubar_action)
         menu.exec(self.toolbar.mapToGlobal(pos))
+
+    def show_tab_context_menu(self, pos):
+        """Right-click on a document tab: Show in Folder for a saved file."""
+        tab_bar = self.tab_widget.tabBar()
+        tab = self.tab_widget.widget(tab_bar.tabAt(pos))
+        path = getattr(tab, "current_file", None)
+        if not path or not os.path.exists(path):
+            return
+        menu = QMenu(self)
+        menu.addAction(
+            _("Show in Folder"), lambda checked=False, path=path: show_in_file_manager(path)
+        )
+        menu.exec(tab_bar.mapToGlobal(pos))
 
     def set_window_color_scheme(self, scheme_id):
         """Persist Window Color Scheme (Kate) and restyle the app."""

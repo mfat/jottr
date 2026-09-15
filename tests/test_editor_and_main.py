@@ -2825,6 +2825,45 @@ class EditorAndMainTests(unittest.TestCase):
             self.assertFalse(window.eventFilter(window.tab_widget, FakeMouseDoubleClickEvent(widget_empty_pos)))
             self.assertEqual(window.tab_widget.count(), current_count)
 
+    def test_tab_context_menu_shows_saved_files_in_their_folder(self):
+        class FakeEditorTab(QWidget):
+            def __init__(self, snippet_manager, settings_manager):
+                super().__init__()
+                self.editor = QTextEdit(self)
+                self.current_file = None
+
+            def set_main_window(self, main_window):
+                self.main_window = main_window
+
+        note = Path(self.temp_dir.name) / "note.md"
+        note.write_text("# Note", encoding="utf-8")
+
+        with patch.object(window_module, "EditorTab", FakeEditorTab):
+            window = TextEditorApp()
+            self.addCleanup(window.close)
+            self.addCleanup(window.deleteLater)
+            tab_bar = window.tab_widget.tabBar()
+            tab_pos = tab_bar.tabRect(0).center()
+            self.assertEqual(
+                tab_bar.contextMenuPolicy(), Qt.ContextMenuPolicy.CustomContextMenu
+            )
+
+            # Untitled documents have no folder to show.
+            with patch.object(QMenu, "exec") as menu_exec:
+                window.show_tab_context_menu(tab_pos)
+            menu_exec.assert_not_called()
+
+            window.tab_widget.widget(0).current_file = str(note)
+            captured = {}
+            with patch.object(
+                QMenu, "exec", lambda menu, _pos: captured.update(menu=menu)
+            ), patch.object(window_module, "show_in_file_manager") as show:
+                window.show_tab_context_menu(tab_pos)
+                (action,) = captured["menu"].actions()
+                self.assertEqual(action.text(), "Show in Folder")
+                action.trigger()
+            show.assert_called_once_with(str(note))
+
     def test_main_window_applies_separate_ui_and_editor_fonts(self):
         class FakeEditorTab(QWidget):
             def __init__(self, snippet_manager, settings_manager):
