@@ -35,6 +35,8 @@ override_dh_auto_install:
 		debian/jottr/usr/share/applications/io.github.mfat.jottr.desktop
 	install -D -m 644 icons/jottr.svg \
 		debian/jottr/usr/share/icons/hicolor/scalable/apps/io.github.mfat.jottr.svg
+	install -D -m 644 icons/jottr-symbolic.svg \
+		debian/jottr/usr/share/icons/hicolor/symbolic/apps/io.github.mfat.jottr-symbolic.svg
 	install -D -m 644 io.github.mfat.jottr.metainfo.xml \
 		debian/jottr/usr/share/metainfo/io.github.mfat.jottr.metainfo.xml
 

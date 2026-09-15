@@ -60,6 +60,7 @@ install -p -D -m 644 io.github.mfat.jottr.desktop %{buildroot}%{_datadir}/applic
 
 # App icon (Freedesktop scalable SVG; basename matches Icon=)
 install -p -D -m 644 icons/jottr.svg %{buildroot}%{_datadir}/icons/hicolor/scalable/apps/io.github.mfat.jottr.svg
+install -p -D -m 644 icons/jottr-symbolic.svg %{buildroot}%{_datadir}/icons/hicolor/symbolic/apps/io.github.mfat.jottr-symbolic.svg
 
 # AppStream metadata for software centers
 install -p -D -m 644 io.github.mfat.jottr.metainfo.xml %{buildroot}%{_metainfodir}/io.github.mfat.jottr.metainfo.xml
@@ -72,6 +73,7 @@ install -p -D -m 644 io.github.mfat.jottr.metainfo.xml %{buildroot}%{_metainfodi
 %{_bindir}/%{name}
 %{_datadir}/applications/io.github.mfat.jottr.desktop
 %{_datadir}/icons/hicolor/scalable/apps/io.github.mfat.jottr.svg
+%{_datadir}/icons/hicolor/symbolic/apps/io.github.mfat.jottr-symbolic.svg
 %{_metainfodir}/io.github.mfat.jottr.metainfo.xml
 
 %changelog

@@ -202,10 +202,12 @@ mkdir -p \
   "$app_dir/usr/bin" \
   "$app_dir/usr/share/jottr" \
   "$app_dir/usr/share/applications" \
-  "$app_dir/usr/share/icons/hicolor/scalable/apps"
+  "$app_dir/usr/share/icons/hicolor/scalable/apps" \
+  "$app_dir/usr/share/icons/hicolor/symbolic/apps"
 
 cp -r "$repo_root/dist/jottr/." "$app_dir/usr/share/jottr/"
 cp "$repo_root/icons/jottr.svg" "$app_dir/usr/share/icons/hicolor/scalable/apps/io.github.mfat.jottr.svg"
+cp "$repo_root/icons/jottr-symbolic.svg" "$app_dir/usr/share/icons/hicolor/symbolic/apps/io.github.mfat.jottr-symbolic.svg"
 cp "$repo_root/icons/jottr.svg" "$app_dir/jottr.svg"
 # AppImage root desktop keeps Icon=jottr for appimagetool; applications/
 # entry must match setDesktopFileName for shell/dock association.

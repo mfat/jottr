@@ -344,6 +344,11 @@ class ImportAndPackagingTests(unittest.TestCase):
         self.assertIn("io.github.mfat.jottr.desktop", appimage)
         self.assertNotIn("icons/jottr.png", appimage)
 
+        self.assertTrue((PROJECT_ROOT / "icons" / "jottr-symbolic.svg").is_file())
+        symbolic = "hicolor/symbolic/apps/io.github.mfat.jottr-symbolic.svg"
+        for packaging in (rpm_spec, debian_rules, flatpak, appimage):
+            self.assertIn(symbolic, packaging)
+
         desktop = (PROJECT_ROOT / "io.github.mfat.jottr.desktop").read_text(
             encoding="utf-8"
         )

@@ -44,6 +44,7 @@ modules:
       - cp -r translations ${FLATPAK_DEST}/share/jottr/translations
       - install -D -m644 io.github.mfat.jottr.desktop -t ${FLATPAK_DEST}/share/applications/
       - install -D -m644 icons/jottr.svg ${FLATPAK_DEST}/share/icons/hicolor/scalable/apps/io.github.mfat.jottr.svg
+      - install -D -m644 icons/jottr-symbolic.svg ${FLATPAK_DEST}/share/icons/hicolor/symbolic/apps/io.github.mfat.jottr-symbolic.svg
       - install -D -m644 io.github.mfat.jottr.metainfo.xml -t ${FLATPAK_DEST}/share/metainfo/
     sources:
       - type: dir
