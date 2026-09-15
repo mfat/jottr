@@ -1,9 +1,16 @@
-"""Editor page: tab-bar mouse behavior, markdown preview, and autosave."""
+"""Editor page: tab-bar mouse behavior, markdown preview, saving, and autosave."""
+from datetime import date
+
 from PyQt6.QtWidgets import (
-    QVBoxLayout, QHBoxLayout, QLabel, QCheckBox, QGroupBox, QFormLayout,
+    QVBoxLayout, QHBoxLayout, QLabel, QCheckBox, QComboBox, QGroupBox, QFormLayout,
     QSpinBox, QWidget,
 )
 
+from jottr.settings_manager import (
+    SAVE_NAME_DATE_FORMAT_DEFAULT,
+    SAVE_NAME_DATE_FORMATS,
+    format_save_name_date,
+)
 from jottr.translation_manager import _
 
 AUTOSAVE_MIN_SECONDS = 1
@@ -62,6 +69,26 @@ class EditorPageMixin:
         markdown_layout.addWidget(self.markdown_scroll_sync_check)
         layout.addWidget(markdown_box)
 
+        saving_box = QGroupBox(_("Saving"))
+        saving_layout = QFormLayout(saving_box)
+        saving_layout.setContentsMargins(12, 10, 12, 12)
+        saving_layout.setSpacing(8)
+        self.save_name_date_check = QCheckBox(_("Add the date to suggested file names"))
+        self.save_name_date_check.toggled.connect(self._on_save_name_date_toggled)
+        saving_layout.addRow(self.save_name_date_check)
+        self.save_name_date_format_combo = QComboBox()
+        today = date.today()
+        for date_format in SAVE_NAME_DATE_FORMATS:
+            example = format_save_name_date(date_format, today)
+            self.save_name_date_format_combo.addItem(f"{date_format} ({example})", date_format)
+        # Connected after filling, so adding the first item saves nothing.
+        self.save_name_date_format_combo.currentIndexChanged.connect(
+            self._on_save_name_date_format_changed
+        )
+        self.save_name_date_format_label = QLabel(_("Date format:"))
+        saving_layout.addRow(self.save_name_date_format_label, self.save_name_date_format_combo)
+        layout.addWidget(saving_box)
+
         autosave_box = QGroupBox(_("Autosave"))
         autosave_layout = QFormLayout(autosave_box)
         autosave_layout.setContentsMargins(12, 10, 12, 12)
@@ -97,6 +124,14 @@ class EditorPageMixin:
         self.markdown_scroll_sync_check.setChecked(
             bool(sm.get_setting("markdown_scroll_sync", True))
         )
+        self.save_name_date_check.setChecked(
+            bool(sm.get_setting("save_name_append_date", False))
+        )
+        format_index = self.save_name_date_format_combo.findData(
+            sm.get_setting("save_name_date_format", SAVE_NAME_DATE_FORMAT_DEFAULT)
+        )
+        self.save_name_date_format_combo.setCurrentIndex(max(0, format_index))
+        self._update_save_name_date_format_enabled()
         self.autosave_enabled_check.setChecked(
             bool(sm.get_setting("autosave_enabled", False))
         )
@@ -104,6 +139,24 @@ class EditorPageMixin:
             sm.get_setting("autosave_interval_seconds", AUTOSAVE_DEFAULT_SECONDS)
         )
         self._update_autosave_interval_enabled()
+
+    def _update_save_name_date_format_enabled(self):
+        enabled = self.save_name_date_check.isChecked()
+        self.save_name_date_format_label.setEnabled(enabled)
+        self.save_name_date_format_combo.setEnabled(enabled)
+
+    def _on_save_name_date_toggled(self, checked):
+        self._update_save_name_date_format_enabled()
+        self._save_only(
+            lambda: self.settings_manager.save_setting("save_name_append_date", bool(checked))
+        )
+
+    def _on_save_name_date_format_changed(self, _index=None):
+        date_format = self.save_name_date_format_combo.currentData()
+        if date_format:
+            self._save_only(
+                lambda: self.settings_manager.save_setting("save_name_date_format", date_format)
+            )
 
     def _update_autosave_interval_enabled(self):
         enabled = self.autosave_enabled_check.isChecked()

@@ -707,6 +707,37 @@ class DialogTests(unittest.TestCase):
         dialog.restore_session_always_radio.setChecked(True)
         self.assertFalse(combo.isEnabled())
 
+    def test_editor_page_adds_the_date_to_suggested_file_names(self):
+        manager = SettingsManager()
+        dialog = SettingsDialog(manager)
+        self.addCleanup(dialog.deleteLater)
+        check = dialog.save_name_date_check
+        combo = dialog.save_name_date_format_combo
+
+        self.assertFalse(check.isChecked())
+        self.assertFalse(combo.isEnabled())
+        self.assertEqual(
+            [combo.itemData(index) for index in range(combo.count())],
+            ["YYYYMMDD", "YYYYDDMM"],
+        )
+        self.assertEqual(combo.currentData(), "YYYYMMDD")
+        self.assertRegex(combo.itemText(0), r"^YYYYMMDD \(\d{8}\)$")
+
+        check.setChecked(True)
+        self.assertTrue(combo.isEnabled())
+        self.assertTrue(manager.get_setting("save_name_append_date"))
+        combo.setCurrentIndex(combo.findData("YYYYDDMM"))
+        self.assertEqual(manager.get_setting("save_name_date_format"), "YYYYDDMM")
+        data = dialog.get_data()
+        self.assertTrue(data["save_name_append_date"])
+        self.assertEqual(data["save_name_date_format"], "YYYYDDMM")
+
+        # A reopened window shows the saved choice.
+        reopened = SettingsDialog(manager)
+        self.addCleanup(reopened.deleteLater)
+        self.assertTrue(reopened.save_name_date_check.isChecked())
+        self.assertEqual(reopened.save_name_date_format_combo.currentData(), "YYYYDDMM")
+
     def test_snippet_editor_dialog_returns_entered_data(self):
         dialog = SnippetEditorDialog("Title", "Body")
         dialog.title_edit.setText("Updated")

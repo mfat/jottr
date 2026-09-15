@@ -1254,3 +1254,15 @@ msgstr "Choose Folder…"
 #: src/jottr/settings/pages/sessions.py
 msgid "Choose Workspace Folder"
 msgstr "Choose Workspace Folder"
+
+#: src/jottr/settings/pages/editor.py
+msgid "Saving"
+msgstr "Saving"
+
+#: src/jottr/settings/pages/editor.py
+msgid "Add the date to suggested file names"
+msgstr "Add the date to suggested file names"
+
+#: src/jottr/settings/pages/editor.py
+msgid "Date format:"
+msgstr "Date format:"

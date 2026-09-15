@@ -486,6 +486,8 @@ class SettingsDialog(
             ),
             'double_click_empty_tab_bar_new_tab': self.double_click_empty_tab_bar_new_tab_check.isChecked(),
             'middle_click_tab_closes_tab': self.middle_click_tab_closes_tab_check.isChecked(),
+            'save_name_append_date': self.save_name_date_check.isChecked(),
+            'save_name_date_format': self.save_name_date_format_combo.currentData(),
             'autosave_enabled': self.autosave_enabled_check.isChecked(),
             'autosave_interval_seconds': self.autosave_interval_seconds(),
             'swap_file_enabled': self.swap_file_enabled_check.isChecked(),

@@ -1350,3 +1350,15 @@ msgstr "انتخاب پوشه…"
 #: src/jottr/settings/pages/sessions.py
 msgid "Choose Workspace Folder"
 msgstr "انتخاب پوشهٔ فضای کاری"
+
+#: src/jottr/settings/pages/editor.py
+msgid "Saving"
+msgstr "ذخیره"
+
+#: src/jottr/settings/pages/editor.py
+msgid "Add the date to suggested file names"
+msgstr "افزودن تاریخ به نام پیشنهادی فایل‌ها"
+
+#: src/jottr/settings/pages/editor.py
+msgid "Date format:"
+msgstr "قالب تاریخ:"

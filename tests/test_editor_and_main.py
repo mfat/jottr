@@ -3,6 +3,7 @@ import sys
 import tempfile
 import time
 import unittest
+from datetime import date
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
@@ -1416,6 +1417,30 @@ class EditorAndMainTests(unittest.TestCase):
         ) as save_dialog:
             self.assertFalse(editor.save_file(force_dialog=True))
         self.assertEqual(save_dialog.call_args.args[2], str(saved))
+
+    def test_save_dialog_can_add_the_date_to_the_suggested_name(self):
+        editor = self.make_editor()
+        documents = Path(self.temp_dir.name) / "Documents"
+
+        def suggested():
+            with patch.object(
+                editor_tab_impl, "get_save_file_name", return_value=("", "")
+            ) as save_dialog:
+                self.assertFalse(editor.save_file())
+            return save_dialog.call_args.args[2]
+
+        with patch.object(
+            editor_tab_impl, "default_save_directory", return_value=str(documents)
+        ), patch.object(editor, "backup_title", return_value="Shopping"), patch.object(
+            editor_tab_impl, "date", SimpleNamespace(today=lambda: date(2026, 9, 5))
+        ):
+            self.assertEqual(suggested(), str(documents / "Shopping.txt"))
+            self.settings.save_setting("save_name_append_date", True)
+            self.assertEqual(suggested(), str(documents / "Shopping_20260905.txt"))
+            self.settings.save_setting("save_name_date_format", "YYYYDDMM")
+            self.assertEqual(suggested(), str(documents / "Shopping_20260509.txt"))
+            # PDF export keeps the plain title.
+            self.assertEqual(editor.suggested_pdf_export_path(), str(documents / "Shopping.pdf"))
 
     def test_pdf_export_replace_confirmation_uses_app_translations(self):
         self.settings.save_setting("language", "fa_IR")

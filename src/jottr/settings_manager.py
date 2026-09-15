@@ -23,6 +23,18 @@ TOOLBAR_STYLES = (TOOLBAR_STYLE_COMFY, TOOLBAR_STYLE_COMPACT)
 TOOLBAR_STYLE_DEFAULT = TOOLBAR_STYLE_COMPACT
 # Former baked-in UI default (Qt5 Normal weight=50). Migrate to the system UI font.
 _LEGACY_DEFAULT_UI_FONT = ("DejaVu Sans", 10, 50, False)
+# Dates appended to suggested file names use digits only, since locale date
+# formats contain separators such as "/" that file names cannot hold.
+SAVE_NAME_DATE_FORMATS = {"YYYYMMDD": "%Y%m%d", "YYYYDDMM": "%Y%d%m"}
+SAVE_NAME_DATE_FORMAT_DEFAULT = "YYYYMMDD"
+
+
+def format_save_name_date(date_format, day):
+    """*day* written in a SAVE_NAME_DATE_FORMATS format, the default when unknown."""
+    pattern = SAVE_NAME_DATE_FORMATS.get(
+        date_format, SAVE_NAME_DATE_FORMATS[SAVE_NAME_DATE_FORMAT_DEFAULT]
+    )
+    return day.strftime(pattern)
 
 
 class SettingsManager:
@@ -86,6 +98,8 @@ class SettingsManager:
             "spell_languages": ["en_US"],
             "autosave_enabled": False,
             "autosave_interval_seconds": 30,
+            "save_name_append_date": False,
+            "save_name_date_format": SAVE_NAME_DATE_FORMAT_DEFAULT,
             "swap_file_enabled": True,
             "restore_unsaved_new_files": True,
             "swap_sync_interval_seconds": 15,

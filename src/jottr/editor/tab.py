@@ -4,6 +4,7 @@ import os
 import sys
 import tempfile
 import time
+from datetime import date
 from urllib.parse import quote
 
 from PyQt6.QtWidgets import (
@@ -26,6 +27,7 @@ from jottr.snippet_editor_dialog import SnippetEditorDialog
 from jottr.theme_manager import ThemeManager
 from jottr.translation_manager import _, is_rtl_language, localize_digits
 from jottr.file_dialogs import default_save_directory, get_open_file_name, get_save_file_name
+from jottr.settings_manager import SAVE_NAME_DATE_FORMAT_DEFAULT, format_save_name_date
 
 from jottr.editor.spellcheck import (
     SpellCheckHighlighter,
@@ -505,7 +507,10 @@ class EditorTab(
         if not self.current_file or force_dialog:
             filters, initial_filter = self.save_dialog_filters()
             fallback_suffix = self.preferred_save_suffix()
-            start_path = self.current_file or self.suggested_save_path(fallback_suffix)
+            start_path = self.current_file or self.suggested_save_path(
+                fallback_suffix,
+                with_date=bool(self.settings_manager.get_setting("save_name_append_date", False)),
+            )
             file_name, selected_filter = get_save_file_name(
                 self,
                 _("Save File"),
@@ -543,14 +548,20 @@ class EditorTab(
             QMessageBox.critical(self, _("Error"), _("Could not save file: {error}").format(error=str(e)))
             return False
 
-    def suggested_save_path(self, suffix=""):
+    def suggested_save_path(self, suffix="", with_date=False):
         """Save dialog start path for a never-saved document, named after its tab.
 
-        The dialog selects the file name in the path; inside Flatpak the path
-        is only the name, and the portal picks the folder.
+        With *with_date* the name is title_date, in the date format chosen in
+        Settings > Editor. The dialog selects the file name in the path; inside
+        Flatpak the path is only the name, and the portal picks the folder.
         """
         name = self.backup_title() or "document"
         name = name.replace("/", "-").replace("\\", "-")
+        if with_date:
+            date_format = self.settings_manager.get_setting(
+                "save_name_date_format", SAVE_NAME_DATE_FORMAT_DEFAULT
+            )
+            name = f"{name}_{format_save_name_date(date_format, date.today())}"
         if suffix:
             name = f"{name}.{suffix}"
         return os.path.join(default_save_directory(), name)
