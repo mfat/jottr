@@ -2014,17 +2014,85 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
         menu.exec(self.toolbar.mapToGlobal(pos))
 
     def show_tab_context_menu(self, pos):
-        """Right-click on a document tab: Show in Folder for a saved file."""
+        """Right-click on a document tab: Rename, and Show in Folder for a saved file."""
         tab_bar = self.tab_widget.tabBar()
         tab = self.tab_widget.widget(tab_bar.tabAt(pos))
-        path = getattr(tab, "current_file", None)
-        if not path or not os.path.exists(path):
+        if not isinstance(tab, EditorTab):
             return
         menu = QMenu(self)
         menu.addAction(
-            _("Show in Folder"), lambda checked=False, path=path: show_in_file_manager(path)
+            _("Rename"),
+            lambda checked=False, tab=tab: self.rename_tab(self.tab_widget.indexOf(tab)),
         )
+        path = tab.current_file
+        if path and os.path.exists(path):
+            menu.addAction(
+                _("Show in Folder"), lambda checked=False, path=path: show_in_file_manager(path)
+            )
         menu.exec(tab_bar.mapToGlobal(pos))
+
+    def rename_tab(self, index):
+        """Rename a document tab in place; a saved file is renamed on disk."""
+        tab = self.tab_widget.widget(index)
+        if not isinstance(tab, EditorTab):
+            return False
+        if tab.current_file:
+            text = os.path.basename(tab.current_file)
+            # Select the name without its extension.
+            select_length = len(os.path.splitext(text)[0]) or len(text)
+        else:
+            text = self.tab_widget.tabText(index).removesuffix("*")
+            select_length = len(text)
+        self.tab_widget.tabBar().edit_tab_title(
+            index, text, lambda name, tab=tab: self.apply_tab_title(tab, name), select_length
+        )
+        return True
+
+    def apply_tab_title(self, tab, name):
+        """Rename *tab* to *name*; returns an error message, or None when done.
+
+        An untitled document keeps *name* as its title instead of following
+        its first line. A saved file is renamed in its folder, never over
+        another file.
+        """
+        index = self.tab_widget.indexOf(tab)
+        if index < 0:
+            return None
+        name = name.strip()
+        if name in ("", ".", ".."):
+            return _("Enter a name.")
+        if "/" in name or os.sep in name:
+            return _('A name cannot contain "/".')
+
+        if not tab.current_file:
+            tab.untitled_title = ""
+            modified = tab.editor.document().isModified()
+            self.tab_widget.setTabText(index, name + ("*" if modified else ""))
+            write_backup = getattr(tab, "write_backup", None)
+            if modified and write_backup is not None:
+                write_backup()
+            self.save_session()
+            return None
+
+        old_path = os.path.abspath(tab.current_file)
+        new_path = os.path.join(os.path.dirname(old_path), name)
+        if new_path == old_path:
+            return None
+        try:
+            # A case-only rename on a case-insensitive disk names the same file.
+            same_file = os.path.exists(old_path) and os.path.samefile(old_path, new_path)
+        except OSError:
+            same_file = False
+        if os.path.lexists(new_path) and not same_file:
+            return _('A file named "{name}" already exists.').format(name=name)
+        try:
+            os.rename(old_path, new_path)
+        except OSError as error:
+            return _("Could not rename: {error}").format(error=error)
+        self.remap_open_tabs_for_path_change(old_path, new_path)
+        self.save_workspace_markdown_files()
+        self.save_workspace_open_files()
+        return None
 
     def set_window_color_scheme(self, scheme_id):
         """Persist Window Color Scheme (Kate) and restyle the app."""
@@ -2851,7 +2919,7 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
 
 
     def eventFilter(self, obj, event):
-        """Handle middle-click close and double-click new-tab on the tab bar."""
+        """Handle middle-click close, double-click rename and double-click new tab."""
         if (
             event.type() == QEvent.Type.MouseButtonPress
             and event.button() == Qt.MouseButton.MiddleButton
@@ -2865,7 +2933,9 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
         if event.type() == QEvent.Type.MouseButtonDblClick:
             if obj == self.tab_widget.tabBar():
                 tab_index = self.tab_widget.tabBar().tabAt(event.pos())
-                if tab_index == -1 and self.settings_manager.get_setting("double_click_empty_tab_bar_new_tab", True):
+                if tab_index >= 0:
+                    return self.rename_tab(tab_index)
+                if self.settings_manager.get_setting("double_click_empty_tab_bar_new_tab", True):
                     self.new_editor_tab()
                     return True
                 return False

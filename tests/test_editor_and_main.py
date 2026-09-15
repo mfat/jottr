@@ -2800,7 +2800,10 @@ class EditorAndMainTests(unittest.TestCase):
             )
             initial_count = window.tab_widget.count()
 
-            self.assertFalse(window.eventFilter(tab_bar, FakeMouseDoubleClickEvent(tab_pos)))
+            # Double-clicking a tab renames it instead of opening a new tab.
+            self.assertTrue(window.eventFilter(tab_bar, FakeMouseDoubleClickEvent(tab_pos)))
+            self.assertIsNotNone(tab_bar.title_editor)
+            tab_bar.finish_title_edit()
             self.assertEqual(window.tab_widget.count(), initial_count)
 
             window.new_editor_tab()
@@ -2848,21 +2851,120 @@ class EditorAndMainTests(unittest.TestCase):
                 tab_bar.contextMenuPolicy(), Qt.ContextMenuPolicy.CustomContextMenu
             )
 
-            # Untitled documents have no folder to show.
-            with patch.object(QMenu, "exec") as menu_exec:
+            captured = {}
+            capture_menu = patch.object(
+                QMenu, "exec", lambda menu, _pos: captured.update(menu=menu)
+            )
+
+            def actions():
+                return {action.text(): action for action in captured["menu"].actions()}
+
+            # Untitled documents can be renamed but have no folder to show.
+            with capture_menu:
                 window.show_tab_context_menu(tab_pos)
-            menu_exec.assert_not_called()
+            self.assertEqual(list(actions()), ["Rename"])
+            actions()["Rename"].trigger()
+            self.assertIsNotNone(tab_bar.title_editor)
+            tab_bar.finish_title_edit()
 
             window.tab_widget.widget(0).current_file = str(note)
-            captured = {}
-            with patch.object(
-                QMenu, "exec", lambda menu, _pos: captured.update(menu=menu)
-            ), patch.object(window_module, "show_in_file_manager") as show:
+            with capture_menu, patch.object(window_module, "show_in_file_manager") as show:
                 window.show_tab_context_menu(tab_pos)
-                (action,) = captured["menu"].actions()
-                self.assertEqual(action.text(), "Show in Folder")
-                action.trigger()
+                self.assertEqual(list(actions()), ["Rename", "Show in Folder"])
+                actions()["Show in Folder"].trigger()
             show.assert_called_once_with(str(note))
+
+    def test_tabs_are_renamed_in_place(self):
+        class FakeEditorTab(QWidget):
+            def __init__(self, snippet_manager, settings_manager):
+                super().__init__()
+                self.editor = QTextEdit(self)
+                self.current_file = None
+
+            def set_main_window(self, main_window):
+                self.main_window = main_window
+
+        class FakeMouseDoubleClickEvent:
+            def __init__(self, pos):
+                self._pos = pos
+
+            def type(self):
+                return QEvent.Type.MouseButtonDblClick
+
+            def pos(self):
+                return self._pos
+
+        folder = Path(self.temp_dir.name)
+        note = folder / "note.txt"
+        note.write_text("one", encoding="utf-8")
+        other = folder / "other.txt"
+        other.write_text("two", encoding="utf-8")
+
+        def submit(editor, text):
+            editor.setText(text)
+            editor.returnPressed.emit()
+
+        with patch.object(window_module, "EditorTab", FakeEditorTab):
+            window = TextEditorApp()
+            self.addCleanup(window.close)
+            self.addCleanup(window.deleteLater)
+            tab_bar = window.tab_widget.tabBar()
+            untitled = window.tab_widget.widget(0)
+
+            # Double-clicking a tab edits its title with the whole title selected.
+            self.assertTrue(
+                window.eventFilter(tab_bar, FakeMouseDoubleClickEvent(tab_bar.tabRect(0).center()))
+            )
+            editor = tab_bar.title_editor
+            self.assertEqual(editor.text(), "Document 1")
+            self.assertEqual(editor.selectedText(), "Document 1")
+
+            # Escape reaches the editor before window shortcuts, and cancels.
+            override = QKeyEvent(QEvent.Type.ShortcutOverride, Qt.Key.Key_Escape, Qt.KeyboardModifier.NoModifier)
+            editor.event(override)
+            self.assertTrue(override.isAccepted())
+            editor.keyPressEvent(
+                QKeyEvent(QEvent.Type.KeyPress, Qt.Key.Key_Escape, Qt.KeyboardModifier.NoModifier)
+            )
+            self.assertIsNone(tab_bar.title_editor)
+            self.assertEqual(window.tab_widget.tabText(0), "Document 1")
+
+            # Invalid names keep the editor open; a valid one names the untitled tab.
+            window.rename_tab(0)
+            editor = tab_bar.title_editor
+            for invalid in ("   ", "..", "notes/ideas"):
+                submit(editor, invalid)
+                self.assertIs(tab_bar.title_editor, editor)
+            submit(editor, "  Ideas ")
+            self.assertIsNone(tab_bar.title_editor)
+            self.assertEqual(window.tab_widget.tabText(0), "Ideas")
+            self.assertEqual(untitled.untitled_title, "")
+
+            # Adding a tab cancels an open rename.
+            window.rename_tab(0)
+            window.new_editor_tab()
+            self.assertIsNone(tab_bar.title_editor)
+
+            # A saved file is renamed on disk, never over another file.
+            saved = FakeEditorTab(None, None)
+            saved.current_file = str(note)
+            index = window.tab_widget.addTab(saved, "note.txt")
+            window.rename_tab(index)
+            editor = tab_bar.title_editor
+            self.assertEqual(editor.text(), "note.txt")
+            self.assertEqual(editor.selectedText(), "note")
+            submit(editor, "other.txt")
+            self.assertIs(tab_bar.title_editor, editor)
+            self.assertEqual(note.read_text(encoding="utf-8"), "one")
+            self.assertEqual(other.read_text(encoding="utf-8"), "two")
+
+            submit(editor, "renamed.md")
+            self.assertIsNone(tab_bar.title_editor)
+            renamed = folder / "renamed.md"
+            self.assertFalse(note.exists())
+            self.assertEqual(renamed.read_text(encoding="utf-8"), "one")
+            self.assertEqual(saved.current_file, str(renamed))
+            self.assertEqual(window.tab_widget.tabText(window.tab_widget.indexOf(saved)), "renamed.md")
 
     def test_main_window_applies_separate_ui_and_editor_fonts(self):
         class FakeEditorTab(QWidget):

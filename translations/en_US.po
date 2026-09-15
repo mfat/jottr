@@ -1270,3 +1270,23 @@ msgstr "Date format:"
 #: src/jottr/editor/tab.py
 msgid "Show in Folder"
 msgstr "Show in Folder"
+
+#: src/jottr/window.py
+msgid "Rename"
+msgstr "Rename"
+
+#: src/jottr/window.py
+msgid "Enter a name."
+msgstr "Enter a name."
+
+#: src/jottr/window.py
+msgid "A name cannot contain \"/\"."
+msgstr "A name cannot contain \"/\"."
+
+#: src/jottr/window.py
+msgid "A file named \"{name}\" already exists."
+msgstr "A file named \"{name}\" already exists."
+
+#: src/jottr/window.py
+msgid "Could not rename: {error}"
+msgstr "Could not rename: {error}"

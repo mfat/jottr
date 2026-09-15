@@ -1366,3 +1366,23 @@ msgstr "قالب تاریخ:"
 #: src/jottr/editor/tab.py
 msgid "Show in Folder"
 msgstr "نمایش در پوشه"
+
+#: src/jottr/window.py
+msgid "Rename"
+msgstr "تغییر نام"
+
+#: src/jottr/window.py
+msgid "Enter a name."
+msgstr "یک نام وارد کنید."
+
+#: src/jottr/window.py
+msgid "A name cannot contain \"/\"."
+msgstr "نام نمی‌تواند شامل «/» باشد."
+
+#: src/jottr/window.py
+msgid "A file named \"{name}\" already exists."
+msgstr "فایلی با نام «{name}» از قبل وجود دارد."
+
+#: src/jottr/window.py
+msgid "Could not rename: {error}"
+msgstr "تغییر نام انجام نشد: {error}"
