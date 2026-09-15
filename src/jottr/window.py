@@ -351,6 +351,10 @@ class WindowColorSchemeGrid(QWidget):
             card.set_selected(card_id == scheme_id)
 
 
+# Kate's File > Open Recent keeps ten entries by default.
+MAX_RECENT_FILES = 10
+
+
 class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
     def __init__(self, file_path=None): 
         super().__init__()
@@ -1531,6 +1535,17 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
         file_menu.addAction(self.new_action)
         file_menu.addSeparator()
         file_menu.addAction(self.open_action)
+        self.open_recent_menu = file_menu.addMenu(_("Open &Recent"))
+        self.open_recent_menu.setAccessibleName(
+            _("{title} menu").format(title=_("Open &Recent").replace("&", ""))
+        )
+        self.open_recent_menu.menuAction().setProperty("text_key", "Open &Recent")
+        self.translatable_actions.append(self.open_recent_menu.menuAction())
+        self.translatable_menus.append((self.open_recent_menu, "Open &Recent"))
+        # Rebuilt when shown: clearing the menu from one of its own actions
+        # would delete the action that is still running.
+        self.open_recent_menu.aboutToShow.connect(self.refresh_recent_files_menu)
+        self.refresh_recent_files_menu()
         file_menu.addAction(self.save_action)
         file_menu.addAction(self.save_as_action)
         file_menu.addAction(self.export_pdf_action)
@@ -2540,7 +2555,7 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
             return None
         file_path = entry.get("file")
         if isinstance(file_path, str):
-            if os.path.isfile(file_path) and self.open_file(file_path):
+            if os.path.isfile(file_path) and self.open_file(file_path, add_to_recent=False):
                 return self.tab_widget.currentWidget()
             return None
         stash_id = entry.get("untitled")
@@ -2962,8 +2977,12 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
         """Open file from dialog"""
         self.open_file()
 
-    def open_file(self, file_path=None):
-        """Open a file immediately, reusing an empty untitled tab when possible."""
+    def open_file(self, file_path=None, add_to_recent=True):
+        """Open a file immediately, reusing an empty untitled tab when possible.
+
+        The file goes to the top of File > Open Recent unless *add_to_recent*
+        is False, as when a session reopens its tabs.
+        """
         if file_path is None:
             # Show file dialog if no path provided
             file_path, _selected_filter = get_open_file_name(
@@ -2982,6 +3001,8 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
             if getattr(tab, "current_file", None) and os.path.abspath(tab.current_file) == file_path:
                 self.tab_widget.setCurrentIndex(index)
                 tab.editor.setFocus()
+                if add_to_recent:
+                    self.add_recent_file(file_path)
                 return True
         
         try:
@@ -3016,6 +3037,8 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
         self.tab_widget.setCurrentWidget(editor_tab)
         editor_tab.editor.setFocus()
         self.save_workspace_open_files()
+        if add_to_recent:
+            self.add_recent_file(file_path)
         return True
 
     def reusable_empty_editor_tab(self):
@@ -3030,6 +3053,98 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
         if current_tab.editor.document().isModified():
             return None
         return current_tab
+
+    def get_recent_files(self):
+        """Return recently opened files, newest first, without duplicates."""
+        files = self.settings_manager.get_setting("recent_files", [])
+        if not isinstance(files, list):
+            return []
+        clean = []
+        for path in files:
+            if isinstance(path, str) and path:
+                path = os.path.abspath(path)
+                if path not in clean:
+                    clean.append(path)
+        return clean[:MAX_RECENT_FILES]
+
+    def save_recent_files(self, files):
+        """Store the recent files list; Open Recent is greyed out while it is empty."""
+        clean = []
+        for path in files:
+            if path not in clean:
+                clean.append(path)
+        clean = clean[:MAX_RECENT_FILES]
+        self.settings_manager.save_setting("recent_files", clean)
+        menu = getattr(self, "open_recent_menu", None)
+        if menu is not None:
+            menu.menuAction().setEnabled(bool(clean))
+
+    def add_recent_file(self, path):
+        """Put a file at the top of File > Open Recent."""
+        path = os.path.abspath(path)
+        self.save_recent_files([path] + self.get_recent_files())
+
+    def remove_recent_file(self, path):
+        """Drop a file from File > Open Recent."""
+        path = os.path.abspath(path)
+        self.save_recent_files([item for item in self.get_recent_files() if item != path])
+
+    def clear_recent_files(self):
+        """Empty File > Open Recent."""
+        self.save_recent_files([])
+
+    def remap_recent_files(self, old_path, new_path):
+        """Follow a renamed file, or files in a renamed folder, in Open Recent."""
+        old_path = os.path.abspath(old_path)
+        files = []
+        for path in self.get_recent_files():
+            if self.path_is_within(path, old_path):
+                path = os.path.abspath(os.path.join(new_path, os.path.relpath(path, old_path)))
+            files.append(path)
+        self.save_recent_files(files)
+
+    @staticmethod
+    def recent_file_label(path):
+        """Kate's "name [folder]" menu label, with the home folder shortened to ~."""
+        folder = os.path.dirname(path)
+        home = os.path.expanduser("~")
+        if home != os.sep and (folder == home or folder.startswith(home + os.sep)):
+            folder = "~" + folder[len(home):]
+        # A lone "&" in a menu label would be taken for a mnemonic.
+        return f"{os.path.basename(path)} [{folder}]".replace("&", "&&")
+
+    def refresh_recent_files_menu(self):
+        """List recent files in File > Open Recent, then Clear List."""
+        menu = getattr(self, "open_recent_menu", None)
+        if menu is None:
+            return
+        menu.clear()
+        files = self.get_recent_files()
+        for path in files:
+            action = menu.addAction(self.recent_file_label(path))
+            action.setData(path)
+            action.setToolTip(path)
+            action.triggered.connect(
+                lambda checked=False, path=path: self.open_recent_file(path)
+            )
+        if files:
+            menu.addSeparator()
+            menu.addAction(_("Clear List"), self.clear_recent_files)
+        menu.menuAction().setEnabled(bool(files))
+
+    def open_recent_file(self, path):
+        """Open a file from Open Recent, dropping it from the list when it is gone."""
+        if not os.path.isfile(path):
+            self.remove_recent_file(path)
+            QMessageBox.critical(
+                self,
+                _("Error"),
+                _('"{path}" no longer exists and was removed from the recent files list.').format(
+                    path=path
+                ),
+            )
+            return False
+        return self.open_file(path)
 
     # Add a new method to set up the find shortcut
 

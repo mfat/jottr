@@ -334,7 +334,7 @@ class WorkspaceControllerMixin:
             if absolute_path in already_open:
                 continue
             if self.is_path_in_workspace(absolute_path) and os.path.isfile(absolute_path):
-                self.open_file(absolute_path)
+                self.open_file(absolute_path, add_to_recent=False)
 
     def switch_workspace(self, path):
         """Switch to a workspace and restore its session."""
@@ -451,6 +451,8 @@ class WorkspaceControllerMixin:
                         title += "*"
                     self.tab_widget.setTabText(tab_index, title)
             index -= 1
+        if new_path is not None:
+            self.remap_recent_files(old_path, new_path)
 
     def save_workspace_open_files(self):
         """Persist the open tabs session and the active workspace's open files."""

@@ -1286,3 +1286,16 @@ msgstr "A file named \"{name}\" already exists."
 #: src/jottr/window.py
 msgid "Could not rename: {error}"
 msgstr "Could not rename: {error}"
+
+#: src/jottr/window.py
+msgid "Open &Recent"
+msgstr "Open &Recent"
+
+#: src/jottr/window.py
+msgid "Clear List"
+msgstr "Clear List"
+
+#: src/jottr/window.py
+#, python-brace-format
+msgid "\"{path}\" no longer exists and was removed from the recent files list."
+msgstr "\"{path}\" no longer exists and was removed from the recent files list."

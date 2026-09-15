@@ -505,7 +505,8 @@ class EditorTab(
 
     def save_file(self, force_dialog=False):
         """Save file, optionally forcing Save As dialog"""
-        if not self.current_file or force_dialog:
+        chose_name = not self.current_file or force_dialog
+        if chose_name:
             filters, initial_filter = self.save_dialog_filters()
             fallback_suffix = self.preferred_save_suffix()
             start_path = self.current_file or self.suggested_save_path(
@@ -544,6 +545,9 @@ class EditorTab(
                 self.main_window.save_workspace_open_files()
             if self.main_window and hasattr(self.main_window, 'save_workspace_markdown_files'):
                 self.main_window.save_workspace_markdown_files()
+            # Like Kate, a file saved under a new name joins Open Recent.
+            if chose_name and self.main_window and hasattr(self.main_window, 'add_recent_file'):
+                self.main_window.add_recent_file(self.current_file)
             return True
         except Exception as e:
             QMessageBox.critical(self, _("Error"), _("Could not save file: {error}").format(error=str(e)))

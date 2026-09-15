@@ -1382,3 +1382,16 @@ msgstr "فایلی با نام «{name}» از قبل وجود دارد."
 #: src/jottr/window.py
 msgid "Could not rename: {error}"
 msgstr "تغییر نام انجام نشد: {error}"
+
+#: src/jottr/window.py
+msgid "Open &Recent"
+msgstr "باز کردن فایل‌های اخیر"
+
+#: src/jottr/window.py
+msgid "Clear List"
+msgstr "پاک کردن فهرست"
+
+#: src/jottr/window.py
+#, python-brace-format
+msgid "\"{path}\" no longer exists and was removed from the recent files list."
+msgstr "«{path}» دیگر وجود ندارد و از فهرست فایل‌های اخیر حذف شد."

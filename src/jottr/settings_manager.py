@@ -118,6 +118,7 @@ class SettingsManager:
             "browser_remember_data": False,
             "workspace_path": "",
             "recent_workspaces": [],
+            "recent_files": [],
             "workspace_sessions": {},
             "workspace_open_files": [],
             "workspace_markdown_files": [],
