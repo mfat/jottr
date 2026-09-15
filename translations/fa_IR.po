@@ -1362,3 +1362,7 @@ msgstr "افزودن تاریخ به نام پیشنهادی فایل‌ها"
 #: src/jottr/settings/pages/editor.py
 msgid "Date format:"
 msgstr "قالب تاریخ:"
+
+#: src/jottr/editor/tab.py
+msgid "Show in Folder"
+msgstr "نمایش در پوشه"

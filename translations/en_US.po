@@ -1266,3 +1266,7 @@ msgstr "Add the date to suggested file names"
 #: src/jottr/settings/pages/editor.py
 msgid "Date format:"
 msgstr "Date format:"
+
+#: src/jottr/editor/tab.py
+msgid "Show in Folder"
+msgstr "Show in Folder"

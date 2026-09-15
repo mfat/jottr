@@ -453,18 +453,36 @@ class EditorAndMainTests(unittest.TestCase):
                 self.pdfPrintingFinished.emit(path, True)
 
         output_path = str(Path(self.temp_dir.name) / "exported")
-        with patch.object(editor_tab_impl, "QWebEnginePage", FakePdfPage):
-            with patch.object(editor_tab_impl.QMessageBox, "information") as info:
-                self.assertTrue(editor.export_pdf(output_path))
+        with patch.object(editor_tab_impl, "QWebEnginePage", FakePdfPage), patch.object(
+            editor, "ask_to_show_exported_file", return_value=True
+        ) as ask, patch.object(editor_tab_impl, "show_in_file_manager") as show:
+            self.assertTrue(editor.export_pdf(output_path))
 
         self.assertEqual(len(exported_pages), 1)
+        ask.assert_called_once_with(exported_pages[0].printed_path)
+        show.assert_called_once_with(exported_pages[0].printed_path)
         self.assertTrue(exported_pages[0].printed_path.endswith(".pdf"))
         self.assertIn("font-family", exported_pages[0].html)
         self.assertIn("<h1", exported_pages[0].html)
         self.assertIn("@page", exported_pages[0].html)
         self.assertIn("padding-inline-start: 2.2em", exported_pages[0].html)
         self.assertEqual(exported_pages[0].page_layout.margins().top(), 10.0)
-        info.assert_called_once()
+
+    def test_pdf_export_success_offers_to_show_the_file(self):
+        editor = self.make_editor()
+
+        def click(label):
+            def exec_box(box):
+                buttons = {button.text().replace("&", ""): button for button in box.buttons()}
+                buttons[label].click()
+                return 0
+            # A plain function on the class receives the message box as self.
+            return patch.object(editor_tab_impl.QMessageBox, "exec", new=exec_box)
+
+        with click("Show in Folder"):
+            self.assertTrue(editor.ask_to_show_exported_file("/tmp/note.pdf"))
+        with click("OK"):
+            self.assertFalse(editor.ask_to_show_exported_file("/tmp/note.pdf"))
 
     def test_markdown_preview_uses_registered_markdown_extensions(self):
         editor = self.make_editor()

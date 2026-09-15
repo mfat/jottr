@@ -27,6 +27,7 @@ from jottr.snippet_editor_dialog import SnippetEditorDialog
 from jottr.theme_manager import ThemeManager
 from jottr.translation_manager import _, is_rtl_language, localize_digits
 from jottr.file_dialogs import default_save_directory, get_open_file_name, get_save_file_name
+from jottr.file_manager import show_in_file_manager
 from jottr.settings_manager import SAVE_NAME_DATE_FORMAT_DEFAULT, format_save_name_date
 
 from jottr.editor.spellcheck import (
@@ -605,6 +606,18 @@ class EditorTab(
         message_box.exec()
         return message_box.clickedButton() == replace_button
 
+    def ask_to_show_exported_file(self, file_path):
+        """Report a finished PDF export; True when the user asks to see the file."""
+        box = QMessageBox(self)
+        box.setIcon(QMessageBox.Icon.Information)
+        box.setWindowTitle(_("Export Complete"))
+        box.setText(_("PDF exported to {path}").format(path=file_path))
+        show_button = box.addButton(_("Show in Folder"), QMessageBox.ButtonRole.ActionRole)
+        box.addButton(QMessageBox.StandardButton.Ok)
+        box.setDefaultButton(QMessageBox.StandardButton.Ok)
+        box.exec()
+        return box.clickedButton() is show_button
+
     def export_pdf(self, output_path=None):
         """Export the current document to PDF using the markdown preview styles."""
         if not output_path:
@@ -664,11 +677,8 @@ class EditorTab(
         def finish_export(file_path, success):
             cleanup_export()
             if success:
-                QMessageBox.information(
-                    self,
-                    _("Export Complete"),
-                    _("PDF exported to {path}").format(path=file_path)
-                )
+                if self.ask_to_show_exported_file(file_path):
+                    show_in_file_manager(file_path)
             else:
                 QMessageBox.critical(
                     self,
