@@ -57,6 +57,13 @@ BUNDLED_ICON_THEMES: tuple[BundledIconTheme, ...] = (
         "resource_module": "jottr.resources.rc_bootstrap_icons",
     },
     {
+        "id": "material",
+        "label": "Material Symbols",
+        "subdir": "material",
+        "resource_prefix": ":/icons/material",
+        "resource_module": "jottr.resources.rc_material_icons",
+    },
+    {
         "id": "symbolic",
         "label": "Adwaita",
         "subdir": "symbolic",
@@ -87,6 +94,14 @@ def normalize_icon_theme(theme_id: str | None) -> str:
             return theme["id"]
         if theme["label"].casefold() == wanted.casefold():
             return theme["id"]
+    if wanted.casefold() in (
+        "material",
+        "material-symbols",
+        "material symbols",
+        "material (rounded)",
+        "material-rounded",
+    ):
+        return "material"
     return DEFAULT_ICON_THEME
 
 

@@ -141,6 +141,7 @@ class ImportAndPackagingTests(unittest.TestCase):
             "jottr.resources",
             "jottr.resources.rc_symbolic_icons",
             "jottr.resources.rc_bootstrap_icons",
+            "jottr.resources.rc_material_icons",
             "jottr.paths",
             "jottr.plugin_manager",
             "jottr.qt_style",
@@ -227,12 +228,15 @@ class ImportAndPackagingTests(unittest.TestCase):
         themes = list_bundled_icon_themes()
         self.assertEqual(
             [theme["id"] for theme in themes],
-            ["bootstrap", "symbolic"],
+            ["bootstrap", "material", "symbolic"],
         )
         self.assertEqual(themes[0]["label"], "Bootstrap")
-        self.assertEqual(themes[1]["label"], "Adwaita")
+        self.assertEqual(themes[1]["label"], "Material Symbols")
+        self.assertEqual(themes[2]["label"], "Adwaita")
         self.assertEqual(normalize_icon_theme("Adwaita"), "symbolic")
         self.assertEqual(normalize_icon_theme("Bootstrap"), "bootstrap")
+        self.assertEqual(normalize_icon_theme("Material Symbols"), "material")
+        self.assertEqual(normalize_icon_theme("material"), "material")
         self.assertEqual(normalize_icon_theme("missing"), DEFAULT_ICON_THEME)
         self.assertEqual(DEFAULT_ICON_THEME, "bootstrap")
 
@@ -291,6 +295,27 @@ class ImportAndPackagingTests(unittest.TestCase):
         self.assertTrue((PROJECT_ROOT / "icons" / "bootstrap.qrc").is_file())
         self.assertTrue(
             (PACKAGE_DIR / "resources" / "rc_bootstrap_icons.py").is_file()
+        )
+
+        material = load_bundled_icon_paths("material")
+        self.assertIn("save", material)
+        self.assertIn("snippets", material)
+        self.assertIn("markdown", material)
+        self.assertIn("theme", material)
+        self.assertIn("brush", material)
+        self.assertIn("palette", material)
+        self.assertTrue(material["save"].startswith(":/icons/material/"))
+        self.assertTrue(material["tab-close"].startswith(":/icons/material/"))
+        self.assertEqual(material["theme"], ":/icons/material/theme.svg")
+        self.assertEqual(material["brush"], ":/icons/material/brush.svg")
+        self.assertEqual(material["palette"], ":/icons/material/palette.svg")
+        self.assertNotEqual(material["save"], icons["save"])
+        self.assertNotEqual(material["save"], bootstrap["save"])
+        material_tinted = build_themed_icon(material["theme"], "#f8f8f2", size=16)
+        self.assertFalse(material_tinted.isNull())
+        self.assertTrue((PROJECT_ROOT / "icons" / "material.qrc").is_file())
+        self.assertTrue(
+            (PACKAGE_DIR / "resources" / "rc_material_icons.py").is_file()
         )
         self.assertIsNotNone(app)
 

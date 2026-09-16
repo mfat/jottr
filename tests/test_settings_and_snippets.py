@@ -305,7 +305,7 @@ class SettingsAndSnippetTests(unittest.TestCase):
         themes = list_bundled_icon_themes()
         self.assertEqual(
             [theme["id"] for theme in themes],
-            ["bootstrap", "symbolic"],
+            ["bootstrap", "material", "symbolic"],
         )
 
         manager = SettingsManager()
@@ -314,6 +314,10 @@ class SettingsAndSnippetTests(unittest.TestCase):
         manager.save_icon_theme("Adwaita")
         reloaded = SettingsManager()
         self.assertEqual(reloaded.get_icon_theme(), "symbolic")
+
+        manager.save_icon_theme("Material Symbols")
+        reloaded = SettingsManager()
+        self.assertEqual(reloaded.get_icon_theme(), "material")
 
         manager.save_icon_theme("Bootstrap")
         reloaded = SettingsManager()

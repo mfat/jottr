@@ -24,6 +24,7 @@ RESOURCES_DIR = ROOT / "src" / "jottr" / "resources"
 ICON_THEME_RESOURCES = (
     ("symbolic", ICONS_DIR / "symbolic.qrc", RESOURCES_DIR / "rc_symbolic_icons.py"),
     ("bootstrap", ICONS_DIR / "bootstrap.qrc", RESOURCES_DIR / "rc_bootstrap_icons.py"),
+    ("material", ICONS_DIR / "material.qrc", RESOURCES_DIR / "rc_material_icons.py"),
 )
 
 RCC_CANDIDATES = (
@@ -80,7 +81,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "themes",
         nargs="*",
-        help="Theme ids to compile (default: all). Known: symbolic, bootstrap",
+        help="Theme ids to compile (default: all). Known: symbolic, bootstrap, material",
     )
     args = parser.parse_args(argv)
 
