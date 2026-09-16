@@ -24,6 +24,7 @@ from jottr.main import TextEditorApp
 from jottr.session_recovery import (
     STASH_NEW_FILES_SETTING,
     SWAP_FILE_SETTING,
+    claim_session,
     read_session,
     read_stash_file,
     read_swap_file,
@@ -585,6 +586,78 @@ class SessionTests(SessionRecoveryTestCase):
         owner.unlock()
         second.save_session()
         self.assertEqual(read_session(self.settings)["tabs"], [{"file": str(other)}])
+
+    def test_claim_session_recovers_when_stale_lock_matches_pid(self):
+        # In Flatpak or other containers with an isolated PID namespace, a crashed
+        # instance leaves a lock file with PID 2. When a new container starts, it is
+        # also assigned PID 2. QLockFile's default process check sees PID 2 running
+        # and mistakes the lock as still held by an active process.
+        release_session(self.settings)
+        owner = QLockFile(session_lock_path(self.settings))
+        self.assertTrue(owner.tryLock(0))
+        # Note: We deliberately do not call addCleanup(owner.unlock) here because
+        # unlocking would remove the stolen lock file that claim_session() replaces.
+        # Test isolation is maintained because each test starts with release_session().
+
+        with patch("jottr.session_recovery.is_flatpak", return_value=True):
+            self.assertTrue(claim_session(self.settings))
+
+    def test_claim_session_fails_in_flatpak_when_flock_is_held(self):
+        import fcntl
+
+        release_session(self.settings)
+        flock_path = session_lock_path(self.settings) + ".flock"
+        f = open(flock_path, "a+", encoding="utf-8")
+        fcntl.flock(f.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+        self.addCleanup(f.close)
+
+        with patch("jottr.session_recovery.is_flatpak", return_value=True):
+            self.assertFalse(claim_session(self.settings))
+
+    def test_session_recovers_after_crashed_flatpak_instance(self):
+        other = self.write_note("saved\n", "saved.txt")
+        crashed = self.make_window()
+        crashed.settings_manager.save_setting("session_restore_mode", "always")
+        self.assertTrue(crashed.open_file(str(other)))
+        crashed.save_session()
+        # Simulate crash: do not call close_window/release_session, but leave a lock
+        # with the current PID simulating Flatpak container PID 2 reuse.
+        release_session(self.settings)
+        owner = QLockFile(session_lock_path(self.settings))
+        self.assertTrue(owner.tryLock(0))
+        # Note: Do not unlock the fake crashed owner during teardown; see note above.
+
+        with patch("jottr.session_recovery.is_flatpak", return_value=True):
+            reopened = self.make_window()
+            self.assertEqual([tab[1] for tab in self.tab_summary(reopened)], [str(other)])
+
+    def test_claim_session_does_not_recover_matching_pid_lock_outside_flatpak(self):
+        # Outside Flatpak, PIDs are distinct across separate processes.
+        # A lock matching the current PID indicates an active owner in the same
+        # process (e.g. unit tests with raw QLockFile), so it must not be broken.
+        release_session(self.settings)
+        owner = QLockFile(session_lock_path(self.settings))
+        self.assertTrue(owner.tryLock(0))
+        self.addCleanup(owner.unlock)
+
+        with patch("jottr.session_recovery.is_flatpak", return_value=False):
+            self.assertFalse(claim_session(self.settings))
+
+    @unittest.skipUnless(os.path.exists("/proc/self/fd"), "Requires /proc/self/fd (Linux only)")
+    def test_claim_session_does_not_leak_fd_on_blocked_flock(self):
+        import fcntl
+
+        release_session(self.settings)
+        flock_path = session_lock_path(self.settings) + ".flock"
+        holder = open(flock_path, "a+", encoding="utf-8")
+        fcntl.flock(holder.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+        self.addCleanup(holder.close)
+
+        fds_before = len(os.listdir("/proc/self/fd"))
+        for _ in range(20):
+            self.assertFalse(claim_session(self.settings))
+        fds_after = len(os.listdir("/proc/self/fd"))
+        self.assertEqual(fds_after, fds_before)
 
     def test_stash_files_missing_from_the_session_are_reopened(self):
         # Written by a Jottr that only stashed on quit, or before the session was saved.

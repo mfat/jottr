@@ -19,7 +19,17 @@ import json
 import os
 import re
 
+try:
+    import fcntl
+except ImportError:
+    fcntl = None
+
 from PyQt6.QtCore import QLockFile
+
+
+def is_flatpak() -> bool:
+    """Whether Jottr runs inside a Flatpak sandbox."""
+    return bool(os.environ.get("FLATPAK_ID")) or os.path.exists("/.flatpak-info")
 
 SWAP_FILE_SETTING = "swap_file_enabled"
 STASH_NEW_FILES_SETTING = "restore_unsaved_new_files"
@@ -48,6 +58,7 @@ _STASH_ID_PATTERN = re.compile(r"[A-Za-z0-9-]{1,64}")
 # Session locks held by this process, by lock file path. Held per process, not
 # per window, so every window of the owning process may save the session.
 _session_locks = {}
+_session_flocks = {}
 
 
 def text_checksum(text):
@@ -83,14 +94,80 @@ def claim_session(settings_manager):
         # Held for a whole run: stale only when the owning process is gone.
         lock.setStaleLockTime(0)
         _session_locks[path] = lock
-    return lock.isLocked() or lock.tryLock(0)
+
+    if lock.isLocked():
+        return True
+
+    flock_file = _session_flocks.get(path)
+    if flock_file is None and fcntl is not None:
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        # Companion sentinel file for kernel advisory locking. Remains on disk
+        # and is released automatically by the OS on process exit/crash.
+        flock_path = path + ".flock"
+        try:
+            handle = open(flock_path, "a+", encoding="utf-8")
+            try:
+                fcntl.flock(handle.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+            except (BlockingIOError, OSError):
+                handle.close()
+                return False
+            flock_file = handle
+        except OSError:
+            return False
+
+    if lock.tryLock(0):
+        if flock_file is not None:
+            _session_flocks[path] = flock_file
+        return True
+
+    # In Flatpak (or other container sandboxes with isolated PID namespaces),
+    # processes inside new containers are repeatedly assigned PID 2. When a
+    # crashed container leaves a lock file behind with that PID, QLockFile's check
+    # sees the current process running and mistakes the lock as still held by an
+    # active process.
+    # Holding the kernel flock proves no active instance owns the session.
+    #
+    # In production, every live instance holds the companion flock, so live
+    # sessions are not stolen. The is_flatpak() gate limits raw lock stealing to
+    # container PID-namespace collisions (PID 2 reuse), accepting the rare
+    # unrecoverable PID-wrap outside Flatpak while accepting the small upgrade-window
+    # risk of hijacking a running legacy pre-flock Flatpak instance.
+    if flock_file is not None and is_flatpak():
+        ok, pid, _host, _app = lock.getLockInfo()
+        if ok and pid == os.getpid():
+            # lock.removeStaleLockFile() refuses removal when Qt thinks the PID is
+            # still alive (which is true under PID 2 collision). Remove the file
+            # directly; if removal fails, lock.tryLock(0) below safely fails.
+            remove_file(path)
+            if lock.tryLock(0):
+                _session_flocks[path] = flock_file
+                return True
+
+    if flock_file is not None and path not in _session_flocks:
+        try:
+            if fcntl is not None:
+                fcntl.flock(flock_file.fileno(), fcntl.LOCK_UN)
+            flock_file.close()
+        except OSError:
+            pass
+
+    return False
 
 
 def release_session(settings_manager):
     """Let the next Jottr started own the session."""
-    lock = _session_locks.pop(session_lock_path(settings_manager), None)
+    path = session_lock_path(settings_manager)
+    lock = _session_locks.pop(path, None)
     if lock is not None:
         lock.unlock()
+    flock_file = _session_flocks.pop(path, None)
+    if flock_file is not None:
+        try:
+            if fcntl is not None:
+                fcntl.flock(flock_file.fileno(), fcntl.LOCK_UN)
+            flock_file.close()
+        except OSError:
+            pass
 
 
 def swap_file_path(settings_manager, file_path):
