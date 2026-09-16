@@ -157,7 +157,7 @@ class DialogTests(unittest.TestCase):
                 dialog.icon_theme_combo.itemData(i)
                 for i in range(dialog.icon_theme_combo.count())
             ],
-            ["bootstrap", "material", "symbolic"],
+            ["bootstrap", "material", "qlementine", "symbolic"],
         )
         self.assertEqual(dialog.icon_theme_combo.currentData(), "bootstrap")
         dialog.icon_theme_combo.setCurrentIndex(

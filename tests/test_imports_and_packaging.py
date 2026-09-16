@@ -142,6 +142,7 @@ class ImportAndPackagingTests(unittest.TestCase):
             "jottr.resources.rc_symbolic_icons",
             "jottr.resources.rc_bootstrap_icons",
             "jottr.resources.rc_material_icons",
+            "jottr.resources.rc_qlementine_icons",
             "jottr.paths",
             "jottr.plugin_manager",
             "jottr.qt_style",
@@ -228,15 +229,18 @@ class ImportAndPackagingTests(unittest.TestCase):
         themes = list_bundled_icon_themes()
         self.assertEqual(
             [theme["id"] for theme in themes],
-            ["bootstrap", "material", "symbolic"],
+            ["bootstrap", "material", "qlementine", "symbolic"],
         )
         self.assertEqual(themes[0]["label"], "Bootstrap")
         self.assertEqual(themes[1]["label"], "Material Symbols")
-        self.assertEqual(themes[2]["label"], "Adwaita")
+        self.assertEqual(themes[2]["label"], "Qlementine")
+        self.assertEqual(themes[3]["label"], "Adwaita")
         self.assertEqual(normalize_icon_theme("Adwaita"), "symbolic")
         self.assertEqual(normalize_icon_theme("Bootstrap"), "bootstrap")
         self.assertEqual(normalize_icon_theme("Material Symbols"), "material")
         self.assertEqual(normalize_icon_theme("material"), "material")
+        self.assertEqual(normalize_icon_theme("Qlementine"), "qlementine")
+        self.assertEqual(normalize_icon_theme("qlementine"), "qlementine")
         self.assertEqual(normalize_icon_theme("missing"), DEFAULT_ICON_THEME)
         self.assertEqual(DEFAULT_ICON_THEME, "bootstrap")
 
@@ -316,6 +320,27 @@ class ImportAndPackagingTests(unittest.TestCase):
         self.assertTrue((PROJECT_ROOT / "icons" / "material.qrc").is_file())
         self.assertTrue(
             (PACKAGE_DIR / "resources" / "rc_material_icons.py").is_file()
+        )
+
+        qlementine = load_bundled_icon_paths("qlementine")
+        self.assertIn("save", qlementine)
+        self.assertIn("snippets", qlementine)
+        self.assertIn("markdown", qlementine)
+        self.assertIn("theme", qlementine)
+        self.assertIn("brush", qlementine)
+        self.assertIn("palette", qlementine)
+        self.assertTrue(qlementine["save"].startswith(":/icons/qlementine/"))
+        self.assertTrue(qlementine["tab-close"].startswith(":/icons/qlementine/"))
+        self.assertEqual(qlementine["theme"], ":/icons/qlementine/theme.svg")
+        self.assertEqual(qlementine["brush"], ":/icons/qlementine/brush.svg")
+        self.assertEqual(qlementine["palette"], ":/icons/qlementine/palette.svg")
+        self.assertNotEqual(qlementine["save"], icons["save"])
+        self.assertNotEqual(qlementine["save"], bootstrap["save"])
+        qlementine_tinted = build_themed_icon(qlementine["theme"], "#f8f8f2", size=16)
+        self.assertFalse(qlementine_tinted.isNull())
+        self.assertTrue((PROJECT_ROOT / "icons" / "qlementine.qrc").is_file())
+        self.assertTrue(
+            (PACKAGE_DIR / "resources" / "rc_qlementine_icons.py").is_file()
         )
         self.assertIsNotNone(app)
 

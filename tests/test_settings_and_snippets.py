@@ -305,7 +305,7 @@ class SettingsAndSnippetTests(unittest.TestCase):
         themes = list_bundled_icon_themes()
         self.assertEqual(
             [theme["id"] for theme in themes],
-            ["bootstrap", "material", "symbolic"],
+            ["bootstrap", "material", "qlementine", "symbolic"],
         )
 
         manager = SettingsManager()
@@ -318,6 +318,10 @@ class SettingsAndSnippetTests(unittest.TestCase):
         manager.save_icon_theme("Material Symbols")
         reloaded = SettingsManager()
         self.assertEqual(reloaded.get_icon_theme(), "material")
+
+        manager.save_icon_theme("Qlementine")
+        reloaded = SettingsManager()
+        self.assertEqual(reloaded.get_icon_theme(), "qlementine")
 
         manager.save_icon_theme("Bootstrap")
         reloaded = SettingsManager()

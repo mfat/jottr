@@ -64,6 +64,13 @@ BUNDLED_ICON_THEMES: tuple[BundledIconTheme, ...] = (
         "resource_module": "jottr.resources.rc_material_icons",
     },
     {
+        "id": "qlementine",
+        "label": "Qlementine",
+        "subdir": "qlementine",
+        "resource_prefix": ":/icons/qlementine",
+        "resource_module": "jottr.resources.rc_qlementine_icons",
+    },
+    {
         "id": "symbolic",
         "label": "Adwaita",
         "subdir": "symbolic",
@@ -102,6 +109,8 @@ def normalize_icon_theme(theme_id: str | None) -> str:
         "material-rounded",
     ):
         return "material"
+    if wanted.casefold() in ("qlementine", "qlementine-icons", "qlementine icons"):
+        return "qlementine"
     return DEFAULT_ICON_THEME
 
 
