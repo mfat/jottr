@@ -1268,6 +1268,10 @@ msgid "Show in Folder"
 msgstr "Show in Folder"
 
 #: src/jottr/window.py
+msgid "Change Title"
+msgstr "Change Title"
+
+#: src/jottr/window.py
 msgid "Rename"
 msgstr "Rename"
 

@@ -2052,14 +2052,15 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
         menu.exec(self.toolbar.mapToGlobal(pos))
 
     def show_tab_context_menu(self, pos):
-        """Right-click on a document tab: Rename, and Show in Folder for a saved file."""
+        """Right-click on a document tab: Rename or Change Title, and Show in Folder for a saved file."""
         tab_bar = self.tab_widget.tabBar()
         tab = self.tab_widget.widget(tab_bar.tabAt(pos))
         if not isinstance(tab, EditorTab):
             return
         menu = QMenu(self)
+        action_text = _("Rename") if tab.current_file else _("Change Title")
         menu.addAction(
-            _("Rename"),
+            action_text,
             lambda checked=False, tab=tab: self.rename_tab(self.tab_widget.indexOf(tab)),
         )
         path = tab.current_file

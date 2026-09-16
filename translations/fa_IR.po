@@ -1364,6 +1364,10 @@ msgid "Show in Folder"
 msgstr "نمایش در پوشه"
 
 #: src/jottr/window.py
+msgid "Change Title"
+msgstr "تغییر عنوان"
+
+#: src/jottr/window.py
 msgid "Rename"
 msgstr "تغییر نام"
 

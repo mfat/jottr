@@ -2899,11 +2899,11 @@ class EditorAndMainTests(unittest.TestCase):
             def actions():
                 return {action.text(): action for action in captured["menu"].actions()}
 
-            # Untitled documents can be renamed but have no folder to show.
+            # Untitled documents can have their title changed but have no folder to show.
             with capture_menu:
                 window.show_tab_context_menu(tab_pos)
-            self.assertEqual(list(actions()), ["Rename"])
-            actions()["Rename"].trigger()
+            self.assertEqual(list(actions()), ["Change Title"])
+            actions()["Change Title"].trigger()
             self.assertIsNotNone(tab_bar.title_editor)
             tab_bar.finish_title_edit()
 
