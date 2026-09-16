@@ -1,16 +1,17 @@
 #!/usr/bin/env python3
-"""Rasterize ``icons/jottr.svg`` into optional PNG sizes.
+"""Rasterize ``icons/jottr.svg`` into PNG sizes and macOS ICNS.
 
 Linux packaging installs the SVG under ``hicolor/scalable/apps``. These PNGs
-remain available for non-Linux bundles that still want rasters.
+and the macOS ICNS bundle remain available for packages and bundles that want rasters.
 """
 
 from __future__ import annotations
 
+import io
 import sys
 from pathlib import Path
 
-from PyQt6.QtCore import QRectF, Qt
+from PyQt6.QtCore import QBuffer, QIODevice, QRectF, Qt
 from PyQt6.QtGui import QImage, QPainter
 from PyQt6.QtSvg import QSvgRenderer
 from PyQt6.QtWidgets import QApplication
@@ -21,6 +22,7 @@ SIZES = (16, 32, 48, 64, 128, 256, 512)
 
 
 def export_size(renderer: QSvgRenderer, size: int, destination: Path) -> None:
+    destination.parent.mkdir(parents=True, exist_ok=True)
     image = QImage(size, size, QImage.Format.Format_ARGB32_Premultiplied)
     image.fill(Qt.GlobalColor.transparent)
     painter = QPainter(image)
@@ -30,6 +32,32 @@ def export_size(renderer: QSvgRenderer, size: int, destination: Path) -> None:
     painter.end()
     if not image.save(str(destination)):
         raise SystemExit(f"Failed to write {destination}")
+
+
+def export_icns(renderer: QSvgRenderer, destination: Path) -> None:
+    try:
+        from PIL import Image
+    except ImportError:
+        print("Pillow not installed; skipping ICNS generation", file=sys.stderr)
+        return
+
+    image = QImage(1024, 1024, QImage.Format.Format_ARGB32_Premultiplied)
+    image.fill(Qt.GlobalColor.transparent)
+    painter = QPainter(image)
+    painter.setRenderHint(QPainter.RenderHint.Antialiasing, True)
+    painter.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform, True)
+    renderer.render(painter, QRectF(0, 0, 1024, 1024))
+    painter.end()
+
+    buffer = QBuffer()
+    buffer.open(QIODevice.OpenModeFlag.ReadWrite)
+    if not image.save(buffer, "PNG"):
+        raise SystemExit(f"Failed to encode PNG for {destination}")
+
+    pil_image = Image.open(io.BytesIO(buffer.data().data()))
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    pil_image.save(str(destination), format="ICNS")
+    print(f"Wrote {destination.relative_to(ROOT)}")
 
 
 def main() -> int:
@@ -50,6 +78,14 @@ def main() -> int:
     primary = icons_dir / "jottr.png"
     export_size(renderer, 256, primary)
     print(f"Wrote {primary.relative_to(ROOT)}")
+
+    pkg_icon = ROOT / "src" / "jottr" / "icons" / "jottr.png"
+    export_size(renderer, 256, pkg_icon)
+    print(f"Wrote {pkg_icon.relative_to(ROOT)}")
+
+    icns_path = ROOT / "src" / "jottr" / "jottr_icon.icns"
+    export_icns(renderer, icns_path)
+
     _ = app
     return 0
 
