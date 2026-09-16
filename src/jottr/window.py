@@ -1328,7 +1328,10 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
         self.toolbar.addAction(self.menu_button_action)
 
         def update_overflow_button():
-            overflow_button = self.toolbar.findChild(QToolButton, "qt_toolbar_ext_button")
+            try:
+                overflow_button = self.toolbar.findChild(QToolButton, "qt_toolbar_ext_button")
+            except RuntimeError:
+                return
             if overflow_button:
                 overflow_button.setText(">>")
                 overflow_button.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextOnly)
