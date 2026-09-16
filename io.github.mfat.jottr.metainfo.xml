@@ -23,6 +23,13 @@
 
   <!-- Release information -->
   <releases>
+    <release version="2.5.9" date="2026-09-16">
+      <description>
+        <p>Added new icon themes: Google Materical Symbols</p>
+        <p>Added new icon theme: Qlementine</p>
+        <p>Fixed document recovery not working in Flatpak</p>
+      </description>
+    </release>
     <release version="2.5.8" date="2026-09-15">
       <description>
         <p>Opening another Jottr window while one is running starts with an empty document</p>
