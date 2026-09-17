@@ -1270,6 +1270,25 @@ class EditorAndMainTests(unittest.TestCase):
         self.assertEqual(code, "fa")
         self.assertGreater(confidence, 0.5)
 
+    def test_spell_check_ignores_short_latin_iranian_false_positive(self):
+        # langdetect scores "Iranian" as Indonesian; Auto must not switch yet.
+        from jottr.editor.spellcheck import detect_language_code
+
+        for sample in ("Iranian", "Iranian Iranian", "an Iranian person"):
+            code, confidence = detect_language_code(sample)
+            self.assertIsNone(code, sample)
+            self.assertIsNone(confidence, sample)
+
+    def test_spell_check_detects_longer_latin_english_with_iranian(self):
+        from jottr.editor.spellcheck import detect_language_code
+
+        sample = "The Iranian government announced a new policy today about trade."
+        code, confidence = detect_language_code(sample)
+        if code is None:
+            self.skipTest("langdetect unavailable in this environment")
+        self.assertEqual(code, "en")
+        self.assertGreater(confidence, 0.5)
+
     def test_spell_check_skips_other_script_words_for_document_dictionary(self):
         document = QTextDocument()
         self.settings.save_setting("spell_check", True)

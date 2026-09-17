@@ -42,6 +42,10 @@ _LOCALE_TAG = re.compile(r"^[a-z]{2}(?:_[A-Z]{2})?$")
 DOCUMENT_LANGUAGE_AUTO = "auto"
 # Non-Latin scripts pack more meaning per character; keep this low.
 MIN_LANGUAGE_DETECT_CHARS = 12
+# langdetect's Latin profiles are unreliable on short samples (e.g. "Iranian"
+# scores as Indonesian with near-100% confidence). Require more evidence.
+MIN_LATIN_LANGUAGE_DETECT_CHARS = 40
+MIN_LATIN_LANGUAGE_DETECT_UNIQUE_WORDS = 5
 LANGUAGE_DETECT_MIN_CONFIDENCE = 0.50
 _AUTO_LANGUAGE_ALIASES = {
     "auto",
@@ -277,6 +281,14 @@ def normalize_language_tag(language):
     return tag.replace("-", "_") if "-" in tag else tag
 
 
+def _is_latin_only_sample(sample):
+    """True when every alphabetic character is Latin (incl. accented)."""
+    letters = [ch for ch in sample if ch.isalpha()]
+    if not letters:
+        return False
+    return all(_LATIN_SCRIPT_RE.fullmatch(ch) for ch in letters)
+
+
 def detect_language_code(text):
     """Detect ISO language code from text, or None if unreliable."""
     sample = " ".join((text or "").split())
@@ -285,6 +297,18 @@ def detect_language_code(text):
     letter_count = sum(1 for ch in sample if ch.isalpha())
     if letter_count < MIN_LANGUAGE_DETECT_CHARS and len(sample) < MIN_LANGUAGE_DETECT_CHARS:
         return None, None
+    if _is_latin_only_sample(sample):
+        words = [
+            match.group(0)
+            for match in _WORD_PATTERN.finditer(sample)
+            if any(ch.isalpha() for ch in match.group(0))
+        ]
+        unique_words = {word.casefold() for word in words}
+        if (
+            letter_count < MIN_LATIN_LANGUAGE_DETECT_CHARS
+            or len(unique_words) < MIN_LATIN_LANGUAGE_DETECT_UNIQUE_WORDS
+        ):
+            return None, None
     langdetect = _load_langdetect()
     if langdetect is None:
         return None, None
