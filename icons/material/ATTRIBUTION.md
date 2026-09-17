@@ -5,8 +5,8 @@ These SVGs are selected from [Google Fonts Icons / Material Symbols](https://fon
 for each toolbar, menu, and settings action.
 
 At runtime they are embedded through the Qt Resource System
-(`icons/material.qrc` → `src/jottr/resources/rc_material_icons.py`) and tinted
-for the active light/dark theme. Regenerate the resource module with:
+(`icons/material.qrc` → `src/jottr/resources/icons_material.rcc`) and tinted
+for the active light/dark theme. Regenerate with:
 
 ```bash
 python3 scripts/compile_icons.py

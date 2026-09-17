@@ -5,8 +5,8 @@ These SVGs are selected from [Bootstrap Icons](https://icons.getbootstrap.com/)
 each toolbar/settings action by meaning, not to mirror Adwaita shapes.
 
 At runtime they are embedded through the Qt Resource System
-(`icons/bootstrap.qrc` → `src/jottr/resources/rc_bootstrap_icons.py`) and tinted
-for the active light/dark theme. Regenerate the resource module with:
+(`icons/bootstrap.qrc` → `src/jottr/resources/icons_bootstrap.rcc`) and tinted
+for the active light/dark theme. Regenerate with:
 
 ```bash
 python3 scripts/compile_icons.py

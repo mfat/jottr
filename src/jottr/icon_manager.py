@@ -14,7 +14,7 @@ from __future__ import annotations
 import os
 from typing import TypedDict
 
-from PyQt6.QtCore import QByteArray, QDir, QFile, QRectF, QSize, Qt
+from PyQt6.QtCore import QByteArray, QDir, QFile, QRectF, QResource, QSize, Qt
 from PyQt6.QtGui import QColor, QGuiApplication, QIcon, QPainter, QPalette, QPixmap
 from PyQt6.QtSvg import QSvgRenderer
 from PyQt6.QtWidgets import QMessageBox
@@ -48,7 +48,7 @@ class BundledIconTheme(TypedDict):
     label: str
     subdir: str
     resource_prefix: str
-    resource_module: str
+    resource_file: str
 
 
 # Only packs listed here appear in Settings. Do not scan the host icon theme.
@@ -58,28 +58,28 @@ BUNDLED_ICON_THEMES: tuple[BundledIconTheme, ...] = (
         "label": "Bootstrap",
         "subdir": "bootstrap",
         "resource_prefix": ":/icons/bootstrap",
-        "resource_module": "jottr.resources.rc_bootstrap_icons",
+        "resource_file": "icons_bootstrap.rcc",
     },
     {
         "id": "material",
         "label": "Material Symbols",
         "subdir": "material",
         "resource_prefix": ":/icons/material",
-        "resource_module": "jottr.resources.rc_material_icons",
+        "resource_file": "icons_material.rcc",
     },
     {
         "id": "qlementine",
         "label": "Qlementine",
         "subdir": "qlementine",
         "resource_prefix": ":/icons/qlementine",
-        "resource_module": "jottr.resources.rc_qlementine_icons",
+        "resource_file": "icons_qlementine.rcc",
     },
     {
         "id": "symbolic",
         "label": "Adwaita",
         "subdir": "symbolic",
         "resource_prefix": ":/icons/symbolic",
-        "resource_module": "jottr.resources.rc_symbolic_icons",
+        "resource_file": "icons_symbolic.rcc",
     },
 )
 DEFAULT_ICON_THEME = "qlementine"
@@ -194,13 +194,14 @@ def load_app_icon(*, full: bool = False) -> QIcon:
 
 
 def _ensure_resources_registered(theme: BundledIconTheme) -> None:
-    """Import the compiled resource module for a bundled icon theme."""
+    """Memory-map the binary ``.rcc`` for a bundled icon theme."""
     theme_id = theme["id"]
     if theme_id in _RESOURCES_LOADED:
         return
-    try:
-        __import__(theme["resource_module"])
-    except ImportError:
+    rcc_path = find_data_file("resources", theme["resource_file"])
+    if rcc_path is None:
+        return
+    if not QResource.registerResource(str(rcc_path)):
         return
     _RESOURCES_LOADED.add(theme_id)
 
@@ -239,7 +240,7 @@ def _load_resource_icon_paths(theme: BundledIconTheme) -> dict[str, str]:
 
 
 def _load_filesystem_icon_paths(theme: BundledIconTheme) -> dict[str, str]:
-    """Fallback map when the compiled resource module is unavailable."""
+    """Fallback map when the binary ``.rcc`` is unavailable."""
     theme_dir = os.path.join(resolve_icons_dir(), theme["subdir"])
     icons: dict[str, str] = {}
     if not os.path.isdir(theme_dir):
