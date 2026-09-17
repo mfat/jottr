@@ -70,7 +70,7 @@ class EditorTab(
     SwapFileMixin,
     QWidget,
 ):
-    def __init__(self, snippet_manager, settings_manager):
+    def __init__(self, snippet_manager, settings_manager, *, instant=False):
         super().__init__()
         self.snippet_manager = snippet_manager
         self.settings_manager = settings_manager
@@ -97,13 +97,24 @@ class EditorTab(
             tempfile.gettempdir(),
             f'jottr_markdown_preview_{id(self)}.html'
         )
-        
+
+        # Instant tabs stop after the bare editor so the user can type before
+        # the heavier panes, highlighter, and timers are built. Everything
+        # else runs in finish_instant_upgrade(), either right away (normal
+        # tabs) or after first paint (the startup tab).
+        self._instant_pending = bool(instant)
+
         # Setup UI components
-        self.setup_ui()
-        
+        self._setup_instant_ui()
+        if not self._instant_pending:
+            self._setup_full_ui_extras()
+            self._setup_initial_state()
+
+    def _setup_initial_state(self, reset_modified=True):
+        """Timers, theme, and signal wiring deferred past the instant editor."""
         # Setup autosave after UI is ready
         self.changes_pending = False
-        
+
         # Start configurable autosave timer
         self.backup_timer = QTimer(self)
         self.backup_timer.timeout.connect(self.force_save)
@@ -117,7 +128,7 @@ class EditorTab(
         self.markdown_render_timer.setSingleShot(True)
         self.markdown_render_timer.setInterval(650)
         self.markdown_render_timer.timeout.connect(self.update_markdown_preview)
-        
+
         # Apply theme
         ThemeManager.apply_theme(
             self.editor,
@@ -127,15 +138,16 @@ class EditorTab(
 
         # Track if content has been modified
         self.editor.document().modificationChanged.connect(self.handle_modification)
-        self.editor.document().setModified(False)
-        
+        if reset_modified:
+            self.editor.document().setModified(False)
+
         # Install event filter for key handling
         self.editor.installEventFilter(self)
-        
+
         # Add ESC shortcut for exiting focus mode
         self.focus_shortcut = QShortcut(QKeySequence("Esc"), self)
         self.focus_shortcut.activated.connect(self.handle_escape)
-        
+
         self.focus_mode = False
         self.panes_opened_in_focus = {'browser': False, 'snippets': False}  # Track panes opened during focus mode
         self.suggestion_tooltip = None
@@ -154,24 +166,51 @@ class EditorTab(
         self._document_language_timer.setInterval(400)
         self._document_language_timer.timeout.connect(self.refresh_document_language_detection)
 
+    def finish_instant_upgrade(self):
+        """Build the deferred panes/highlighter/timers on an instant tab.
+
+        Safe to call on any tab; returns False when there was nothing to do.
+        Text typed before the upgrade is preserved: the modified flag is only
+        reset for still-pristine documents, and title/status sync afterwards.
+        """
+        if not getattr(self, "_instant_pending", False):
+            return False
+        self._setup_full_ui_extras()
+        self._setup_initial_state(reset_modified=False)
+
+        document = self.editor.document()
+        if not document.toPlainText() and not document.isModified():
+            document.setModified(False)
+        self.update_untitled_title()
+        self.handle_modification(document.isModified())
+        self.update_status()
+        self._instant_pending = False
+        return True
+
     def setup_ui(self):
         """Setup the UI components"""
+        self._setup_instant_ui()
+        self._setup_full_ui_extras()
+
+    def _setup_instant_ui(self):
+        """Bare editor shell: everything typing needs, nothing more.
+
+        Side-pane containers exist (hidden and empty) so pane toggles stay
+        safe, but their contents, the highlighter, the theme, and all timers
+        wait for finish_instant_upgrade().
+        """
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
-        
+
         # Create splitter for editor and side panes
         self.splitter = QSplitter(Qt.Orientation.Horizontal)
         self.splitter.setObjectName("workspaceSplitter")
-        
+
         # Create text editor with default font
         self.editor = CompletingTextEdit(self)  # Pass self as parent
         self.editor.setObjectName("writingEditor")
         self.editor.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         self.editor.customContextMenuRequested.connect(self.show_context_menu)
-        self.editor.set_line_numbers_visible(
-            self.settings_manager.get_setting('editor_line_numbers', True)
-        )
-        self.update_font(self.current_font)
 
         self.editor_pane = QWidget()
         self.editor_pane.setObjectName("editorPane")
@@ -189,29 +228,68 @@ class EditorTab(
         self.markdown_preview.setObjectName("markdownPreview")
         self._markdown_preview_ready = False
         self.markdown_preview.setVisible(False)
-        self.markdown_preview.installEventFilter(self)
         self.markdown_splitter.addWidget(self.markdown_preview)
         self.markdown_splitter.setSizes([600, 600])
-        self.markdown_splitter.splitterMoved.connect(self.save_pane_states)
         editor_pane_layout.addWidget(self.markdown_splitter)
-        self.apply_language_direction()
-        
+
         # Connect text changed signal to update status
         self.editor.textChanged.connect(self.update_status)
-        
-        # Create spell checker
-        self.highlighter = SpellCheckHighlighter(self.editor.document(), self.settings_manager)
-        
-        # Add editor to splitter
-        self.splitter.addWidget(self.editor_pane)
-        
-        # Create snippet widget
+
+        # Empty side-pane containers so toggles stay safe before the upgrade
+        # fills them; everything starts hidden.
         self.snippet_widget = QWidget()
         self.snippet_widget.setObjectName("sidePanel")
+        self.snippet_widget.setVisible(False)
+
+        self.browser_widget = QWidget()
+        self.browser_widget.setObjectName("sidePanel")
+        self.browser_widget.setVisible(False)
+        browser_layout = QVBoxLayout(self.browser_widget)
+        browser_layout.setContentsMargins(0, 0, 0, 0)
+        browser_layout.setSpacing(0)
+        self.web_container = QWidget()
+        web_container_layout = QVBoxLayout(self.web_container)
+        web_container_layout.setContentsMargins(0, 0, 0, 0)
+        web_container_layout.setSpacing(0)
+
+        # Find/replace shell; inputs arrive with the upgrade.
+        self.find_toolbar = QWidget(self)
+        self.find_toolbar.setObjectName("findToolbar")
+        self.find_toolbar.setVisible(False)
+
+        # Add widgets to splitter (order matters: editor, snippets, browser).
+        self.splitter.addWidget(self.editor_pane)
+        self.splitter.addWidget(self.snippet_widget)
+        self.splitter.addWidget(self.browser_widget)
+
+        # Add splitter to layout
+        layout.addWidget(self.splitter)
+        layout.addWidget(self.find_toolbar)
+        self.apply_workspace_style()
+
+        # Set focus to editor
+        self.editor.setFocus()
+        
+    def _setup_full_ui_extras(self):
+        """Fill the side panes, find toolbar, and highlighter (deferred half).
+
+        Runs immediately for normal tabs; after first paint for the instant
+        startup tab via finish_instant_upgrade().
+        """
+        # Line numbers, font/theme, and layout direction ride along here (not
+        # in the instant core): the first font-metrics pass is slow, and the
+        # editor types fine without them for the milliseconds until this runs.
+        self.editor.set_line_numbers_visible(
+            self.settings_manager.get_setting('editor_line_numbers', True)
+        )
+        self.update_font(self.current_font)
+        self.apply_language_direction()
+
+        # Fill snippet pane
         snippet_layout = QVBoxLayout(self.snippet_widget)
         snippet_layout.setContentsMargins(0, 0, 0, 0)
         snippet_layout.setSpacing(0)
-        
+
         # Snippet header
         snippet_header = QWidget()
         snippet_header.setObjectName("panelHeader")
@@ -219,7 +297,7 @@ class EditorTab(
         header_layout = QHBoxLayout(snippet_header)
         header_layout.setContentsMargins(10, 4, 8, 4)
         header_layout.setSpacing(6)
-        
+
         snippet_title = QLabel(_("Snippets"))
         snippet_title.setObjectName("panelTitle")
         header_layout.addWidget(snippet_title)
@@ -238,9 +316,9 @@ class EditorTab(
         snippet_close.setToolTip(_("Close snippets"))
         snippet_close.clicked.connect(lambda: self.toggle_pane("snippets"))
         header_layout.addWidget(snippet_close)
-        
+
         snippet_layout.addWidget(snippet_header)
-        
+
         # Snippet list
         self.snippet_list = QListWidget()
         self.snippet_list.setObjectName("snippetList")
@@ -249,36 +327,15 @@ class EditorTab(
         self.snippet_list.customContextMenuRequested.connect(self.show_snippet_context_menu)
         self.update_snippet_list()  # Populate the list
         snippet_layout.addWidget(self.snippet_list)
-        
-        # Create browser widget without web view
-        self.browser_widget = QWidget()
-        self.browser_widget.setObjectName("sidePanel")
-        browser_layout = QVBoxLayout(self.browser_widget)
-        browser_layout.setContentsMargins(0, 0, 0, 0)
-        browser_layout.setSpacing(0)
-        
-        # Create browser toolbar
+
+        # Browser toolbar above the (core-built) web container placeholder
         self.setup_browser_toolbar()
-        
-        # Create placeholder for web view
-        self.web_container = QWidget()
-        web_container_layout = QVBoxLayout(self.web_container)  # Add layout
-        web_container_layout.setContentsMargins(0, 0, 0, 0)    # No margins
-        web_container_layout.setSpacing(0)                     # No spacing
-        browser_layout.addWidget(self.web_container)
-        
-        # Add widgets to splitter
-        self.splitter.addWidget(self.snippet_widget)
-        self.splitter.addWidget(self.browser_widget)
-        
-        # Add splitter to layout
-        layout.addWidget(self.splitter)
-        self.apply_workspace_style()
-        
-        # Hide side panes by default
-        self.snippet_widget.hide()
-        self.browser_widget.hide()
-        
+        self.browser_widget.layout().addWidget(self.web_container)
+
+        # Create spell checker
+        self.highlighter = SpellCheckHighlighter(self.editor.document(), self.settings_manager)
+        self.markdown_preview.installEventFilter(self)
+
         # Restore pane states
         states = self.settings_manager.get_setting('pane_states', {
             'snippets_visible': False,
@@ -286,46 +343,40 @@ class EditorTab(
             'markdown_sizes': [600, 600],
             'sizes': [700, 300, 300]
         })
-        
+
         # Apply visibility
         self.snippet_widget.setVisible(states.get('snippets_visible', False))
-        # The browser pane always starts closed (hidden above) and is not restored.
+        # The browser pane always starts closed and is not restored.
         self.set_markdown_preview_visible(False, save_state=False)
-        
+
         # Apply sizes
         if 'sizes' in states:
             self.splitter.setSizes(states['sizes'])
         if 'markdown_sizes' in states:
             self.markdown_splitter.setSizes(states['markdown_sizes'])
-        
+
         # Connect splitter moved signal to save states
         self.splitter.splitterMoved.connect(self.save_pane_states)
-        
-        # Set focus to editor
-        self.editor.setFocus()
-        
-        # Create find/replace toolbar (initially hidden)
-        self.find_toolbar = QWidget(self)
-        self.find_toolbar.setObjectName("findToolbar")
-        self.find_toolbar.setVisible(False)
+
+        # Fill find/replace toolbar (initially hidden)
         self.find_toolbar.setFixedHeight(40)
         find_layout = QHBoxLayout(self.find_toolbar)
         find_layout.setContentsMargins(8, 4, 8, 4)
         find_layout.setSpacing(6)
-        
+
         # Find input
         self.find_input = QLineEdit()
         self.find_input.setPlaceholderText(_("Find"))
         self.find_input.textChanged.connect(self.find_text)
         self.find_input.setFixedHeight(28)
         find_layout.addWidget(self.find_input)
-        
+
         # Replace input
         self.replace_input = QLineEdit()
         self.replace_input.setPlaceholderText(_("Replace with"))
         self.replace_input.setFixedHeight(28)
         find_layout.addWidget(self.replace_input)
-        
+
         # Find next/previous buttons
         self.find_prev_btn = QPushButton("↑")
         self.find_next_btn = QPushButton("↓")
@@ -335,7 +386,7 @@ class EditorTab(
         self.find_next_btn.clicked.connect(lambda: self.find_text(direction='down'))
         find_layout.addWidget(self.find_prev_btn)
         find_layout.addWidget(self.find_next_btn)
-        
+
         # Replace buttons
         self.replace_btn = QPushButton(_("Replace"))
         self.replace_all_btn = QPushButton(_("All"))  # Shortened text
@@ -345,15 +396,12 @@ class EditorTab(
         self.replace_all_btn.clicked.connect(self.replace_all)
         find_layout.addWidget(self.replace_btn)
         find_layout.addWidget(self.replace_all_btn)
-        
+
         # Close button
         close_btn = QPushButton("×")
         close_btn.setFixedSize(28, 28)
         close_btn.clicked.connect(self.toggle_find)
         find_layout.addWidget(close_btn)
-        
-        # Add styling
-        layout.addWidget(self.find_toolbar)
 
     def apply_workspace_style(self):
         """Leave the panes around the editor to the widget style and palette.

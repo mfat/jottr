@@ -11,7 +11,7 @@ from PyQt6.QtWidgets import (
 )
 from PyQt6.QtCore import (
     Qt, QUrl, QTimer, QEvent, QPropertyAnimation,
-    QEasingCurve, QParallelAnimationGroup, QSize, pyqtSignal,
+    QEasingCurve, QParallelAnimationGroup, QSize, QSignalBlocker, pyqtSignal,
 )
 from PyQt6.QtGui import (
     QAction, QActionGroup, QIcon, QDesktopServices,
@@ -387,9 +387,13 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
         self._startup_content_pending = True
         self._pending_startup_file = file_path
         self._session_claimed = False
+        self._instant_tab = None
+        # Startup stages: "pending" (shell only) -> "tab" (instant editor
+        # exists) -> "editor" (icons + upgrade done) -> "done" (restored).
+        self._startup_stage = "pending"
 
         # Shared QActions power both toolbar and menubar (one action, many surfaces).
-        # Icons are filled after first paint (see _finish_deferred_startup).
+        # Icons are filled after first paint (see _upgrade_startup_editor).
         self.setup_toolbar()
         self.create_menu_bar()
         
@@ -459,6 +463,10 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
         self.main_splitter.setSizes([260, 940])
         layout.addWidget(self.main_splitter)
 
+        # Bare instant editor first: typing works from first paint while the
+        # heavier panes, icons, and session restore follow in idle chunks.
+        self._create_instant_tab()
+
         # Claim the session lock before first paint; tab restore stays deferred.
         self._session_claimed = claim_session(self.settings_manager)
         if not self._session_claimed:
@@ -470,12 +478,12 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
         self.watch_system_color_scheme()
 
         # Tests (and JOTTR_SYNC_STARTUP=1) finish content before __init__ returns
-        # so existing callers can assume a ready tab. Production defers past
-        # first paint via QTimer.singleShot(0).
+        # so existing callers can assume a ready tab. Production upgrades the
+        # instant editor and restores the session in idle chunks past show().
         if self._startup_runs_sync():
-            self._finish_deferred_startup()
+            self._ensure_startup_content()
         else:
-            QTimer.singleShot(0, self._finish_deferred_startup)
+            QTimer.singleShot(0, self._upgrade_startup_editor)
 
     @staticmethod
     def _startup_runs_sync():
@@ -489,18 +497,145 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
         )
 
     def _ensure_startup_content(self):
-        """Run deferred first-tab / icon work if it has not finished yet."""
-        if getattr(self, "_startup_content_pending", False):
-            self._finish_deferred_startup()
+        """Finish all pending startup stages immediately (inline)."""
+        if getattr(self, "_startup_stage", "done") == "pending":
+            self._create_instant_tab()
+        if getattr(self, "_startup_stage", "done") == "tab":
+            self._upgrade_startup_editor(schedule_next=False)
+        if getattr(self, "_startup_stage", "done") == "editor":
+            self._finish_restored_startup()
 
-    def _finish_deferred_startup(self):
-        """Tint icons, restore session / open first tab after first paint."""
-        if not getattr(self, "_startup_content_pending", False):
+    def _create_instant_tab(self):
+        """Build the bare instant editor (chunk 0: before/during first paint)."""
+        if getattr(self, "_startup_stage", "done") != "pending":
             return
-        self._startup_content_pending = False
+        self._startup_stage = "tab"
+        try:
+            tab = EditorTab(self.snippet_manager, self.settings_manager, instant=True)
+        except TypeError:
+            tab = EditorTab(self.snippet_manager, self.settings_manager)
+        tab.set_main_window(self)
+        tab.untitled_title = _("Document {number}").format(
+            number=self.tab_widget.count() + 1
+        )
+        with QSignalBlocker(self.tab_widget):
+            self.tab_widget.addTab(tab, QIcon(), tab.untitled_title)
+            self.tab_widget.setCurrentWidget(tab)
+        self._instant_tab = tab
+        self.refresh_tab_close_buttons()
+        self.update_edit_actions()
+
+    def _take_alive_instant_tab(self):
+        """Return the instant tab when it is still open, else None."""
+        tab = self._instant_tab
+        if tab is None:
+            return None
+        try:
+            if self.tab_widget.indexOf(tab) < 0:
+                self._instant_tab = None
+                return None
+        except RuntimeError:
+            self._instant_tab = None
+            return None
+        return tab
+
+    def _instant_tab_has_user_text(self):
+        """Whether the user typed into the instant tab before the upgrade."""
+        tab = self._take_alive_instant_tab()
+        if tab is None:
+            return False
+        if getattr(tab, "current_file", None):
+            return False
+        editor = getattr(tab, "editor", None)
+        if editor is None:
+            return False
+        doc = getattr(editor, "document", None)
+        doc_obj = doc() if callable(doc) else None
+        is_modified = (
+            doc_obj.isModified()
+            if doc_obj is not None and hasattr(doc_obj, "isModified")
+            else False
+        )
+        plain_text = getattr(editor, "toPlainText", None)
+        text = plain_text() if callable(plain_text) else ""
+        return bool(text or is_modified)
+
+    def _focus_editor_for_typing(self):
+        """Focus the current tab's editor unless the user moved focus."""
+        current = self.tab_widget.currentWidget()
+        editor = getattr(current, "editor", None)
+        if editor is None:
+            return
+        focused = QApplication.focusWidget()
+        if focused is None or focused is editor:
+            editor.setFocus()
+
+    def _upgrade_startup_editor(self, schedule_next=True):
+        """Tint icons and finish the instant tab (chunk 1: typing works)."""
+        if getattr(self, "_startup_stage", "done") != "tab":
+            return
+        self._startup_stage = "editor"
 
         self.update_action_icons()
         self._populate_document_language_combo(self.document_language_combo)
+
+        instant = self._take_alive_instant_tab()
+        if instant is not None:
+            if hasattr(instant, "finish_instant_upgrade"):
+                instant.finish_instant_upgrade()
+            index = self.tab_widget.indexOf(instant)
+            if index >= 0:
+                self.update_tab_icon(index)
+            self.refresh_tab_close_buttons()
+
+        self.update_edit_actions()
+        self._focus_editor_for_typing()
+        if schedule_next and not self._startup_runs_sync():
+            QTimer.singleShot(0, self._finish_restored_startup)
+
+    def _drop_redundant_instant_tab(self):
+        """Remove the instant tab when restored content made it redundant.
+
+        A pristine instant tab is dropped once other tabs exist; one the user
+        typed into is always kept.
+        """
+        instant = self._take_alive_instant_tab()
+        if instant is None or self.tab_widget.count() < 2:
+            return
+        if getattr(instant, "current_file", None):
+            return
+        editor = getattr(instant, "editor", None)
+        if editor is not None:
+            doc = getattr(editor, "document", None)
+            doc_obj = doc() if callable(doc) else None
+            is_modified = (
+                doc_obj.isModified()
+                if doc_obj is not None and hasattr(doc_obj, "isModified")
+                else False
+            )
+            plain_text = getattr(editor, "toPlainText", None)
+            text = plain_text() if callable(plain_text) else ""
+            if text or is_modified:
+                return
+        index = self.tab_widget.indexOf(instant)
+        if index < 0:
+            self._instant_tab = None
+            return
+        for cleanup in ("release_swap_file", "remove_stash_file"):
+            handler = getattr(instant, cleanup, None)
+            if callable(handler):
+                handler()
+        self.tab_widget.removeTab(index)
+        instant.deleteLater()
+        self._instant_tab = None
+        self.save_workspace_open_files()
+
+    def _finish_restored_startup(self):
+        """Restore the session / open the startup file (chunk 2: full ready)."""
+        if getattr(self, "_startup_stage", "done") != "editor":
+            return
+        self._startup_stage = "done"
+        self._startup_content_pending = False
 
         if self._session_claimed:
             self.restore_last_run()
@@ -508,13 +643,18 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
         if self.tab_widget.count() == 0:
             self.new_editor_tab()
 
+        self._drop_redundant_instant_tab()
+
         pending = self._pending_startup_file
         self._pending_startup_file = None
         if pending:
             self.open_file_path(pending)
 
+        if self._instant_tab_has_user_text():
+            self.tab_widget.setCurrentWidget(self._instant_tab)
         self.update_edit_actions()
         self.update_document_language_status()
+        self._focus_editor_for_typing()
 
     def restore_last_run(self):
         """Reopen the workspace and tabs of the previous run."""
@@ -751,7 +891,7 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
         else:
             self.setPalette(application.palette() if application else self.palette())
         # Rebuild icons so styles cannot keep synthesized Selected/Disabled tints.
-        # During deferred startup, icons are filled in _finish_deferred_startup.
+        # During deferred startup, icons are filled in _upgrade_startup_editor.
         if getattr(self, "_app_style_applied", False):
             self._themed_icon_cache = {}
         self._app_style_applied = True
@@ -1916,6 +2056,7 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
             self.close_tab(current_index)
 
     def save_file(self):
+        self._ensure_startup_content()
         current_tab = self.tab_widget.currentWidget()
         if current_tab and isinstance(current_tab, EditorTab):
             current_tab.save_file()
@@ -2464,6 +2605,7 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
 
     def toggle_snippets(self):
         """Toggle snippets pane in current tab"""
+        self._ensure_startup_content()
         current_tab = self.tab_widget.currentWidget()
         if current_tab:
             current_tab.toggle_pane("snippets")
@@ -2815,6 +2957,7 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
 
     def toggle_focus_mode(self):
         """Toggle focus mode for current editor tab"""
+        self._ensure_startup_content()
         current_tab = self.tab_widget.currentWidget()
         if current_tab and isinstance(current_tab, EditorTab):
             current_tab.toggle_focus_mode()
@@ -3030,6 +3173,7 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
 
     def toggle_browser(self):
         """Toggle browser pane in current tab"""
+        self._ensure_startup_content()
         current_tab = self.tab_widget.currentWidget()
         if current_tab:
             current_tab.toggle_pane("browser")
@@ -3057,24 +3201,28 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
 
     def toggle_markdown_preview(self):
         """Toggle markdown preview in current editor tab"""
+        self._ensure_startup_content()
         current_tab = self.tab_widget.currentWidget()
         if current_tab and isinstance(current_tab, EditorTab):
             current_tab.toggle_markdown_preview()
 
     def toggle_find(self):
         """Toggle find/replace in current editor tab"""
+        self._ensure_startup_content()
         current_tab = self.tab_widget.currentWidget()
         if current_tab and isinstance(current_tab, EditorTab):
             current_tab.toggle_find()
 
     def save_file_as(self):
         """Save current file with a new name"""
+        self._ensure_startup_content()
         current_tab = self.tab_widget.currentWidget()
         if current_tab and isinstance(current_tab, EditorTab):
             current_tab.save_file(force_dialog=True)
 
     def export_pdf(self):
         """Export the current editor tab as a PDF."""
+        self._ensure_startup_content()
         current_tab = self.tab_widget.currentWidget()
         if current_tab and hasattr(current_tab, "export_pdf"):
             current_tab.export_pdf()

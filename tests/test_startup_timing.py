@@ -39,9 +39,10 @@ capture_platform_qt_style(app)
 
 window = TextEditorApp()
 assert window._startup_content_pending
-assert window.tab_widget.count() == 0
+assert window.tab_widget.count() == 1
 window.show()
-app.processEvents()
+while window._startup_content_pending:
+    app.processEvents()
 elapsed_ms = (time.perf_counter() - t0) * 1000
 assert not window._startup_content_pending
 assert window.tab_widget.count() >= 1

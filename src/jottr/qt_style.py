@@ -322,12 +322,12 @@ def apply_qt_style(style_name, application=None, theme=None):
     # so remember the key we applied on the application object itself.
     if app.property("_jottr_style_key") == key:
         return key
-    # Already on the platform default (common System-style case): record the
-    # key without recreating the style or forcing a full repolish.
+    current_name = (app.style().objectName() or "").strip() if app.style() else ""
     if (
         app.property("_jottr_style_key") is None
         and _platform_style_key
         and key.casefold() == _platform_style_key.casefold()
+        and (not current_name or current_name.casefold() == _platform_style_key.casefold())
     ):
         app.setProperty("_jottr_style_key", key)
         return key
