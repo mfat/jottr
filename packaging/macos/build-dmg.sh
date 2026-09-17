@@ -81,6 +81,10 @@ pyinstaller \
   --hidden-import jottr.file_dialogs \
   --hidden-import jottr.icon_manager \
   --hidden-import jottr.resources \
+  --hidden-import jottr.resources.rc_symbolic_icons \
+  --hidden-import jottr.resources.rc_bootstrap_icons \
+  --hidden-import jottr.resources.rc_material_icons \
+  --hidden-import jottr.resources.rc_qlementine_icons \
   --hidden-import jottr.paths \
   --hidden-import jottr.plugin_manager \
   --hidden-import jottr.qt_style \
@@ -98,7 +102,6 @@ pyinstaller \
   --hidden-import requests \
   --add-data "src/jottr/help:jottr/help" \
   --add-data "src/jottr/icons:jottr/icons" \
-  --add-data "src/jottr/resources:jottr/resources" \
   --add-data "icons:icons" \
   --add-data "translations:translations" \
   src/jottr/main.py

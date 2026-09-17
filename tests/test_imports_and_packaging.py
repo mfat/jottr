@@ -139,6 +139,10 @@ class ImportAndPackagingTests(unittest.TestCase):
             "jottr.file_dialogs",
             "jottr.icon_manager",
             "jottr.resources",
+            "jottr.resources.rc_symbolic_icons",
+            "jottr.resources.rc_bootstrap_icons",
+            "jottr.resources.rc_material_icons",
+            "jottr.resources.rc_qlementine_icons",
             "jottr.paths",
             "jottr.plugin_manager",
             "jottr.qt_style",
@@ -183,8 +187,6 @@ class ImportAndPackagingTests(unittest.TestCase):
         self.assertNotIn("src/jottr/__main__.py", workflow)
         self.assertNotIn("src/jottr/__main__.py", appimage_script)
         self.assertIn("APPIMAGE_EXTRACT_AND_RUN=1", appimage_script)
-        self.assertIn('--add-data "src/jottr/resources:jottr/resources"', workflow)
-        self.assertIn('--add-data "src/jottr/resources:jottr/resources"', appimage_script)
         self.assertIn('--add-data "icons:icons"', workflow)
         self.assertIn('--add-data "icons:icons"', appimage_script)
         self.assertIn('--add-data "translations:translations"', workflow)
@@ -275,7 +277,7 @@ class ImportAndPackagingTests(unittest.TestCase):
         self.assertFalse(selected.pixmap(16, QIcon.Mode.Disabled).isNull())
         self.assertTrue((PROJECT_ROOT / "icons" / "symbolic.qrc").is_file())
         self.assertTrue(
-            (PACKAGE_DIR / "resources" / "icons_symbolic.rcc").is_file()
+            (PACKAGE_DIR / "resources" / "rc_symbolic_icons.py").is_file()
         )
 
         bootstrap = load_bundled_icon_paths("bootstrap")
@@ -296,7 +298,7 @@ class ImportAndPackagingTests(unittest.TestCase):
         self.assertFalse(bootstrap_tinted.isNull())
         self.assertTrue((PROJECT_ROOT / "icons" / "bootstrap.qrc").is_file())
         self.assertTrue(
-            (PACKAGE_DIR / "resources" / "icons_bootstrap.rcc").is_file()
+            (PACKAGE_DIR / "resources" / "rc_bootstrap_icons.py").is_file()
         )
 
         material = load_bundled_icon_paths("material")
@@ -317,7 +319,7 @@ class ImportAndPackagingTests(unittest.TestCase):
         self.assertFalse(material_tinted.isNull())
         self.assertTrue((PROJECT_ROOT / "icons" / "material.qrc").is_file())
         self.assertTrue(
-            (PACKAGE_DIR / "resources" / "icons_material.rcc").is_file()
+            (PACKAGE_DIR / "resources" / "rc_material_icons.py").is_file()
         )
 
         qlementine = load_bundled_icon_paths("qlementine")
@@ -338,7 +340,7 @@ class ImportAndPackagingTests(unittest.TestCase):
         self.assertFalse(qlementine_tinted.isNull())
         self.assertTrue((PROJECT_ROOT / "icons" / "qlementine.qrc").is_file())
         self.assertTrue(
-            (PACKAGE_DIR / "resources" / "icons_qlementine.rcc").is_file()
+            (PACKAGE_DIR / "resources" / "rc_qlementine_icons.py").is_file()
         )
         self.assertIsNotNone(app)
 
