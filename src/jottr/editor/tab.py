@@ -170,8 +170,8 @@ class EditorTab(
         """Build the deferred panes/highlighter/timers on an instant tab.
 
         Safe to call on any tab; returns False when there was nothing to do.
-        Text typed before the upgrade is preserved: the modified flag is only
-        reset for still-pristine documents, and title/status sync afterwards.
+        Text typed before the upgrade is preserved: the modified flag is not
+        cleared, and title/status sync afterwards.
         """
         if not getattr(self, "_instant_pending", False):
             return False
@@ -179,8 +179,6 @@ class EditorTab(
         self._setup_initial_state(reset_modified=False)
 
         document = self.editor.document()
-        if not document.toPlainText() and not document.isModified():
-            document.setModified(False)
         self.update_untitled_title()
         self.handle_modification(document.isModified())
         self.update_status()
@@ -191,6 +189,7 @@ class EditorTab(
         """Setup the UI components"""
         self._setup_instant_ui()
         self._setup_full_ui_extras()
+        self._setup_initial_state()
 
     def _setup_instant_ui(self):
         """Bare editor shell: everything typing needs, nothing more.
@@ -357,6 +356,7 @@ class EditorTab(
 
         # Connect splitter moved signal to save states
         self.splitter.splitterMoved.connect(self.save_pane_states)
+        self.markdown_splitter.splitterMoved.connect(self.save_pane_states)
 
         # Fill find/replace toolbar (initially hidden)
         self.find_toolbar.setFixedHeight(40)
@@ -947,13 +947,19 @@ class EditorTab(
 
     def _add_spelling_actions(self, menu, word):
         """Add spell-check actions for a single misspelled word."""
-        if not word or ' ' in word or not self.highlighter.spell_check_enabled:
+        highlighter = getattr(self, "highlighter", None)
+        if (
+            not word
+            or ' ' in word
+            or highlighter is None
+            or not highlighter.spell_check_enabled
+        ):
             return False
-        if self.highlighter.check_word(word):
+        if highlighter.check_word(word):
             return False
 
         added = False
-        suggestions = self.highlighter.suggest(word)[:7]
+        suggestions = highlighter.suggest(word)[:7]
         if suggestions:
             menu.addAction(_("Spelling Suggestions:")).setEnabled(False)
             for suggestion in suggestions:
@@ -963,7 +969,7 @@ class EditorTab(
             menu.addSeparator()
             added = True
 
-        if not self.highlighter.word_in_user_dictionary(word):
+        if not highlighter.word_in_user_dictionary(word):
             add_action = menu.addAction(_("Add to Dictionary"))
             add_action.triggered.connect(lambda: self.add_to_dictionary(word))
             menu.addSeparator()

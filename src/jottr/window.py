@@ -3180,6 +3180,7 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
 
     def apply_editor_line_numbers(self, visible):
         """Apply line number visibility to all open editor tabs."""
+        self._ensure_startup_content()
         for i in range(self.tab_widget.count()):
             tab = self.tab_widget.widget(i)
             if isinstance(tab, EditorTab):
@@ -3187,6 +3188,7 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
 
     def apply_autosave_settings(self):
         """Apply autosave settings to all open editor tabs."""
+        self._ensure_startup_content()
         for i in range(self.tab_widget.count()):
             tab = self.tab_widget.widget(i)
             if isinstance(tab, EditorTab):
@@ -3194,6 +3196,7 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
 
     def apply_session_settings(self):
         """Apply swap file and untitled document backup to all open editor tabs."""
+        self._ensure_startup_content()
         for i in range(self.tab_widget.count()):
             tab = self.tab_widget.widget(i)
             if isinstance(tab, EditorTab):
