@@ -2897,12 +2897,16 @@ class EditorAndMainTests(unittest.TestCase):
             )
 
             def actions():
-                return {action.text(): action for action in captured["menu"].actions()}
+                return {
+                    action.text(): action
+                    for action in captured["menu"].actions()
+                    if not action.isSeparator()
+                }
 
             # Untitled documents can have their title changed but have no folder to show.
             with capture_menu:
                 window.show_tab_context_menu(tab_pos)
-            self.assertEqual(list(actions()), ["Change Title"])
+            self.assertEqual(list(actions()), ["Change Title", "Close"])
             actions()["Change Title"].trigger()
             self.assertIsNotNone(tab_bar.title_editor)
             tab_bar.finish_title_edit()
@@ -2910,9 +2914,14 @@ class EditorAndMainTests(unittest.TestCase):
             window.tab_widget.widget(0).current_file = str(note)
             with capture_menu, patch.object(window_module, "show_in_file_manager") as show:
                 window.show_tab_context_menu(tab_pos)
-                self.assertEqual(list(actions()), ["Rename", "Show in Folder"])
+                self.assertEqual(list(actions()), ["Rename", "Show in Folder", "Close"])
                 actions()["Show in Folder"].trigger()
             show.assert_called_once_with(str(note))
+
+            with capture_menu, patch.object(window, "close_tab") as mock_close:
+                window.show_tab_context_menu(tab_pos)
+                actions()["Close"].trigger()
+            mock_close.assert_called_once_with(0)
 
     def test_tabs_are_renamed_in_place(self):
         class FakeEditorTab(QWidget):

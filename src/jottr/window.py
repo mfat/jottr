@@ -2052,7 +2052,7 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
         menu.exec(self.toolbar.mapToGlobal(pos))
 
     def show_tab_context_menu(self, pos):
-        """Right-click on a document tab: Rename or Change Title, and Show in Folder for a saved file."""
+        """Right-click on a document tab: Rename or Change Title, Show in Folder, and Close."""
         tab_bar = self.tab_widget.tabBar()
         tab = self.tab_widget.widget(tab_bar.tabAt(pos))
         if not isinstance(tab, EditorTab):
@@ -2068,6 +2068,14 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
             menu.addAction(
                 _("Show in Folder"), lambda checked=False, path=path: show_in_file_manager(path)
             )
+        menu.addSeparator()
+
+        def _close_tab(checked=False, tab=tab):
+            index = self.tab_widget.indexOf(tab)
+            if index >= 0:
+                self.close_tab(index)
+
+        menu.addAction(_("Close"), _close_tab)
         menu.exec(tab_bar.mapToGlobal(pos))
 
     def rename_tab(self, index):
