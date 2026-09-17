@@ -633,7 +633,7 @@ class EditorAndMainTests(unittest.TestCase):
         self.assertTrue(capitalization.isEnabled())
         actions = {action.text(): action for action in capitalization.menu().actions()}
         actions["Uppercase"].trigger()
-        self.assertEqual(editor.editor.toPlainText(), "Hello world")
+        self.assertEqual(editor.editor.toPlainText(), "HELLO world")
 
         editor.editor.selectAll()
         menu = self._capture_editor_context_menu(editor)

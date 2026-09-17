@@ -38,72 +38,19 @@ def _replace_selection(cursor, new_text):
     cursor.setPosition(end, QTextCursor.MoveMode.KeepAnchor)
 
 
-def apply_uppercase(editor):
-    """Uppercase the selection, or the character to the right of the cursor."""
+def _apply_to_selection_or_word(editor, transform, *, skip_if_unchanged=False):
+    """Apply transform to the selection, or the word under the caret."""
     if editor is None or editor.isReadOnly():
         return False
     cursor = editor.textCursor()
     cursor.beginEditBlock()
     try:
         if cursor.hasSelection():
-            _replace_selection(cursor, to_uppercase(cursor.selectedText()))
-            editor.setTextCursor(cursor)
-            return True
-        if not cursor.movePosition(
-            QTextCursor.MoveOperation.Right, QTextCursor.MoveMode.KeepAnchor
-        ):
-            return False
-        selected = cursor.selectedText()
-        if not selected:
-            return False
-        start = cursor.selectionStart()
-        cursor.insertText(to_uppercase(selected))
-        cursor.setPosition(start + 1)
-        editor.setTextCursor(cursor)
-        return True
-    finally:
-        cursor.endEditBlock()
-
-
-def apply_lowercase(editor):
-    """Lowercase the selection, or the character to the right of the cursor."""
-    if editor is None or editor.isReadOnly():
-        return False
-    cursor = editor.textCursor()
-    cursor.beginEditBlock()
-    try:
-        if cursor.hasSelection():
-            _replace_selection(cursor, to_lowercase(cursor.selectedText()))
-            editor.setTextCursor(cursor)
-            return True
-        if not cursor.movePosition(
-            QTextCursor.MoveOperation.Right, QTextCursor.MoveMode.KeepAnchor
-        ):
-            return False
-        selected = cursor.selectedText()
-        if not selected:
-            return False
-        start = cursor.selectionStart()
-        cursor.insertText(to_lowercase(selected))
-        cursor.setPosition(start + 1)
-        editor.setTextCursor(cursor)
-        return True
-    finally:
-        cursor.endEditBlock()
-
-
-def apply_capitalize(editor):
-    """Capitalize words in the selection, or the word under the cursor.
-
-    Kate runs lowercase then capitalize on the target range.
-    """
-    if editor is None or editor.isReadOnly():
-        return False
-    cursor = editor.textCursor()
-    cursor.beginEditBlock()
-    try:
-        if cursor.hasSelection():
-            _replace_selection(cursor, capitalize_words(cursor.selectedText()))
+            text = cursor.selectedText()
+            new_text = transform(text)
+            if skip_if_unchanged and new_text == text:
+                return False
+            _replace_selection(cursor, new_text)
             editor.setTextCursor(cursor)
             return True
 
@@ -115,15 +62,35 @@ def apply_capitalize(editor):
         if start_in_block >= end_in_block:
             return False
         word = block_text[start_in_block:end_in_block]
-        capitalized = capitalize_words(word)
-        if capitalized == word:
+        new_text = transform(word)
+        if skip_if_unchanged and new_text == word:
             return False
         abs_start = block.position() + start_in_block
         abs_end = block.position() + end_in_block
         cursor.setPosition(abs_start)
         cursor.setPosition(abs_end, QTextCursor.MoveMode.KeepAnchor)
-        cursor.insertText(capitalized)
+        cursor.insertText(new_text)
         editor.setTextCursor(cursor)
         return True
     finally:
         cursor.endEditBlock()
+
+
+def apply_uppercase(editor):
+    """Uppercase the selection, or the word under the cursor."""
+    return _apply_to_selection_or_word(editor, to_uppercase)
+
+
+def apply_lowercase(editor):
+    """Lowercase the selection, or the word under the cursor."""
+    return _apply_to_selection_or_word(editor, to_lowercase)
+
+
+def apply_capitalize(editor):
+    """Capitalize words in the selection, or the word under the cursor.
+
+    Kate runs lowercase then capitalize on the target range.
+    """
+    return _apply_to_selection_or_word(
+        editor, capitalize_words, skip_if_unchanged=True
+    )

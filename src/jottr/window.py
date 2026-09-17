@@ -1345,13 +1345,13 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
             "Uppercase",
             self.uppercase,
             shortcut=QKeySequence("Ctrl+U"),
-            tooltip="Convert the selection to uppercase, or the character to the right of the cursor",
+            tooltip="Convert the selection to uppercase, or the word under the cursor",
         )
         self.lowercase_action = self._make_action(
             "Lowercase",
             self.lowercase,
             shortcut=QKeySequence("Ctrl+Shift+U"),
-            tooltip="Convert the selection to lowercase, or the character to the right of the cursor",
+            tooltip="Convert the selection to lowercase, or the word under the cursor",
         )
         self.capitalize_action = self._make_action(
             "Capitalize",

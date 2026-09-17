@@ -42,28 +42,36 @@ class CaseTransformTests(unittest.TestCase):
         self.assertEqual(capitalize_words("hello WORLD"), "Hello World")
         self.assertEqual(capitalize_words("déjà VU"), "Déjà Vu")
 
-    def test_uppercase_selection_and_character(self):
+    def test_uppercase_selection_and_word(self):
         editor = QTextEdit()
         self.addCleanup(editor.deleteLater)
-        editor.setPlainText("abc")
+        editor.setPlainText("abc def")
         cursor = editor.textCursor()
         cursor.setPosition(0)
         cursor.setPosition(2, QTextCursor.MoveMode.KeepAnchor)
         editor.setTextCursor(cursor)
 
         self.assertTrue(apply_uppercase(editor))
-        self.assertEqual(editor.toPlainText(), "ABc")
+        self.assertEqual(editor.toPlainText(), "ABc def")
         self.assertEqual(editor.textCursor().selectedText(), "AB")
 
         cursor = editor.textCursor()
         cursor.clearSelection()
-        cursor.setPosition(2)
+        cursor.setPosition(editor.toPlainText().index("c"))
         editor.setTextCursor(cursor)
         self.assertTrue(apply_uppercase(editor))
-        self.assertEqual(editor.toPlainText(), "ABC")
+        self.assertEqual(editor.toPlainText(), "ABC def")
 
         cursor = editor.textCursor()
-        cursor.movePosition(QTextCursor.MoveOperation.End)
+        cursor.clearSelection()
+        cursor.setPosition(editor.toPlainText().index("d"))
+        editor.setTextCursor(cursor)
+        self.assertTrue(apply_uppercase(editor))
+        self.assertEqual(editor.toPlainText(), "ABC DEF")
+
+        editor.setPlainText("   ")
+        cursor = editor.textCursor()
+        cursor.setPosition(1)
         editor.setTextCursor(cursor)
         self.assertFalse(apply_uppercase(editor))
 
@@ -78,6 +86,16 @@ class CaseTransformTests(unittest.TestCase):
         editor.selectAll()
         self.assertTrue(apply_capitalize(editor))
         self.assertEqual(editor.toPlainText(), "Hello World")
+
+    def test_lowercase_word_under_cursor(self):
+        editor = QTextEdit()
+        self.addCleanup(editor.deleteLater)
+        editor.setPlainText("say HELLO there")
+        cursor = editor.textCursor()
+        cursor.setPosition(editor.toPlainText().index("E"))
+        editor.setTextCursor(cursor)
+        self.assertTrue(apply_lowercase(editor))
+        self.assertEqual(editor.toPlainText(), "say hello there")
 
     def test_capitalize_word_under_cursor(self):
         editor = QTextEdit()
