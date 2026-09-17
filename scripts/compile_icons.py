@@ -1,8 +1,11 @@
 #!/usr/bin/env python3
-"""Compile bundled icon ``*.qrc`` files into binary Qt ``.rcc`` resources.
+"""Compile bundled icon ``*.qrc`` files into PyQt6 resource modules.
 
-Uses Qt's ``rcc --binary`` so startup can ``QResource.registerResource`` the
-file (mmap) instead of importing huge generated Python modules.
+Uses Qt's ``rcc -g python`` (official Qt Resource System workflow). PyQt6 does
+not ship ``pyrcc6``, so this script prefers the system Qt6 ``rcc`` binary and
+rewrites the generated import from PySide6 to PyQt6 when needed.
+
+Compression uses zlib for cross-platform portability (see Qt rcc docs).
 """
 
 from __future__ import annotations
@@ -17,12 +20,12 @@ ROOT = Path(__file__).resolve().parents[1]
 ICONS_DIR = ROOT / "icons"
 RESOURCES_DIR = ROOT / "src" / "jottr" / "resources"
 
-# theme id -> (qrc path, output .rcc path)
+# theme id -> (qrc path, output module path)
 ICON_THEME_RESOURCES = (
-    ("symbolic", ICONS_DIR / "symbolic.qrc", RESOURCES_DIR / "icons_symbolic.rcc"),
-    ("bootstrap", ICONS_DIR / "bootstrap.qrc", RESOURCES_DIR / "icons_bootstrap.rcc"),
-    ("material", ICONS_DIR / "material.qrc", RESOURCES_DIR / "icons_material.rcc"),
-    ("qlementine", ICONS_DIR / "qlementine.qrc", RESOURCES_DIR / "icons_qlementine.rcc"),
+    ("symbolic", ICONS_DIR / "symbolic.qrc", RESOURCES_DIR / "rc_symbolic_icons.py"),
+    ("bootstrap", ICONS_DIR / "bootstrap.qrc", RESOURCES_DIR / "rc_bootstrap_icons.py"),
+    ("material", ICONS_DIR / "material.qrc", RESOURCES_DIR / "rc_material_icons.py"),
+    ("qlementine", ICONS_DIR / "qlementine.qrc", RESOURCES_DIR / "rc_qlementine_icons.py"),
 )
 
 RCC_CANDIDATES = (
@@ -46,13 +49,22 @@ def find_rcc() -> str:
     )
 
 
+def rewrite_for_pyqt6(path: Path) -> None:
+    text = path.read_text(encoding="utf-8")
+    updated = text.replace("from PySide6 import QtCore", "from PyQt6 import QtCore", 1)
+    if updated == text and "from PyQt6 import QtCore" not in text:
+        raise SystemExit(f"Unexpected rcc output (no QtCore import) in {path}")
+    path.write_text(updated, encoding="utf-8")
+
+
 def compile_qrc(rcc: str, qrc: Path, output: Path) -> None:
     if not qrc.is_file():
         raise SystemExit(f"Missing resource collection: {qrc}")
     output.parent.mkdir(parents=True, exist_ok=True)
     cmd = [
         rcc,
-        "--binary",
+        "-g",
+        "python",
         "--compress-algo",
         "zlib",
         "-o",
@@ -61,7 +73,8 @@ def compile_qrc(rcc: str, qrc: Path, output: Path) -> None:
     ]
     print(" ".join(cmd))
     subprocess.run(cmd, check=True, cwd=ROOT)
-    print(f"Wrote {output.relative_to(ROOT)} ({output.stat().st_size} bytes)")
+    rewrite_for_pyqt6(output)
+    print(f"Wrote {output.relative_to(ROOT)}")
 
 
 def main(argv: list[str] | None = None) -> int:

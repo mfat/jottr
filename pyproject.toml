@@ -68,7 +68,6 @@ where = ["src"]
 jottr = [
   "help/**/*",
   "icons/**/*",
-  "resources/*.rcc",
 ]
 
 [tool.pytest.ini_options]
