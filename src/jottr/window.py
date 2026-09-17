@@ -371,7 +371,9 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
         self.snippet_manager = SnippetManager(self.settings_manager)
 
         self.setWindowTitle(APP_NAME)
-        self.setWindowIcon(load_app_icon())
+        app = QApplication.instance()
+        app_icon = app.windowIcon() if app is not None else QIcon()
+        self.setWindowIcon(app_icon if not app_icon.isNull() else load_app_icon())
         self.setGeometry(100, 100, 1200, 800)
         
         # Initialize managers first
@@ -382,8 +384,12 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
         # Logical name -> Qt resource path for the selected bundled icon theme
         self.icons = load_bundled_icon_paths(self.settings_manager.get_icon_theme())
         self.workspace_path = ""
+        self._startup_content_pending = True
+        self._pending_startup_file = file_path
+        self._session_claimed = False
 
         # Shared QActions power both toolbar and menubar (one action, many surfaces).
+        # Icons are filled after first paint (see _finish_deferred_startup).
         self.setup_toolbar()
         self.create_menu_bar()
         
@@ -400,7 +406,6 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
         self.document_language_combo.setSizeAdjustPolicy(
             QComboBox.SizeAdjustPolicy.AdjustToContents
         )
-        self._populate_document_language_combo(self.document_language_combo)
         self.document_language_combo.currentIndexChanged.connect(
             self._on_status_document_language_changed
         )
@@ -409,7 +414,6 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
         self.document_language_status = QLabel()
         self.document_language_status.setObjectName("documentLanguageStatus")
         self.statusBar.addPermanentWidget(self.document_language_status)
-        self.update_document_language_status()
         
         # Create main widget and layout
         main_widget = QWidget()
@@ -454,24 +458,63 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
         self.main_splitter.setStretchFactor(1, 1)
         self.main_splitter.setSizes([260, 940])
         layout.addWidget(self.main_splitter)
-        if claim_session(self.settings_manager):
-            self.restore_last_run()
-        else:
+
+        # Claim the session lock before first paint; tab restore stays deferred.
+        self._session_claimed = claim_session(self.settings_manager)
+        if not self._session_claimed:
             # Another running Jottr owns the last session: start empty, and
             # save the session only once that instance has exited.
             self._session_loaded = True
 
-        # Create new tab if no tabs were restored
-        if self.tab_widget.count() == 0:
-            self.new_editor_tab()
-        
-        # Open file if specified
-        if file_path:
-            self.open_file_path(file_path)
-
-        self.update_edit_actions()
         self.apply_app_style()
         self.watch_system_color_scheme()
+
+        # Tests (and JOTTR_SYNC_STARTUP=1) finish content before __init__ returns
+        # so existing callers can assume a ready tab. Production defers past
+        # first paint via QTimer.singleShot(0).
+        if self._startup_runs_sync():
+            self._finish_deferred_startup()
+        else:
+            QTimer.singleShot(0, self._finish_deferred_startup)
+
+    @staticmethod
+    def _startup_runs_sync():
+        """True when deferred startup must finish before __init__ returns."""
+        # Opt into the production deferred path under pytest (timing tests).
+        if os.environ.get("JOTTR_DEFER_STARTUP") == "1":
+            return False
+        return bool(
+            os.environ.get("PYTEST_CURRENT_TEST")
+            or os.environ.get("JOTTR_SYNC_STARTUP") == "1"
+        )
+
+    def _ensure_startup_content(self):
+        """Run deferred first-tab / icon work if it has not finished yet."""
+        if getattr(self, "_startup_content_pending", False):
+            self._finish_deferred_startup()
+
+    def _finish_deferred_startup(self):
+        """Tint icons, restore session / open first tab after first paint."""
+        if not getattr(self, "_startup_content_pending", False):
+            return
+        self._startup_content_pending = False
+
+        self.update_action_icons()
+        self._populate_document_language_combo(self.document_language_combo)
+
+        if self._session_claimed:
+            self.restore_last_run()
+
+        if self.tab_widget.count() == 0:
+            self.new_editor_tab()
+
+        pending = self._pending_startup_file
+        self._pending_startup_file = None
+        if pending:
+            self.open_file_path(pending)
+
+        self.update_edit_actions()
+        self.update_document_language_status()
 
     def restore_last_run(self):
         """Reopen the workspace and tabs of the previous run."""
@@ -602,6 +645,29 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
         application = QApplication.instance()
         style_swapped = False
         window_scheme = find_window_color_scheme(window_scheme_id)
+        stylesheet = ThemeManager.build_app_stylesheet(
+            toolbar_style=self.settings_manager.get_toolbar_style(),
+        )
+        startup_sheet = (
+            application.property("_jottr_startup_stylesheet") if application else None
+        )
+        # main() may already have applied matching chrome; skip the expensive
+        # style/QSS path once on first apply. The sheet is layout-only (no
+        # colors), so it still matches after a light/dark switch — never treat
+        # that as "already themed" or System appearance changes stay partial.
+        chrome_preapplied = (
+            font is None
+            and application is not None
+            and not getattr(self, "_app_style_applied", False)
+            and startup_sheet
+            and startup_sheet == stylesheet
+            and application.styleSheet() == startup_sheet
+            and application.property("_jottr_style_key") is not None
+        )
+        if chrome_preapplied:
+            # Consume the one-shot marker so later apply_app_style calls (System
+            # dark mode, Settings, …) run the full color-scheme/palette path.
+            application.setProperty("_jottr_startup_stylesheet", None)
         if application:
             # Only drop stylesheets when the widget style actually swaps;
             # the clears each force a full repolish, while palette/font/theme
@@ -611,51 +677,52 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
             )
             # Qt ColorScheme hint: explicit Window Color Scheme forces Light/Dark;
             # Default uses the Appearance System/Light/Dark setting.
-            if window_scheme.path:
-                color_scheme_setting = (
-                    "Dark" if scheme_is_dark(window_scheme.path) else "Light"
+            if not chrome_preapplied:
+                if window_scheme.path:
+                    color_scheme_setting = (
+                        "Dark" if scheme_is_dark(window_scheme.path) else "Light"
+                    )
+                    apply_qt_color_scheme(color_scheme_setting, application)
+                else:
+                    color_scheme_setting = scheme_setting
+                    apply_qt_color_scheme(scheme_setting, application)
+                    # Only Default chrome may be remapped when the platform refuses
+                    # Light/Dark pins. Named .colors schemes keep their own palette;
+                    # reconciling them to Dark would paint dark QSS over a light
+                    # Breeze Classic (etc.) palette.
+                    theme = reconcile_chrome_theme_with_color_scheme(
+                        theme, color_scheme_setting, application
+                    )
+                next_key = resolve_qt_style_key(
+                    self.settings_manager.get_qt_style(),
+                    theme=theme,
+                    application=application,
                 )
-                apply_qt_color_scheme(color_scheme_setting, application)
+                if application.property("_jottr_style_key") != next_key:
+                    # Drop stylesheets before setStyle so the widget style can take effect.
+                    # Forget the cached sheet too — otherwise an unchanged theme/font
+                    # skips re-apply and chrome stays unstyled (compact toolbars).
+                    application.setStyleSheet("")
+                    self.setStyleSheet("")
+                    self._applied_app_stylesheet = None
+                    application.setProperty("_jottr_startup_stylesheet", None)
+                previous_key = application.property("_jottr_style_key")
+                apply_qt_style(
+                    self.settings_manager.get_qt_style(),
+                    application,
+                    theme=theme,
+                )
+                style_swapped = previous_key != application.property("_jottr_style_key")
+                activate_window_color_scheme(window_scheme_id, application)
+                if not window_scheme.path:
+                    ThemeManager.apply_app_palette(application, theme)
+                application.setFont(app_font)
             else:
-                color_scheme_setting = scheme_setting
-                apply_qt_color_scheme(scheme_setting, application)
-                # Only Default chrome may be remapped when the platform refuses
-                # Light/Dark pins. Named .colors schemes keep their own palette;
-                # reconciling them to Dark would paint dark QSS over a light
-                # Breeze Classic (etc.) palette.
-                theme = reconcile_chrome_theme_with_color_scheme(
-                    theme, color_scheme_setting, application
-                )
-            next_key = resolve_qt_style_key(
-                self.settings_manager.get_qt_style(),
-                theme=theme,
-                application=application,
-            )
-            if application.property("_jottr_style_key") != next_key:
-                # Drop stylesheets before setStyle so the widget style can take effect.
-                # Forget the cached sheet too — otherwise an unchanged theme/font
-                # skips re-apply and chrome stays unstyled (compact toolbars).
-                application.setStyleSheet("")
-                self.setStyleSheet("")
-                self._applied_app_stylesheet = None
-            previous_key = application.property("_jottr_style_key")
-            apply_qt_style(
-                self.settings_manager.get_qt_style(),
-                application,
-                theme=theme,
-            )
-            style_swapped = previous_key != application.property("_jottr_style_key")
-            activate_window_color_scheme(window_scheme_id, application)
-            if not window_scheme.path:
-                ThemeManager.apply_app_palette(application, theme)
-            application.setFont(app_font)
+                self._applied_app_stylesheet = stylesheet
         else:
             theme = effective_chrome_theme(window_scheme_id, scheme_setting)
         self.setFont(app_font)
-        stylesheet = ThemeManager.build_app_stylesheet(
-            toolbar_style=self.settings_manager.get_toolbar_style(),
-        )
-        if application:
+        if application and not chrome_preapplied:
             # The window inherits the application stylesheet; keep a
             # window-level override only to clear a stale one, so a repeat
             # apply costs one repolish instead of two. Qt normalizes the
@@ -665,12 +732,14 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
             if stylesheet != getattr(self, "_applied_app_stylesheet", None):
                 application.setStyleSheet(stylesheet)
                 self._applied_app_stylesheet = stylesheet
-        elif self.styleSheet() != stylesheet:
+                # Only main.apply_startup_app_chrome owns this property.
+                application.setProperty("_jottr_startup_stylesheet", None)
+        elif not application and self.styleSheet() != stylesheet:
             self.setStyleSheet(stylesheet)
         if application:
             # setStyle already unpolish/polish; only repolish for palette/font/
             # QSS-only updates (Kate does nothing beyond setStyle).
-            if not style_swapped:
+            if not style_swapped and not chrome_preapplied:
                 refresh_styled_widgets(application)
             self.apply_chrome_ui_font(app_font, application)
         # Last, because QStyleSheetStyle remembers the palette a widget had
@@ -682,13 +751,13 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
         else:
             self.setPalette(application.palette() if application else self.palette())
         # Rebuild icons so styles cannot keep synthesized Selected/Disabled tints.
-        # The first apply runs before the window is shown, when nothing has
-        # painted an icon yet, so the icons the toolbar just rendered are reused.
+        # During deferred startup, icons are filled in _finish_deferred_startup.
         if getattr(self, "_app_style_applied", False):
             self._themed_icon_cache = {}
         self._app_style_applied = True
-        self.update_action_icons()
-        self.refresh_tab_icons()
+        if not getattr(self, "_startup_content_pending", False):
+            self.update_action_icons()
+            self.refresh_tab_icons()
         # The Settings window is top-level, so it does not inherit this
         # window's palette; refresh it the same way.
         settings_dialog = getattr(self, "_settings_dialog", None)
@@ -780,6 +849,12 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
         if status is not None:
             status.setFont(app_font)
             for child in status.findChildren(QWidget):
+                try:
+                    from PyQt6 import sip
+                    if sip.isdeleted(child):
+                        continue
+                except Exception:
+                    pass
                 child.setFont(app_font)
                 if isinstance(child, QComboBox) and child.view() is not None:
                     child.view().setFont(app_font)
@@ -816,17 +891,27 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
         """Return the configured icon color for the active app theme."""
         return resolve_icon_color(self.settings_manager)
 
-    def build_themed_icon(self, icon_name):
+    def build_themed_icon(
+        self,
+        icon_name,
+        color=None,
+        selected_color=None,
+        disabled_color=None,
+        *,
+        quick=True,
+    ):
         """Tint a bundled symbolic SVG with explicit modes (cached).
 
         Selected/Disabled pixmaps are required so QStyle.generatedIconPixmap
         does not invent a style-specific tint after widget-style switches.
         """
-        color = self.get_icon_color()
-        selected_color, disabled_color = resolve_icon_mode_colors(
-            self.settings_manager
-        )
-        key = (icon_name, color, selected_color, disabled_color)
+        if color is None:
+            color = self.get_icon_color()
+        if selected_color is None and disabled_color is None:
+            selected_color, disabled_color = resolve_icon_mode_colors(
+                self.settings_manager
+            )
+        key = (icon_name, color, selected_color, disabled_color, quick)
         cache = getattr(self, "_themed_icon_cache", None)
         if cache is None:
             cache = self._themed_icon_cache = {}
@@ -837,6 +922,7 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
                 color,
                 selected_color=selected_color,
                 disabled_color=disabled_color,
+                quick=quick,
             )
             cache[key] = icon
         return QIcon(icon)
@@ -844,8 +930,20 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
     def update_action_icons(self):
         if not hasattr(self, "icon_actions"):
             return
+        color = self.get_icon_color()
+        selected_color, disabled_color = resolve_icon_mode_colors(
+            self.settings_manager
+        )
         for action, icon_name in self.icon_actions:
-            action.setIcon(self.build_themed_icon(icon_name))
+            action.setIcon(
+                self.build_themed_icon(
+                    icon_name,
+                    color=color,
+                    selected_color=selected_color,
+                    disabled_color=disabled_color,
+                    quick=True,
+                )
+            )
 
     def tab_icon_name_for_widget(self, tab):
         if isinstance(tab, EditorTab) or hasattr(tab, "current_file"):
@@ -994,13 +1092,12 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
     ):
         """Create a QAction shared by toolbar and menubar."""
         translated_text = _(text)
+        action = QAction(translated_text, self)
         if icon_name and icon_name in self.icons:
-            action = QAction(self.build_themed_icon(icon_name), translated_text, self)
+            # Icons are tinted in update_action_icons() after first paint.
             self.icon_actions.append((action, icon_name))
             # Keep menus text-only while toolbar still shows the icon.
             action.setIconVisibleInMenu(False)
-        else:
-            action = QAction(translated_text, self)
         action.setProperty("text_key", text)
         tip = tooltip or text
         action.setProperty("tooltip_key", tip)
@@ -1825,6 +1922,7 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
 
     def new_editor_tab(self):
         """Create a new empty editor tab"""
+        self._ensure_startup_content()
         editor_tab = EditorTab(self.snippet_manager, self.settings_manager)
         editor_tab.set_main_window(self)  # Set reference to main window
         
@@ -3032,6 +3130,7 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
         The file goes to the top of File > Open Recent unless *add_to_recent*
         is False, as when a session reopens its tabs.
         """
+        self._ensure_startup_content()
         if file_path is None:
             # Show file dialog if no path provided
             file_path, _selected_filter = get_open_file_name(

@@ -12,7 +12,7 @@ from jottr.editor import (
     SpellCheckHighlighter,
     find_word_bounds,
 )
-from jottr.editor.spellcheck import SpellChecker, USE_ENCHANT, Dict, DictNotFoundError
+from jottr.editor.spellcheck import SpellChecker
 
 
 def __getattr__(name):
@@ -21,6 +21,11 @@ def __getattr__(name):
         from jottr.editor.markdown import markdown_preview_page_class
 
         return markdown_preview_page_class()
+    if name in {"Dict", "DictNotFoundError", "USE_ENCHANT"}:
+        from jottr.editor import spellcheck as spellcheck_mod
+
+        spellcheck_mod._ensure_enchant()
+        return getattr(spellcheck_mod, name)
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 

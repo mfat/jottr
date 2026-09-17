@@ -21,11 +21,15 @@ from PyQt6.QtWidgets import QMessageBox
 
 from jottr.paths import data_roots, find_data_dir, find_data_file
 
-# Logical sizes used by the UI (tabs 16, toolbar 22, menus ~16–24).
+# Logical sizes used by the UI (tabs 16, toolbar 22). Extra sizes are filled
+# lazily when a caller requests a full icon (theme change / HiDPI edge cases).
 _ICON_SIZES = (16, 22, 24, 32)
+_ICON_SIZES_QUICK = (16, 22)
 _APP_ICON_SIZES = (16, 24, 32, 48, 64, 128, 256, 512)
+_APP_ICON_SIZES_QUICK = (32, 64, 128)
 _ICON_PATH_CACHE: dict[str, dict[str, str]] = {}
 _APP_ICON_CACHE: QIcon | None = None
+_APP_ICON_FULL = False
 _RESOURCES_LOADED: set[str] = set()
 
 # Logical name aliases applied when a theme does not ship explicit aliases.
@@ -145,39 +149,47 @@ def resolve_app_icon_path() -> str | None:
     return None
 
 
-def load_app_icon() -> QIcon:
+def load_app_icon(*, full: bool = False) -> QIcon:
     """Load the Jottr application icon for the window and task switcher.
 
     Prefers ``icons/jottr.svg`` and registers common pixmap sizes so window
-    managers pick a sharp raster instead of a tiny default.
+    managers pick a sharp raster instead of a tiny default. Startup uses a
+    short size list; pass ``full=True`` (or call again later) for the rest.
     """
-    global _APP_ICON_CACHE
-    if _APP_ICON_CACHE is not None:
+    global _APP_ICON_CACHE, _APP_ICON_FULL
+    if _APP_ICON_CACHE is not None and (not full or _APP_ICON_FULL):
         return QIcon(_APP_ICON_CACHE)
 
     path = resolve_app_icon_path()
     if not path:
         _APP_ICON_CACHE = QIcon()
+        _APP_ICON_FULL = True
         return QIcon(_APP_ICON_CACHE)
 
-    icon = QIcon(path)
-    if path.endswith(".svg"):
-        renderer = QSvgRenderer(path)
-        if renderer.isValid():
-            dpr = _device_pixel_ratio()
-            for logical in _APP_ICON_SIZES:
-                physical = max(1, int(round(logical * dpr)))
-                pixmap = QPixmap(physical, physical)
-                pixmap.fill(Qt.GlobalColor.transparent)
-                painter = QPainter(pixmap)
-                painter.setRenderHint(QPainter.RenderHint.Antialiasing, True)
-                painter.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform, True)
-                renderer.render(painter, QRectF(0, 0, physical, physical))
-                painter.end()
-                pixmap.setDevicePixelRatio(dpr)
-                icon.addPixmap(pixmap)
+    if not path.endswith(".svg"):
+        _APP_ICON_CACHE = QIcon(path)
+        _APP_ICON_FULL = True
+        return QIcon(_APP_ICON_CACHE)
+
+    renderer = QSvgRenderer(path)
+    icon = QIcon()
+    if renderer.isValid():
+        dpr = _device_pixel_ratio()
+        sizes = _APP_ICON_SIZES if full else _APP_ICON_SIZES_QUICK
+        for logical in sizes:
+            physical = max(1, int(round(logical * dpr)))
+            pixmap = QPixmap(physical, physical)
+            pixmap.fill(Qt.GlobalColor.transparent)
+            painter = QPainter(pixmap)
+            painter.setRenderHint(QPainter.RenderHint.Antialiasing, True)
+            painter.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform, True)
+            renderer.render(painter, QRectF(0, 0, physical, physical))
+            painter.end()
+            pixmap.setDevicePixelRatio(dpr)
+            icon.addPixmap(pixmap)
 
     _APP_ICON_CACHE = icon
+    _APP_ICON_FULL = bool(full)
     return QIcon(_APP_ICON_CACHE)
 
 
@@ -500,6 +512,7 @@ def build_themed_icon(
     *,
     selected_color: str | None = None,
     disabled_color: str | None = None,
+    quick: bool = False,
 ) -> QIcon:
     """Render a monochrome symbolic SVG tinted to ``color``.
 
@@ -510,6 +523,9 @@ def build_themed_icon(
     When *selected_color* / *disabled_color* are set, explicit Selected and
     Disabled mode pixmaps are added so styles do not synthesize multi-tone
     icons from the Normal pixmap.
+
+    ``quick=True`` renders only the toolbar/tab sizes (16, 22) and Normal mode
+    unless Selected/Disabled colors are explicitly required by the caller.
     """
     svg_data = _read_svg_bytes(icon_path)
     if svg_data is None:
@@ -520,7 +536,12 @@ def build_themed_icon(
         return QIcon()
 
     dpr = _device_pixel_ratio()
-    sizes = (size,) if size else _ICON_SIZES
+    if size is not None:
+        sizes = (size,)
+    elif quick:
+        sizes = _ICON_SIZES_QUICK
+    else:
+        sizes = _ICON_SIZES
 
     icon = QIcon()
     for logical_size in sizes:

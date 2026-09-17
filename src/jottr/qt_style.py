@@ -113,13 +113,9 @@ def capture_platform_qt_style(application=None):
         return None
 
     current = (app.style().objectName() or "").strip()
-    # The running style exists, so a key the factory lists is enough; probing
-    # every installed style plugin is left for names it does not list.
-    key = None
-    if current:
-        key = _matching_style_key(current, QStyleFactory.keys()) or _matching_style_key(
-            current, creatable_qt_style_keys()
-        )
+    # Prefer QStyleFactory.keys() only — creatable_qt_style_keys() instantiates
+    # every plugin and must stay off the startup path.
+    key = _matching_style_key(current, QStyleFactory.keys()) if current else None
     _platform_style_key = key or current or "Fusion"
     return _platform_style_key
 
@@ -198,11 +194,12 @@ def normalize_qt_style(style_name):
     listed = _matching_style_key(name, QStyleFactory.keys())
     if listed and _canonical_style_key(listed) == listed:
         return listed
-    key = _matching_style_key(name, creatable_qt_style_keys())
-    if key:
-        return key
+    # Probe this name alone before enumerating every installed style plugin.
     created = _canonical_style_key(name)
-    return created or SYSTEM_QT_STYLE
+    if created:
+        return created
+    key = _matching_style_key(name, creatable_qt_style_keys())
+    return key or SYSTEM_QT_STYLE
 
 
 def apply_qt_color_scheme(scheme_name, application=None):
@@ -285,10 +282,9 @@ def match_style_variant_to_theme(style_key, dark_theme):
     for light_name, dark_name in STYLE_VARIANT_PAIRS:
         if folded not in {light_name.casefold(), dark_name.casefold()}:
             continue
-        # Only paired styles need the (slow to build) list of installed styles.
-        available = {name.casefold(): name for name in creatable_qt_style_keys()}
-        light_key = available.get(light_name.casefold())
-        dark_key = available.get(dark_name.casefold())
+        # Probe only the pair — avoid creatable_qt_style_keys() on startup.
+        light_key = _canonical_style_key(light_name)
+        dark_key = _canonical_style_key(dark_name)
         preferred = dark_key if dark_theme else light_key
         return preferred or light_key or dark_key or key
     return key
@@ -326,12 +322,21 @@ def apply_qt_style(style_name, application=None, theme=None):
     # so remember the key we applied on the application object itself.
     if app.property("_jottr_style_key") == key:
         return key
-    # Prefer the QString overload like KStyleManager::initStyle
-    # (QApplication::setStyle(styleToUse)). Probe creatable first so we
-    # do not leave the app on a failed override.
-    if QStyleFactory.create(key) is None:
+    # Already on the platform default (common System-style case): record the
+    # key without recreating the style or forcing a full repolish.
+    if (
+        app.property("_jottr_style_key") is None
+        and _platform_style_key
+        and key.casefold() == _platform_style_key.casefold()
+    ):
+        app.setProperty("_jottr_style_key", key)
+        return key
+    # Prefer the QString overload like KStyleManager::initStyle. setStyle
+    # returns None when the key is unknown; do not pre-create the style
+    # (that would instantiate it twice).
+    style = app.setStyle(key)
+    if style is None:
         return None
-    app.setStyle(key)
     app.setProperty("_jottr_style_key", key)
     return key
 
@@ -346,3 +351,51 @@ def refresh_styled_widgets(application=None):
         style.unpolish(widget)
         style.polish(widget)
         widget.update()
+
+
+def apply_startup_app_chrome(application, settings_manager):
+    """Apply widget style, color scheme, and chrome QSS before the main window.
+
+    Doing this on the QApplication means the window is born into the right
+    style and avoids a second full stylesheet/repolish pass in
+    ``TextEditorApp.apply_app_style``.
+    """
+    from jottr.theme_manager import ThemeManager
+    from jottr.window_color_scheme import (
+        activate_window_color_scheme,
+        effective_chrome_theme,
+        find_window_color_scheme,
+        scheme_is_dark,
+    )
+
+    if application is None or settings_manager is None:
+        return None
+
+    scheme_setting = settings_manager.get_ui_theme()
+    window_scheme_id = settings_manager.get_window_color_scheme()
+    window_scheme = find_window_color_scheme(window_scheme_id)
+    theme = effective_chrome_theme(window_scheme_id, scheme_setting, application)
+
+    if window_scheme.path:
+        color_scheme_setting = "Dark" if scheme_is_dark(window_scheme.path) else "Light"
+        apply_qt_color_scheme(color_scheme_setting, application)
+    else:
+        color_scheme_setting = scheme_setting
+        apply_qt_color_scheme(scheme_setting, application)
+        theme = reconcile_chrome_theme_with_color_scheme(
+            theme, color_scheme_setting, application
+        )
+
+    apply_qt_style(settings_manager.get_qt_style(), application, theme=theme)
+    activate_window_color_scheme(window_scheme_id, application)
+    if not window_scheme.path:
+        ThemeManager.apply_app_palette(application, theme)
+
+    app_font = settings_manager.get_font("ui")
+    application.setFont(app_font)
+    stylesheet = ThemeManager.build_app_stylesheet(
+        toolbar_style=settings_manager.get_toolbar_style(),
+    )
+    application.setStyleSheet(stylesheet)
+    application.setProperty("_jottr_startup_stylesheet", stylesheet)
+    return stylesheet

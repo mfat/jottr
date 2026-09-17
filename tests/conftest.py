@@ -26,6 +26,8 @@ def _delete_windows_left_by_test():
     # widget style swap) leaves the stylesheet style with dangling entries,
     # and the next setStyleSheet crashes. Tests re-apply their own chrome.
     app.setStyleSheet("")
+    app.setProperty("_jottr_startup_stylesheet", None)
+    app.setProperty("_jottr_style_key", None)
     for widget in QApplication.topLevelWidgets():
         if isinstance(widget, (QMainWindow, QDialog)):
             widget.deleteLater()

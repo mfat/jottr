@@ -413,7 +413,7 @@ class EditorAndMainTests(unittest.TestCase):
     def test_main_wipes_browser_data_around_the_session_and_restarts(self):
         source = Path(main_module.__file__).read_text(encoding="utf-8")
         self.assertLess(
-            source.index("wipe_pending_data(SettingsManager())"),
+            source.index("wipe_pending_data(settings_manager)"),
             source.index("window = TextEditorApp()"),
         )
         self.assertLess(
@@ -2535,6 +2535,59 @@ class EditorAndMainTests(unittest.TestCase):
             QApplication.processEvents()
             self.assertLess(
                 window.palette().color(QPalette.ColorRole.Window).lightnessF(), 0.5
+            )
+
+    def test_system_appearance_restyle_not_skipped_after_startup_chrome(self):
+        """Startup chrome skip is one-shot; System dark/light must fully reapply.
+
+        build_app_stylesheet is layout-only, so it still matches the startup
+        sheet after a host appearance change. Skipping the full path then left
+        palettes / ColorScheme / icons only partially updated until restart.
+        """
+        from jottr.qt_style import apply_startup_app_chrome
+
+        class FakeEditorTab(QWidget):
+            def __init__(self, snippet_manager, settings_manager):
+                super().__init__()
+                self.editor = QTextEdit(self)
+                self.current_file = None
+
+            def set_main_window(self, main_window):
+                self.main_window = main_window
+
+        application = app()
+        self.settings.save_ui_theme("System")
+        apply_startup_app_chrome(application, self.settings)
+        self.assertIsNotNone(application.property("_jottr_startup_stylesheet"))
+        self.addCleanup(lambda: application.setProperty("_jottr_startup_stylesheet", None))
+        self.addCleanup(lambda: application.setStyleSheet(""))
+
+        with patch.object(window_module, "EditorTab", FakeEditorTab):
+            window = TextEditorApp()
+            self.addCleanup(window.close)
+            self.addCleanup(window.deleteLater)
+            # __init__ apply_app_style must consume the one-shot marker.
+            self.assertIsNone(application.property("_jottr_startup_stylesheet"))
+            window._system_color_scheme = Qt.ColorScheme.Light
+
+            with patch(
+                "jottr.system_color_scheme.system_color_scheme",
+                return_value=Qt.ColorScheme.Dark,
+            ), patch.object(
+                window_module, "apply_qt_color_scheme", wraps=window_module.apply_qt_color_scheme
+            ) as color_scheme:
+                window._on_system_color_scheme_changed()
+                color_scheme.assert_called()
+                self.assertEqual(window._system_color_scheme, Qt.ColorScheme.Dark)
+
+            # App + window palettes must track the new appearance.
+            self.assertLess(
+                application.palette().color(QPalette.ColorRole.Window).lightnessF(),
+                0.5,
+            )
+            self.assertLess(
+                window.palette().color(QPalette.ColorRole.Window).lightnessF(),
+                0.5,
             )
 
     def test_settings_window_palette_follows_menu_scheme_and_widget_style(self):

@@ -190,16 +190,38 @@ class FallbackSpellChecker:
     def add(self, word):
         return None
 
-try:
-    from enchant import Dict, DictNotFoundError
-    import enchant as _enchant
+# Enchant is slow to import (~35–200ms); load on first dictionary use,
+# mirroring langdetect. USE_ENCHANT is False until _ensure_enchant() runs
+# successfully (tests may patch it directly).
+Dict = None
+DictNotFoundError = Exception
+_enchant = None
+USE_ENCHANT = False
+_enchant_probed = False
+
+
+def _ensure_enchant():
+    """Import Enchant on first use. Returns whether it is available."""
+    global Dict, DictNotFoundError, _enchant, USE_ENCHANT, _enchant_probed
+    if _enchant_probed:
+        return USE_ENCHANT
+    _enchant_probed = True
+    try:
+        from enchant import Dict as EnchantDict, DictNotFoundError as EnchantDictNotFoundError
+        import enchant as enchant_mod
+    except (ImportError, ModuleNotFoundError) as exc:
+        print("Enchant not available, falling back to pyspellchecker:", str(exc))
+        Dict = None
+        DictNotFoundError = Exception
+        _enchant = None
+        USE_ENCHANT = False
+        return False
+    Dict = EnchantDict
+    DictNotFoundError = EnchantDictNotFoundError
+    _enchant = enchant_mod
     USE_ENCHANT = True
-except (ImportError, ModuleNotFoundError) as e:
-    print("Enchant not available, falling back to pyspellchecker:", str(e))
-    Dict = None
-    DictNotFoundError = Exception
-    _enchant = None
-    USE_ENCHANT = False
+    return True
+
 
 if SpellChecker is None:
     SpellChecker = FallbackSpellChecker
@@ -229,7 +251,7 @@ def clear_spell_language_cache():
 
 
 def _query_available_spell_languages():
-    if not USE_ENCHANT or _enchant is None:
+    if not _ensure_enchant() or _enchant is None:
         return ["en_US"]
     languages = []
     for tag in _enchant.list_languages():
@@ -459,6 +481,8 @@ def document_language_has_dictionary(settings_manager, text=""):
 
 
 def _build_enchant_dicts(languages):
+    if not _ensure_enchant() or Dict is None:
+        return []
     dicts = []
     for language in languages:
         try:
@@ -473,7 +497,7 @@ class SpellCheckHighlighter(QSyntaxHighlighter):
         super().__init__(parent)
         self.settings_manager = settings_manager
         self.spell_check_enabled = True
-        self.USE_ENCHANT = USE_ENCHANT
+        self.USE_ENCHANT = False
         self.spells = []
         self.spell_languages = []
         self.resolved_document_language = None
@@ -485,10 +509,21 @@ class SpellCheckHighlighter(QSyntaxHighlighter):
         # repaints. Used to skip redundant rehighlights on settings applies.
         self._edit_clock = 0
         self._painted_edit_clock = -1
+        # Defer Enchant dict open until first highlight / explicit apply.
+        self._spell_backends_pending = True
         document = self.document()
         if document is not None:
             document.contentsChange.connect(self._bump_edit_clock)
         self.set_theme(self.settings_manager.get_theme(), rehighlight=False)
+        self.spell_check_enabled = bool(
+            self.settings_manager.get_setting("spell_check", True)
+        )
+
+    def _ensure_spell_backends(self):
+        """Load dictionaries on first paint instead of at tab construction."""
+        if not self._spell_backends_pending:
+            return
+        self._spell_backends_pending = False
         self.apply_spell_settings(rehighlight=False)
 
     def _bump_edit_clock(self, *_args):
@@ -573,6 +608,7 @@ class SpellCheckHighlighter(QSyntaxHighlighter):
         requested); no-op re-applies are skipped so settings toggles and
         typing-triggered refreshes stay cheap.
         """
+        self._spell_backends_pending = False
         enabled = bool(self.settings_manager.get_setting("spell_check", True))
         user_words = self.user_dictionary_words()
         user_key = tuple(w.lower() for w in user_words)
@@ -631,6 +667,7 @@ class SpellCheckHighlighter(QSyntaxHighlighter):
 
     def set_spell_languages(self, languages, rehighlight=True):
         """Replace active dictionaries and optionally rehighlight."""
+        self._spell_backends_pending = False
         self.spell_languages = normalize_spell_languages(languages)
         self.resolved_document_language = self.spell_languages[0] if self.spell_languages else None
         self.detection_confidence = None
@@ -646,7 +683,7 @@ class SpellCheckHighlighter(QSyntaxHighlighter):
 
     def _rebuild_spell_backends(self):
         self.spells = []
-        self.USE_ENCHANT = USE_ENCHANT
+        self.USE_ENCHANT = _ensure_enchant()
         if not self.spell_languages:
             # Document language has no installed dictionary; do not fall back
             # to an unrelated English pyspellchecker backend.
@@ -868,6 +905,7 @@ class SpellCheckHighlighter(QSyntaxHighlighter):
         return any(start <= index < end for start, end in ranges)
 
     def highlightBlock(self, text):
+        self._ensure_spell_backends()
         skip_ranges = self.highlight_markdown(text)
         if not self.spell_check_enabled:
             return

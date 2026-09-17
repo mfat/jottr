@@ -17,23 +17,50 @@ import os
 
 from PyQt6.QtCore import QEvent, QProcess, Qt, QTimer
 from PyQt6.QtWidgets import QApplication, QInputDialog, QMessageBox
-from PyQt6.QtGui import QFont
-from PyQt6.QtOpenGLWidgets import QOpenGLWidget
 
 from jottr.editor.web_profile import release_browser_profiles, wipe_pending_data
 from jottr.file_dialogs import use_portal_file_dialogs
-from jottr.font_dialog import FontSelectionDialog
 from jottr.icon_manager import load_app_icon
-from jottr.qt_style import capture_platform_qt_style, register_bundled_qt_plugins
+from jottr.qt_style import (
+    apply_startup_app_chrome,
+    capture_platform_qt_style,
+    register_bundled_qt_plugins,
+)
 from jottr.settings_manager import SettingsManager
-from jottr.theme_manager import ThemeManager
-from jottr.ui import LeftAlignedDocumentTabBar, WorkspaceFileSystemModel, WorkspaceTreeView
 from jottr.window import (
-    APP_HOMEPAGE,
     APP_NAME,
     APP_VERSION,
     TextEditorApp,
 )
+
+
+def __getattr__(name):
+    """Lazy re-exports kept for tests and external importers."""
+    if name == "FontSelectionDialog":
+        from jottr.font_dialog import FontSelectionDialog
+
+        return FontSelectionDialog
+    if name == "ThemeManager":
+        from jottr.theme_manager import ThemeManager
+
+        return ThemeManager
+    if name in {
+        "LeftAlignedDocumentTabBar",
+        "WorkspaceFileSystemModel",
+        "WorkspaceTreeView",
+    }:
+        from jottr.ui import (
+            LeftAlignedDocumentTabBar,
+            WorkspaceFileSystemModel,
+            WorkspaceTreeView,
+        )
+
+        return {
+            "LeftAlignedDocumentTabBar": LeftAlignedDocumentTabBar,
+            "WorkspaceFileSystemModel": WorkspaceFileSystemModel,
+            "WorkspaceTreeView": WorkspaceTreeView,
+        }[name]
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 
 def warmup_opengl(parent):
@@ -43,6 +70,8 @@ def warmup_opengl(parent):
     OpenGL compositor path. A tiny off-screen QOpenGLWidget does that switch
     cheaply — without starting a second Chromium process at startup.
     """
+    from PyQt6.QtOpenGLWidgets import QOpenGLWidget
+
     warmup = QOpenGLWidget(parent)
     warmup.setAttribute(Qt.WidgetAttribute.WA_DontShowOnScreen, True)
     warmup.resize(1, 1)
@@ -82,7 +111,7 @@ def main():
     app.setAttribute(Qt.ApplicationAttribute.AA_DontShowIconsInMenus, True)
     # Remember the platform style before any user override is applied.
     capture_platform_qt_style(app)
-    
+
     # Set application metadata
     app.setApplicationName("Jottr")
     app.setApplicationDisplayName("Jottr")
@@ -90,23 +119,28 @@ def main():
     app.setApplicationVersion(APP_VERSION)
     app.setOrganizationDomain("github.com/mfat/jottr")
     app.setWindowIcon(load_app_icon())
+    # Fill remaining app-icon sizes after first paint.
+    QTimer.singleShot(0, lambda: load_app_icon(full=True))
 
+    settings_manager = SettingsManager()
     # Finish a browsing data wipe the last run could not complete. No browser
     # profile exists yet, so nothing holds the files open. This only renames
     # folders; deletion runs in the background after startup.
-    wipe_pending_data(SettingsManager())
-    
+    wipe_pending_data(settings_manager)
+    # Style/QSS before the window exists so the first paint is already themed.
+    apply_startup_app_chrome(app, settings_manager)
+
     # Get file paths from command-line arguments
     file_paths = []
     if len(sys.argv) > 1:
         file_paths = [arg for arg in sys.argv[1:] if os.path.isfile(arg)]
-    
+
     # Create main window and prime OpenGL compositing before mapping.
     window = TextEditorApp()
     warmup_opengl(window)
     window.show()
-    
-    # Open files from command line
+
+    # Open files from command line (ensures deferred startup has finished).
     for file_path in file_paths:
         window.open_file(file_path)
 
