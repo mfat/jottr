@@ -42,4 +42,4 @@ class SnippetManager:
 
     def get_all_snippet_contents(self):
         """Return a list of all snippet contents"""
-        return list(self.snippets.values()) 
+        return list(self.snippets.values())
