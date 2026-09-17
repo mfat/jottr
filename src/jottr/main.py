@@ -1,9 +1,14 @@
 """Jottr application entry point."""
+import gc
 import sys
 
 if sys.version_info < (3, 10):
     print("Error: Python 3.10 or higher is required")
     sys.exit(1)
+
+# Skip cyclic GC while importing Qt wrappers and building the first window;
+# re-enabled on the first idle tick in main().
+gc.disable()
 
 # Support `python src/jottr/main.py` without an editable install.
 if __package__ is None:
@@ -139,6 +144,8 @@ def main():
     window = TextEditorApp()
     warmup_opengl(window)
     window.show()
+    # Resume cyclic GC once the window is up and the event loop is idle.
+    QTimer.singleShot(0, gc.enable)
 
     # Open files from command line (ensures deferred startup has finished).
     for file_path in file_paths:

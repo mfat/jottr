@@ -5,8 +5,8 @@ symbolic set and bundled with Jottr for consistent UI chrome offline and in
 packaged builds.
 
 At runtime they are embedded through the Qt Resource System
-(`icons/symbolic.qrc` → `src/jottr/resources/rc_symbolic_icons.py`) and tinted
-for the active light/dark theme. Regenerate the resource module with:
+(`icons/symbolic.qrc` → `src/jottr/resources/icons_symbolic.rcc`) and tinted
+for the active light/dark theme. Regenerate with:
 
 ```bash
 python3 scripts/compile_icons.py
