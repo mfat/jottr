@@ -52,7 +52,6 @@ from jottr.editor.case_transform import (
 from jottr.editor.spellcheck import (
     DOCUMENT_LANGUAGE_AUTO,
     get_document_language,
-    list_available_spell_languages,
     list_document_language_choices,
     match_dictionary_for_language,
     missing_dictionary_message,
@@ -377,10 +376,10 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
         self.setWindowIcon(app_icon if not app_icon.isNull() else load_app_icon())
         self.setGeometry(100, 100, 1200, 800)
         
-        # Plugin discovery stays deferred past first paint (see
-        # _ensure_startup_plugins). Chrome is rebuilt if contributions appear.
+        # Initialize managers first
         self.plugin_manager = PluginManager(self.settings_manager)
-        self._startup_plugins_loaded = False
+        self.plugin_manager.refresh()
+        self.plugin_manager.activate_enabled_plugins()
 
         # Logical name -> Qt resource path for the selected bundled icon theme
         self.icons = load_bundled_icon_paths(self.settings_manager.get_icon_theme())
@@ -482,7 +481,6 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
         # so existing callers can assume a ready tab. Production upgrades the
         # instant editor and restores the session in idle chunks past show().
         if self._startup_runs_sync():
-            self._ensure_startup_plugins()
             self._ensure_startup_content()
         else:
             QTimer.singleShot(0, self._upgrade_startup_editor)
@@ -572,24 +570,14 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
         if focused is None or focused is editor:
             editor.setFocus()
 
-    def _ensure_startup_plugins(self):
-        """Discover and activate plugins once; rebuild chrome if they contribute."""
-        if getattr(self, "_startup_plugins_loaded", False):
-            return
-        self._startup_plugins_loaded = True
-        self.plugin_manager.refresh()
-        self.plugin_manager.activate_enabled_plugins()
-        if self.plugin_chrome_signature() != getattr(self, "_plugin_chrome_signature", None):
-            self.rebuild_chrome()
-
     def _upgrade_startup_editor(self, schedule_next=True):
         """Tint icons and finish the instant tab (chunk 1: typing works)."""
         if getattr(self, "_startup_stage", "done") != "tab":
             return
         self._startup_stage = "editor"
 
-        self._ensure_startup_plugins()
         self.update_action_icons()
+        self._populate_document_language_combo(self.document_language_combo)
 
         instant = self._take_alive_instant_tab()
         if instant is not None:
@@ -1925,12 +1913,26 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
         document_language_menu.menuAction().setProperty("text_key", "Document Language")
         self.translatable_actions.append(document_language_menu.menuAction())
         self.translatable_menus.append((document_language_menu, "Document Language"))
-        self.document_language_menu = document_language_menu
         self.document_language_actions = QActionGroup(self)
         self.document_language_actions.setExclusive(True)
-        # Enchant dictionary listing is deferred until the menu opens (same
-        # pattern as Widget Style), so first paint never pays for spellcheck.
-        document_language_menu.aboutToShow.connect(self.refresh_document_language_menu)
+        current_document_language = get_document_language(self.settings_manager)
+        for language in list_document_language_choices(extra=[current_document_language]):
+            if language == DOCUMENT_LANGUAGE_AUTO:
+                label = _("Auto-detect")
+            else:
+                matched = match_dictionary_for_language(language)
+                label = format_language_label(language)
+                if not matched:
+                    label = _("{language} (dictionary not installed)").format(language=label)
+            action = QAction(label, self)
+            action.setCheckable(True)
+            action.setData(language)
+            action.setChecked(language == current_document_language)
+            action.triggered.connect(
+                lambda checked=False, tag=language: self.set_document_language(tag)
+            )
+            self.document_language_actions.addAction(action)
+            document_language_menu.addAction(action)
 
         tools_menu.addSeparator()
         tools_menu.addAction(self.settings_action)
@@ -2417,40 +2419,9 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
             self.update_document_language_status()
         return changed
 
-    def refresh_document_language_menu(self):
-        """Rebuild Tools → Document Language when the menu is about to open."""
-        menu = getattr(self, "document_language_menu", None)
-        group = getattr(self, "document_language_actions", None)
-        if menu is None or group is None:
-            return
-        menu.clear()
-        for action in list(group.actions()):
-            group.removeAction(action)
-            action.deleteLater()
-        current = get_document_language(self.settings_manager)
-        available = list_available_spell_languages()
-        for language in list_document_language_choices(extra=[current]):
-            if language == DOCUMENT_LANGUAGE_AUTO:
-                label = _("Auto-detect")
-            else:
-                matched = match_dictionary_for_language(language, available)
-                label = format_language_label(language)
-                if not matched:
-                    label = _("{language} (dictionary not installed)").format(language=label)
-            action = QAction(label, self)
-            action.setCheckable(True)
-            action.setData(language)
-            action.setChecked(language == current)
-            action.triggered.connect(
-                lambda checked=False, tag=language: self.set_document_language(tag)
-            )
-            group.addAction(action)
-            menu.addAction(action)
-
     def _populate_document_language_combo(self, combo):
         """Fill a document-language combo without emitting change signals."""
         current = get_document_language(self.settings_manager)
-        available = list_available_spell_languages()
         combo.blockSignals(True)
         combo.clear()
         for language in list_document_language_choices(extra=[current]):
@@ -2458,7 +2429,7 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
                 label = _("Auto-detect")
             else:
                 label = format_language_label(language)
-                if not match_dictionary_for_language(language, available):
+                if not match_dictionary_for_language(language):
                     label = _("{language} (no dictionary)").format(language=label)
             combo.addItem(label, language)
         index = combo.findData(current)
