@@ -1009,9 +1009,8 @@ class EditorTab(
         select_all_action.setEnabled(not self.editor.document().isEmpty())
         menu.addSeparator()
 
-        # Kate Selection ▸ Capitalization (context menu: selection only, like Cut/Copy)
+        # Kate Selection ▸ Capitalization (selection, or caret like Formatting/shortcuts)
         capitalization_menu = menu.addMenu(_("Capitalization"))
-        capitalization_menu.menuAction().setEnabled(has_selection)
         capitalization_menu.addAction(_("Uppercase"), lambda: apply_uppercase(self.editor))
         capitalization_menu.addAction(_("Lowercase"), lambda: apply_lowercase(self.editor))
         capitalization_menu.addAction(_("Capitalize"), lambda: apply_capitalize(self.editor))

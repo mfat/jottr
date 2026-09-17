@@ -1622,6 +1622,7 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
         """Enable cut/copy only with a selection; paste when clipboard can paste.
 
         Matches Kate/KTextEditor (selection gates cut/copy) and Qt's canPaste().
+        Capitalization stays available whenever an editor is present.
         """
         editor = self.get_current_editor()
         previous = getattr(self, "_edit_action_editor", None)
@@ -1640,17 +1641,15 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
         self.cut_action.setEnabled(has_selection)
         self.copy_action.setEnabled(has_selection)
         self.paste_action.setEnabled(can_paste)
+        # Capitalization acts on selection or caret (like Formatting); not selection-gated.
         capitalization = getattr(self, "capitalization_menu_action", None)
         if capitalization is not None:
-            capitalization.setEnabled(has_selection)
+            capitalization.setEnabled(editor is not None)
 
     def _on_copy_available(self, available):
         """QTextEdit.copyAvailable tracks selection for cut/copy."""
         self.cut_action.setEnabled(available)
         self.copy_action.setEnabled(available)
-        capitalization = getattr(self, "capitalization_menu_action", None)
-        if capitalization is not None:
-            capitalization.setEnabled(available)
         
     def undo(self):
         editor = self.get_current_editor()
