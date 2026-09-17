@@ -745,6 +745,36 @@ class DialogTests(unittest.TestCase):
 
         self.assertEqual(dialog.get_data(), {"title": "Updated", "content": "Updated body"})
 
+    def test_about_dialog_shows_app_icon_and_no_icon_in_ok_button(self):
+        from jottr.window import TextEditorApp
+        from PyQt6.QtWidgets import QDialog, QDialogButtonBox, QLabel
+
+        parent = QWidget()
+        self.addCleanup(parent.deleteLater)
+        captured = {}
+
+        def fake_exec(dialog):
+            captured["dialog"] = dialog
+            return QDialog.DialogCode.Accepted
+
+        with patch.object(QDialog, "exec", fake_exec):
+            TextEditorApp.show_about(parent)
+
+        dialog = captured["dialog"]
+        self.assertFalse(dialog.windowIcon().isNull())
+
+        labels = dialog.findChildren(QLabel)
+        icon_labels = [lbl for lbl in labels if not lbl.pixmap().isNull()]
+        self.assertEqual(len(icon_labels), 1)
+        self.assertEqual(icon_labels[0].pixmap().size().width(), 64)
+        self.assertEqual(icon_labels[0].pixmap().size().height(), 64)
+
+        button_box = dialog.findChild(QDialogButtonBox)
+        self.assertIsNotNone(button_box)
+        ok_button = button_box.button(QDialogButtonBox.StandardButton.Ok)
+        self.assertIsNotNone(ok_button)
+        self.assertTrue(ok_button.icon().isNull())
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -2645,10 +2645,21 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
         about_dialog = QDialog(self)
         about_dialog.setWindowTitle(_("About {APP_NAME}").format(APP_NAME=APP_NAME))
         about_dialog.setMinimumWidth(400)
-        apply_dialog_window_icon(about_dialog, "about", self.settings_manager)
+        app_icon = load_app_icon()
+        if not app_icon.isNull():
+            about_dialog.setWindowIcon(app_icon)
+        else:
+            apply_dialog_window_icon(about_dialog, "about", self.settings_manager)
         
         layout = QVBoxLayout(about_dialog)
         layout.setSpacing(10)
+
+        # App icon
+        if not app_icon.isNull():
+            icon_label = QLabel()
+            icon_label.setPixmap(app_icon.pixmap(64, 64))
+            icon_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            layout.addWidget(icon_label)
         
         # App name
         title_label = QLabel(APP_NAME)
@@ -2687,6 +2698,9 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
         
         # Add button box
         button_box = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok)
+        ok_button = button_box.button(QDialogButtonBox.StandardButton.Ok)
+        if ok_button is not None:
+            ok_button.setIcon(QIcon())
         button_box.accepted.connect(about_dialog.accept)
         button_box.setCenterButtons(True)  # Center the OK button
         layout.addWidget(button_box)
