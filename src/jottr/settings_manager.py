@@ -88,7 +88,7 @@ class SettingsManager:
             "theme": "Sepia",
             "qt_style": "System",
             "language": "en_US",
-            "icon_theme": "bootstrap",
+            "icon_theme": "qlementine",
             "icon_contrast": "auto",
             "toolbar_style": TOOLBAR_STYLE_COMFY,
             "show_menubar": True,
@@ -403,9 +403,9 @@ class SettingsManager:
         self.save_settings()
 
     def get_icon_theme(self):
-        from jottr.icon_manager import normalize_icon_theme
+        from jottr.icon_manager import DEFAULT_ICON_THEME, normalize_icon_theme
 
-        return normalize_icon_theme(self.settings.get("icon_theme", "bootstrap"))
+        return normalize_icon_theme(self.settings.get("icon_theme", DEFAULT_ICON_THEME))
 
     def save_icon_theme(self, theme_id):
         from jottr.icon_manager import normalize_icon_theme

@@ -82,7 +82,7 @@ BUNDLED_ICON_THEMES: tuple[BundledIconTheme, ...] = (
         "resource_module": "jottr.resources.rc_symbolic_icons",
     },
 )
-DEFAULT_ICON_THEME = BUNDLED_ICON_THEMES[0]["id"]
+DEFAULT_ICON_THEME = "qlementine"
 
 
 def list_bundled_icon_themes() -> list[BundledIconTheme]:

@@ -242,7 +242,7 @@ class ImportAndPackagingTests(unittest.TestCase):
         self.assertEqual(normalize_icon_theme("Qlementine"), "qlementine")
         self.assertEqual(normalize_icon_theme("qlementine"), "qlementine")
         self.assertEqual(normalize_icon_theme("missing"), DEFAULT_ICON_THEME)
-        self.assertEqual(DEFAULT_ICON_THEME, "bootstrap")
+        self.assertEqual(DEFAULT_ICON_THEME, "qlementine")
 
         icons = load_bundled_icon_paths("symbolic")
 
@@ -418,7 +418,7 @@ class ImportAndPackagingTests(unittest.TestCase):
         icons = load_bundled_icon_paths()
         for name in ("dialog-question", "user-trash", "window-close", "save"):
             self.assertIn(name, icons)
-            self.assertTrue(icons[name].startswith(":/icons/bootstrap/"))
+            self.assertTrue(icons[name].startswith(":/icons/qlementine/"))
 
         box = QMessageBox()
         box.setIcon(QMessageBox.Icon.Question)
