@@ -18,6 +18,7 @@ __pycache__/
 /AppDir/
 /appimagetool
 /release-assets-local/
+/release-assets-build/
 /squashfs-root/
 packaging/debian/jottr/
 packaging/debian/jottr_*/

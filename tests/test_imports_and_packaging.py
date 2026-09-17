@@ -84,6 +84,7 @@ class ImportAndPackagingTests(unittest.TestCase):
             "/AppDir/",
             "/appimagetool",
             "/release-assets-local/",
+            "/release-assets-build/",
             "/squashfs-root/",
             "packaging/debian/jottr/",
             "/deb_dist",
@@ -193,6 +194,100 @@ class ImportAndPackagingTests(unittest.TestCase):
         self.assertNotIn("qt_plugins", appimage_script)
         self.assertNotIn("build-adwaita-qt.sh", workflow)
         self.assertNotIn("build-adwaita-qt.sh", appimage_script)
+
+    def test_windows_release_packaging(self):
+        windows_script = (
+            PROJECT_ROOT / "packaging" / "windows" / "build-installer.ps1"
+        ).read_text(encoding="utf-8")
+        inno_script = (PROJECT_ROOT / "packaging" / "windows" / "jottr.iss").read_text(
+            encoding="utf-8"
+        )
+        dispatch = (PROJECT_ROOT / ".github" / "workflows" / "build-windows.yml").read_text(
+            encoding="utf-8"
+        )
+        release = (PROJECT_ROOT / ".github" / "workflows" / "release-please.yml").read_text(
+            encoding="utf-8"
+        )
+        debian_rules = (PROJECT_ROOT / "packaging" / "debian" / "rules").read_text(
+            encoding="utf-8"
+        )
+        rpm_spec = (PROJECT_ROOT / "rpm.spec").read_text(encoding="utf-8")
+
+        package_modules = (
+            "jottr",
+            "jottr.editor",
+            "jottr.editor.browser",
+            "jottr.editor.find_replace",
+            "jottr.editor.focus_mode",
+            "jottr.editor.markdown",
+            "jottr.editor.spellcheck",
+            "jottr.editor.tab",
+            "jottr.editor.text_edit",
+            "jottr.editor_tab",
+            "jottr.font_dialog",
+            "jottr.file_dialogs",
+            "jottr.icon_manager",
+            "jottr.resources",
+            "jottr.paths",
+            "jottr.plugin_manager",
+            "jottr.qt_style",
+            "jottr.window_color_scheme",
+            "jottr.settings_dialog",
+            "jottr.settings_manager",
+            "jottr.snippet_editor_dialog",
+            "jottr.snippet_manager",
+            "jottr.theme_manager",
+            "jottr.translation_manager",
+            "jottr.ui",
+            "jottr.ui.document_tab_bar",
+            "jottr.ui.workspace",
+            "jottr.ui.workspace_controller",
+            "jottr.window",
+            "spellchecker",
+            "pyenchant",
+            "feedparser",
+            "requests",
+        )
+        for module in package_modules:
+            with self.subTest(module=module):
+                self.assertIn(f"--hidden-import={module}", windows_script)
+
+        self.assertIn("--paths=src", windows_script)
+        self.assertIn("--collect-data=spellchecker", windows_script)
+        self.assertIn("--exclude-module=enchant", windows_script)
+        self.assertIn("--icon=src/jottr/jottr_icon.ico", windows_script)
+        self.assertIn("src/jottr/main.py", windows_script)
+        self.assertNotIn("src/jottr/__main__.py", windows_script)
+        for spec in (
+            "src/jottr/help:jottr/help",
+            "src/jottr/icons:jottr/icons",
+            "src/jottr/resources:jottr/resources",
+            "icons:icons",
+            "translations:translations",
+        ):
+            with self.subTest(spec=spec):
+                self.assertIn(f"--add-data={spec}", windows_script)
+        self.assertIn("QtWebEngineProcess.exe", windows_script)
+        self.assertIn("jottr.iss", windows_script)
+        self.assertNotIn("qt_plugins", windows_script)
+
+        self.assertTrue((PACKAGE_DIR / "jottr_icon.ico").is_file())
+        self.assertIn("SetupIconFile", inno_script)
+        self.assertIn("jottr_icon.ico", inno_script)
+        self.assertIn("dist\\Jottr\\*", inno_script)
+        self.assertIn("PrivilegesRequired=lowest", inno_script)
+        self.assertIn("windows-x86_64-unsigned", inno_script)
+        self.assertIn("windows-x86_64-unsigned", windows_script)
+
+        self.assertIn("workflow_dispatch", dispatch)
+        self.assertIn("packaging/windows/build-installer.ps1", dispatch)
+        self.assertIn("packaging/windows/build-installer.ps1", release)
+        self.assertIn("build-windows:", release)
+        self.assertIn("choco install innosetup", dispatch)
+        self.assertIn("choco install innosetup", release)
+
+        self.assertIn("jottr_icon.ico", debian_rules)
+        self.assertIn("jottr_icon.ico", rpm_spec)
 
     def test_flathub_release_workflow_updates_manifest(self):
         workflow = (PROJECT_ROOT / ".github" / "workflows" / "flathub.yml").read_text(

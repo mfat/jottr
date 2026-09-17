@@ -40,6 +40,7 @@ and researchers.
 mkdir -p %{buildroot}%{python3_sitelib}
 cp -a src/jottr %{buildroot}%{python3_sitelib}/jottr
 rm -f %{buildroot}%{python3_sitelib}/jottr/jottr_icon.icns
+rm -f %{buildroot}%{python3_sitelib}/jottr/jottr_icon.ico
 find %{buildroot}%{python3_sitelib}/jottr -type d -name '__pycache__' -exec rm -rf {} + 2>/dev/null || true
 
 # Shared data looked up via jottr.paths

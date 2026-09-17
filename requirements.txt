@@ -3,6 +3,7 @@
 #
 # System packages may still be required:
 #   macOS: brew install enchant
+#   Windows: pyspellchecker fallback (libenchant is not bundled)
 #   Ubuntu/Debian: sudo apt-get install hunspell hunspell-en-us myspell-fa
 #   Fedora: sudo dnf install hunspell hunspell-en hunspell-fa
 

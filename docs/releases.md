@@ -75,7 +75,7 @@ Alternatives without curated metainfo notes:
 
 Official release packages are built by `.github/workflows/release-please.yml` only when Release Please creates a release. The package jobs check out the exact release tag from the Release Please output, so release assets are built from the same commit that was tagged.
 
-The first supported release assets are Linux and unsigned macOS packages:
+The first supported release assets are Linux, unsigned macOS, and unsigned Windows packages:
 
 - `jottr-vX.Y.Z-linux-all.deb` (built on Ubuntu 26.04; needs Qt 6.5+, so Ubuntu 26.04+ / Debian 13+)
 - `jottr-vX.Y.Z-fedoraNN-noarch.rpm` (one per Fedora release in the `build-rpm` matrix)
@@ -83,11 +83,14 @@ The first supported release assets are Linux and unsigned macOS packages:
 - `jottr-vX.Y.Z-linux-x86_64.AppImage`
 - `jottr-vX.Y.Z-macos-x86_64-unsigned.dmg`
 - `jottr-vX.Y.Z-macos-aarch64-unsigned.dmg`
+- `jottr-vX.Y.Z-windows-x86_64-unsigned.exe`
 - one matching `.sha256` checksum file per package
 
-macOS DMGs are built for Intel (`macos-15-intel`) and Apple Silicon (`macos-15`). Both bundle pyspellchecker's dictionaries (`--collect-data spellchecker`) as the spell-check fallback. libenchant itself is not bundled: the Apple Silicon app uses enchant only when the user has Homebrew enchant installed, and the Intel build leaves enchant out entirely because Homebrew supports Intel macOS only as Tier 3 (no bottles). Each `.app` is ad-hoc code-signed (no Apple Developer ID), so Gatekeeper still treats the download as unidentified; users may need to open it via right-click ▸ Open or clear quarantine. Notarized Developer ID builds are not enabled yet. Windows installers are not generated yet. Add a separate trusted release job before advertising `.exe` or `.msi` downloads.
+macOS DMGs are built for Intel (`macos-15-intel`) and Apple Silicon (`macos-15`). Both bundle pyspellchecker's dictionaries (`--collect-data spellchecker`) as the spell-check fallback. libenchant itself is not bundled: the Apple Silicon app uses enchant only when the user has Homebrew enchant installed, and the Intel build leaves enchant out entirely because Homebrew supports Intel macOS only as Tier 3 (no bottles). Each `.app` is ad-hoc code-signed (no Apple Developer ID), so Gatekeeper still treats the download as unidentified; users may need to open it via right-click ▸ Open or clear quarantine. Notarized Developer ID builds are not enabled yet.
 
-Release packages are attached to the GitHub release page for the tag. Package jobs publish independently: if the Debian build succeeds, it uploads the Debian package even if RPM, AppImage, or macOS later fail. CI workflow artifacts are retained for 14 days for debugging; release assets remain available from the release page unless a maintainer deletes them.
+The Windows installer is an unsigned Inno Setup package of a 64-bit PyInstaller onedir bundle (`windows-latest`). libenchant is left out, so spell-check uses pyspellchecker. SmartScreen treats the download as unrecognized until a future Authenticode-signed build; users can install via More info ▸ Run anyway. Per-user install is the default (no administrator prompt); the installer also offers an all-users location. Windows on ARM is not built yet.
+
+Release packages are attached to the GitHub release page for the tag. Package jobs publish independently: if the Debian build succeeds, it uploads the Debian package even if RPM, AppImage, macOS, or Windows later fail. CI workflow artifacts are retained for 14 days for debugging; release assets remain available from the release page unless a maintainer deletes them.
 
 ## Verifying checksums
 
@@ -105,23 +108,42 @@ shasum -a 256 -c jottr-vX.Y.Z-macos-aarch64-unsigned.dmg.sha256
 
 Use the matching checksum file for the Intel (`x86_64`) or Apple Silicon (`aarch64`) DMG you downloaded. The command should report `OK` for files that match the published checksum.
 
+On Windows (Git Bash or WSL):
+
+```bash
+sha256sum -c jottr-vX.Y.Z-windows-x86_64-unsigned.exe.sha256
+```
+
+Or in PowerShell:
+
+```powershell
+Get-FileHash jottr-vX.Y.Z-windows-x86_64-unsigned.exe -Algorithm SHA256
+Get-Content jottr-vX.Y.Z-windows-x86_64-unsigned.exe.sha256
+```
+
 ## Manual macOS builds
 
 Use **Actions → Build macOS DMG → Run workflow** for a dispatchable Intel + Apple Silicon build. Leave `release_tag` empty to upload workflow artifacts only (14 days). Set `release_tag` (for example `v2.3.3`) to also attach the DMGs and checksums to that existing GitHub release. Optionally set `git_ref` to build a specific branch, tag, or SHA instead of the branch selected in the UI.
 
 Shared packaging lives in `packaging/macos/build-dmg.sh` and is used by both this workflow and the Release Please `build-macos` job.
 
+## Manual Windows builds
+
+Use **Actions → Build Windows installer → Run workflow** for a dispatchable 64-bit build. Leave `release_tag` empty to upload workflow artifacts only (14 days). Set `release_tag` (for example `v2.3.3`) to also attach the installer and checksum to that existing GitHub release. Optionally set `git_ref` to build a specific branch, tag, or SHA instead of the branch selected in the UI.
+
+Shared packaging lives in `packaging/windows/build-installer.ps1` and `packaging/windows/jottr.iss`, and is used by both this workflow and the Release Please `build-windows` job.
+
 ## Debugging package builds
 
 If a release package is missing or a packaging job fails:
 
 - Open the failed `Release Please` workflow run in GitHub Actions.
-- Check the `build-deb`, `build-rpm`, `build-appimage`, and `build-macos` jobs (macOS runs once per architecture).
-- Or re-run **Build macOS DMG** via workflow dispatch and download its artifacts.
+- Check the `build-deb`, `build-rpm`, `build-appimage`, `build-macos`, and `build-windows` jobs (macOS runs once per architecture).
+- Or re-run **Build macOS DMG** or **Build Windows installer** via workflow dispatch and download its artifacts.
 - Download the short-lived workflow artifacts if the build completed but release upload failed.
 - Confirm the job checked out the expected release tag.
 - Re-run the failed job after fixing packaging dependencies or scripts.
 
 Each release upload step uses `overwrite_files: false`, so an accidental re-run will not silently replace existing release assets with the same filenames.
 
-Prereleases, beta releases, nightly builds, website publication, Developer ID / notarized macOS installers, and Windows installers are not enabled yet. Add them later if the project starts publishing those artifacts from CI.
+Prereleases, beta releases, nightly builds, website publication, Developer ID / notarized macOS installers, and Authenticode-signed Windows installers are not enabled yet. Add them later if the project starts publishing those artifacts from CI.

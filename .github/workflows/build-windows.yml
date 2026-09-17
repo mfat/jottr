@@ -1,0 +1,90 @@
+name: Build Windows installer
+
+on:
+  workflow_dispatch:
+    inputs:
+      git_ref:
+        description: 'Git ref to checkout (branch, tag, or SHA). Leave empty for the branch selected in the UI.'
+        required: false
+        type: string
+        default: ''
+      release_tag:
+        description: 'Optional existing GitHub release tag to attach the installer to (example: v2.3.3). Leave empty for artifact-only.'
+        required: false
+        type: string
+        default: ''
+
+permissions:
+  contents: write
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.git_ref != '' && inputs.git_ref || github.ref }}
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install Windows build dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt
+
+      - name: Install Inno Setup
+        run: choco install innosetup --yes --no-progress
+
+      - name: Resolve version label
+        id: version
+        shell: bash
+        run: |
+          if [ -n "${{ inputs.release_tag }}" ]; then
+            LABEL="${{ inputs.release_tag }}"
+          else
+            VERSION=$(grep -o '__version__ = "[^"]*"' src/jottr/__init__.py | cut -d'"' -f2)
+            if [ -z "$VERSION" ]; then
+              echo "Could not read version from src/jottr/__init__.py"
+              exit 1
+            fi
+            LABEL="v${VERSION}"
+          fi
+          echo "label=$LABEL" >> "$GITHUB_OUTPUT"
+          echo "Building Windows installer version label: $LABEL"
+
+      - name: Build and package installer
+        env:
+          EXPECTED_FILE_ARCH: x64
+        shell: pwsh
+        run: |
+          ./packaging/windows/build-installer.ps1 `
+            "${{ steps.version.outputs.label }}" `
+            release-assets
+
+      - name: Upload Windows workflow artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-package-x86_64
+          path: release-assets/*.exe
+          retention-days: 14
+
+      - name: Generate Windows checksum
+        shell: bash
+        run: |
+          cd release-assets
+          for package in *.exe; do
+            sha256sum "$package" > "$package.sha256"
+          done
+
+      - name: Upload Windows package to release
+        if: ${{ inputs.release_tag != '' }}
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ inputs.release_tag }}
+          files: release-assets/*
+          fail_on_unmatched_files: true
+          overwrite_files: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

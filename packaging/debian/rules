@@ -19,8 +19,9 @@ override_dh_auto_install:
 	# Install the importable package
 	mkdir -p debian/jottr/usr/lib/python3/dist-packages
 	cp -a src/jottr debian/jottr/usr/lib/python3/dist-packages/jottr
-	# Drop macOS assets from the Linux package tree
+	# Drop macOS/Windows bundle icons from the Linux package tree
 	rm -f debian/jottr/usr/lib/python3/dist-packages/jottr/jottr_icon.icns
+	rm -f debian/jottr/usr/lib/python3/dist-packages/jottr/jottr_icon.ico
 	find debian/jottr/usr/lib/python3/dist-packages/jottr -type d -name '__pycache__' -exec rm -rf {} + 2>/dev/null || true
 
 	# Shared data (icons / translations) looked up via jottr.paths

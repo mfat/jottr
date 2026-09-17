@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
-"""Rasterize ``icons/jottr.svg`` into PNG sizes and macOS ICNS.
+"""Rasterize ``icons/jottr.svg`` into PNG sizes, macOS ICNS, and Windows ICO.
 
 Linux packaging installs the SVG under ``hicolor/scalable/apps``. These PNGs
-and the macOS ICNS bundle remain available for packages and bundles that want rasters.
+and the macOS/Windows bundle icons remain available for packages that want rasters.
 """
 
 from __future__ import annotations
@@ -60,6 +60,44 @@ def export_icns(renderer: QSvgRenderer, destination: Path) -> None:
     print(f"Wrote {destination.relative_to(ROOT)}")
 
 
+def _render_pil_image(renderer: QSvgRenderer, size: int):
+    from PIL import Image
+
+    image = QImage(size, size, QImage.Format.Format_ARGB32_Premultiplied)
+    image.fill(Qt.GlobalColor.transparent)
+    painter = QPainter(image)
+    painter.setRenderHint(QPainter.RenderHint.Antialiasing, True)
+    painter.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform, True)
+    renderer.render(painter, QRectF(0, 0, size, size))
+    painter.end()
+
+    buffer = QBuffer()
+    buffer.open(QIODevice.OpenModeFlag.ReadWrite)
+    if not image.save(buffer, "PNG"):
+        raise SystemExit(f"Failed to encode PNG at {size}px")
+    return Image.open(io.BytesIO(buffer.data().data())).convert("RGBA")
+
+
+def export_ico(renderer: QSvgRenderer, destination: Path) -> None:
+    try:
+        import PIL.Image  # noqa: F401
+    except ImportError:
+        print("Pillow not installed; skipping ICO generation", file=sys.stderr)
+        return
+
+    # Windows explorers and installers use these sizes; 256 is the ICO maximum.
+    # Pillow's ICO writer downscales from one source image (append_images is ignored).
+    ico_sizes = (16, 32, 48, 64, 128, 256)
+    source = _render_pil_image(renderer, 256)
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    source.save(
+        str(destination),
+        format="ICO",
+        sizes=[(size, size) for size in ico_sizes],
+    )
+    print(f"Wrote {destination.relative_to(ROOT)}")
+
+
 def main() -> int:
     if not SVG.is_file():
         raise SystemExit(f"Missing app icon: {SVG}")
@@ -85,6 +123,9 @@ def main() -> int:
 
     icns_path = ROOT / "src" / "jottr" / "jottr_icon.icns"
     export_icns(renderer, icns_path)
+
+    ico_path = ROOT / "src" / "jottr" / "jottr_icon.ico"
+    export_ico(renderer, ico_path)
 
     _ = app
     return 0
