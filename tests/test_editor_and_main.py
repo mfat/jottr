@@ -2936,6 +2936,16 @@ class EditorAndMainTests(unittest.TestCase):
             self.assertNotIn(
                 "paintEvent", vars(type(window.tab_widget.tabBar()))
             )
+            # Taller tabs come from size hints, not QSS padding/colors.
+            tab_bar = window.tab_widget.tabBar()
+            self.assertGreaterEqual(
+                tab_bar.tabSizeHint(0).height(),
+                tab_bar.min_tab_height,
+            )
+            self.assertGreaterEqual(
+                tab_bar.minimumTabSizeHint(0).height(),
+                tab_bar.min_tab_height,
+            )
 
     def test_tab_bar_uses_configured_tab_actions(self):
         class FakeEditorTab(QWidget):
