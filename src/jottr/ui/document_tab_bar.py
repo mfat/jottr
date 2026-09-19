@@ -4,7 +4,7 @@ from __future__ import annotations
 import sys
 
 from PyQt6.QtCore import QEvent, QPoint, QSize, Qt, pyqtSignal
-from PyQt6.QtGui import QColor, QPainter, QPalette
+from PyQt6.QtGui import QPainter, QPalette
 from PyQt6.QtWidgets import (
     QApplication,
     QLineEdit,
@@ -45,27 +45,15 @@ class MacDocumentTabBarStyle(QProxyStyle):
     """Palette-driven document tab strip and shapes under Qt's macOS style.
 
     Qt's macOS style fills the tab strip and tab shapes with fixed system grays
-    that ignore the application palette, so selected tabs barely read against
-    the strip. Only ``PE_FrameTabBarBase`` and ``CE_TabBarTabShape`` are
-    overridden; labels, icons, and close buttons stay native.
+    that ignore the application palette. Match Fusion: strip and inactive tabs
+    use ``Window`` (same chrome as the rest of the window), selected tabs use
+    ``Base``. Labels, icons, and close buttons stay native.
     """
-
-    # Bias the strip toward Mid so Base-selected tabs contrast clearly.
-    _strip_window_weight = 0.55
-    _strip_mid_weight = 0.45
 
     @classmethod
     def tab_strip_color(cls, palette):
-        """Chrome strip color derived from Window/Mid (not editor colors)."""
-        window = palette.color(QPalette.ColorRole.Window)
-        mid = palette.color(QPalette.ColorRole.Mid)
-        w, m = cls._strip_window_weight, cls._strip_mid_weight
-        return QColor(
-            round(window.red() * w + mid.red() * m),
-            round(window.green() * w + mid.green() * m),
-            round(window.blue() * w + mid.blue() * m),
-            round(window.alpha() * w + mid.alpha() * m),
-        )
+        """Chrome strip color — exact Window, like Fusion document tabs."""
+        return palette.color(QPalette.ColorRole.Window)
 
     def drawPrimitive(self, element, option, painter, widget=None):
         if element == QStyle.PrimitiveElement.PE_FrameTabBarBase:

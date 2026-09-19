@@ -80,7 +80,6 @@ class MacOSDocumentTabStripTests(unittest.TestCase):
         option.rect.setRect(0, 0, 40, 20)
         option.palette = QPalette()
         option.palette.setColor(QPalette.ColorRole.Window, QColor("#f4f6f8"))
-        option.palette.setColor(QPalette.ColorRole.Mid, QColor("#dfe4ea"))
         expected = MacDocumentTabBarStyle.tab_strip_color(option.palette)
 
         image = QImage(40, 20, QImage.Format.Format_RGB32)
@@ -90,7 +89,8 @@ class MacOSDocumentTabStripTests(unittest.TestCase):
             QStyle.PrimitiveElement.PE_FrameTabBarBase, option, painter, None
         )
         painter.end()
-        self.assertEqual(image.pixelColor(20, 10).name(), expected.name())
+        self.assertEqual(image.pixelColor(20, 10).name(), "#f4f6f8")
+        self.assertEqual(expected.name(), "#f4f6f8")
 
     def test_proxy_selected_tab_uses_base_against_strip(self):
         if "macOS" not in QStyleFactory.keys() and "macos" not in [
