@@ -179,6 +179,10 @@ class ImportAndPackagingTests(unittest.TestCase):
         )
         for text in (workflow, appimage_script, dmg_script):
             self.assertIn("--collect-data spellchecker", text)
+            # Frozen bundles carry no system CA store; without certifi's
+            # cacert.pem plugin downloads fail to verify any certificate.
+            self.assertIn("--hidden-import certifi", text)
+            self.assertIn("--collect-data certifi", text)
         self.assertIn("src/jottr/main.py", workflow)
         self.assertIn("src/jottr/main.py", appimage_script)
         self.assertNotIn("src/jottr/__main__.py", workflow)
@@ -254,6 +258,8 @@ class ImportAndPackagingTests(unittest.TestCase):
 
         self.assertIn("--paths=src", windows_script)
         self.assertIn("--collect-data=spellchecker", windows_script)
+        self.assertIn("--hidden-import=certifi", windows_script)
+        self.assertIn("--collect-data=certifi", windows_script)
         self.assertIn("--exclude-module=enchant", windows_script)
         self.assertIn("--icon=src/jottr/jottr_icon.ico", windows_script)
         self.assertIn("src/jottr/main.py", windows_script)

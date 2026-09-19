@@ -21,6 +21,28 @@ NETWORK_TIMEOUT_SECONDS = 30
 GIT_TIMEOUT_SECONDS = 120
 
 
+def ca_ssl_context():
+    """Return an SSL context that has CA roots to verify plugin downloads against.
+
+    Frozen bundles (the macOS .app above all) ship no system CA store, so the
+    default context finds no issuer and every download fails with
+    CERTIFICATE_VERIFY_FAILED. certifi's bundle covers that case. The system
+    store wins whenever it holds roots, so SSL_CERT_FILE and distro or
+    corporate CAs keep working.
+    """
+    import ssl
+
+    context = ssl.create_default_context()
+    if context.get_ca_certs():
+        return context
+    try:
+        import certifi
+    except ImportError:
+        return context
+    context.load_verify_locations(cafile=certifi.where())
+    return context
+
+
 def download_file(url, target, timeout=NETWORK_TIMEOUT_SECONDS):
     """Download url to target via a temp file, so a failure never leaves a partial file."""
     # Imported here: urllib.request pulls in http.client, which slows startup.
@@ -30,7 +52,7 @@ def download_file(url, target, timeout=NETWORK_TIMEOUT_SECONDS):
     target.parent.mkdir(parents=True, exist_ok=True)
     handle, temp_name = tempfile.mkstemp(prefix=f".{target.name}.", dir=target.parent)
     try:
-        with os.fdopen(handle, "wb") as output, urllib.request.urlopen(url, timeout=timeout) as response:
+        with os.fdopen(handle, "wb") as output, urllib.request.urlopen(url, timeout=timeout, context=ca_ssl_context()) as response:
             shutil.copyfileobj(response, output)
         os.replace(temp_name, target)
     except BaseException:
