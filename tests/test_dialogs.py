@@ -159,7 +159,7 @@ class DialogTests(unittest.TestCase):
             ],
             ["bootstrap", "material", "qlementine", "symbolic"],
         )
-        self.assertEqual(dialog.icon_theme_combo.currentData(), "qlementine")
+        self.assertEqual(dialog.icon_theme_combo.currentData(), "bootstrap")
         dialog.icon_theme_combo.setCurrentIndex(
             dialog.icon_theme_combo.findData("bootstrap")
         )

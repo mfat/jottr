@@ -1836,7 +1836,7 @@ class EditorAndMainTests(unittest.TestCase):
             close_button = tab_bar.tabButton(0, QTabBar.ButtonPosition.RightSide)
             self.assertIsNotNone(close_button)
             self.assertIn("tab-close", window.icons)
-            self.assertTrue(window.icons["tab-close"].startswith(":/icons/qlementine/"))
+            self.assertTrue(window.icons["tab-close"].startswith(":/icons/bootstrap/"))
             first_tab = window.tab_widget.currentWidget()
             original_size = first_tab.current_font.pointSize()
 
@@ -1880,7 +1880,7 @@ class EditorAndMainTests(unittest.TestCase):
             }
             self.assertFalse(toolbar_actions["Editor Theme"].icon().isNull())
             self.assertIn("theme", window.icons)
-            self.assertTrue(window.icons["theme"].startswith(":/icons/qlementine/"))
+            self.assertTrue(window.icons["theme"].startswith(":/icons/bootstrap/"))
             self.assertIs(toolbar_actions["Editor Theme"], window.editor_theme_action)
             self.assertIs(toolbar_actions["Toggle Browser Pane"], window.browser_action)
             all_toolbar_actions = window.toolbar.actions()
@@ -1898,7 +1898,7 @@ class EditorAndMainTests(unittest.TestCase):
                 all_toolbar_actions.index(window.editor_font_action) + 1,
             )
             self.assertFalse(window.browser_action.icon().isNull())
-            self.assertEqual(window.icons["browser"], ":/icons/qlementine/browser.svg")
+            self.assertEqual(window.icons["browser"], ":/icons/bootstrap/browser.svg")
             self.assertFalse(toolbar_actions["Zoom In"].icon().isNull())
             self.assertFalse(toolbar_actions["Zoom Out"].icon().isNull())
             self.assertFalse(toolbar_actions["Reset Zoom"].icon().isNull())

@@ -88,7 +88,7 @@ class SettingsManager:
             "theme": "Sepia",
             "qt_style": "System",
             "language": "en_US",
-            "icon_theme": "qlementine",
+            "icon_theme": "bootstrap",
             "icon_contrast": "auto",
             "toolbar_style": TOOLBAR_STYLE_COMFY,
             "show_menubar": True,

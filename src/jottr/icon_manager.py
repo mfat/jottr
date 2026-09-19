@@ -93,7 +93,7 @@ BUNDLED_ICON_THEMES: tuple[BundledIconTheme, ...] = (
         "resource_file": "icons_symbolic.rcc",
     },
 )
-DEFAULT_ICON_THEME = "qlementine"
+DEFAULT_ICON_THEME = "bootstrap"
 
 
 def list_bundled_icon_themes() -> list[BundledIconTheme]:
