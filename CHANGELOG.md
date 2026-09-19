@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.7.1](https://github.com/mfat/jottr/compare/v2.7.0...v2.7.1) (2026-09-19)
+
+
+### Miscellaneous
+
+* release 2.7.1 ([c3bee13](https://github.com/mfat/jottr/commit/c3bee130b6bff65a3f72d27fc2ec264c40090d1b))
+
 ## [2.7.0](https://github.com/mfat/jottr/compare/v2.6.0...v2.7.0) (2026-09-19)
 
 
