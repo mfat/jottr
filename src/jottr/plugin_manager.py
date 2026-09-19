@@ -6,6 +6,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import traceback
 import zipfile
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -888,8 +889,10 @@ class PluginManager:
             if callable(register):
                 register(PluginAPI(plugin, self.registry))
         except Exception as exc:
+            # A broken plugin must not take the editor down with it; record
+            # the error for the Plugins settings page and keep going.
             plugin.error = str(exc)
-            raise
+            traceback.print_exc()
         finally:
             if added_plugin_root:
                 try:

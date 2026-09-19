@@ -190,6 +190,25 @@ class PluginManagerTests(unittest.TestCase):
         self.assertNotIn("counter-tool.run", manager.registry.command_callbacks)
         self.assertNotIn("counter-tool", manager.loaded_modules)
 
+    def test_failing_plugin_entry_records_error_without_raising(self):
+        plugins_dir = Path(self.temp_dir.name) / "plugins"
+        self.write_plugin(
+            plugins_dir,
+            "broken-tool",
+            manifest={"entry": "index.py", "contributes": {}},
+            entry="import module_that_does_not_exist\n",
+        )
+        self.settings.save_setting("plugins_directory", str(plugins_dir))
+
+        manager = PluginManager(self.settings)
+        manager.refresh()
+        with patch("traceback.print_exc"):
+            manager.set_enabled("broken-tool", True)
+            manager.activate_enabled_plugins()
+
+        self.assertIn("module_that_does_not_exist", manager.plugins["broken-tool"].error)
+        self.assertNotIn("broken-tool", manager.loaded_modules)
+
     def test_registry_catalog_entries_are_lightweight_until_manifest_is_available(self):
         manager = PluginManager(self.settings)
         manager.refresh()
