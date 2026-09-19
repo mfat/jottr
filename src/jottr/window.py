@@ -727,18 +727,34 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
             self.apply_window_palette()
 
     def apply_window_palette(self):
-        """Set this window's palette from the active Window Color Scheme."""
+        """Set this window's palette from the active Window Color Scheme.
+
+        Also pushes the palette onto the menubar, toolbars and status bar.
+        Styles such as KDE Union stamp widget-local palettes on those during
+        ``setStyle``; fixing only the application/window leaves them stuck
+        (light Breeze chrome under Dark, or a black menubar after switching
+        away).
+
+        For Default chrome, reapply the application palette too: Union + an
+        application stylesheet can replace it with light Breeze on polish.
+        """
         from jottr.qt_style import reconcile_chrome_theme_with_color_scheme
         from jottr.window_color_scheme import (
+            activate_window_color_scheme,
             effective_chrome_theme,
             find_window_color_scheme,
         )
 
         application = QApplication.instance()
         window_scheme_id = self.settings_manager.get_window_color_scheme()
-        if find_window_color_scheme(window_scheme_id).path:
+        window_scheme = find_window_color_scheme(window_scheme_id)
+        if window_scheme.path:
+            # Named schemes live on the application; Union may have replaced
+            # that palette, so reinstall before copying onto this window.
             if application is not None:
+                activate_window_color_scheme(window_scheme_id, application)
                 self.setPalette(application.palette())
+            self._apply_palette_to_chrome_widgets()
             return
         ui_theme = self.settings_manager.get_ui_theme()
         theme = reconcile_chrome_theme_with_color_scheme(
@@ -746,7 +762,45 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
             ui_theme,
             application,
         )
+        if application is not None:
+            ThemeManager.apply_app_palette(application, theme)
         ThemeManager.apply_app_palette(self, theme)
+        self._apply_palette_to_chrome_widgets()
+
+    def _chrome_palette_targets(self):
+        """Menubar, toolbars and status bar — widgets Union may recolor locally."""
+        targets = []
+        menubar = self.menuBar()
+        if menubar is not None:
+            targets.append(menubar)
+        targets.extend(self.findChildren(QToolBar))
+        # TextEditorApp assigns self.statusBar = self.statusBar(), which shadows
+        # QMainWindow.statusBar(); resolve the widget either way.
+        status = getattr(self, "statusBar", None)
+        if callable(status):
+            status = status()
+        if status is not None:
+            targets.append(status)
+        return targets
+
+    def _apply_palette_to_chrome_widgets(self, palette=None):
+        """Copy *palette* (or this window's) onto chrome bars Union may stamp."""
+        palette = palette if palette is not None else self.palette()
+        for widget in self._chrome_palette_targets():
+            widget.setPalette(palette)
+
+    def _restore_chrome_palettes_after_style(self):
+        """Reinstall app + window + chrome palettes after a widget-style swap.
+
+        Union replaces ``QApplication``'s palette with its light Breeze
+        ``standardPalette`` even when ``ColorScheme`` is Dark, and stamps
+        matching colors onto the menubar/toolbars. Without this, switching
+        away from Union leaves other styles with a polluted palette.
+        """
+        self.apply_window_palette()
+        settings_dialog = getattr(self, "_settings_dialog", None)
+        if settings_dialog is not None:
+            settings_dialog.apply_dialog_palette()
 
     def apply_app_style(self, font=None):
         """Apply widget style, Qt color scheme, UI font, and matching chrome.
@@ -890,6 +944,7 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
             ThemeManager.apply_app_palette(self, theme)
         else:
             self.setPalette(application.palette() if application else self.palette())
+        self._apply_palette_to_chrome_widgets()
         # Rebuild icons so styles cannot keep synthesized Selected/Disabled tints.
         # During deferred startup, icons are filled in _upgrade_startup_editor.
         if getattr(self, "_app_style_applied", False):
@@ -911,6 +966,10 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
         polish then dominates with a large widget tree. Kate has no app QSS,
         so setStyle stays cheap. Clear QSS around setStyle, then restore
         chrome styles on the next event-loop tick.
+
+        After setStyle, restore chrome palettes: Union replaces the application
+        palette and stamps the menubar/toolbars, which would otherwise stick
+        after switching to another style.
         """
         application = QApplication.instance()
         if application is None:
@@ -930,14 +989,20 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
             )
         previous_key = application.property("_jottr_style_key")
         saved_sheet = application.styleSheet()
-        if saved_sheet:
-            application.setStyleSheet("")
-            self._applied_app_stylesheet = None
-        key = apply_qt_style(
-            self.settings_manager.get_qt_style(),
-            application,
-            theme=theme,
-        )
+        # Skip changeEvent palette work during the swap; we restore once below.
+        self._applying_app_style = True
+        try:
+            if saved_sheet:
+                application.setStyleSheet("")
+                self._applied_app_stylesheet = None
+            key = apply_qt_style(
+                self.settings_manager.get_qt_style(),
+                application,
+                theme=theme,
+            )
+            self._restore_chrome_palettes_after_style()
+        finally:
+            self._applying_app_style = False
         swapped = previous_key != application.property("_jottr_style_key")
         if saved_sheet:
             # Restore after paint so setStyle is not wrapped in QStyleSheetStyle.
@@ -955,9 +1020,14 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
             return
         if application.styleSheet() == sheet:
             self._applied_app_stylesheet = sheet
+            # Union may still have stamped bars / replaced the app palette.
+            self._restore_chrome_palettes_after_style()
             return
         application.setStyleSheet(sheet)
         self._applied_app_stylesheet = sheet
+        # QSS polish restores widget-local palettes and can reset the app
+        # palette under Union; put chrome back afterwards.
+        self._restore_chrome_palettes_after_style()
 
     def _refresh_icons_after_widget_style(self):
         """Rebuild action/tab icons after a deferred widget-style swap."""

@@ -2551,6 +2551,82 @@ class EditorAndMainTests(unittest.TestCase):
                 window.palette().color(QPalette.ColorRole.Window).lightnessF(), 0.5
             )
 
+    def test_union_widget_style_does_not_pollute_later_styles(self):
+        """Union replaces the app palette and stamps the menubar; leaving it
+        must not leave Fusion (etc.) with light/black chrome under Dark.
+        """
+        from PyQt6.QtWidgets import QStyleFactory
+
+        if QStyleFactory.create("Union") is None:
+            self.skipTest("Union style not installed (Flatpak KDE runtime)")
+
+        class FakeEditorTab(QWidget):
+            def __init__(self, snippet_manager, settings_manager):
+                super().__init__()
+                self.editor = QTextEdit(self)
+                self.current_file = None
+
+            def set_main_window(self, main_window):
+                self.main_window = main_window
+
+        with patch.object(window_module, "EditorTab", FakeEditorTab):
+            self.settings.save_ui_theme("Dark")
+            self.settings.save_qt_style("Fusion")
+            window = TextEditorApp()
+            self.addCleanup(window.close)
+            self.addCleanup(window.deleteLater)
+            self.addCleanup(lambda: QApplication.instance().setStyleSheet(""))
+            previous_style = QApplication.instance().style().name()
+            self.addCleanup(QApplication.instance().setStyle, previous_style)
+            window.show()
+            QApplication.processEvents()
+
+            menubar = window.menuBar()
+            self.assertLess(
+                menubar.palette().color(QPalette.ColorRole.Window).lightnessF(),
+                0.5,
+            )
+
+            window.settings_manager.save_qt_style("Union")
+            window.apply_widget_style()
+            QApplication.processEvents()
+            self.assertLess(
+                QApplication.instance()
+                .palette()
+                .color(QPalette.ColorRole.Window)
+                .lightnessF(),
+                0.5,
+                "Union must not leave the application on its light Breeze palette",
+            )
+            self.assertLess(
+                menubar.palette().color(QPalette.ColorRole.Window).lightnessF(),
+                0.5,
+                "Union must not leave the menubar on a light stamped palette",
+            )
+
+            window.settings_manager.save_qt_style("Fusion")
+            window.apply_widget_style()
+            QApplication.processEvents()
+            self.assertLess(
+                QApplication.instance()
+                .palette()
+                .color(QPalette.ColorRole.Window)
+                .lightnessF(),
+                0.5,
+            )
+            self.assertLess(
+                menubar.palette().color(QPalette.ColorRole.Window).lightnessF(),
+                0.5,
+                "switching away from Union must restore a dark menubar",
+            )
+            self.assertGreater(
+                menubar.palette()
+                .color(QPalette.ColorRole.WindowText)
+                .lightnessF(),
+                0.5,
+                "dark mode menubar text must stay light after leaving Union",
+            )
+
     def test_system_appearance_restyle_not_skipped_after_startup_chrome(self):
         """Startup chrome skip is one-shot; System dark/light must fully reapply.
 
