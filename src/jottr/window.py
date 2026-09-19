@@ -1133,35 +1133,15 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
         return self.build_themed_icon("tab-close")
 
     def refresh_tab_close_buttons(self):
-        """Replace default close glyphs with the bundled cross icon."""
-        if not hasattr(self, "tab_widget"):
-            return
-        tab_bar = self.tab_widget.tabBar()
-        icon = self.tab_close_icon()
-        for index in range(self.tab_widget.count()):
-            button = tab_bar.tabButton(index, QTabBar.ButtonPosition.RightSide)
-            if button is None or button.objectName() != "tabCloseButton":
-                button = QToolButton(tab_bar)
-                button.setObjectName("tabCloseButton")
-                button.setAutoRaise(True)
-                button.setFocusPolicy(Qt.FocusPolicy.NoFocus)
-                button.setCursor(Qt.CursorShape.PointingHandCursor)
-                button.setToolTip(_("Close tab"))
-                button.clicked.connect(self._on_tab_close_button_clicked)
-                tab_bar.setTabButton(index, QTabBar.ButtonPosition.RightSide, button)
-            button.setIcon(icon)
-            button.setIconSize(QSize(12, 12))
-            button.setFixedSize(18, 18)
+        """Native QStyle close buttons are drawn by the widget style (Kate-style).
+
+        QTabBar paints borderless close indicators itself when tabs are
+        closable, so no custom QToolButton is injected. Kept as a no-op for
+        existing tabs_changed/refresh call sites.
+        """
 
     def _on_tab_close_button_clicked(self):
-        button = self.sender()
-        if button is None:
-            return
-        tab_bar = self.tab_widget.tabBar()
-        for index in range(self.tab_widget.count()):
-            if tab_bar.tabButton(index, QTabBar.ButtonPosition.RightSide) is button:
-                self.close_tab(index)
-                return
+        """Legacy custom-button slot; native buttons use tabCloseRequested."""
 
     def animations_enabled(self):
         if os.environ.get("QT_QPA_PLATFORM") == "offscreen":
