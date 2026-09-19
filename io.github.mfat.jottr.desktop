@@ -1,11 +1,12 @@
 [Desktop Entry]
 Name=Jottr
-Comment=A simple text editor for writers, journalists and researchers
+Comment=Plain text and Markdown editor
 Exec=jottr %F
 Icon=io.github.mfat.jottr
 Terminal=false
 Type=Application
-Categories=TextEditor;Utility;
+Categories=Qt;KDE;TextEditor;Utility;
 MimeType=text/plain;text/markdown;text/x-markdown;
 StartupNotify=true
 StartupWMClass=Jottr
+Keywords=write;notepad;text;txt;editor;
