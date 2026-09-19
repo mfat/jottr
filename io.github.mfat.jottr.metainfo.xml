@@ -23,6 +23,11 @@
 
   <!-- Release information -->
   <releases>
+    <release version="2.7.2" date="2026-09-19">
+      <description>
+        <p>UI improvements</p>
+      </description>
+    </release>
     <release version="2.6.0" date="2026-09-17">
       <description>
         <p>Faster startup speeds</p>
