@@ -594,17 +594,6 @@ class ThemeManager:
                 ):
                     value = muted
                 palette.setColor(group, role, value)
-        # Qt 6.6+ Accent role: Union and other platform styles read it
-        # instead of (or in addition to) Highlight. Mirror the vivid
-        # selection color so dark chrome does not fall back to light.
-        accent_role = getattr(QPalette.ColorRole, "Accent", None)
-        if accent_role is not None:
-            for group in (
-                QPalette.ColorGroup.Active,
-                QPalette.ColorGroup.Inactive,
-                QPalette.ColorGroup.Disabled,
-            ):
-                palette.setColor(group, accent_role, highlight)
         return palette
 
     @staticmethod
@@ -622,53 +611,14 @@ class ThemeManager:
             application.setPalette(palette)
         return palette
 
-    #: Widget styles that ignore the application palette for tab bars and
-    #: paint from their own theme instead (KDE Union in the Flatpak runtime).
-    #: Scoped fix only; other styles keep their native tab rendering.
-    UNION_STYLE_NAMES = ("union",)
-
     @staticmethod
-    def is_union_style(style_name):
-        """True when *style_name* needs palette-driven tab colors (Union)."""
-        return (style_name or "").strip().casefold() in ThemeManager.UNION_STYLE_NAMES
-
-    @staticmethod
-    def build_union_tab_stylesheet():
-        """Palette-driven document tab colors for styles ignoring the palette.
-
-        Uses palette() roles, never hard-coded colors, so Light and Dark
-        chrome both follow the active palette. Scoped to #documentTabs so
-        Settings and other dialogs keep their native tabs.
-        """
-        return """
-            QTabWidget#documentTabs::pane {
-                background: palette(window);
-                border: none;
-            }
-            QTabWidget#documentTabs QTabBar::tab {
-                background: palette(window);
-                color: palette(window-text);
-                border: none;
-            }
-            QTabWidget#documentTabs QTabBar::tab:selected {
-                background: palette(base);
-                color: palette(text);
-            }
-        """
-
-    @staticmethod
-    def build_app_stylesheet(toolbar_style="comfy", widget_style=None):
-        """Main window QSS: layout only, plus borderless chrome, never hard-coded colors or fonts.
+    def build_app_stylesheet(toolbar_style="comfy"):
+        """Main window QSS: layout only, plus borderless chrome, never colors or fonts.
 
         Menus, bars, tabs and panels are drawn by the widget style from the
         palette, and Main UI Font reaches them through setFont. Comfy only
         adds toolbar spacing; tabs stay left-aligned on every platform.
         Menu and toolbar borders are removed so no horizontal line shows.
-
-        Pass *widget_style* (a QStyle key such as "Union") to also pin
-        document tab colors to palette() roles. Union ignores the
-        application palette for tabs, so without this the tab bar stays
-        light under a dark theme. Other styles keep native tab rendering.
         """
         from jottr.settings_manager import TOOLBAR_STYLE_COMFY, SettingsManager
 
@@ -686,8 +636,6 @@ class ThemeManager:
                 alignment: left;
             }
         """
-        if ThemeManager.is_union_style(widget_style):
-            stylesheet += ThemeManager.build_union_tab_stylesheet()
         if SettingsManager.normalize_toolbar_style(toolbar_style) == TOOLBAR_STYLE_COMFY:
             stylesheet += """
             QToolBar#mainToolBar {
