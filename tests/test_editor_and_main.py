@@ -1913,12 +1913,14 @@ class EditorAndMainTests(unittest.TestCase):
             self.assertEqual(first_tab.current_font.pointSize(), original_size + 1)
             toolbar_actions["Reset Zoom"].trigger()
             self.assertEqual(first_tab.current_font.pointSize(), original_size)
-            # Comfy only spaces out the toolbar; document tabs are styled with modern flat tabs.
+            # Comfy only spaces out the toolbar; the widget style draws it.
             sheet = QApplication.instance().styleSheet()
             self.assertIn("QToolBar#mainToolBar QToolButton", sheet)
-            self.assertIn("QTabWidget#documentTabs QTabBar::tab", sheet)
-            self.assertIn("border-bottom: 2px solid", sheet)
-            self.assertNotIn("QToolBar#mainToolBar:hover", sheet)
+            self.assertNotIn(":hover", sheet)
+            self.assertNotIn("background", sheet)
+            self.assertNotIn("border", sheet)
+            self.assertNotIn("color", sheet)
+            self.assertNotIn("QTabBar::tab", sheet)
             file_menu = next(
                 action.menu()
                 for action in window.menuBar().actions()
@@ -2849,8 +2851,9 @@ class EditorAndMainTests(unittest.TestCase):
             stylesheet = QApplication.instance().styleSheet()
             self.assertIn("QTabWidget#documentTabs::tab-bar", stylesheet)
             self.assertIn("alignment: left", stylesheet)
-            self.assertIn("QTabWidget#documentTabs QTabBar::tab", stylesheet)
-            self.assertIn("border-bottom: 2px solid", stylesheet)
+            # The widget style draws the tabs; no colors or borders of our own.
+            self.assertNotIn("QTabBar::tab", stylesheet)
+            self.assertNotIn("border", stylesheet)
             self.assertNotIn(
                 "paintEvent", vars(type(window.tab_widget.tabBar()))
             )

@@ -551,13 +551,14 @@ class SettingsAndSnippetTests(unittest.TestCase):
         dracula = ThemeManager.get_theme("Dracula")
         self.assertEqual(dracula["editor"]["background"], "#282a36")
         self.assertEqual(dracula["syntax"]["keyword"], "#ff79c6")
-        # The main window stylesheet carries toolbar spacing and modern flat tabs.
+        # The main window stylesheet carries layout only: Comfy toolbar
+        # spacing and left-aligned tabs, never colors, borders or fonts.
         app_style = ThemeManager.build_app_stylesheet()
         self.assertIn("QToolBar#mainToolBar QToolButton", app_style)
         self.assertIn("padding: 6px 10px", app_style)
         self.assertIn("alignment: left", app_style)
-        self.assertIn("QTabWidget#documentTabs QTabBar::tab", app_style)
-        self.assertIn("border-bottom: 2px solid", app_style)
+        for property_name in ("background", "border", "color", "font"):
+            self.assertNotIn(property_name, app_style)
         compact_toolbar = ThemeManager.build_app_stylesheet(toolbar_style="compact")
         self.assertNotIn("QToolBar#mainToolBar", compact_toolbar)
         self.assertIn("alignment: left", compact_toolbar)

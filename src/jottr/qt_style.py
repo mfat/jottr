@@ -395,7 +395,6 @@ def apply_startup_app_chrome(application, settings_manager):
     application.setFont(app_font)
     stylesheet = ThemeManager.build_app_stylesheet(
         toolbar_style=settings_manager.get_toolbar_style(),
-        theme=theme,
     )
     application.setStyleSheet(stylesheet)
     application.setProperty("_jottr_startup_stylesheet", stylesheet)

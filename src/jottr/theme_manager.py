@@ -613,69 +613,18 @@ class ThemeManager:
 
     @staticmethod
     def build_app_stylesheet(toolbar_style="comfy", theme=None):
-        """Main window QSS: toolbar spacing, modern flat document tabs, and accent indicator."""
+        """Main window QSS: layout only, never colors, borders or fonts.
+
+        Menus, bars, tabs and panels are drawn by the widget style from the
+        palette, and Main UI Font reaches them through setFont. Comfy only
+        adds toolbar spacing; tabs stay left-aligned on every platform.
+        """
         from jottr.settings_manager import TOOLBAR_STYLE_COMFY, SettingsManager
 
-        if theme is None:
-            theme = ThemeManager.get_theme(ThemeManager.DEFAULT_THEME_NAME)
-        app = theme.get("app", theme) if isinstance(theme, dict) else ThemeManager.BASE_APP
-
-        pane_border = app.get("border", "#e0e0e0")
-        pane_bg = app.get("surface", "#ffffff")
-        tab_color = app.get("muted", "#666666")
-        tab_hover_color = app.get("text", "#111111")
-        tab_hover_bg = app.get("surface_hover", "#f4f4f5")
-        tab_selected_color = app.get("text", "#111111")
-        tab_accent_border = app.get("accent", "#0969da")
-        close_hover = app.get("surface_hover", "#e4e4e7")
-
-        stylesheet = f"""
-            QTabWidget#documentTabs::tab-bar {{
+        stylesheet = """
+            QTabWidget#documentTabs::tab-bar {
                 alignment: left;
-            }}
-            QTabWidget#documentTabs::pane {{
-                border-top: 1px solid {pane_border};
-                background: {pane_bg};
-            }}
-            QTabWidget#documentTabs QTabBar::tab {{
-                background: transparent;
-                color: {tab_color};
-                font-size: 13px;
-                font-weight: 500;
-                padding: 10px 20px;
-                min-height: 20px;
-                min-width: 80px;
-                border: none;
-                border-bottom: 2px solid transparent;
-                margin-right: 4px;
-            }}
-            QTabWidget#documentTabs QTabBar::tab:hover {{
-                color: {tab_hover_color};
-                background: {tab_hover_bg};
-                border-radius: 4px 4px 0 0;
-            }}
-            QTabWidget#documentTabs QTabBar::tab:selected {{
-                color: {tab_selected_color};
-                border-bottom: 2px solid {tab_accent_border};
-                font-weight: 600;
-            }}
-            QTabWidget#documentTabs QTabBar::close-button {{
-                margin-left: 8px;
-                subcontrol-position: right;
-            }}
-            QTabWidget#documentTabs QTabBar::close-button:hover {{
-                background: {close_hover};
-                border-radius: 2px;
-            }}
-            QTabWidget#documentTabs QToolButton#tabCloseButton {{
-                background: transparent;
-                border: none;
-                border-radius: 2px;
-                margin-left: 6px;
-            }}
-            QTabWidget#documentTabs QToolButton#tabCloseButton:hover {{
-                background: {close_hover};
-            }}
+            }
         """
         if SettingsManager.normalize_toolbar_style(toolbar_style) == TOOLBAR_STYLE_COMFY:
             stylesheet += """

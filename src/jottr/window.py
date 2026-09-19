@@ -785,21 +785,16 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
         application = QApplication.instance()
         style_swapped = False
         window_scheme = find_window_color_scheme(window_scheme_id)
-        if application:
-            theme = effective_chrome_theme(
-                window_scheme_id, scheme_setting, application
-            )
-        else:
-            theme = effective_chrome_theme(window_scheme_id, scheme_setting)
         stylesheet = ThemeManager.build_app_stylesheet(
             toolbar_style=self.settings_manager.get_toolbar_style(),
-            theme=theme,
         )
         startup_sheet = (
             application.property("_jottr_startup_stylesheet") if application else None
         )
         # main() may already have applied matching chrome; skip the expensive
-        # style/QSS path once on first apply.
+        # style/QSS path once on first apply. The sheet is layout-only (no
+        # colors), so it still matches after a light/dark switch — never treat
+        # that as "already themed" or System appearance changes stay partial.
         chrome_preapplied = (
             font is None
             and application is not None
@@ -817,6 +812,9 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
             # Only drop stylesheets when the widget style actually swaps;
             # the clears each force a full repolish, while palette/font/theme
             # switches just need the sheets re-applied below.
+            theme = effective_chrome_theme(
+                window_scheme_id, scheme_setting, application
+            )
             # Qt ColorScheme hint: explicit Window Color Scheme forces Light/Dark;
             # Default uses the Appearance System/Light/Dark setting.
             if not chrome_preapplied:
@@ -834,10 +832,6 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
                     # Breeze Classic (etc.) palette.
                     theme = reconcile_chrome_theme_with_color_scheme(
                         theme, color_scheme_setting, application
-                    )
-                    stylesheet = ThemeManager.build_app_stylesheet(
-                        toolbar_style=self.settings_manager.get_toolbar_style(),
-                        theme=theme,
                     )
                 next_key = resolve_qt_style_key(
                     self.settings_manager.get_qt_style(),
