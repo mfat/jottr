@@ -1,5 +1,19 @@
 # Changelog
 
+## [2.7.0](https://github.com/mfat/jottr/compare/v2.6.0...v2.7.0) (2026-09-19)
+
+
+### Features
+
+* add unsigned Windows installer to release packaging ([27efb6d](https://github.com/mfat/jottr/commit/27efb6ddb0e78f274f435d320ce9e0c1ecff7187))
+* modernize document tabs with flat styling and document mode ([1b552cd](https://github.com/mfat/jottr/commit/1b552cdc467127a5daf485f479f48d6cdd02b97e))
+
+
+### Bug Fixes
+
+* trailing newline + trailing space in snippet_manager (W292/W293) ([afd86dd](https://github.com/mfat/jottr/commit/afd86dd7126b3f8d7dbe9d4aa1fb8df896f1ae06))
+* trailing newline + trailing space in snippet_manager (W292/W293) ([0db11e3](https://github.com/mfat/jottr/commit/0db11e35cb6c212241b8532a7fb649153c13e020))
+
 ## [2.6.0](https://github.com/mfat/jottr/compare/v2.5.9...v2.6.0) (2026-09-17)
 
 
