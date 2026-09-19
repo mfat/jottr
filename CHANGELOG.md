@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.7.3](https://github.com/mfat/jottr/compare/v2.7.2...v2.7.3) (2026-09-19)
+
+
+### Bug Fixes
+
+* keep starting when a plugin fails to load ([ef72474](https://github.com/mfat/jottr/commit/ef72474e5ae43b6f8670f485b8da7f1ca0e51a72))
+
 ## [2.7.2](https://github.com/mfat/jottr/compare/v2.6.0...v2.7.2) (2026-09-19)
 
 
