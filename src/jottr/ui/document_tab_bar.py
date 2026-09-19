@@ -1,4 +1,5 @@
 """Document tab bar with in-place title editing, drawn by the widget style."""
+from PyQt6.QtGui import QColor
 from PyQt6.QtWidgets import QLineEdit, QTabBar, QTabWidget, QToolTip
 from PyQt6.QtCore import Qt, QEvent, QPoint, QSize, pyqtSignal
 
@@ -42,6 +43,8 @@ class LeftAlignedDocumentTabBar(QTabBar):
 
     title_editor = None
     _committing_title = False
+    _active_tab_color = None
+    _inactive_tab_color = None
 
     def tabSizeHint(self, index):
         hint = super().tabSizeHint(index)
@@ -60,6 +63,41 @@ class LeftAlignedDocumentTabBar(QTabBar):
         # Tab positions change under an open title editor.
         self.tabMoved.connect(self.finish_title_edit)
         self.tabs_changed.connect(self.finish_title_edit)
+        self.currentChanged.connect(lambda _index: self._refresh_tab_text_colors())
+        self.tabs_changed.connect(self._refresh_tab_text_colors)
+
+    def set_tab_text_colors(self, active, inactive):
+        """Dim inactive tabs: active tab uses *active*, others use *inactive*.
+
+        Colors may be QColor instances or CSS color strings. Pass None to
+        stop overriding the style-provided tab text colors.
+        """
+        self._active_tab_color = self._coerce_tab_color(active)
+        self._inactive_tab_color = self._coerce_tab_color(inactive)
+        self._refresh_tab_text_colors()
+
+    @staticmethod
+    def _coerce_tab_color(value):
+        if value is None:
+            return None
+        if isinstance(value, QColor):
+            return QColor(value) if value.isValid() else None
+        color = QColor(str(value))
+        return color if color.isValid() else None
+
+    def _refresh_tab_text_colors(self, *_args):
+        """Apply active/inactive text colors so inactive tabs look dimmed."""
+        if self._active_tab_color is None or self._inactive_tab_color is None:
+            return
+        current = self.currentIndex()
+        for index in range(self.count()):
+            color = (
+                self._active_tab_color
+                if index == current
+                else self._inactive_tab_color
+            )
+            if self.tabTextColor(index) != color:
+                self.setTabTextColor(index, color)
 
     def edit_tab_title(self, index, text, commit, select_length=None):
         """Edit the title of tab *index* in place, starting from *text*.
@@ -127,4 +165,19 @@ class DocumentTabWidget(QTabWidget):
         super().__init__(parent)
         self.setTabBar(LeftAlignedDocumentTabBar())
         self.setDocumentMode(True)
+        self.currentChanged.connect(lambda _index: self.refresh_tab_text_colors())
+
+    def set_tab_text_colors(self, active, inactive):
+        """Forward active/inactive tab text colors to the tab bar."""
+        tab_bar = self.tabBar()
+        setter = getattr(tab_bar, "set_tab_text_colors", None)
+        if callable(setter):
+            setter(active, inactive)
+
+    def refresh_tab_text_colors(self, *_args):
+        """Re-apply dimming after the current tab changes."""
+        tab_bar = self.tabBar()
+        refresher = getattr(tab_bar, "_refresh_tab_text_colors", None)
+        if callable(refresher):
+            refresher()
 

@@ -739,6 +739,7 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
         if find_window_color_scheme(window_scheme_id).path:
             if application is not None:
                 self.setPalette(application.palette())
+            self.apply_tab_dimming()
             return
         ui_theme = self.settings_manager.get_ui_theme()
         theme = reconcile_chrome_theme_with_color_scheme(
@@ -747,6 +748,32 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
             application,
         )
         ThemeManager.apply_app_palette(self, theme)
+        self.apply_tab_dimming(theme)
+
+    def apply_tab_dimming(self, theme=None):
+        """Dim inactive document tabs using the chrome theme's text/muted colors.
+
+        The active tab keeps the full text color while inactive tabs use the
+        muted color. Tabs stay drawn by the widget style; only per-tab text
+        colors are overridden so native styles (Breeze, Adwaita, Fusion, …)
+        keep working, including named Window Color Schemes.
+        """
+        tab_widget = getattr(self, "tab_widget", None)
+        if tab_widget is None:
+            return
+        setter = getattr(tab_widget, "set_tab_text_colors", None)
+        if not callable(setter):
+            return
+        if theme is None:
+            from jottr.window_color_scheme import effective_chrome_theme
+
+            theme = effective_chrome_theme(
+                self.settings_manager.get_window_color_scheme(),
+                self.settings_manager.get_ui_theme(),
+                QApplication.instance(),
+            )
+        app = theme.get("app", {}) if isinstance(theme, dict) else {}
+        setter(app.get("text"), app.get("muted"))
 
     def apply_app_style(self, font=None):
         """Apply widget style, Qt color scheme, UI font, and matching chrome.
@@ -890,6 +917,7 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
             ThemeManager.apply_app_palette(self, theme)
         else:
             self.setPalette(application.palette() if application else self.palette())
+        self.apply_tab_dimming(theme)
         # Rebuild icons so styles cannot keep synthesized Selected/Disabled tints.
         # During deferred startup, icons are filled in _upgrade_startup_editor.
         if getattr(self, "_app_style_applied", False):
