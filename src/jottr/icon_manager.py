@@ -42,6 +42,17 @@ _ICON_ALIASES = (
     ("theme", "preferences-desktop-theme-applications"),
 )
 
+# Adwaita ("symbolic") glyphs are drawn with ~2px visual strokes on the 16px
+# grid while the other bundled themes (Bootstrap, Material, Qlementine) use
+# ~1-1.5px strokes, so Adwaita looks noticeably heavier at the same sizes.
+# Peel this much (logical px per side) off Adwaita glyphs at render time so
+# the stroke weight matches the other themes. Tuned by comparing rendered
+# alpha mass across the bundled sets (Adwaita ~0.39 -> ~0.26 vs ~0.23 others).
+_ADWAITA_STROKE_THINNING = 0.375
+# Supersample factor for the thinning pass: erosion peels whole pixels, so
+# render large, peel, then downscale with smoothing for fractional thinning.
+_THINNING_SUPERSAMPLE = 4
+
 
 class BundledIconTheme(TypedDict):
     id: str
@@ -482,22 +493,77 @@ def _read_svg_bytes(icon_path: str) -> QByteArray | None:
         return QByteArray(handle.read())
 
 
+def _adwaita_thinning_for_path(icon_path: str) -> float:
+    """Return the stroke thinning for *icon_path* (Adwaita only, else 0)."""
+    if icon_path and "/icons/symbolic/" in icon_path:
+        return _ADWAITA_STROKE_THINNING
+    return 0.0
+
+
+def _peel_pixmap_boundary(pixmap: QPixmap, pixels: int) -> QPixmap:
+    """Erode *pixmap* alpha inward by *pixels* (binary, edge-preserving).
+
+    A pixel survives only when it and its 4-neighbours are opaque, which
+    peels the boundary without touching the interior. Implemented with
+    ``DestinationIn`` (intersection) so no extra dependencies are needed.
+    """
+    if pixels <= 0:
+        return pixmap
+    for _ in range(pixels):
+        source = QPixmap(pixmap)
+        painter = QPainter(pixmap)
+        painter.setCompositionMode(
+            QPainter.CompositionMode.CompositionMode_DestinationIn
+        )
+        for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1)):
+            painter.drawPixmap(dx, dy, source)
+        painter.end()
+    return pixmap
+
+
 def _render_tinted_pixmap(
     renderer: QSvgRenderer,
     logical_size: int,
     color: str,
     dpr: float,
+    stroke_thinning: float = 0.0,
 ) -> QPixmap:
-    """Render SVG at an exact logical size with correct HiDPI backing store."""
+    """Render SVG at an exact logical size with correct HiDPI backing store.
+
+    When *stroke_thinning* is set (logical px per side), the glyph is
+    rendered supersampled, eroded, then downscaled with smoothing before
+    tinting, so heavy strokes (Adwaita) slim down to match lighter themes.
+    """
     physical = max(1, int(round(logical_size * dpr)))
-    pixmap = QPixmap(physical, physical)
-    pixmap.fill(Qt.GlobalColor.transparent)
+    if stroke_thinning > 0:
+        factor = _THINNING_SUPERSAMPLE
+        hires = max(1, int(round(logical_size * dpr * factor)))
+        pixmap = QPixmap(hires, hires)
+        pixmap.fill(Qt.GlobalColor.transparent)
+        painter = QPainter(pixmap)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing, True)
+        renderer.render(painter, QRectF(0, 0, hires, hires))
+        painter.end()
+        peel = min(hires // 2, max(0, int(round(stroke_thinning * dpr * factor))))
+        _peel_pixmap_boundary(pixmap, peel)
+        pixmap = pixmap.scaled(
+            physical,
+            physical,
+            Qt.AspectRatioMode.IgnoreAspectRatio,
+            Qt.TransformationMode.SmoothTransformation,
+        )
+    else:
+        pixmap = QPixmap(physical, physical)
+        pixmap.fill(Qt.GlobalColor.transparent)
+
+        painter = QPainter(pixmap)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing, True)
+        # Prefer sharp edges for symbolic glyphs at small sizes.
+        painter.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform, False)
+        renderer.render(painter, QRectF(0, 0, physical, physical))
+        painter.end()
 
     painter = QPainter(pixmap)
-    painter.setRenderHint(QPainter.RenderHint.Antialiasing, True)
-    # Prefer sharp edges for symbolic glyphs at small sizes.
-    painter.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform, False)
-    renderer.render(painter, QRectF(0, 0, physical, physical))
     painter.setCompositionMode(QPainter.CompositionMode.CompositionMode_SourceIn)
     painter.fillRect(pixmap.rect(), QColor(color))
     painter.end()
@@ -514,6 +580,7 @@ def build_themed_icon(
     selected_color: str | None = None,
     disabled_color: str | None = None,
     quick: bool = False,
+    stroke_thinning: float | None = None,
 ) -> QIcon:
     """Render a monochrome symbolic SVG tinted to ``color``.
 
@@ -527,6 +594,10 @@ def build_themed_icon(
 
     ``quick=True`` renders only the toolbar/tab sizes (16, 22) and Normal mode
     unless Selected/Disabled colors are explicitly required by the caller.
+
+    *stroke_thinning* (logical px per side) slims heavy glyph strokes;
+    ``None`` auto-detects the Adwaita bundle from *icon_path* so its ~2px
+    strokes match the lighter bundled themes.
     """
     svg_data = _read_svg_bytes(icon_path)
     if svg_data is None:
@@ -535,6 +606,9 @@ def build_themed_icon(
     renderer = QSvgRenderer(svg_data)
     if not renderer.isValid():
         return QIcon()
+
+    if stroke_thinning is None:
+        stroke_thinning = _adwaita_thinning_for_path(icon_path)
 
     dpr = _device_pixel_ratio()
     if size is not None:
@@ -546,18 +620,20 @@ def build_themed_icon(
 
     icon = QIcon()
     for logical_size in sizes:
-        normal = _render_tinted_pixmap(renderer, logical_size, color, dpr)
+        normal = _render_tinted_pixmap(
+            renderer, logical_size, color, dpr, stroke_thinning
+        )
         icon.addPixmap(normal, QIcon.Mode.Normal, QIcon.State.Off)
         icon.addPixmap(normal, QIcon.Mode.Active, QIcon.State.Off)
         if selected_color:
             selected = _render_tinted_pixmap(
-                renderer, logical_size, selected_color, dpr
+                renderer, logical_size, selected_color, dpr, stroke_thinning
             )
             icon.addPixmap(selected, QIcon.Mode.Selected, QIcon.State.Off)
             icon.addPixmap(selected, QIcon.Mode.Selected, QIcon.State.On)
         if disabled_color:
             disabled = _render_tinted_pixmap(
-                renderer, logical_size, disabled_color, dpr
+                renderer, logical_size, disabled_color, dpr, stroke_thinning
             )
             icon.addPixmap(disabled, QIcon.Mode.Disabled, QIcon.State.Off)
     return icon
