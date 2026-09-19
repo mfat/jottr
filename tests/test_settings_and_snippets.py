@@ -551,20 +551,29 @@ class SettingsAndSnippetTests(unittest.TestCase):
         dracula = ThemeManager.get_theme("Dracula")
         self.assertEqual(dracula["editor"]["background"], "#282a36")
         self.assertEqual(dracula["syntax"]["keyword"], "#ff79c6")
-        # The main window stylesheet carries layout only: Comfy toolbar
-        # spacing and left-aligned tabs, never colors, borders or fonts.
+        # The main window stylesheet carries layout + chrome border-stripping
+        # only: Comfy toolbar spacing, left-aligned tabs, and borderless
+        # QMenuBar/QToolBar/QTabWidget::pane/tab-bar/QTabBar/separator;
+        # never colors or fonts.
         app_style = ThemeManager.build_app_stylesheet()
         self.assertIn("QToolBar#mainToolBar QToolButton", app_style)
         self.assertIn("padding: 6px 10px", app_style)
         self.assertIn("alignment: left", app_style)
-        for property_name in ("background", "border", "color", "font"):
+        self.assertIn("QMenuBar", app_style)
+        self.assertIn("QTabWidget::pane", app_style)
+        self.assertIn("QTabWidget::tab-bar", app_style)
+        self.assertIn("QMainWindow::separator", app_style)
+        self.assertIn("border: none", app_style)
+        for property_name in ("background", "color", "font"):
             self.assertNotIn(property_name, app_style)
         compact_toolbar = ThemeManager.build_app_stylesheet(toolbar_style="compact")
         self.assertNotIn("QToolBar#mainToolBar", compact_toolbar)
         self.assertIn("alignment: left", compact_toolbar)
+        self.assertIn("QMenuBar", compact_toolbar)
+        self.assertIn("QTabWidget::pane", compact_toolbar)
         legacy_default = ThemeManager.build_app_stylesheet(toolbar_style="default")
         self.assertEqual(legacy_default, compact_toolbar)
-        for selector in ("QMenuBar", "QMenu", "QStatusBar", "QTreeView", "QSplitter", "QMainWindow"):
+        for selector in ("QMenu {", "QMenu::", "QStatusBar", "QTreeView", "QSplitter", "QMainWindow {"):
             self.assertNotIn(selector, app_style)
         from PyQt6.QtGui import QPalette
         palette = ThemeManager.build_app_palette(dracula)

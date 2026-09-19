@@ -440,6 +440,7 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
         self.tab_widget.setTabsClosable(True)
         self.tab_widget.setIconSize(QSize(0, 0))
         self.tab_widget.tabBar().setExpanding(False)
+        self.tab_widget.tabBar().setDrawBase(False)
         self.tab_widget.tabCloseRequested.connect(self.close_tab)
         self.tab_widget.currentChanged.connect(self.update_document_language_status)
         self.tab_widget.currentChanged.connect(self.update_edit_actions)

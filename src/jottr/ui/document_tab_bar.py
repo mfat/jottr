@@ -60,6 +60,7 @@ class LeftAlignedDocumentTabBar(QTabBar):
 
     def __init__(self, parent=None):
         super().__init__(parent)
+        self.setDrawBase(False)
         # Tab positions change under an open title editor.
         self.tabMoved.connect(self.finish_title_edit)
         self.tabs_changed.connect(self.finish_title_edit)
@@ -165,6 +166,7 @@ class DocumentTabWidget(QTabWidget):
         super().__init__(parent)
         self.setTabBar(LeftAlignedDocumentTabBar())
         self.setDocumentMode(True)
+        self.tabBar().setDrawBase(False)
         self.currentChanged.connect(lambda _index: self.refresh_tab_text_colors())
 
     def set_tab_text_colors(self, active, inactive):
