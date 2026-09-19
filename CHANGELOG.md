@@ -1,5 +1,27 @@
 # Changelog
 
+## [2.7.2](https://github.com/mfat/jottr/compare/v2.6.0...v2.7.2) (2026-09-19)
+
+
+### Features
+
+* add unsigned Windows installer to release packaging ([27efb6d](https://github.com/mfat/jottr/commit/27efb6ddb0e78f274f435d320ce9e0c1ecff7187))
+
+
+### Bug Fixes
+
+* enable document mode for document tabs ([0f05f72](https://github.com/mfat/jottr/commit/0f05f720f18fe2ca9379c394b6865496a9cdf3f4))
+* keep Union tab bar dark with palette-driven tab colors ([822ff91](https://github.com/mfat/jottr/commit/822ff917f001d02a543eefffe0bfdb15748ab389))
+* remove menubar and toolbar borders for borderless chrome ([258bf29](https://github.com/mfat/jottr/commit/258bf299d9d5f09b5daca77c0afe756cb9881bbb))
+* restore chrome palettes after Union widget style swaps ([15bc8c1](https://github.com/mfat/jottr/commit/15bc8c134eb5ef91dceddccd132f38c9c1da9c5c))
+* trailing newline + trailing space in snippet_manager (W292/W293) ([afd86dd](https://github.com/mfat/jottr/commit/afd86dd7126b3f8d7dbe9d4aa1fb8df896f1ae06))
+* trailing newline + trailing space in snippet_manager (W292/W293) ([0db11e3](https://github.com/mfat/jottr/commit/0db11e35cb6c212241b8532a7fb649153c13e020))
+
+
+### Miscellaneous
+
+* release 2.7.2 ([e78dd42](https://github.com/mfat/jottr/commit/e78dd4222798ffa1c422a5490ceaa2b1d6f13bc7))
+
 ## [2.6.0](https://github.com/mfat/jottr/compare/v2.5.9...v2.6.0) (2026-09-17)
 
 
