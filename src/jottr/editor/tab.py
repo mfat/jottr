@@ -1438,20 +1438,23 @@ class EditorTab(
         layout.setContentsMargins(4, 4, 4, 4)
         layout.setSpacing(2)
         
-        # Style the tooltip
-        self.suggestion_tooltip.setStyleSheet("""
-            QWidget {
+        # Style the tooltip; suggestions read in the editor's own face.
+        suggestion_family = QFont(
+            getattr(self, "current_font", None) or self.settings_manager.get_font("editor")
+        ).family().replace('"', '')
+        self.suggestion_tooltip.setStyleSheet(f"""
+            QWidget {{
                 background-color: palette(window);
                 border: 0.5px solid palette(mid);
                 border-radius: 0px;
-            }
-            QLabel {
+            }}
+            QLabel {{
                 padding: 2px 8px;
                 color: palette(text);
                 border-radius: 0px;
                 margin: 1px;
-                font-family: "Courier New", "DejaVu Sans Mono", monospace;
-            }
+                font-family: "{suggestion_family}", monospace;
+            }}
         """)
         
         # Add suggestions (limited to 7)

@@ -473,6 +473,14 @@ class EditorAndMainTests(unittest.TestCase):
         self.assertIn('font-family: "Liberation Serif"', html)
         self.assertIn("font-size: 16pt", html)
 
+        # The built-in renderer (no Python-Markdown installed) uses it too.
+        with patch("jottr.editor.markdown.MARKDOWN_LIB_AVAILABLE", False):
+            fallback_html = editor.render_markdown_html("# Title")
+
+        self.assertIn('font-family: "Liberation Serif"', fallback_html)
+        self.assertIn("font-size: 16pt", fallback_html)
+        self.assertNotIn("DejaVu", fallback_html)
+
     def test_editor_exports_pdf_with_preview_styles(self):
         editor = self.make_editor()
         editor.current_file = str(Path(self.temp_dir.name) / "note.md")

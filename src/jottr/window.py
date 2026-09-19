@@ -117,9 +117,7 @@ class EditorThemeCard(QFrame):
 
         self._sample = QLabel("\n".join(self.SAMPLE_LINES), self)
         self._sample.setObjectName("editorThemeCardSample")
-        sample_font = QFont("DejaVu Sans Mono")
-        if sample_font.family() != "DejaVu Sans Mono":
-            sample_font = QFont("monospace")
+        sample_font = SettingsManager.system_fixed_font()
         sample_font.setPointSize(9)
         self._sample.setFont(sample_font)
         self._sample.setWordWrap(False)
