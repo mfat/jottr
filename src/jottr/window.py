@@ -434,7 +434,7 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
 
         self.tab_widget = DocumentTabWidget()
         self.tab_widget.setObjectName("documentTabs")
-        self.tab_widget.setDocumentMode(False)
+        self.tab_widget.setDocumentMode(True)
         self.tab_widget.setMovable(True)
         self.tab_widget.setUsesScrollButtons(True)
         self.tab_widget.setTabsClosable(True)
