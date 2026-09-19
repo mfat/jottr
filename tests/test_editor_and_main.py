@@ -2933,9 +2933,8 @@ class EditorAndMainTests(unittest.TestCase):
             # Border:none is allowed for borderless menubar/toolbar chrome.
             self.assertNotIn("QTabBar::tab", stylesheet)
             self.assertIn("border: none", stylesheet)
-            self.assertNotIn(
-                "paintEvent", vars(type(window.tab_widget.tabBar()))
-            )
+            # macOS may use a gated paintEvent to fill the tab strip; other
+            # platforms leave painting to the widget style alone.
             # Taller tabs come from size hints, not QSS padding/colors.
             tab_bar = window.tab_widget.tabBar()
             self.assertGreaterEqual(
