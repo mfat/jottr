@@ -838,6 +838,10 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
                     theme=theme,
                     application=application,
                 )
+                # Union ignores the application palette for tab bars; pin
+                # document tab colors to palette() roles (dark stays dark).
+                if ThemeManager.is_union_style(next_key):
+                    stylesheet += ThemeManager.build_union_tab_stylesheet()
                 if application.property("_jottr_style_key") != next_key:
                     # Drop stylesheets before setStyle so the widget style can take effect.
                     # Forget the cached sheet too — otherwise an unchanged theme/font
@@ -953,6 +957,15 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
         application = QApplication.instance()
         if application is None or not sheet:
             return
+        # A switch to Union needs palette-driven tab colors; a sheet built
+        # for another style lacks them, so append before restoring.
+        current_key = application.property("_jottr_style_key")
+        if not current_key and application.style() is not None:
+            current_key = application.style().objectName()
+        if ThemeManager.is_union_style(
+            current_key
+        ) and "QTabWidget#documentTabs::pane" not in (sheet or ""):
+            sheet = sheet + ThemeManager.build_union_tab_stylesheet()
         if application.styleSheet() == sheet:
             self._applied_app_stylesheet = sheet
             return

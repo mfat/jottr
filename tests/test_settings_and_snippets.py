@@ -600,6 +600,34 @@ class SettingsAndSnippetTests(unittest.TestCase):
         self.assertNotIn("font-family:", label_block)
         self.assertNotIn("font-size:", label_block)
 
+    def test_union_style_pins_document_tabs_to_palette(self):
+        # Union ignores the application palette for tab bars (light tabs
+        # under a dark theme in the Flatpak runtime); other styles keep
+        # native tab rendering.
+        base = ThemeManager.build_app_stylesheet()
+        self.assertNotIn("QTabWidget#documentTabs::pane", base)
+        self.assertNotIn("QTabBar::tab", base)
+        union = ThemeManager.build_app_stylesheet(widget_style="Union")
+        self.assertIn("QTabWidget#documentTabs::pane", union)
+        self.assertIn("QTabWidget#documentTabs QTabBar::tab", union)
+        self.assertIn("palette(window)", union)
+        self.assertIn("palette(base)", union)
+        self.assertNotRegex(union, r"#[0-9a-fA-F]{6}")
+        self.assertTrue(ThemeManager.is_union_style("union"))
+        self.assertFalse(ThemeManager.is_union_style("Fusion"))
+        self.assertFalse(ThemeManager.is_union_style(None))
+        # Qt 6.6+ platform styles may read Accent instead of Highlight.
+        from PyQt6.QtGui import QPalette
+
+        for theme_name in ("Black", "White"):
+            theme = ThemeManager.get_theme(theme_name)
+            palette = ThemeManager.build_app_palette(theme)
+            if hasattr(QPalette.ColorRole, "Accent"):
+                self.assertEqual(
+                    palette.color(QPalette.ColorRole.Accent).name(),
+                    theme["app"]["accent"].lower(),
+                )
+
 
 if __name__ == "__main__":
     unittest.main()
