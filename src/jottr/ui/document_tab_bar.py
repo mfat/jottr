@@ -1,6 +1,6 @@
 """Document tab bar with in-place title editing, drawn by the widget style."""
 from PyQt6.QtWidgets import QLineEdit, QTabBar, QTabWidget, QToolTip
-from PyQt6.QtCore import Qt, QEvent, QPoint, pyqtSignal
+from PyQt6.QtCore import Qt, QEvent, QPoint, QSize, pyqtSignal
 
 
 class TabTitleEditor(QLineEdit):
@@ -37,9 +37,23 @@ class LeftAlignedDocumentTabBar(QTabBar):
     label_left_padding = 8
     label_right_padding = 30
     title_editor_min_width = 120
+    tab_height_extra = 6
+    min_tab_height = 36
 
     title_editor = None
     _committing_title = False
+
+    def tabSizeHint(self, index):
+        hint = super().tabSizeHint(index)
+        if hint.isValid():
+            return QSize(hint.width(), max(hint.height() + self.tab_height_extra, self.min_tab_height))
+        return hint
+
+    def minimumTabSizeHint(self, index):
+        hint = super().minimumTabSizeHint(index)
+        if hint.isValid():
+            return QSize(hint.width(), max(hint.height() + self.tab_height_extra, self.min_tab_height))
+        return hint
 
     def __init__(self, parent=None):
         super().__init__(parent)
