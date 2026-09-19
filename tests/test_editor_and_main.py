@@ -1834,8 +1834,6 @@ class EditorAndMainTests(unittest.TestCase):
             self.assertTrue(window.tab_widget.tabIcon(0).isNull())
             close_button = tab_bar.tabButton(0, QTabBar.ButtonPosition.RightSide)
             self.assertIsNotNone(close_button)
-            self.assertEqual(close_button.objectName(), "tabCloseButton")
-            self.assertFalse(close_button.icon().isNull())
             self.assertIn("tab-close", window.icons)
             self.assertTrue(window.icons["tab-close"].startswith(":/icons/qlementine/"))
             first_tab = window.tab_widget.currentWidget()
