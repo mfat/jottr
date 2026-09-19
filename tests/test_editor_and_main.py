@@ -1913,14 +1913,12 @@ class EditorAndMainTests(unittest.TestCase):
             self.assertEqual(first_tab.current_font.pointSize(), original_size + 1)
             toolbar_actions["Reset Zoom"].trigger()
             self.assertEqual(first_tab.current_font.pointSize(), original_size)
-            # Comfy only spaces out the toolbar; the widget style draws it.
+            # Comfy only spaces out the toolbar; document tabs are styled with modern flat tabs.
             sheet = QApplication.instance().styleSheet()
             self.assertIn("QToolBar#mainToolBar QToolButton", sheet)
-            self.assertNotIn(":hover", sheet)
-            self.assertNotIn("background", sheet)
-            self.assertNotIn("border", sheet)
-            self.assertNotIn("color", sheet)
-            self.assertNotIn("QTabBar::tab", sheet)
+            self.assertIn("QTabWidget#documentTabs QTabBar::tab", sheet)
+            self.assertIn("border-bottom: 2px solid", sheet)
+            self.assertNotIn("QToolBar#mainToolBar:hover", sheet)
             file_menu = next(
                 action.menu()
                 for action in window.menuBar().actions()
@@ -2847,12 +2845,12 @@ class EditorAndMainTests(unittest.TestCase):
             self.addCleanup(window.deleteLater)
 
             self.assertFalse(window.tab_widget.tabBar().expanding())
+            self.assertTrue(window.tab_widget.documentMode())
             stylesheet = QApplication.instance().styleSheet()
             self.assertIn("QTabWidget#documentTabs::tab-bar", stylesheet)
             self.assertIn("alignment: left", stylesheet)
-            # The widget style draws the tabs; no colors or borders of our own.
-            self.assertNotIn("QTabBar::tab", stylesheet)
-            self.assertNotIn("border", stylesheet)
+            self.assertIn("QTabWidget#documentTabs QTabBar::tab", stylesheet)
+            self.assertIn("border-bottom: 2px solid", stylesheet)
             self.assertNotIn(
                 "paintEvent", vars(type(window.tab_widget.tabBar()))
             )

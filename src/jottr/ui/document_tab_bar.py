@@ -112,3 +112,5 @@ class DocumentTabWidget(QTabWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setTabBar(LeftAlignedDocumentTabBar())
+        self.setDocumentMode(True)
+
