@@ -98,7 +98,10 @@ class FocusModeMixin:
             window.apply_menubar_visibility()
         else:
             window.menuBar().show()
-        window.toolbar.show()
+        if hasattr(window, 'apply_toolbar_visibility'):
+            window.apply_toolbar_visibility()
+        else:
+            window.toolbar.show()
         window.tab_widget.tabBar().show()
         self.editor_pane.setMaximumWidth(16777215)
         if hasattr(self, '_focus_pane_resize_filter'):

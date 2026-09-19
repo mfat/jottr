@@ -92,6 +92,7 @@ class SettingsManager:
             "icon_contrast": "auto",
             "toolbar_style": TOOLBAR_STYLE_COMFY,
             "show_menubar": True,
+            "show_toolbar": True,
             "enable_animations": True,
             "spell_check": True,
             "document_language": "auto",
@@ -435,6 +436,13 @@ class SettingsManager:
 
     def save_menubar_visible(self, visible):
         self.settings["show_menubar"] = bool(visible)
+        self.save_settings()
+
+    def get_toolbar_visible(self):
+        return bool(self.settings.get("show_toolbar", True))
+
+    def save_toolbar_visible(self, visible):
+        self.settings["show_toolbar"] = bool(visible)
         self.save_settings()
 
     # def save_last_files(self, files):

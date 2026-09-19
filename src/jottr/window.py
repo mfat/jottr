@@ -1430,6 +1430,13 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
             checkable=True,
         )
         self.show_menubar_action.setChecked(self.settings_manager.get_menubar_visible())
+        self.show_toolbar_action = self._make_action(
+            "Show Toolbar",
+            self.toggle_toolbar,
+            tooltip="Show or hide the toolbar",
+            checkable=True,
+        )
+        self.show_toolbar_action.setChecked(self.settings_manager.get_toolbar_visible())
         # Hamburger at the far right of the toolbar, shown while the menubar is hidden.
         self.menu_button_action = self._make_action(
             "Menu", self.show_menu_button_popup, icon_name="menu", tooltip="Menu"
@@ -1844,11 +1851,13 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
 
         # View menu
         view_menu = add_menu("&View")
+        self.view_menu = view_menu
         view_menu.addAction(self.snippets_action)
         view_menu.addAction(self.browser_action)
         view_menu.addAction(self.markdown_action)
         view_menu.addAction(self.focus_mode_action)
         view_menu.addAction(self.line_numbers_action)
+        view_menu.addAction(self.show_toolbar_action)
         view_menu.addAction(self.show_menubar_action)
         view_menu.addSeparator()
         view_menu.addAction(self.zoom_in_action)
@@ -1985,11 +1994,30 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
         help_menu.addAction(self.about_action)
 
         self.apply_menubar_visibility()
+        self.apply_toolbar_visibility()
 
     def toggle_menubar(self, _checked=False):
         """Persist Show Menubar and apply it."""
         self.settings_manager.save_menubar_visible(self.show_menubar_action.isChecked())
         self.apply_menubar_visibility()
+
+    def toggle_toolbar(self, _checked=False):
+        """Persist Show Toolbar and apply it."""
+        self.settings_manager.save_toolbar_visible(self.show_toolbar_action.isChecked())
+        self.apply_toolbar_visibility()
+
+    def apply_toolbar_visibility(self):
+        """Show or hide the main toolbar from the View menu setting."""
+        visible = self.settings_manager.get_toolbar_visible()
+        if hasattr(self, "show_toolbar_action"):
+            self.show_toolbar_action.blockSignals(True)
+            self.show_toolbar_action.setChecked(visible)
+            self.show_toolbar_action.blockSignals(False)
+        if hasattr(self, "toolbar") and self.toolbar is not None:
+            # Focus mode hides all chrome and restores the toolbar itself on exit.
+            current_tab = self.tab_widget.currentWidget() if hasattr(self, "tab_widget") else None
+            if not getattr(current_tab, "focus_mode", False):
+                self.toolbar.setVisible(visible)
 
     def apply_menubar_visibility(self):
         """Show or hide the menubar; the toolbar hamburger stands in while it is hidden."""
@@ -2028,8 +2056,21 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
             self.menu_button_menu.popup(QCursor.pos())
 
     def createPopupMenu(self):
-        """Right-click on the menubar: Qt's toolbar toggles plus Show Menubar."""
+        """Right-click on the menubar: Show Toolbar plus Show Menubar.
+
+        Qt's default popup already contains the toolbar's toggleViewAction;
+        swap it for the persisted Show Toolbar action so View menu,
+        menubar right-click, and settings stay in sync.
+        """
         menu = super().createPopupMenu() or QMenu(self)
+        toolbar_toggle = None
+        if hasattr(self, "toolbar") and self.toolbar is not None:
+            toolbar_toggle = self.toolbar.toggleViewAction()
+        for action in list(menu.actions()):
+            if toolbar_toggle is not None and action is toolbar_toggle:
+                menu.removeAction(action)
+        if hasattr(self, "show_toolbar_action"):
+            menu.addAction(self.show_toolbar_action)
         if hasattr(self, "show_menubar_action"):
             menu.addSeparator()
             menu.addAction(self.show_menubar_action)
@@ -2283,7 +2324,7 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
         self.sync_toolbar_style_menu()
 
     def show_toolbar_context_menu(self, pos):
-        """Right-click on the main toolbar: Comfy / Compact density and Show Menubar."""
+        """Right-click on the main toolbar: density, Show Toolbar, Show Menubar."""
         self.setup_toolbar_style_actions()
         self.sync_toolbar_style_menu()
         menu = QMenu(self)
@@ -2291,6 +2332,7 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
         for action in self.toolbar_style_actions.actions():
             menu.addAction(action)
         menu.addSeparator()
+        menu.addAction(self.show_toolbar_action)
         menu.addAction(self.show_menubar_action)
         menu.exec(self.toolbar.mapToGlobal(pos))
 
