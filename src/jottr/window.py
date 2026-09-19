@@ -438,7 +438,7 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
         self.tab_widget.setMovable(True)
         self.tab_widget.setUsesScrollButtons(True)
         self.tab_widget.setTabsClosable(True)
-        self.tab_widget.setIconSize(QSize(16, 16))
+        self.tab_widget.setIconSize(QSize(0, 0))
         self.tab_widget.tabBar().setExpanding(False)
         self.tab_widget.tabCloseRequested.connect(self.close_tab)
         self.tab_widget.currentChanged.connect(self.update_document_language_status)
@@ -1086,16 +1086,12 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
             )
 
     def tab_icon_name_for_widget(self, tab):
-        if isinstance(tab, EditorTab) or hasattr(tab, "current_file"):
-            return "document"
         return ""
 
     def update_tab_icon(self, index):
         if index < 0 or not hasattr(self, "tab_widget"):
             return
-        icon_name = self.tab_icon_name_for_widget(self.tab_widget.widget(index))
-        icon = self.build_themed_icon(icon_name) if icon_name else QIcon()
-        self.tab_widget.setTabIcon(index, icon)
+        self.tab_widget.setTabIcon(index, QIcon())
 
     def refresh_tab_icons(self):
         if not hasattr(self, "tab_widget"):
@@ -1694,7 +1690,7 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
         editor_tab = EditorTab(self.snippet_manager)
         self.tab_widget.addTab(
             editor_tab,
-            self.build_themed_icon("document"),
+            QIcon(),
             _("Document {number}").format(number=self.tab_widget.count() + 1)
         )
         self.tab_widget.setCurrentWidget(editor_tab)

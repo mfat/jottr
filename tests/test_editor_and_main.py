@@ -1831,7 +1831,7 @@ class EditorAndMainTests(unittest.TestCase):
             label_rect = tab_bar.label_contents_rect(QRect(0, 0, 160, 38))
             self.assertEqual(label_rect.top(), 0)
             self.assertEqual(label_rect.bottom(), 37)
-            self.assertFalse(window.tab_widget.tabIcon(0).isNull())
+            self.assertTrue(window.tab_widget.tabIcon(0).isNull())
             close_button = tab_bar.tabButton(0, QTabBar.ButtonPosition.RightSide)
             self.assertIsNotNone(close_button)
             self.assertEqual(close_button.objectName(), "tabCloseButton")
