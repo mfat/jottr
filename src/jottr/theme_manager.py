@@ -613,15 +613,25 @@ class ThemeManager:
 
     @staticmethod
     def build_app_stylesheet(toolbar_style="comfy"):
-        """Main window QSS: layout only, never colors, borders or fonts.
+        """Main window QSS: layout only, plus borderless chrome, never colors or fonts.
 
         Menus, bars, tabs and panels are drawn by the widget style from the
         palette, and Main UI Font reaches them through setFont. Comfy only
         adds toolbar spacing; tabs stay left-aligned on every platform.
+        Menu and toolbar borders are removed so no horizontal line shows.
         """
         from jottr.settings_manager import TOOLBAR_STYLE_COMFY, SettingsManager
 
         stylesheet = """
+            QMenuBar {
+                border: none;
+            }
+            QToolBar {
+                border: none;
+            }
+            QMainWindow::separator {
+                border: none;
+            }
             QTabWidget#documentTabs::tab-bar {
                 alignment: left;
             }

@@ -1913,12 +1913,13 @@ class EditorAndMainTests(unittest.TestCase):
             self.assertEqual(first_tab.current_font.pointSize(), original_size + 1)
             toolbar_actions["Reset Zoom"].trigger()
             self.assertEqual(first_tab.current_font.pointSize(), original_size)
-            # Comfy only spaces out the toolbar; the widget style draws it.
+            # Comfy only spaces out the toolbar; the widget style draws it,
+            # plus borderless chrome for menubar/toolbar.
             sheet = QApplication.instance().styleSheet()
             self.assertIn("QToolBar#mainToolBar QToolButton", sheet)
             self.assertNotIn(":hover", sheet)
             self.assertNotIn("background", sheet)
-            self.assertNotIn("border", sheet)
+            self.assertIn("border: none", sheet)
             self.assertNotIn("color", sheet)
             self.assertNotIn("QTabBar::tab", sheet)
             file_menu = next(
@@ -2451,13 +2452,15 @@ class EditorAndMainTests(unittest.TestCase):
                 if child.objectName() == "editorThemeSwatchChip"
             ]
             self.assertEqual(len(chips), 0)
-            # Menubar and menus are left to QStyle + palette; font via setFont.
+            # Menubar and menus are left to QStyle + palette; font via setFont,
+            # except borderless chrome (no horizontal lines).
             stylesheet = QApplication.instance().styleSheet()
-            self.assertNotIn("QMenuBar", stylesheet)
+            self.assertIn("QMenuBar", stylesheet)
+            self.assertIn("border: none", stylesheet)
             self.assertNotIn("QMenu {", stylesheet)
             self.assertNotIn("QMenu::item", stylesheet)
             self.assertNotIn("data:image/svg+xml", stylesheet)
-            self.assertNotIn("QMainWindow", stylesheet)
+            self.assertIn("QMainWindow::separator", stylesheet)
             self.assertEqual(menubar.isNativeMenuBar(), sys.platform == "darwin")
 
             tools_menu = menubar.actions()[3].menu()
@@ -2850,9 +2853,10 @@ class EditorAndMainTests(unittest.TestCase):
             stylesheet = QApplication.instance().styleSheet()
             self.assertIn("QTabWidget#documentTabs::tab-bar", stylesheet)
             self.assertIn("alignment: left", stylesheet)
-            # The widget style draws the tabs; no colors or borders of our own.
+            # The widget style draws the tabs; no colors of our own.
+            # Border:none is allowed for borderless menubar/toolbar chrome.
             self.assertNotIn("QTabBar::tab", stylesheet)
-            self.assertNotIn("border", stylesheet)
+            self.assertIn("border: none", stylesheet)
             self.assertNotIn(
                 "paintEvent", vars(type(window.tab_widget.tabBar()))
             )
