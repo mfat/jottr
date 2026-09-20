@@ -92,6 +92,7 @@ class SettingsManager:
             "icon_contrast": "auto",
             "toolbar_style": TOOLBAR_STYLE_COMFY,
             "show_menubar": True,
+            "show_format_toolbar": False,
             "enable_animations": True,
             "spell_check": True,
             "document_language": "auto",
@@ -428,6 +429,14 @@ class SettingsManager:
 
     def save_toolbar_style(self, style_name):
         self.settings["toolbar_style"] = self.normalize_toolbar_style(style_name)
+        self.save_settings()
+
+    def get_format_toolbar_visible(self):
+        """Formatting toolbar visibility (hidden until asked for)."""
+        return bool(self.settings.get("show_format_toolbar", False))
+
+    def save_format_toolbar_visible(self, visible):
+        self.settings["show_format_toolbar"] = bool(visible)
         self.save_settings()
 
     def get_menubar_visible(self):

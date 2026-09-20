@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16">
+  <defs id="defs1" class="">
+    </defs>
+  <path id="path0" fill="none" stroke="rgb(0,0,0)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M 2 4 L 2 13 C 2 14.1045694, 2.89543056 15, 4 15 L 12 15 C 13.1045694 15, 14 14.1045694, 14 13 L 14 6 C 14 5.35971069, 13.7456474 4.74564648, 13.2928934 4.29289341 L 11.7071066 2.70710683 C 11.2543535 2.254354, 10.6402893 2, 10 2 L 4 2 C 2.89543056 2, 2 2.89543056, 2 4 Z" class="transparent-fill foreground-stroke" >
+    </path>
+  <path id="code" fill="none" fill-opacity="0.372549" stroke="rgb(0,0,0)" stroke-opacity="1" stroke-width="1" stroke-linecap="round" stroke-linejoin="round" stroke-miterlimit="4" stroke-dasharray="none" d="M 9.50002098 12 L 11.500021 10 L 9.50002098 8 M 6.5 12 L 4.5 10 L 6.5 8" class="transparent-fill foreground-stroke" >
+    </path>
+</svg>

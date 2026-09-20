@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16">
+  <path id="eraser" fill="none" stroke="rgb(0,0,0)" stroke-opacity="1" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" stroke-miterlimit="4" stroke-dasharray="none" d="M 10.0179 14.6299 L 14.3527 10.5191 C 14.653 10.2345, 14.8251 9.84035, 14.83 9.42664 C 14.8349 9.01293, 14.672 8.61488, 14.3786 8.3232 L 9.69728 3.6699 C 9.07853 3.05485, 8.07946 3.05422, 7.45993 3.66848 L 1.59524 9.48325 C 1.30104 9.77495, 1.13712 10.1731, 1.14067 10.5874 C 1.14423 11.0017, 1.31496 11.397, 1.61413 11.6836 L 4.68742 14.6279 C 4.9367 14.8667, 5.26858 15, 5.61379 15 L 9.08965 15 C 9.43505 15, 9.76729 14.8675, 10.0179 14.6299 Z" class="transparent-fill foreground-stroke" >
+  </path>
+  <path id="split" fill="none" stroke="rgb(0,0,0)" stroke-opacity="1" stroke-width="1" stroke-linecap="round" stroke-linejoin="round" stroke-miterlimit="4" stroke-dasharray="none" d="M 4.64564 6.48112 L 11.3596 13.3575" class="transparent-fill foreground-stroke" >
+  </path>
+</svg>

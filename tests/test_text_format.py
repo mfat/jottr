@@ -14,6 +14,7 @@ from PyQt6.QtGui import QTextCursor
 from PyQt6.QtWidgets import QApplication, QTextEdit
 
 from jottr.editor.text_format import (
+    apply_clear_formatting,
     apply_code_block,
     apply_heading,
     apply_line_prefix,
@@ -21,6 +22,7 @@ from jottr.editor.text_format import (
     apply_numbered_list,
     apply_wrap,
     apply_wrap_in_quotes,
+    clear_markdown,
     wrap_in_quotes,
 )
 
@@ -114,6 +116,61 @@ class TextFormatTests(unittest.TestCase):
         self.select(editor, 0, 3)
         self.assertTrue(apply_code_block(editor))
         self.assertEqual(editor.toPlainText(), "```\na\nb\n```\nc")
+
+
+
+    def test_clear_markdown_strips_markers_and_keeps_plain_text(self):
+        self.assertEqual(clear_markdown("# Title"), "Title")
+        self.assertEqual(clear_markdown("> - [ ] **do** it"), "do it")
+        self.assertEqual(clear_markdown("1. *one* and `two`"), "one and two")
+        self.assertEqual(clear_markdown("a [link](http://x)"), "a link")
+        self.assertEqual(clear_markdown("~~gone~~"), "gone")
+        # Lone markers in prose are not pairs, so they stay.
+        self.assertEqual(clear_markdown("snake_case and 2 * 3"), "snake_case and 2 * 3")
+
+    def test_clear_markdown_drops_code_fences(self):
+        self.assertEqual(
+            clear_markdown("```python\nprint(1)\n```"),
+            "print(1)",
+        )
+
+    def test_apply_clear_formatting_without_selection_clears_the_line(self):
+        editor = self.make_editor("## **Title**\nplain *line*")
+        self.place_caret(editor, 4)
+
+        self.assertTrue(apply_clear_formatting(editor))
+        self.assertEqual(editor.toPlainText(), "Title\nplain *line*")
+
+    def test_apply_clear_formatting_clears_only_the_selection(self):
+        editor = self.make_editor("**one** and **two**")
+        self.select(editor, 0, len("**one**"))
+
+        self.assertTrue(apply_clear_formatting(editor))
+        self.assertEqual(editor.toPlainText(), "one and **two**")
+        self.assertEqual(editor.textCursor().selectedText(), "one")
+
+    def test_apply_clear_formatting_spans_selected_lines(self):
+        editor = self.make_editor("# One\n- two\nthree")
+        self.select(editor, 0, len("# One\n- two"))
+
+        self.assertTrue(apply_clear_formatting(editor))
+        self.assertEqual(editor.toPlainText(), "One\ntwo\nthree")
+
+    def test_apply_clear_formatting_leaves_unformatted_text_alone(self):
+        editor = self.make_editor("plain text")
+        self.place_caret(editor, 3)
+
+        self.assertFalse(apply_clear_formatting(editor))
+        self.assertEqual(editor.toPlainText(), "plain text")
+        self.assertFalse(editor.textCursor().hasSelection())
+        self.assertFalse(editor.document().isUndoAvailable())
+
+    def test_apply_clear_formatting_skips_read_only_editor(self):
+        editor = self.make_editor("# Title")
+        editor.setReadOnly(True)
+
+        self.assertFalse(apply_clear_formatting(editor))
+        self.assertEqual(editor.toPlainText(), "# Title")
 
 
 if __name__ == "__main__":

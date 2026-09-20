@@ -678,6 +678,19 @@ class EditorAndMainTests(unittest.TestCase):
         ).trigger()
         self.assertEqual(editor.editor.toPlainText(), "## **hello** world")
 
+    def test_editor_context_menu_clears_formatting_of_the_line(self):
+        editor = self.make_editor()
+        editor.editor.setPlainText("## **Title**")
+        editor.editor.moveCursor(QTextCursor.MoveOperation.Start)
+
+        menu = self._capture_editor_context_menu(editor)
+        formatting = next(action for action in menu.actions() if action.text() == "Formatting")
+        actions = {action.text(): action for action in formatting.menu().actions()}
+        self.assertTrue(actions["Clear Formatting"].isEnabled())
+
+        actions["Clear Formatting"].trigger()
+        self.assertEqual(editor.editor.toPlainText(), "Title")
+
     def test_editor_context_menu_formatting_inline_disabled_without_word(self):
         editor = self.make_editor()
         editor.editor.setPlainText("")
@@ -2290,6 +2303,115 @@ class EditorAndMainTests(unittest.TestCase):
             self.assertFalse(menubar.isHidden())
             self.assertFalse(window.menu_button_action.isVisible())
             self.assertTrue(window.settings_manager.get_menubar_visible())
+
+    def test_format_toolbar_starts_hidden_and_toggles_from_view_menu(self):
+        class FakeEditorTab(QWidget):
+            def __init__(self, snippet_manager, settings_manager):
+                super().__init__()
+                self.editor = QTextEdit(self)
+                self.current_file = None
+
+            def set_main_window(self, main_window):
+                self.main_window = main_window
+
+        with patch.object(window_module, "EditorTab", FakeEditorTab):
+            window = TextEditorApp()
+            self.addCleanup(window.close)
+            self.addCleanup(window.deleteLater)
+            window.show()
+
+            self.assertEqual(window.format_toolbar.objectName(), "formatToolBar")
+            self.assertTrue(window.format_toolbar.isHidden())
+            self.assertFalse(window.format_toolbar_action.isChecked())
+            self.assertFalse(window.settings_manager.get_format_toolbar_visible())
+            # Its own row, under the main toolbar.
+            self.assertEqual(
+                window.toolBarArea(window.format_toolbar),
+                window.toolBarArea(window.toolbar),
+            )
+            self.assertTrue(window.toolBarBreak(window.format_toolbar))
+
+            view_menu = next(
+                action.menu() for action in window.menuBar().actions()
+                if action.text() == "&View"
+            )
+            self.assertIn(window.format_toolbar_action, view_menu.actions())
+
+            window.format_toolbar_action.trigger()
+            self.assertFalse(window.format_toolbar.isHidden())
+            self.assertTrue(window.settings_manager.get_format_toolbar_visible())
+
+            # The toggle is offered from both toolbars' context menus.
+            for toolbar in (window.toolbar, window.format_toolbar):
+                captured = {}
+                with patch.object(QMenu, "exec", lambda self, pos: captured.update(menu=self)):
+                    window.show_toolbar_context_menu(toolbar.rect().center(), toolbar)
+                self.assertIn(window.format_toolbar_action, captured["menu"].actions())
+
+            window.rebuild_chrome()
+            window.show()
+            self.assertFalse(window.format_toolbar.isHidden())
+            self.assertTrue(window.format_toolbar_action.isChecked())
+
+            window.format_toolbar_action.trigger()
+            self.assertTrue(window.format_toolbar.isHidden())
+            self.assertFalse(window.settings_manager.get_format_toolbar_visible())
+
+    def test_format_toolbar_actions_edit_the_current_editor(self):
+        class FakeEditorTab(QWidget):
+            def __init__(self, snippet_manager, settings_manager):
+                super().__init__()
+                self.editor = QTextEdit(self)
+                self.current_file = None
+
+            def set_main_window(self, main_window):
+                self.main_window = main_window
+
+        with patch.object(window_module, "EditorTab", FakeEditorTab):
+            window = TextEditorApp()
+            self.addCleanup(window.close)
+            self.addCleanup(window.deleteLater)
+
+            editor = window.get_current_editor()
+            editor.setPlainText("hello")
+            editor.moveCursor(QTextCursor.MoveOperation.Start)
+            window.update_edit_actions()
+            self.assertTrue(window.bold_action.isEnabled())
+
+            window.bold_action.trigger()
+            self.assertEqual(editor.toPlainText(), "**hello**")
+
+            window.clear_formatting_action.trigger()
+            self.assertEqual(editor.toPlainText(), "hello")
+
+            # Heading offers H1/H2/H3 from the toolbar button's menu.
+            heading_levels = [action.text() for action in window.heading_menu.actions()]
+            self.assertEqual(heading_levels, ["Heading 1", "Heading 2", "Heading 3"])
+            window.heading_menu.actions()[2].trigger()
+            self.assertEqual(editor.toPlainText(), "### hello")
+
+            # Without an editor the formatting commands go quiet.
+            window.tab_widget.clear()
+            window.update_edit_actions()
+            self.assertFalse(window.bold_action.isEnabled())
+            self.assertFalse(window.clear_formatting_action.isEnabled())
+
+    def test_focus_mode_hides_and_restores_the_format_toolbar(self):
+        window = TextEditorApp()
+        self.addCleanup(window.close)
+        self.addCleanup(window.deleteLater)
+        window.show()
+        window.format_toolbar_action.trigger()
+        self.assertFalse(window.format_toolbar.isHidden())
+
+        tab = window.tab_widget.currentWidget()
+        tab.toggle_focus_mode()
+        self.assertTrue(window.format_toolbar.isHidden())
+        self.assertTrue(window.toolbar.isHidden())
+
+        tab.toggle_focus_mode()
+        self.assertFalse(window.format_toolbar.isHidden())
+        self.assertFalse(window.toolbar.isHidden())
 
     def test_editor_theme_domain_force_reapplies_same_named_theme(self):
         class FakeEditorTab(QWidget):

@@ -49,6 +49,15 @@ from jottr.editor.case_transform import (
     apply_lowercase,
     apply_uppercase,
 )
+from jottr.editor.text_format import (
+    apply_clear_formatting,
+    apply_code_block,
+    apply_heading,
+    apply_line_prefix,
+    apply_link,
+    apply_numbered_list,
+    apply_wrap,
+)
 from jottr.editor.spellcheck import (
     DOCUMENT_LANGUAGE_AUTO,
     get_document_language,
@@ -1429,6 +1438,7 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
             shortcut=QKeySequence("Ctrl+Alt+U"),
             tooltip="Capitalize the selection, or the word under the cursor",
         )
+        self.create_format_actions()
         self.find_action = self._make_action(
             "Find/Replace",
             self.toggle_find,
@@ -1579,6 +1589,169 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
             "About", self.show_about, tooltip="About Jottr"
         )
 
+    def format_text(self, transform):
+        """Run a Markdown transform on the current editor and keep typing there."""
+        editor = self.get_current_editor()
+        if editor is None:
+            return
+        transform(editor)
+        editor.setFocus()
+
+    def create_format_actions(self):
+        """Markdown commands shared by the formatting toolbar and its menus."""
+        def make(text, transform, icon_name, tooltip, shortcut=None):
+            action = self._make_action(
+                text,
+                lambda checked=False, transform=transform: self.format_text(transform),
+                icon_name=icon_name,
+                shortcut=shortcut,
+                tooltip=tooltip,
+            )
+            action.setEnabled(False)
+            return action
+
+        self.heading_action = make(
+            "Heading", lambda editor: apply_heading(editor, 2),
+            "format-heading", "Turn the line into a heading",
+        )
+        # The toolbar button opens this menu; the action itself applies H2.
+        self.heading_menu = QMenu(self)
+        for level in (1, 2, 3):
+            level_action = self._make_action(
+                "Heading {level}",
+                lambda checked=False, level=level: self.format_text(
+                    lambda editor, level=level: apply_heading(editor, level)
+                ),
+                tooltip="Turn the line into a heading",
+            )
+            level_action.setProperty("text_args", {"level": level})
+            level_action.setText(_("Heading {level}").format(level=level))
+            self.heading_menu.addAction(level_action)
+        self.heading_action.setMenu(self.heading_menu)
+
+        self.bold_action = make(
+            "Bold", lambda editor: apply_wrap(editor, "**"),
+            "format-bold", "Bold", QKeySequence("Ctrl+B"),
+        )
+        self.italic_action = make(
+            "Italic", lambda editor: apply_wrap(editor, "*"),
+            "format-italic", "Italic", QKeySequence("Ctrl+I"),
+        )
+        self.strikethrough_action = make(
+            "Strikethrough", lambda editor: apply_wrap(editor, "~~"),
+            "format-strikethrough", "Strikethrough", QKeySequence("Ctrl+Shift+X"),
+        )
+        self.inline_code_action = make(
+            "Inline Code", lambda editor: apply_wrap(editor, "`"),
+            "format-code", "Inline Code", QKeySequence("Ctrl+E"),
+        )
+        self.link_action = make(
+            "Link", apply_link, "format-link", "Insert a link", QKeySequence("Ctrl+K"),
+        )
+        self.blockquote_action = make(
+            "Blockquote", lambda editor: apply_line_prefix(editor, "> "),
+            "format-quote", "Blockquote",
+        )
+        self.bulleted_list_action = make(
+            "Bulleted List", lambda editor: apply_line_prefix(editor, "- "),
+            "format-list-bulleted", "Bulleted List",
+        )
+        self.numbered_list_action = make(
+            "Numbered List", apply_numbered_list,
+            "format-list-numbered", "Numbered List",
+        )
+        self.task_list_action = make(
+            "Task List", lambda editor: apply_line_prefix(editor, "- [ ] "),
+            "format-list-task", "Task List",
+        )
+        self.code_block_action = make(
+            "Code Block", apply_code_block, "format-code-block", "Code Block",
+        )
+        self.clear_formatting_action = make(
+            "Clear Formatting", apply_clear_formatting, "format-clear",
+            "Remove Markdown formatting from the selection or line",
+            QKeySequence("Ctrl+\\"),
+        )
+
+        # None marks a toolbar separator.
+        self.format_toolbar_layout = [
+            self.heading_action,
+            self.bold_action,
+            self.italic_action,
+            self.strikethrough_action,
+            self.inline_code_action,
+            self.link_action,
+            None,
+            self.blockquote_action,
+            self.bulleted_list_action,
+            self.numbered_list_action,
+            self.task_list_action,
+            self.code_block_action,
+            None,
+            self.clear_formatting_action,
+        ]
+        self.format_actions = [
+            action for action in self.format_toolbar_layout if action is not None
+        ]
+        self.format_toolbar_action = self._make_action(
+            "Formatting Toolbar",
+            self.toggle_format_toolbar,
+            tooltip="Show or hide the formatting toolbar",
+            checkable=True,
+        )
+        self.format_toolbar_action.setChecked(
+            self.settings_manager.get_format_toolbar_visible()
+        )
+
+    def setup_format_toolbar(self):
+        """Second toolbar row with the Markdown commands; hidden by default."""
+        self.addToolBarBreak()
+        self.format_toolbar = QToolBar(_("Formatting Toolbar"))
+        self.format_toolbar.setObjectName("formatToolBar")
+        self.format_toolbar.setMovable(False)
+        self.format_toolbar.setFloatable(False)
+        self.addToolBar(self.format_toolbar)
+        self.format_toolbar.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
+        self.format_toolbar.customContextMenuRequested.connect(
+            lambda pos: self.show_toolbar_context_menu(pos, self.format_toolbar)
+        )
+        self.format_toolbar.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonIconOnly)
+
+        for action in self.format_toolbar_layout:
+            if action is None:
+                self.format_toolbar.addSeparator()
+            else:
+                self.format_toolbar.addAction(action)
+
+        # Heading opens its H1/H2/H3 menu straight away, like a split-free picker.
+        heading_button = self.format_toolbar.widgetForAction(self.heading_action)
+        if isinstance(heading_button, QToolButton):
+            heading_button.setPopupMode(QToolButton.ToolButtonPopupMode.InstantPopup)
+
+        self.apply_format_toolbar_visibility()
+
+    def toggle_format_toolbar(self, _checked=False):
+        """Persist Formatting Toolbar from View / toolbar context menus."""
+        self.settings_manager.save_format_toolbar_visible(
+            self.format_toolbar_action.isChecked()
+        )
+        self.apply_format_toolbar_visibility()
+
+    def apply_format_toolbar_visibility(self):
+        """Show or hide the formatting toolbar; focus mode keeps it hidden."""
+        visible = self.settings_manager.get_format_toolbar_visible()
+        if hasattr(self, "format_toolbar_action"):
+            self.format_toolbar_action.blockSignals(True)
+            self.format_toolbar_action.setChecked(visible)
+            self.format_toolbar_action.blockSignals(False)
+        toolbar = getattr(self, "format_toolbar", None)
+        if toolbar is None:
+            return
+        current_tab = self.tab_widget.currentWidget() if hasattr(self, "tab_widget") else None
+        if getattr(current_tab, "focus_mode", False):
+            return
+        toolbar.setVisible(visible)
+
     def setup_toolbar(self):
         """Setup the main toolbar from shared QActions."""
         self.toolbar = QToolBar(_("Main Toolbar"))
@@ -1634,6 +1807,8 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
         self.toolbar.addAction(self.browser_action)
         self.toolbar.addAction(self.menu_button_action)
 
+        self.setup_format_toolbar()
+
         def update_overflow_button():
             try:
                 overflow_button = self.toolbar.findChild(QToolButton, "qt_toolbar_ext_button")
@@ -1652,8 +1827,12 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
         for action in self.translatable_actions:
             text_key = action.property("text_key")
             tooltip_key = action.property("tooltip_key")
+            text_args = action.property("text_args")
             if text_key:
-                action.setText(_(text_key))
+                translated = _(text_key)
+                action.setText(
+                    translated.format(**text_args) if text_args else translated
+                )
             if tooltip_key:
                 translated_tooltip = _(tooltip_key)
                 action.setToolTip(translated_tooltip)
@@ -1715,6 +1894,8 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
         capitalization = getattr(self, "capitalization_menu_action", None)
         if capitalization is not None:
             capitalization.setEnabled(editor is not None)
+        for action in getattr(self, "format_actions", []):
+            action.setEnabled(editor is not None)
 
     def _on_copy_available(self, available):
         """QTextEdit.copyAvailable tracks selection for cut/copy."""
@@ -1915,6 +2096,7 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
         view_menu.addAction(self.focus_mode_action)
         view_menu.addAction(self.line_numbers_action)
         view_menu.addAction(self.show_menubar_action)
+        view_menu.addAction(self.format_toolbar_action)
         view_menu.addSeparator()
         view_menu.addAction(self.zoom_in_action)
         view_menu.addAction(self.zoom_out_action)
@@ -2347,8 +2529,9 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
         self.apply_app_style()
         self.sync_toolbar_style_menu()
 
-    def show_toolbar_context_menu(self, pos):
-        """Right-click on the main toolbar: Comfy / Compact density and Show Menubar."""
+    def show_toolbar_context_menu(self, pos, toolbar=None):
+        """Right-click on a toolbar: Comfy / Compact density and the chrome toggles."""
+        toolbar = toolbar if toolbar is not None else self.toolbar
         self.setup_toolbar_style_actions()
         self.sync_toolbar_style_menu()
         menu = QMenu(self)
@@ -2356,8 +2539,9 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
         for action in self.toolbar_style_actions.actions():
             menu.addAction(action)
         menu.addSeparator()
+        menu.addAction(self.format_toolbar_action)
         menu.addAction(self.show_menubar_action)
-        menu.exec(self.toolbar.mapToGlobal(pos))
+        menu.exec(toolbar.mapToGlobal(pos))
 
     def show_tab_context_menu(self, pos):
         """Right-click on a document tab: Rename or Change Title, Show in Folder, and Close."""
@@ -3075,6 +3259,11 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
             self.removeAction(action)
         self.removeToolBar(self.toolbar)
         self.toolbar.deleteLater()
+        format_toolbar = getattr(self, "format_toolbar", None)
+        if format_toolbar is not None:
+            self.removeToolBar(format_toolbar)
+            format_toolbar.deleteLater()
+            self.format_toolbar = None
         self.setup_toolbar()
         self.create_menu_bar()
 

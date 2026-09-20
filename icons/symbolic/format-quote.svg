@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16">
+<path d="M 7 1 L 5 4 L 5 5 C 5 5.55228472, 5.44771528 6, 6 6 C 6.55228472 6, 7 5.55228472, 7 5 C 7 4.44771528, 6.55228472 4, 6 4 L 5 4 M 3 1 L 1 4 L 1 5 C 1 5.55228472, 1.44771528 6, 2 6 C 2.55228472 6, 3 5.55228472, 3 5 C 3 4.44771528, 2.55228472 4, 2 4 L 1 4" id="path2" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" stroke="rgb(0,0,0)" fill="none" class="foreground-stroke transparent-fill" >
+    </path>
+  <path d="M 9 15 L 11 12 L 11 11 C 11 10.4477148, 10.5522852 10, 10 10 C 9.44771481 10, 9 10.4477148, 9 11 C 9 11.5522852, 9.44771481 12, 10 12 L 11 12 M 13 15 L 15 12 L 15 11 C 15 10.4477148, 14.5522852 10, 14 10 C 13.4477148 10, 13 10.4477148, 13 11 C 13 11.5522852, 13.4477148 12, 14 12 L 15 12" id="path3" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" stroke="rgb(0,0,0)" fill="none" class="foreground-stroke transparent-fill" >
+    </path>
+</svg>

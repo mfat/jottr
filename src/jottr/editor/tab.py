@@ -41,6 +41,7 @@ from jottr.editor.case_transform import (
 )
 from jottr.editor.text_edit import CompletingTextEdit
 from jottr.editor.text_format import (
+    apply_clear_formatting,
     apply_code_block,
     apply_heading,
     apply_line_prefix,
@@ -944,6 +945,10 @@ class EditorTab(
         formatting_menu.addAction(_("Task List"), lambda: apply_line_prefix(editor, "- [ ] "))
         formatting_menu.addAction(_("Blockquote"), lambda: apply_line_prefix(editor, "> "))
         formatting_menu.addAction(_("Code Block"), lambda: apply_code_block(editor))
+        formatting_menu.addSeparator()
+        formatting_menu.addAction(
+            _("Clear Formatting"), lambda: apply_clear_formatting(editor)
+        )
 
     def _add_spelling_actions(self, menu, word):
         """Add spell-check actions for a single misspelled word."""

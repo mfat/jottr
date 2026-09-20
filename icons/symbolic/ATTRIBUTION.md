@@ -12,6 +12,13 @@ for the active light/dark theme. Regenerate with:
 python3 scripts/compile_icons.py
 ```
 
-License: CC-BY-SA-3.0 or LGPL-3 (and CC-BY-SA-4.0 where noted upstream).
+Adwaita has no heading, code, quote, checkbox, code-file or eraser glyph, so
+`format-heading`, `format-code`, `format-quote`, `format-list-task`,
+`format-code-block` and `format-clear` come from the GNOME
+[Icon Library](https://gitlab.gnome.org/World/design/icon-library) icon dev kit
+(CC0-1.0, Jakub Steiner), drawn in the same symbolic style.
+
+License: CC-BY-SA-3.0 or LGPL-3 (and CC-BY-SA-4.0 where noted upstream);
+CC0-1.0 for the icon dev kit glyphs.
 
 Source: https://download.gnome.org/sources/adwaita-icon-theme/

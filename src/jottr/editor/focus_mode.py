@@ -55,6 +55,8 @@ class FocusModeMixin:
         # Hide UI elements
         window.menuBar().hide()
         window.toolbar.hide()
+        if getattr(window, 'format_toolbar', None) is not None:
+            window.format_toolbar.hide()
         window.tab_widget.tabBar().hide()
         
         # Hide panes and let the editor pane fill the window so we can center
@@ -99,6 +101,8 @@ class FocusModeMixin:
         else:
             window.menuBar().show()
         window.toolbar.show()
+        if hasattr(window, 'apply_format_toolbar_visibility'):
+            window.apply_format_toolbar_visibility()
         window.tab_widget.tabBar().show()
         self.editor_pane.setMaximumWidth(16777215)
         if hasattr(self, '_focus_pane_resize_filter'):

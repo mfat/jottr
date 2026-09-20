@@ -42,6 +42,15 @@ Enter distraction-free writing mode:
 - Hides side panels for distraction-free writing
 - Click exit button, Escape key or Ctrl+Shift+D (or Cmd+Shift+D on Mac) to exit focus mode
 
+## Formatting Toolbar
+Markdown commands for the text you are writing, laid out like GitHub's editor.
+
+- Turn it on with View → Formatting Toolbar (it is hidden until you ask for it), or from the right-click menu on either toolbar
+- Buttons: heading (click for H1/H2/H3), bold, italic, strikethrough, inline code, link, blockquote, bulleted list, numbered list, task list, code block, and Clear Formatting
+- Inline commands act on the selection, or on the word under the cursor; line commands act on the selected lines, or the current line
+- The same commands live in the editor's right-click menu under Formatting
+- **Clear Formatting** removes Markdown markers — headings, quotes, list markers, bold/italic/strikethrough, inline code, links and code fences — from the selection, or from the current line
+
 ## Spell Checking
 Jottr underlines misspelled words while you type:
 
@@ -130,3 +139,9 @@ Common operations:
 - Ctrl+Shift+D: Toggle focus mode (cmd+shift+d on mac)
 - Escape: Exit focus mode
 - Ctrl+F: Find
+- Ctrl+B: Bold
+- Ctrl+I: Italic
+- Ctrl+K: Link
+- Ctrl+E: Inline code
+- Ctrl+Shift+X: Strikethrough
+- Ctrl+\\: Clear formatting

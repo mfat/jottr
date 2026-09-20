@@ -11,6 +11,22 @@ from PyQt6.QtGui import QTextCursor
 from jottr.editor.spellcheck import find_word_bounds
 
 _HEADING_RE = re.compile(r"^#{1,6}\s+")
+# Line markers "Clear Formatting" removes, repeatedly (e.g. "> - item").
+_LINE_MARKER_RE = re.compile(
+    r"^(\s*)(?:#{1,6}\s+|>\s?|[-*+]\s+\[[ xX]\]\s+|[-*+]\s+|\d+[.)]\s+)"
+)
+_FENCE_RE = re.compile(r"^\s*(?:```|~~~)\s*\w*\s*$")
+# Paired inline markers only, so plain text (snake_case, 2 * 3) survives.
+_INLINE_MARKERS = (
+    (re.compile(r"!?\[([^\]]*)\]\([^)]*\)"), r"\1"),
+    (re.compile(r"\*\*\*(\S(?:.*?\S)?)\*\*\*"), r"\1"),
+    (re.compile(r"\*\*(\S(?:.*?\S)?)\*\*"), r"\1"),
+    (re.compile(r"(?<!\w)__(\S(?:.*?\S)?)__(?!\w)"), r"\1"),
+    (re.compile(r"~~(\S(?:.*?\S)?)~~"), r"\1"),
+    (re.compile(r"\*(\S(?:.*?\S)?)\*"), r"\1"),
+    (re.compile(r"(?<!\w)_(\S(?:.*?\S)?)_(?!\w)"), r"\1"),
+    (re.compile(r"`([^`]+)`"), r"\1"),
+)
 
 
 def wrap_in_quotes(text):
@@ -145,6 +161,53 @@ def apply_code_block(editor):
         _select(cursor, start, last.position() + last.length() - 1)
         body = cursor.selectedText().replace(" ", "\n")
         cursor.insertText(f"```\n{body}\n```")
+        _select(cursor, start, cursor.position())
+        editor.setTextCursor(cursor)
+        return True
+    finally:
+        cursor.endEditBlock()
+
+
+def clear_markdown(text):
+    """Return *text* without Markdown markers (fence lines are dropped)."""
+    lines = []
+    for line in text.split("\n"):
+        if _FENCE_RE.match(line):
+            continue
+        while True:
+            stripped = _LINE_MARKER_RE.sub(r"\1", line, count=1)
+            if stripped == line:
+                break
+            line = stripped
+        for pattern, replacement in _INLINE_MARKERS:
+            line = pattern.sub(replacement, line)
+        lines.append(line)
+    return "\n".join(lines)
+
+
+def apply_clear_formatting(editor):
+    """Strip Markdown markers from the selection, or from the current line."""
+    if not _editable(editor):
+        return False
+    original = editor.textCursor()
+    cursor = editor.textCursor()
+    if cursor.hasSelection():
+        start = cursor.selectionStart()
+    else:
+        blocks = _target_blocks(editor)
+        start = blocks[0].position()
+        last = blocks[-1]
+        _select(cursor, start, last.position() + last.length() - 1)
+    # selectedText() separates blocks with U+2029, not a newline.
+    source = cursor.selectedText().replace("\u2029", "\n")
+    cleaned = clear_markdown(source)
+    if cleaned == source:
+        # Nothing to strip: leave the document and the undo stack alone.
+        editor.setTextCursor(original)
+        return False
+    cursor.beginEditBlock()
+    try:
+        cursor.insertText(cleaned)
         _select(cursor, start, cursor.position())
         editor.setTextCursor(cursor)
         return True

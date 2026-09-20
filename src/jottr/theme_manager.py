@@ -638,11 +638,15 @@ class ThemeManager:
         """
         if SettingsManager.normalize_toolbar_style(toolbar_style) == TOOLBAR_STYLE_COMFY:
             stylesheet += """
-            QToolBar#mainToolBar {
+            QToolBar#mainToolBar, QToolBar#formatToolBar {
                 padding: 6px 10px;
                 spacing: 4px;
             }
-            QToolBar#mainToolBar QToolButton {
+            QToolBar#formatToolBar {
+                padding-top: 0px;
+            }
+            QToolBar#mainToolBar QToolButton,
+            QToolBar#formatToolBar QToolButton {
                 padding: 6px 7px;
                 min-width: 28px;
                 min-height: 28px;

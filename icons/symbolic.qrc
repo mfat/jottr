@@ -15,6 +15,18 @@
         <file alias="find.svg">symbolic/find.svg</file>
         <file alias="focus-mode.svg">symbolic/focus-mode.svg</file>
         <file alias="font.svg">symbolic/large-text-symbolic.svg</file>
+        <file alias="format-bold.svg">symbolic/format-bold.svg</file>
+        <file alias="format-clear.svg">symbolic/format-clear.svg</file>
+        <file alias="format-code-block.svg">symbolic/format-code-block.svg</file>
+        <file alias="format-code.svg">symbolic/format-code.svg</file>
+        <file alias="format-heading.svg">symbolic/format-heading.svg</file>
+        <file alias="format-italic.svg">symbolic/format-italic.svg</file>
+        <file alias="format-link.svg">symbolic/format-link.svg</file>
+        <file alias="format-list-bulleted.svg">symbolic/format-list-bulleted.svg</file>
+        <file alias="format-list-numbered.svg">symbolic/format-list-numbered.svg</file>
+        <file alias="format-list-task.svg">symbolic/format-list-task.svg</file>
+        <file alias="format-quote.svg">symbolic/format-quote.svg</file>
+        <file alias="format-strikethrough.svg">symbolic/format-strikethrough.svg</file>
         <file alias="format-text-color.svg">symbolic/format-text-color.svg</file>
         <file alias="gtk-select-font.svg">symbolic/gtk-select-font.svg</file>
         <file alias="help.svg">symbolic/help.svg</file>
@@ -36,6 +48,7 @@
         <file alias="smaller.svg">symbolic/smaller.svg</file>
         <file alias="snippets.svg">symbolic/star-large-symbolic.svg</file>
         <file alias="star-large-symbolic.svg">symbolic/star-large-symbolic.svg</file>
+        <file alias="tab-close.svg">symbolic/cross-large-square-outline-symbolic.svg</file>
         <file alias="theme.svg">symbolic/brush-monitor-symbolic.svg</file>
         <file alias="undo.svg">symbolic/undo.svg</file>
         <file alias="user-trash.svg">symbolic/user-trash.svg</file>
@@ -44,6 +57,5 @@
         <file alias="zoom-in.svg">symbolic/zoom-in.svg</file>
         <file alias="zoom-out.svg">symbolic/zoom-out.svg</file>
         <file alias="zoom-reset.svg">symbolic/zoom-reset.svg</file>
-        <file alias="tab-close.svg">symbolic/cross-large-square-outline-symbolic.svg</file>
     </qresource>
 </RCC>
