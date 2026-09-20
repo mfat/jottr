@@ -23,6 +23,15 @@ TOOLBAR_STYLES = (TOOLBAR_STYLE_COMFY, TOOLBAR_STYLE_COMPACT)
 TOOLBAR_STYLE_DEFAULT = TOOLBAR_STYLE_COMPACT
 # Former baked-in UI default (Qt5 Normal weight=50). Migrate to the system UI font.
 _LEGACY_DEFAULT_UI_FONT = ("DejaVu Sans", 10, 50, False)
+# Former baked-in editor defaults (Qt5 Normal weight=50 and its Qt6 equivalent).
+# Migrate the face to the system fixed-width font.
+_LEGACY_DEFAULT_EDITOR_FONTS = (
+    ("DejaVu Sans Mono", 12, 50, False),
+    ("DejaVu Sans Mono", 12, 400, False),
+)
+# Editor size stays an app choice: desktops size their fixed font for terminals
+# and code views, which reads too small for long-form writing.
+DEFAULT_EDITOR_FONT_SIZE = 12
 # Dates appended to suggested file names use digits only, since locale date
 # formats contain separators such as "/" that file names cannot hold.
 SAVE_NAME_DATE_FORMATS = {"YYYYMMDD": "%Y%m%d", "YYYYDDMM": "%Y%d%m"}
@@ -53,6 +62,31 @@ class SettingsManager:
         return font
 
     @staticmethod
+    def system_fixed_font():
+        """Desktop fixed-width font from the platform, with sane fallbacks."""
+        font = QFont(QFontDatabase.systemFont(QFontDatabase.SystemFont.FixedFont))
+        if not font.family():
+            font = QFont("monospace")
+        if font.pointSize() <= 0 and font.pointSizeF() <= 0:
+            ui_size = SettingsManager.system_ui_font().pointSize()
+            font.setPointSize(ui_size if ui_size > 0 else 12)
+        if int(font.weight()) < 100:
+            font.setWeight(QFont.Weight.Normal)
+        font.setStyleHint(QFont.StyleHint.Monospace)
+        font.setFixedPitch(True)
+        return font
+
+    @staticmethod
+    def font_point_size(font, fallback=10):
+        """Whole point size of *font*, falling back when the font is pixel-sized."""
+        size = font.pointSize()
+        if size > 0:
+            return size
+        if font.pointSizeF() > 0:
+            return round(font.pointSizeF())
+        return fallback
+
+    @staticmethod
     def coerce_font_weight(weight):
         """Map legacy Qt5 0–99 weights to Qt6 100–900 (50→400 Normal)."""
         try:
@@ -68,9 +102,8 @@ class SettingsManager:
 
     def __init__(self):
         ui_font = self.system_ui_font()
-        ui_size = ui_font.pointSize()
-        if ui_size <= 0:
-            ui_size = round(ui_font.pointSizeF()) if ui_font.pointSizeF() > 0 else 10
+        ui_size = self.font_point_size(ui_font, 10)
+        editor_family = self.system_fixed_font().family()
         # Initialize default settings
         self.settings = {
             "ui_font_family": ui_font.family(),
@@ -79,10 +112,13 @@ class SettingsManager:
             "ui_font_italic": bool(ui_font.italic()),
             # True = always resolve Main UI Font from the desktop; False = fixed face.
             "ui_font_follow_system": True,
-            "font_family": "DejaVu Sans Mono",
-            "font_size": 12,
+            "font_family": editor_family,
+            "font_size": DEFAULT_EDITOR_FONT_SIZE,
             "font_weight": int(QFont.Weight.Normal),
             "font_italic": False,
+            # Set once the DejaVu editor default has been replaced by the
+            # system fixed-width font, so a face the user picks later stays.
+            "editor_font_from_system": True,
             "ui_theme": "System",
             "window_color_scheme": "",
             "theme": "Sepia",
@@ -210,6 +246,7 @@ class SettingsManager:
                 with open(settings_path, 'r', encoding='utf-8') as f:
                     saved_settings = json.load(f)
                     had_follow_flag = "ui_font_follow_system" in saved_settings
+                    had_editor_font_flag = "editor_font_from_system" in saved_settings
                     self.settings.update(saved_settings)
                     # Custom editor themes are no longer supported.
                     self.settings.pop("custom_themes", None)
@@ -220,7 +257,10 @@ class SettingsManager:
                     pane_states = self.settings.get("pane_states")
                     if isinstance(pane_states, dict):
                         pane_states.pop("browser_visible", None)
-                    self.migrate_legacy_font_settings(had_follow_flag=had_follow_flag)
+                    self.migrate_legacy_font_settings(
+                        had_follow_flag=had_follow_flag,
+                        had_editor_font_flag=had_editor_font_flag,
+                    )
                     self.migrate_default_window_scheme_follows_system()
             except Exception as e:
                 print(f"Error loading settings: {str(e)}")
@@ -237,8 +277,8 @@ class SettingsManager:
         self.settings["ui_theme"] = "System"
         self.save_settings()
 
-    def migrate_legacy_font_settings(self, had_follow_flag=True):
-        """Replace the old DejaVu UI default and coerce Qt5 font weights."""
+    def migrate_legacy_font_settings(self, had_follow_flag=True, had_editor_font_flag=True):
+        """Replace the old DejaVu defaults and coerce Qt5 font weights."""
         changed = False
         family = self.settings.get("ui_font_family")
         size = self.settings.get("ui_font_size")
@@ -253,11 +293,8 @@ class SettingsManager:
         )
         if is_legacy_ui:
             ui_font = self.system_ui_font()
-            ui_size = ui_font.pointSize()
-            if ui_size <= 0:
-                ui_size = round(ui_font.pointSizeF()) if ui_font.pointSizeF() > 0 else 10
             self.settings["ui_font_family"] = ui_font.family()
-            self.settings["ui_font_size"] = ui_size
+            self.settings["ui_font_size"] = self.font_point_size(ui_font, 10)
             self.settings["ui_font_weight"] = int(ui_font.weight())
             self.settings["ui_font_italic"] = bool(ui_font.italic())
             self.settings["ui_font_follow_system"] = True
@@ -273,11 +310,32 @@ class SettingsManager:
                 self.settings["ui_font_follow_system"] = False
                 changed = True
 
-        editor_weight = self.settings.get("font_weight")
-        coerced_editor = self.coerce_font_weight(editor_weight)
-        if editor_weight != coerced_editor:
-            self.settings["font_weight"] = coerced_editor
+        # Untouched DejaVu editor default → the desktop fixed-width font.
+        # Runs once per install: afterwards the flag is stored, so a face the
+        # user picks (DejaVu included) is never overwritten again.
+        is_legacy_editor = not had_editor_font_flag and (
+            self.settings.get("font_family"),
+            self.settings.get("font_size"),
+            self.settings.get("font_weight"),
+            bool(self.settings.get("font_italic", False)),
+        ) in _LEGACY_DEFAULT_EDITOR_FONTS
+        if not had_editor_font_flag:
+            # Defaults already carry the flag; persist it so this runs once.
+            self.settings["editor_font_from_system"] = True
             changed = True
+        if is_legacy_editor:
+            # Keep the saved size/style; only the hardcoded face changes.
+            self.settings["font_family"] = self.system_fixed_font().family()
+            self.settings["font_weight"] = self.coerce_font_weight(
+                self.settings.get("font_weight")
+            )
+            changed = True
+        else:
+            editor_weight = self.settings.get("font_weight")
+            coerced_editor = self.coerce_font_weight(editor_weight)
+            if editor_weight != coerced_editor:
+                self.settings["font_weight"] = coerced_editor
+                changed = True
 
         if changed:
             self.save_settings()
@@ -337,9 +395,7 @@ class SettingsManager:
             self.settings["ui_font_follow_system"] = follow
             if follow:
                 font = self.system_ui_font()
-        point_size = font.pointSize()
-        if point_size <= 0:
-            point_size = round(font.pointSizeF()) if font.pointSizeF() > 0 else 10
+        point_size = self.font_point_size(font, 10)
         self.settings.update({
             f"{prefix}_family": font.family(),
             f"{prefix}_size": point_size,

@@ -179,6 +179,8 @@ echo "==> Building PyInstaller bundle"
     --hidden-import spellchecker \
     --hidden-import feedparser \
     --hidden-import requests \
+    --hidden-import certifi \
+    --collect-data certifi \
     --add-data "src/jottr/help:jottr/help" \
     --add-data "src/jottr/icons:jottr/icons" \
     --add-data "src/jottr/resources:jottr/resources" \

@@ -52,7 +52,9 @@ if [[ -n "$(git status --porcelain)" ]]; then
   exit 1
 fi
 
-CURRENT_VERSION=$(python3 - "$INIT_FILE" <<'PY'
+# Heredoc must not sit inside $(...): bash still counts quotes/parens in the body.
+read_current_version() {
+  python3 - "$1" <<'PY'
 import re
 import sys
 from pathlib import Path
@@ -61,7 +63,8 @@ text = Path(sys.argv[1]).read_text(encoding="utf-8")
 match = re.search(r"""__version__\s*=\s*['"]([^'"]+)['"]""", text)
 print(match.group(1) if match else "0.0.0")
 PY
-)
+}
+CURRENT_VERSION=$(read_current_version "$INIT_FILE")
 
 echo "Current version: v$CURRENT_VERSION"
 read -rp "New version (semver, e.g. 2.5.3): " VERSION

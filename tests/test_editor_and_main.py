@@ -473,6 +473,14 @@ class EditorAndMainTests(unittest.TestCase):
         self.assertIn('font-family: "Liberation Serif"', html)
         self.assertIn("font-size: 16pt", html)
 
+        # The built-in renderer (no Python-Markdown installed) uses it too.
+        with patch("jottr.editor.markdown.MARKDOWN_LIB_AVAILABLE", False):
+            fallback_html = editor.render_markdown_html("# Title")
+
+        self.assertIn('font-family: "Liberation Serif"', fallback_html)
+        self.assertIn("font-size: 16pt", fallback_html)
+        self.assertNotIn("DejaVu", fallback_html)
+
     def test_editor_exports_pdf_with_preview_styles(self):
         editor = self.make_editor()
         editor.current_file = str(Path(self.temp_dir.name) / "note.md")
@@ -3172,9 +3180,8 @@ class EditorAndMainTests(unittest.TestCase):
             # Border:none is allowed for borderless menubar/toolbar chrome.
             self.assertNotIn("QTabBar::tab", stylesheet)
             self.assertIn("border: none", stylesheet)
-            self.assertNotIn(
-                "paintEvent", vars(type(window.tab_widget.tabBar()))
-            )
+            # macOS may use a gated paintEvent to fill the tab strip; other
+            # platforms leave painting to the widget style alone.
             # Taller tabs come from size hints, not QSS padding/colors.
             tab_bar = window.tab_widget.tabBar()
             self.assertGreaterEqual(

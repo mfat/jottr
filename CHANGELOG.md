@@ -1,5 +1,28 @@
 # Changelog
 
+## [2.7.4](https://github.com/mfat/jottr/compare/v2.7.3...v2.7.4) (2026-09-19)
+
+
+### Bug Fixes
+
+* make release.sh parse on macOS bash 3.2 ([744b2ea](https://github.com/mfat/jottr/commit/744b2ea776f76302c798826d08d034cd8ed43bd5))
+* match macOS tab strip to Window like Fusion ([c2b11c3](https://github.com/mfat/jottr/commit/c2b11c359767fd31de3a659c206bd39ce580d5a2))
+* paint macOS document tabs from the chrome palette ([1f31f17](https://github.com/mfat/jottr/commit/1f31f17c59cb75de100d5df85b864e1146d0a232))
+* use the system fixed-width font instead of hardcoded DejaVu ([7781233](https://github.com/mfat/jottr/commit/7781233234b399626dedee88cc1567bae937af4d))
+* verify plugin downloads against certifi's CA bundle ([9f518cc](https://github.com/mfat/jottr/commit/9f518cc58545d1618ef3b91f728e91710be7de85)), closes [#142](https://github.com/mfat/jottr/issues/142)
+
+
+### Miscellaneous
+
+* release 2.7.4 ([46a46e7](https://github.com/mfat/jottr/commit/46a46e7a75ab147d7a2314341232d71dd3feee87))
+
+## [2.7.3](https://github.com/mfat/jottr/compare/v2.7.2...v2.7.3) (2026-09-19)
+
+
+### Bug Fixes
+
+* keep starting when a plugin fails to load ([ef72474](https://github.com/mfat/jottr/commit/ef72474e5ae43b6f8670f485b8da7f1ca0e51a72))
+
 ## [2.7.2](https://github.com/mfat/jottr/compare/v2.6.0...v2.7.2) (2026-09-19)
 
 

@@ -126,9 +126,7 @@ class EditorThemeCard(QFrame):
 
         self._sample = QLabel("\n".join(self.SAMPLE_LINES), self)
         self._sample.setObjectName("editorThemeCardSample")
-        sample_font = QFont("DejaVu Sans Mono")
-        if sample_font.family() != "DejaVu Sans Mono":
-            sample_font = QFont("monospace")
+        sample_font = SettingsManager.system_fixed_font()
         sample_font.setPointSize(9)
         self._sample.setFont(sample_font)
         self._sample.setWordWrap(False)
@@ -920,8 +918,10 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
                 if not window_scheme.path:
                     ThemeManager.apply_app_palette(application, theme)
                 application.setFont(app_font)
+                self._sync_document_tab_strip_style()
             else:
                 self._applied_app_stylesheet = stylesheet
+                self._sync_document_tab_strip_style()
         else:
             theme = effective_chrome_theme(window_scheme_id, scheme_setting)
         self.setFont(app_font)
@@ -1020,7 +1020,19 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
             )
         if swapped:
             QTimer.singleShot(0, self._refresh_icons_after_widget_style)
+        self._sync_document_tab_strip_style()
         return key
+
+    def _sync_document_tab_strip_style(self):
+        """macOS-only: paint document tab strip from chrome palette."""
+        tab_widget = getattr(self, "tab_widget", None)
+        if tab_widget is None or not hasattr(tab_widget, "sync_macos_tab_strip_style"):
+            return
+        application = QApplication.instance()
+        style_key = (
+            application.property("_jottr_style_key") if application is not None else None
+        )
+        tab_widget.sync_macos_tab_strip_style(style_key)
 
     def _restore_app_stylesheet(self, sheet):
         """Re-apply chrome QSS after a Kate-like widget-style swap."""

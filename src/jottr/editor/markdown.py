@@ -576,14 +576,14 @@ class MarkdownPreviewMixin:
         }
 
         def is_table_separator(value):
-            cells = EditorTab.split_table_row(value)
+            cells = self.split_table_row(value)
             if len(cells) < 2:
                 return False
             return all(re.match(r'^:?-{3,}:?$', cell.strip()) for cell in cells)
 
         def table_alignments(separator):
             alignments = []
-            for cell in EditorTab.split_table_row(separator):
+            for cell in self.split_table_row(separator):
                 stripped = cell.strip()
                 if stripped.startswith(":") and stripped.endswith(":"):
                     alignments.append("center")
@@ -681,7 +681,7 @@ class MarkdownPreviewMixin:
             value = re.sub(r'~~(.+?)~~', r'<del>\1</del>', value)
             value = re.sub(r'(?<!\*)\*([^*\n]+)\*(?!\*)', r'<em>\1</em>', value)
             value = re.sub(r'(?<!_)_([^_\n]+)_(?!_)', r'<em>\1</em>', value)
-            value = EditorTab.apply_typographer_replacements(value)
+            value = self.apply_typographer_replacements(value)
             value = re.sub(
                 r':([a-zA-Z0-9_+\-]+):',
                 lambda match: emoji_map.get(match.group(1), match.group(0)),
@@ -921,11 +921,11 @@ class MarkdownPreviewMixin:
                     is_table_separator(lines[line_index + 1].strip())):
                 flush_paragraph()
                 close_list()
-                table_rows = [EditorTab.split_table_row(stripped), EditorTab.split_table_row(lines[line_index + 1].strip())]
+                table_rows = [self.split_table_row(stripped), self.split_table_row(lines[line_index + 1].strip())]
                 alignments = table_alignments(lines[line_index + 1].strip())
                 line_index += 2
                 while line_index < len(lines) and "|" in lines[line_index].strip():
-                    table_rows.append(EditorTab.split_table_row(lines[line_index].strip()))
+                    table_rows.append(self.split_table_row(lines[line_index].strip()))
                     line_index += 1
                 body.append(render_table(line_number, table_rows, alignments))
                 continue
@@ -968,14 +968,18 @@ class MarkdownPreviewMixin:
         flush_paragraph()
         close_list()
 
+        preview_font = self.preview_font()
+        preview_family = self.css_font_family(preview_font)
+        preview_size = max(8, preview_font.pointSize() if preview_font.pointSize() > 0 else 14)
+
         return f"""
         <html>
         <head>
             <style>
                 body {{
                     color: #202124;
-                    font-family: "DejaVu Sans", "Segoe UI", sans-serif;
-                    font-size: 14px;
+                    font-family: "{preview_family}", "Segoe UI", sans-serif;
+                    font-size: {preview_size}pt;
                     line-height: 1.55;
                     margin: 18px;
                 }}
@@ -1000,7 +1004,7 @@ class MarkdownPreviewMixin:
                     margin: 0.9em 0;
                 }}
                 code {{
-                    font-family: "DejaVu Sans Mono", "Consolas", monospace;
+                    font-family: "{preview_family}", "Consolas", monospace;
                     background: #f6f8fa;
                     border-radius: 0px;
                     padding: 2px 4px;
@@ -1475,6 +1479,17 @@ class MarkdownPreviewMixin:
             flags=re.DOTALL
         )
 
+    def preview_font(self):
+        """Editor face the preview renders with (never a hardcoded family)."""
+        return QFont(getattr(self, "current_font", None) or self.settings_manager.get_font("editor"))
+
+    @staticmethod
+    def css_font_family(font):
+        """*font*'s family, escaped for use inside a quoted CSS font-family."""
+        return html.escape(
+            font.family().replace("\\", "\\\\").replace('"', '\\"'), quote=True
+        )
+
     def wrap_markdown_preview_html(self, body_html, content_base_url="", initial_scroll_ratio=None,
                                    fade_in=False, fade_hold_ms=0):
         """Wrap rendered body HTML in Jottr preview CSS and scripts."""
@@ -1482,8 +1497,8 @@ class MarkdownPreviewMixin:
         extension_style_html = self.render_markdown_extension_style_html()
         extension_body_html = self.render_markdown_extension_body_html()
         base_tag = f'<base href="{html.escape(content_base_url, quote=True)}">' if content_base_url else ''
-        preview_font = QFont(getattr(self, "current_font", self.settings_manager.get_font("editor")))
-        preview_family = html.escape(preview_font.family().replace("\\", "\\\\").replace('"', '\\"'), quote=True)
+        preview_font = self.preview_font()
+        preview_family = self.css_font_family(preview_font)
         preview_size = max(8, preview_font.pointSize() if preview_font.pointSize() > 0 else 14)
         dir_attr = "auto"
         try:

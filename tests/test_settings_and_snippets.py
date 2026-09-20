@@ -45,6 +45,10 @@ class SettingsAndSnippetTests(unittest.TestCase):
         self.assertEqual(Path(manager.config_dir), Path(self.temp_dir.name) / "Jottr")
         self.assertTrue(Path(manager.snippets_dir).is_dir())
         self.assertEqual(manager.get_setting("font_size"), 12)
+        self.assertEqual(
+            manager.get_setting("font_family"),
+            SettingsManager.system_fixed_font().family(),
+        )
         self.assertTrue(manager.get_setting("spell_check"))
         self.assertEqual(manager.get_setting("spell_languages"), ["en_US"])
         self.assertEqual(manager.get_setting("document_language"), "auto")
@@ -190,7 +194,13 @@ class SettingsAndSnippetTests(unittest.TestCase):
         self.assertEqual(reloaded.get_font("ui").family(), system.family())
         self.assertGreaterEqual(int(reloaded.get_font("ui").weight()), 100)
         self.assertEqual(int(reloaded.get_font("editor").weight()), int(QFont.Weight.Normal))
-        self.assertEqual(reloaded.get_font("editor").family(), "DejaVu Sans Mono")
+        # The legacy DejaVu editor default migrates to the system fixed font,
+        # keeping the saved size.
+        self.assertEqual(
+            reloaded.get_font("editor").family(),
+            SettingsManager.system_fixed_font().family(),
+        )
+        self.assertEqual(reloaded.get_font("editor").pointSize(), 12)
 
         # Older custom UI fonts without the follow flag stay fixed faces.
         Path(manager.settings_file).write_text(
@@ -210,6 +220,20 @@ class SettingsAndSnippetTests(unittest.TestCase):
         self.assertFalse(custom.uses_system_ui_font())
         self.assertEqual(custom.get_font("ui").family(), "Liberation Sans")
         self.assertEqual(custom.get_font("ui").pointSize(), 13)
+
+    def test_editor_font_default_follows_system_and_keeps_chosen_face(self):
+        system_mono = SettingsManager.system_fixed_font().family()
+        manager = SettingsManager()
+        self.assertEqual(manager.get_font("editor").family(), system_mono)
+
+        # A face the user picked after the migration is never overwritten,
+        # even when it matches the retired DejaVu default.
+        chosen = QFont("DejaVu Sans Mono", 12)
+        manager.save_font(chosen, "editor")
+        for _ in range(2):
+            reloaded = SettingsManager()
+            self.assertEqual(reloaded.get_font("editor").family(), "DejaVu Sans Mono")
+            self.assertEqual(reloaded.get_font("editor").pointSize(), 12)
 
     def test_settings_manager_drops_legacy_custom_themes(self):
         manager = SettingsManager()
@@ -439,7 +463,10 @@ class SettingsAndSnippetTests(unittest.TestCase):
 
         reloaded = SettingsManager()
 
-        self.assertEqual(reloaded.get_setting("font_family"), "DejaVu Sans Mono")
+        self.assertEqual(
+            reloaded.get_setting("font_family"),
+            SettingsManager.system_fixed_font().family(),
+        )
 
     def test_snippet_manager_persists_crud_operations(self):
         settings = SettingsManager()

@@ -339,6 +339,8 @@ class PluginManagerTests(unittest.TestCase):
         with patch("urllib.request.urlopen", return_value=Response(b"new")) as urlopen:
             plugin_manager_module.download_file("https://example.test/plugins.json", target)
         self.assertEqual(urlopen.call_args.kwargs["timeout"], plugin_manager_module.NETWORK_TIMEOUT_SECONDS)
+        # Without CA roots every download dies with CERTIFICATE_VERIFY_FAILED.
+        self.assertTrue(urlopen.call_args.kwargs["context"].get_ca_certs())
         self.assertEqual(target.read_text(encoding="utf-8"), "new")
 
         with patch("urllib.request.urlopen", side_effect=OSError("offline")):
@@ -346,6 +348,27 @@ class PluginManagerTests(unittest.TestCase):
                 plugin_manager_module.download_file("https://example.test/plugins.json", target)
         self.assertEqual(target.read_text(encoding="utf-8"), "new")
         self.assertEqual([path.name for path in target.parent.iterdir()], ["plugins.json"])
+
+    def test_ca_ssl_context_falls_back_to_certifi_when_the_system_store_is_empty(self):
+        import ssl
+        import certifi
+        import jottr.plugin_manager as plugin_manager_module
+
+        # A frozen macOS .app ships no system CA store, so the default context
+        # comes up empty; certifi's bundle has to fill in.
+        empty = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+        self.assertEqual(empty.get_ca_certs(), [])
+        with patch("ssl.create_default_context", return_value=empty):
+            context = plugin_manager_module.ca_ssl_context()
+        self.assertIs(context, empty)
+        self.assertTrue(context.get_ca_certs())
+
+        # A system store with roots is left alone, so SSL_CERT_FILE and
+        # distro or corporate CAs keep working.
+        loaded = ssl.create_default_context(cafile=certifi.where())
+        with patch("ssl.create_default_context", return_value=loaded) as create:
+            self.assertIs(plugin_manager_module.ca_ssl_context(), loaded)
+        create.assert_called_once_with()
 
     def test_registry_source_reads_permissions_and_contributions_from_plugin_json(self):
         plugin_source = Path(self.temp_dir.name) / "plugin-source"
