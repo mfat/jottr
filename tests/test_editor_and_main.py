@@ -1049,6 +1049,105 @@ class EditorAndMainTests(unittest.TestCase):
         self.assertIn("window.__jottrInitialPreviewScrollRatio = 0.4", html)
         self.assertIn("visibility: hidden", html)
 
+    def test_markdown_preview_reveal_width_matches_splitter_share(self):
+        editor = self.make_editor()
+        editor.markdown_splitter.resize(1000, 400)
+        usable = 1000 - editor.markdown_splitter.handleWidth()
+
+        # A closed pane has no size of its own and opens to an even split.
+        self.assertEqual(editor.markdown_preview_reveal_width(), usable // 2)
+
+        # An open pane keeps its share of the width the splitter hands out,
+        # which is the total minus the handle between the two panes.
+        editor.markdown_preview_container.setVisible(True)
+        editor.markdown_splitter.setSizes([600, 400])
+        self.assertEqual(
+            editor.markdown_preview_reveal_width(),
+            round(400 * usable / 1000),
+        )
+
+    def test_markdown_preview_pane_opens_at_once_and_page_fades_in_after(self):
+        editor = self.make_editor()
+        editor.editor.setPlainText("# Title")
+        editor.markdown_splitter.resize(1000, 400)
+        editor.markdown_splitter.setSizes([600, 400])
+        width = editor.markdown_preview_reveal_width()
+
+        with patch.object(type(editor), "animations_enabled", return_value=True):
+            editor.set_markdown_preview_visible(True, save_state=False)
+
+            # The pane starts opening straight away, with the page pinned to
+            # its final width so nothing reflows while the pane moves.
+            self.assertIn(editor.markdown_preview_container, editor.ui_animations)
+            self.assertEqual(editor.markdown_preview.minimumWidth(), width)
+            self.assertFalse(editor.markdown_preview_container.isHidden())
+            self.assertEqual(
+                editor.markdown_preview.url.toLocalFile(),
+                editor.markdown_preview_file,
+            )
+            # The page it just wrote starts out invisible and holds its fade
+            # until the pane has finished opening.
+            preview_html = Path(editor.markdown_preview_file).read_text(encoding="utf-8")
+
+        self.assertIn("window.__jottrPreviewFadeIn = true", preview_html)
+        self.assertIn(
+            f"window.__jottrPreviewFadeHoldMs = {editor.markdown_preview_reveal_duration_ms}",
+            preview_html,
+        )
+
+    def test_markdown_preview_reopens_unchanged_document_without_reloading(self):
+        editor = self.make_editor()
+        editor.editor.setPlainText("# Title")
+
+        editor.set_markdown_preview_visible(True, save_state=False)
+        first_signature = editor.rendered_preview_signature
+        self.assertIsNotNone(first_signature)
+
+        editor.set_markdown_preview_visible(False, save_state=False)
+        with patch.object(editor.markdown_preview, "load") as load:
+            editor.set_markdown_preview_visible(True, save_state=False)
+
+        # Nothing changed, so the page it already shows is left alone.
+        load.assert_not_called()
+        self.assertEqual(editor.rendered_preview_signature, first_signature)
+
+        editor.set_markdown_preview_visible(False, save_state=False)
+        editor.editor.setPlainText("# Another title")
+        with patch.object(editor.markdown_preview, "load") as load:
+            editor.set_markdown_preview_visible(True, save_state=False)
+
+        load.assert_called_once()
+        self.assertNotEqual(editor.rendered_preview_signature, first_signature)
+
+    def test_markdown_preview_pane_opens_and_closes_when_animations_are_off(self):
+        editor = self.make_editor()
+
+        editor.set_markdown_preview_visible(True, save_state=False)
+
+        self.assertFalse(editor.markdown_preview_container.isHidden())
+        self.assertEqual(editor.markdown_preview_container.minimumWidth(), 240)
+        self.assertEqual(editor.markdown_preview.minimumWidth(), 240)
+
+        editor.set_markdown_preview_visible(False, save_state=False)
+
+        self.assertTrue(editor.markdown_preview_container.isHidden())
+        self.assertEqual(editor.markdown_preview.minimumWidth(), 0)
+
+    def test_markdown_preview_page_starts_hidden_only_when_fading_in(self):
+        editor = self.make_editor()
+
+        faded = editor.render_markdown_html("# Title", fade_in=True)
+        plain = editor.render_markdown_html("# Title", fade_in=False)
+
+        self.assertIn("window.__jottrPreviewFadeIn = true", faded)
+        self.assertIn("window.__jottrPreviewFadeIn = false", plain)
+        self.assertIn("transition: opacity 180ms ease-out", faded)
+        self.assertIn("html.jottr-preview-fade-in body", faded)
+        self.assertEqual(
+            editor.markdown_preview_signature(faded),
+            editor.markdown_preview_signature(plain),
+        )
+
     def test_markdown_preview_load_finishes_before_deferred_scroll_sync(self):
         editor = self.make_editor()
         editor.markdown_preview_visible = True

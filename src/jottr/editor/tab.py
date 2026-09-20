@@ -11,7 +11,7 @@ from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QSplitter, QTextEdit, QListWidget,
     QInputDialog, QMenu, QDialog, QToolBar, QCompleter,
     QListWidgetItem, QLineEdit, QPushButton, QMessageBox, QLabel, QToolTip,
-    QGraphicsOpacityEffect,
+    QGraphicsOpacityEffect, QWIDGETSIZE_MAX,
 )
 from PyQt6.QtCore import (
     Qt, QUrl, QTimer, QStringListModel, QEvent, QSize, QRect,
@@ -227,8 +227,19 @@ class EditorTab(
         self.markdown_preview = QWidget()
         self.markdown_preview.setObjectName("markdownPreview")
         self._markdown_preview_ready = False
-        self.markdown_preview.setVisible(False)
-        self.markdown_splitter.addWidget(self.markdown_preview)
+
+        # The preview sits in a clipping container: opening the pane animates
+        # the container's width while the preview keeps its final width, so the
+        # page is laid out once instead of reflowing on every frame.
+        self.markdown_preview_container = QWidget()
+        self.markdown_preview_container.setObjectName("markdownPreviewContainer")
+        self.markdown_preview_container.setLayoutDirection(Qt.LayoutDirection.LeftToRight)
+        preview_container_layout = QVBoxLayout(self.markdown_preview_container)
+        preview_container_layout.setContentsMargins(0, 0, 0, 0)
+        preview_container_layout.setSpacing(0)
+        preview_container_layout.addWidget(self.markdown_preview)
+        self.markdown_preview_container.setVisible(False)
+        self.markdown_splitter.addWidget(self.markdown_preview_container)
         self.markdown_splitter.setSizes([600, 600])
         editor_pane_layout.addWidget(self.markdown_splitter)
 
@@ -1204,7 +1215,7 @@ class EditorTab(
             return False
         return bool(self.settings_manager.get_setting("enable_animations", True))
 
-    def animate_widget_visibility(self, widget, visible, duration=260, fade=True):
+    def animate_widget_visibility(self, widget, visible, duration=260, fade=True, target_width=None):
         widget.setProperty("target_visible", visible)
         if not self.animations_enabled():
             widget.setGraphicsEffect(None)
@@ -1220,12 +1231,16 @@ class EditorTab(
 
         original_width = widget.property("animation_original_max_width")
         if original_width is None or int(original_width) == 0:
-            original_width = widget.maximumWidth()
+            # A clipped-shut widget reports 0, which would keep it shut forever.
+            original_width = widget.maximumWidth() or QWIDGETSIZE_MAX
             widget.setProperty("animation_original_max_width", original_width)
 
-        target_width = max(widget.width(), widget.sizeHint().width(), 260)
-        if not visible and widget.width() > 0:
-            target_width = widget.width()
+        if target_width is None:
+            target_width = max(widget.width(), widget.sizeHint().width(), 260)
+            if not visible and widget.width() > 0:
+                target_width = widget.width()
+        else:
+            target_width = max(int(target_width), 1)
 
         group = QParallelAnimationGroup(self)
 

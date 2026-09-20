@@ -39,6 +39,12 @@ def __getattr__(name):
 
 
 class MarkdownPreviewMixin:
+    # How long the pane takes to slide open. A page rendered for an opening
+    # pane holds its fade for this long, so text appears once the pane has
+    # settled rather than sliding around while it moves.
+    markdown_preview_reveal_duration_ms = 260
+    rendered_preview_signature = None
+
     def ensure_markdown_preview(self):
         """Create the Chromium markdown preview on first use."""
         if getattr(self, "_markdown_preview_ready", False):
@@ -58,6 +64,7 @@ class MarkdownPreviewMixin:
             tab_mod.MarkdownPreviewPage = PageCls
 
         placeholder = getattr(self, "markdown_preview", None)
+        container = getattr(self, "markdown_preview_container", None)
         was_visible = bool(placeholder is not None and placeholder.isVisible())
         sizes = None
         if hasattr(self, "markdown_splitter"):
@@ -76,11 +83,22 @@ class MarkdownPreviewMixin:
             preview_settings.setAttribute(
                 QWebEngineSettings.WebAttribute.LocalContentCanAccessFileUrls, True
             )
+        # Paint the page background before the first document arrives so the
+        # pane never flashes an empty frame as it opens.
+        page = view.page() if hasattr(view, "page") else None
+        if page is not None and hasattr(page, "setBackgroundColor"):
+            page.setBackgroundColor(QColor("#ffffff"))
         view.installEventFilter(self)
         if hasattr(view, "loadFinished"):
             view.loadFinished.connect(self.render_markdown_preview_scripts)
 
-        if hasattr(self, "markdown_splitter") and placeholder is not None:
+        if container is not None and placeholder is not None:
+            container.layout().replaceWidget(placeholder, view)
+            placeholder.setParent(None)
+            placeholder.deleteLater()
+            if sizes:
+                self.markdown_splitter.setSizes(sizes)
+        elif hasattr(self, "markdown_splitter") and placeholder is not None:
             index = self.markdown_splitter.indexOf(placeholder)
             if index < 0:
                 index = self.markdown_splitter.count()
@@ -91,7 +109,9 @@ class MarkdownPreviewMixin:
                 self.markdown_splitter.setSizes(sizes)
         self.markdown_preview = view
         self._markdown_preview_ready = True
-        view.setVisible(was_visible)
+        # Inside the clip container the container carries visibility, so the
+        # view itself stays shown and simply gets clipped away.
+        view.setVisible(True if container is not None else was_visible)
         if hasattr(self, "apply_language_direction"):
             self.apply_language_direction()
         return view
@@ -100,6 +120,37 @@ class MarkdownPreviewMixin:
         """Return True when a path should be treated as markdown."""
         path = file_path or self.current_file or ""
         return os.path.splitext(path.lower())[1] in ('.md', '.markdown', '.mdown', '.mkd')
+
+    def markdown_preview_pane(self):
+        """Widget the splitter sizes: the clip container, or the view itself."""
+        return getattr(self, "markdown_preview_container", None) or self.markdown_preview
+
+    def markdown_preview_reveal_width(self):
+        """Width the preview will end up with once the pane is fully open."""
+        splitter = getattr(self, "markdown_splitter", None)
+        if splitter is None:
+            return 600
+        sizes = splitter.sizes()
+        width = sizes[1] if len(sizes) > 1 else 0
+        # The splitter shares out its width minus the handles in proportion to
+        # the stored sizes; matching that here keeps the page from reflowing
+        # by a few pixels when the pane settles.
+        usable = splitter.width() - splitter.handleWidth() * max(0, len(sizes) - 1)
+        total = sum(sizes)
+        if usable > 340:
+            if width > 0 and total > 0:
+                width = round(width * usable / total)
+            else:
+                # A hidden pane reports no size of its own; it opens to the
+                # even split that set_markdown_preview_visible falls back to.
+                width = usable // 2
+            width = min(width, usable - 100)
+        return max(240, width or 600)
+
+    def freeze_markdown_preview_width(self, width):
+        """Pin the page's layout width so it cannot reflow while the pane moves."""
+        if getattr(self, "_markdown_preview_ready", False):
+            self.markdown_preview.setMinimumWidth(max(0, int(width)))
 
     def set_markdown_preview_visible(self, visible, save_state=True):
         """Show or hide the rendered markdown preview."""
@@ -111,19 +162,63 @@ class MarkdownPreviewMixin:
                 self.save_pane_states()
             return
         self.markdown_preview_visible = visible
-        self.animate_widget_visibility(self.markdown_preview, visible, fade=False)
-        self.markdown_preview.setMinimumWidth(240 if visible else 0)
+        pane = self.markdown_preview_pane()
         if visible:
-            if self.preview_scroll_timer:
-                self.preview_scroll_timer.start()
             if hasattr(self, 'markdown_splitter') and self.markdown_splitter.sizes()[1] < 100:
                 self.markdown_splitter.setSizes([600, 600])
-            self.update_markdown_preview()
+            width = self.markdown_preview_reveal_width()
+            # The page is laid out at its final width straight away, so it can
+            # render behind the pane without reflowing as the pane opens.
+            self.freeze_markdown_preview_width(width)
+            self.clip_markdown_preview_pane(pane)
+            if self.preview_scroll_timer:
+                self.preview_scroll_timer.start()
+            self.update_markdown_preview(preserve_preview_scroll=False, fade_in=True)
+            self.animate_markdown_preview_pane(True, width)
         else:
+            # A pane closed before it finished opening is already at zero width:
+            # collapse it without letting the page reflow on the way out.
+            width = pane.width()
+            self.freeze_markdown_preview_width(max(width, 240))
+            self.animate_markdown_preview_pane(False, max(width, 1))
             if self.preview_scroll_timer:
                 self.preview_scroll_timer.stop()
         if save_state:
             self.save_pane_states()
+
+    def clip_markdown_preview_pane(self, pane):
+        """Show the pane clipped to zero width so Chromium can render off-screen."""
+        original_width = pane.property("animation_original_max_width")
+        if original_width is None or int(original_width) == 0:
+            original_width = pane.maximumWidth()
+            if original_width > 0:
+                pane.setProperty("animation_original_max_width", original_width)
+        if self.animations_enabled():
+            pane.setMaximumWidth(0)
+        pane.setVisible(True)
+
+    def animate_markdown_preview_pane(self, visible, width):
+        """Slide the pane open or shut without reflowing the rendered page."""
+        pane = self.markdown_preview_pane()
+        # The minimum width goes back on only once the pane has arrived, so the
+        # reveal starts from zero instead of snapping open to 240px.
+        pane.setMinimumWidth(0)
+        animation = self.animate_widget_visibility(
+            pane,
+            visible,
+            duration=self.markdown_preview_reveal_duration_ms,
+            fade=False,
+            target_width=width,
+        )
+        if animation is None:
+            self.finish_markdown_preview_pane(visible)
+        else:
+            animation.finished.connect(lambda: self.finish_markdown_preview_pane(visible))
+
+    def finish_markdown_preview_pane(self, visible):
+        """Hand layout control back to the splitter once the pane has settled."""
+        self.freeze_markdown_preview_width(240 if visible else 0)
+        self.markdown_preview_pane().setMinimumWidth(240 if visible else 0)
 
     def toggle_markdown_preview(self):
         """Toggle the rendered markdown preview pane."""
@@ -138,7 +233,7 @@ class MarkdownPreviewMixin:
         if self.markdown_render_timer:
             self.markdown_render_timer.start()
 
-    def update_markdown_preview(self):
+    def update_markdown_preview(self, preserve_preview_scroll=True, fade_in=False):
         """Render editor markdown into the preview pane."""
         if not self.markdown_preview_visible:
             return
@@ -156,15 +251,44 @@ class MarkdownPreviewMixin:
             except (TypeError, ValueError):
                 scroll_ratio = self.get_editor_scroll_ratio()
 
-            self.write_markdown_preview_file(
-                self.render_markdown_html(
-                    self.editor.toPlainText(),
-                    content_base_url,
-                    initial_scroll_ratio=scroll_ratio
-                )
+            preview_html = self.render_markdown_html(
+                self.editor.toPlainText(),
+                content_base_url,
+                initial_scroll_ratio=scroll_ratio,
+                fade_in=fade_in,
+                fade_hold_ms=(
+                    self.markdown_preview_reveal_duration_ms
+                    if fade_in and self.animations_enabled() else 0
+                ),
             )
+            signature = self.markdown_preview_signature(preview_html)
+            if fade_in and signature == self.rendered_preview_signature:
+                # Reopening an unchanged document: the page already shows it,
+                # so leave it alone instead of reloading and fading it back in.
+                # Any fade still owed from that load is settled as usual. It
+                # keeps the scroll position it was closed at, so line it back
+                # up with the editor the way a fresh render would.
+                self.pending_preview_source_line = self.get_editor_top_visible_line()
+                QTimer.singleShot(0, self.sync_markdown_preview_scroll)
+                return
+
+            if fade_in:
+                # Blank the outgoing page so the pane opens empty rather than
+                # flashing the stale render away once the new one arrives.
+                self.markdown_preview.page().runJavaScript(
+                    "document.documentElement.classList.add('jottr-preview-fade-in');"
+                )
+
+            self.write_markdown_preview_file(preview_html)
+            self.rendered_preview_signature = signature
             self.markdown_preview_loading = True
             self.markdown_preview.load(QUrl.fromLocalFile(self.markdown_preview_file))
+
+        if not preserve_preview_scroll:
+            # Opening the pane: skip the round trip to a page that is about to
+            # be replaced and start the render in this event loop pass.
+            render_preview(self.get_editor_scroll_ratio())
+            return
 
         self.markdown_preview.page().runJavaScript(
             """
@@ -177,6 +301,16 @@ class MarkdownPreviewMixin:
             """,
             render_preview
         )
+
+    # The per-render values that say nothing about what the page shows.
+    preview_signature_noise = re.compile(
+        r"window\.__jottr(?:InitialPreviewScrollRatio|PreviewFadeIn|PreviewFadeHoldMs)"
+        r" = (?:[0-9.eE+-]+|true|false)"
+    )
+
+    def markdown_preview_signature(self, preview_html):
+        """Preview HTML reduced to what actually changes on screen."""
+        return self.preview_signature_noise.sub("", preview_html)
 
     def write_markdown_preview_file(self, preview_html):
         """Write the rendered preview to a normal local HTML file for WebEngine."""
@@ -409,10 +543,13 @@ class MarkdownPreviewMixin:
 
         self.markdown_preview.page().runJavaScript(script, apply_editor_scroll)
 
-    def render_markdown_html(self, text, content_base_url="", initial_scroll_ratio=None):
+    def render_markdown_html(self, text, content_base_url="", initial_scroll_ratio=None,
+                             fade_in=False, fade_hold_ms=0):
         """Render a practical markdown subset with stable heading and code styling."""
         if MARKDOWN_LIB_AVAILABLE:
-            return self.render_markdown_html_with_library(text, content_base_url, initial_scroll_ratio)
+            return self.render_markdown_html_with_library(
+                text, content_base_url, initial_scroll_ratio, fade_in, fade_hold_ms
+            )
 
         body = []
         paragraph = []
@@ -970,7 +1107,8 @@ class MarkdownPreviewMixin:
         cells.append(''.join(current).strip())
         return cells
 
-    def render_markdown_html_with_library(self, text, content_base_url="", initial_scroll_ratio=None):
+    def render_markdown_html_with_library(self, text, content_base_url="", initial_scroll_ratio=None,
+                                          fade_in=False, fade_hold_ms=0):
         """Render markdown using Python-Markdown with local preview enhancements."""
         import markdown as markdown_lib
 
@@ -994,7 +1132,9 @@ class MarkdownPreviewMixin:
         body_html = self.add_source_line_anchors(body_html, text)
         body_html = self.add_code_line_anchors(body_html)
 
-        return self.wrap_markdown_preview_html(body_html, content_base_url, initial_scroll_ratio)
+        return self.wrap_markdown_preview_html(
+            body_html, content_base_url, initial_scroll_ratio, fade_in, fade_hold_ms
+        )
 
     def markdown_extensions(self):
         manager = getattr(getattr(self, "main_window", None), "plugin_manager", None)
@@ -1335,7 +1475,8 @@ class MarkdownPreviewMixin:
             flags=re.DOTALL
         )
 
-    def wrap_markdown_preview_html(self, body_html, content_base_url="", initial_scroll_ratio=None):
+    def wrap_markdown_preview_html(self, body_html, content_base_url="", initial_scroll_ratio=None,
+                                   fade_in=False, fade_hold_ms=0):
         """Wrap rendered body HTML in Jottr preview CSS and scripts."""
         extension_head_html = self.render_markdown_extension_head_html()
         extension_style_html = self.render_markdown_extension_style_html()
@@ -1350,11 +1491,33 @@ class MarkdownPreviewMixin:
         except (TypeError, ValueError):
             restore_scroll_ratio = 0.0
         restore_scroll_ratio_json = json.dumps(restore_scroll_ratio)
+        fade_in_json = json.dumps(bool(fade_in))
+        try:
+            fade_hold_json = json.dumps(max(0, int(fade_hold_ms)))
+        except (TypeError, ValueError):
+            fade_hold_json = "0"
         return f"""
         <html dir="{dir_attr}">
         <head>
             {base_tag}
             <script>
+                // A page rendered for an opening pane starts out invisible and
+                // fades itself in once its own DOM is ready — but never before
+                // the pane has finished sliding open.
+                window.__jottrPreviewFadeIn = {fade_in_json};
+                window.__jottrPreviewFadeHoldMs = {fade_hold_json};
+                if (window.__jottrPreviewFadeIn) {{
+                    document.documentElement.classList.add('jottr-preview-fade-in');
+                }}
+                window.__jottrRevealPreview = function () {{
+                    var held = Math.max(0, window.__jottrPreviewFadeHoldMs - performance.now());
+                    setTimeout(function () {{
+                        document.documentElement.classList.remove('jottr-preview-fade-in');
+                    }}, held);
+                }};
+                document.addEventListener('DOMContentLoaded', window.__jottrRevealPreview);
+                // Backstop in case the page is handed to us already parsed.
+                setTimeout(window.__jottrRevealPreview, 1200);
                 window.__jottrInitialPreviewScrollRatio = {restore_scroll_ratio_json};
                 if (window.__jottrInitialPreviewScrollRatio > 0) {{
                     document.documentElement.classList.add('jottr-restoring-preview-scroll');
@@ -1389,12 +1552,18 @@ class MarkdownPreviewMixin:
                 html.jottr-restoring-preview-scroll body {{
                     visibility: hidden;
                 }}
+                html.jottr-preview-fade-in body {{
+                    opacity: 0;
+                    transition: none;
+                }}
                 body {{
                     color: #202124;
                     font-family: "{preview_family}", "Segoe UI", sans-serif;
                     font-size: {preview_size}pt;
                     line-height: 1.55;
                     margin: 18px;
+                    opacity: 1;
+                    transition: opacity 180ms ease-out;
                     text-align: start;
                     unicode-bidi: plaintext;
                 }}
