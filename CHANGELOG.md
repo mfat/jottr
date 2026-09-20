@@ -1,5 +1,18 @@
 # Changelog
 
+## [2.8.0](https://github.com/mfat/jottr/compare/v2.7.4...v2.8.0) (2026-09-20)
+
+
+### Features
+
+* add a formatting toolbar with Clear Formatting ([5c5a882](https://github.com/mfat/jottr/commit/5c5a882f2dd20f07c89ab98866cf8eb5000d64c1))
+* make the preview on opening a markdown file a setting ([3157d7d](https://github.com/mfat/jottr/commit/3157d7dec9b3736da8ca452c18c55c5dc23f24d8))
+
+
+### Bug Fixes
+
+* open the markdown preview pane before its page appears ([ba0ae17](https://github.com/mfat/jottr/commit/ba0ae179aba0d6994d4c1e5b5fcb99ca8f10313e))
+
 ## [2.7.4](https://github.com/mfat/jottr/compare/v2.7.3...v2.7.4) (2026-09-19)
 
 
