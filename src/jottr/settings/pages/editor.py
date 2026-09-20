@@ -57,6 +57,16 @@ class EditorPageMixin:
         markdown_layout = QVBoxLayout(markdown_box)
         markdown_layout.setContentsMargins(12, 10, 12, 12)
         markdown_layout.setSpacing(8)
+        self.markdown_preview_on_open_check = QCheckBox(
+            _("Show the preview when opening a markdown file")
+        )
+        self.markdown_preview_on_open_check.toggled.connect(
+            lambda checked: self._save_only(
+                lambda: self.settings_manager.save_setting(
+                    "markdown_preview_on_open", bool(checked))
+            )
+        )
+        markdown_layout.addWidget(self.markdown_preview_on_open_check)
         self.markdown_scroll_sync_check = QCheckBox(
             _("Sync markdown editor and preview scrolling")
         )
@@ -120,6 +130,9 @@ class EditorPageMixin:
         )
         self.middle_click_tab_closes_tab_check.setChecked(
             bool(sm.get_setting("middle_click_tab_closes_tab", True))
+        )
+        self.markdown_preview_on_open_check.setChecked(
+            bool(sm.get_setting("markdown_preview_on_open", True))
         )
         self.markdown_scroll_sync_check.setChecked(
             bool(sm.get_setting("markdown_scroll_sync", True))

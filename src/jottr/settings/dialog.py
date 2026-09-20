@@ -480,6 +480,7 @@ class SettingsDialog(
             'icon_contrast': self.icon_contrast_combo.currentData(),
             'enable_animations': self.enable_animations_check.isChecked(),
             'ui_font': QFont(self.ui_font),
+            'markdown_preview_on_open': self.markdown_preview_on_open_check.isChecked(),
             'markdown_scroll_sync': self.markdown_scroll_sync_check.isChecked(),
             'editor_line_numbers': self.settings_manager.get_setting(
                 'editor_line_numbers', True

@@ -166,6 +166,7 @@ class DialogTests(unittest.TestCase):
         dialog.icon_contrast_combo.setCurrentIndex(
             dialog.icon_contrast_combo.findData("light")
         )
+        dialog.markdown_preview_on_open_check.setChecked(False)
         dialog.markdown_scroll_sync_check.setChecked(False)
         dialog.settings_manager.save_setting("editor_line_numbers", False)
         dialog.double_click_empty_tab_bar_new_tab_check.setChecked(False)
@@ -232,6 +233,8 @@ class DialogTests(unittest.TestCase):
             normal_image.pixelColor(*sample).name(),
             selected_image.pixelColor(*sample).name(),
         )
+        self.assertFalse(data["markdown_preview_on_open"])
+        self.assertFalse(manager.get_setting("markdown_preview_on_open"))
         self.assertFalse(data["markdown_scroll_sync"])
         self.assertFalse(data["editor_line_numbers"])
         self.assertFalse(data["double_click_empty_tab_bar_new_tab"])

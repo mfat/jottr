@@ -106,6 +106,7 @@ class SettingsManager:
             "swap_sync_interval_seconds": 15,
             "session_restore_mode": "unsaved_changes",
             "startup_workspace": "",
+            "markdown_preview_on_open": True,
             "markdown_scroll_sync": True,
             "editor_line_numbers": True,
             "double_click_empty_tab_bar_new_tab": True,

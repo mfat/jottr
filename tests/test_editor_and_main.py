@@ -1700,6 +1700,24 @@ class EditorAndMainTests(unittest.TestCase):
         self.assertEqual(editor.current_file, str(target))
         self.assertEqual(editor.editor.toPlainText(), "# Dialog Open")
 
+    def test_editor_opens_markdown_preview_only_when_the_setting_allows_it(self):
+        editor = self.make_editor()
+        target = Path(self.temp_dir.name) / "notes.md"
+        target.write_text("# Notes", encoding="utf-8")
+
+        with patch.object(editor_tab_impl, "get_open_file_name", return_value=(str(target), "")):
+            editor.open_file()
+
+        self.assertTrue(editor.markdown_preview_visible)
+
+        editor.set_markdown_preview_visible(False, save_state=False)
+        self.settings.save_setting("markdown_preview_on_open", False)
+
+        with patch.object(editor_tab_impl, "get_open_file_name", return_value=(str(target), "")):
+            editor.open_file()
+
+        self.assertFalse(editor.markdown_preview_visible)
+
     def test_editor_autosaves_existing_file_when_enabled(self):
         self.settings.save_setting("autosave_enabled", True)
         self.settings.save_setting("autosave_interval_seconds", 1)
@@ -3681,6 +3699,14 @@ class EditorAndMainTests(unittest.TestCase):
             self.assertEqual(current.current_file, str(target))
             self.assertEqual(current.editor.toPlainText(), "# Story")
             self.assertTrue(current.markdown_preview_visible)
+
+            # With the setting off the file opens without the preview, and a
+            # preview the user opened by hand is left alone.
+            self.settings.save_setting("markdown_preview_on_open", False)
+            current.markdown_preview_visible = False
+            window.open_file(str(target))
+
+            self.assertFalse(window.tab_widget.currentWidget().markdown_preview_visible)
 
     def test_main_window_open_file_dialog_uses_translation_without_shadowing(self):
         class FakeEditorTab(QWidget):

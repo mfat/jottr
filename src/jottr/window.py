@@ -3587,7 +3587,9 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
         if hasattr(editor_tab, "load_swap_file"):
             editor_tab.load_swap_file(content)
         if editor_tab.is_markdown_file(file_path):
-            editor_tab.set_markdown_preview_visible(True)
+            # With the setting off, a preview the user opened by hand stays up.
+            if self.settings_manager.get_setting('markdown_preview_on_open', True):
+                editor_tab.set_markdown_preview_visible(True)
         else:
             editor_tab.set_markdown_preview_visible(False)
         

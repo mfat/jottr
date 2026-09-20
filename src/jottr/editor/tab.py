@@ -816,7 +816,8 @@ class EditorTab(
             self.editor.document().setModified(False)
             self.changes_pending = False
             self.load_swap_file(content)
-            if self.is_markdown_file(file_name):
+            if (self.is_markdown_file(file_name) and
+                    self.settings_manager.get_setting('markdown_preview_on_open', True)):
                 self.set_markdown_preview_visible(True)
             
             # Update tab title to show file name
