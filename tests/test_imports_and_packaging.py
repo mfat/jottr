@@ -210,6 +210,8 @@ class ImportAndPackagingTests(unittest.TestCase):
         self.assertIn("APPIMAGE_EXTRACT_AND_RUN=1", appimage_script)
         self.assertIn('--add-data "src/jottr/resources:jottr/resources"', workflow)
         self.assertIn('--add-data "src/jottr/resources:jottr/resources"', appimage_script)
+        self.assertIn('--add-data "src/jottr/editor/data:jottr/editor/data"', workflow)
+        self.assertIn('--add-data "src/jottr/editor/data:jottr/editor/data"', appimage_script)
         self.assertIn('--add-data "icons:icons"', workflow)
         self.assertIn('--add-data "icons:icons"', appimage_script)
         self.assertIn('--add-data "translations:translations"', workflow)
@@ -296,6 +298,7 @@ class ImportAndPackagingTests(unittest.TestCase):
             "src/jottr/help:jottr/help",
             "src/jottr/icons:jottr/icons",
             "src/jottr/resources:jottr/resources",
+            "src/jottr/editor/data:jottr/editor/data",
             "icons:icons",
             "translations:translations",
         ):

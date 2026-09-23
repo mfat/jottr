@@ -1273,6 +1273,64 @@ class EditorAndMainTests(unittest.TestCase):
         self.assertNotIn("iran", suggestions)
         self.assertEqual(suggestions[0], "Iran")
 
+    def test_spell_check_flags_english_proper_noun_casing(self):
+        """Case-insensitive backends still underline iran and offer Iran."""
+        document = QTextDocument()
+        highlighter = SpellCheckHighlighter(document, self.settings)
+
+        class CaseInsensitiveDict:
+            tag = "en_US"
+
+            def check(self, candidate):
+                return candidate.casefold() == "iran"
+
+            def suggest(self, candidate):
+                # Hunspell / pyspellchecker often return nothing useful here.
+                return [candidate] if candidate.casefold() == "iran" else []
+
+            def add(self, word):
+                return None
+
+        highlighter.USE_ENCHANT = True
+        highlighter.spell_languages = ["en_US"]
+        highlighter.spells = [CaseInsensitiveDict()]
+        highlighter.spell_check_enabled = True
+        self.settings.save_setting("user_dictionary", [])
+        highlighter._refresh_spell_caches()
+
+        self.assertFalse(highlighter.check_word("iran"))
+        self.assertTrue(highlighter.check_word("Iran"))
+        self.assertTrue(highlighter.check_word("IRAN"))
+        suggestions = highlighter.suggest("iran")
+        self.assertEqual(suggestions[0], "Iran")
+
+    def test_spell_check_skips_ambiguous_proper_noun_casing(self):
+        """Words listed both lower and TitleCase (iris/Iris) stay accepted."""
+        document = QTextDocument()
+        highlighter = SpellCheckHighlighter(document, self.settings)
+
+        class AcceptIris:
+            tag = "en_US"
+
+            def check(self, candidate):
+                return candidate.casefold() == "iris"
+
+            def suggest(self, candidate):
+                return []
+
+            def add(self, word):
+                return None
+
+        highlighter.USE_ENCHANT = True
+        highlighter.spell_languages = ["en_US"]
+        highlighter.spells = [AcceptIris()]
+        highlighter.spell_check_enabled = True
+        self.settings.save_setting("user_dictionary", [])
+        highlighter._refresh_spell_caches()
+
+        self.assertTrue(highlighter.check_word("iris"))
+        self.assertNotIn("Iris", highlighter.suggest("iris"))
+
     def test_spell_check_language_switch_reloads_dictionaries(self):
         document = QTextDocument()
         self.settings.save_setting("spell_check", True)

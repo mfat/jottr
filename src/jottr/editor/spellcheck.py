@@ -1,7 +1,9 @@
 """Spell-checking helpers and markdown/syntax highlighter."""
+import gzip
 import importlib.util
 import re
 from functools import lru_cache
+from importlib import resources
 
 from PyQt6.QtGui import QSyntaxHighlighter, QTextCharFormat, QColor, QFont
 from PyQt6.QtCore import Qt
@@ -173,6 +175,57 @@ def dictionaries_cover_word(word, languages):
     for language in languages or ():
         covered |= language_scripts(language)
     return bool(scripts & covered)
+
+
+def uses_english_dictionary(languages):
+    """True when an English locale tag is among the active dictionaries."""
+    for language in languages or ():
+        code = str(language).replace("-", "_").split("_", 1)[0].lower()
+        if code == "en":
+            return True
+    return False
+
+
+@lru_cache(maxsize=1)
+def english_proper_case_map():
+    """Map casefolded English proper nouns to their preferred TitleCase form.
+
+    Hunspell and pyspellchecker treat dictionary entries as case-insensitive, so
+    ``iran`` checks as valid even when the lexicon lists ``Iran``. AppleSpell
+    rejects the lowercase form; this table restores that behavior for the other
+    backends. Built from Hunspell en_US capitalized entries that are not also
+    listed lowercase (ambiguous pairs like iris/Iris are omitted).
+    """
+    mapping = {}
+    try:
+        data = resources.files("jottr.editor.data").joinpath("en_proper_case.txt.gz")
+        with data.open("rb") as handle:
+            text = gzip.decompress(handle.read()).decode("utf-8")
+    except (FileNotFoundError, OSError, gzip.BadGzipFile):
+        return mapping
+    for line in text.splitlines():
+        word = line.strip()
+        if word:
+            mapping[word.casefold()] = word
+    return mapping
+
+
+def preferred_english_capitalization(word):
+    """Preferred English proper-noun capitalization for word, or None."""
+    if not word or not word.isascii() or not word.isalpha():
+        return None
+    return english_proper_case_map().get(word.casefold())
+
+
+def wrong_english_proper_case(word):
+    """True when word matches an English proper noun but not its preferred case.
+
+    All-caps forms (IRAN) are left alone so headings/acronyms stay accepted.
+    """
+    preferred = preferred_english_capitalization(word)
+    if not preferred or word == preferred or word.isupper():
+        return False
+    return word.casefold() == preferred.casefold()
 
 
 class FallbackSpellChecker:
@@ -792,6 +845,9 @@ class SpellCheckHighlighter(QSyntaxHighlighter):
         spells = self._spells_for_word(word)
         if not spells:
             return True
+
+        apply_proper_case = uses_english_dictionary(self.spell_languages)
+
         if self.USE_ENCHANT:
             # Enchant checks are FFI calls (~20us each); words repeat heavily
             # within a document, so memoize per backend set. Cleared whenever
@@ -801,6 +857,9 @@ class SpellCheckHighlighter(QSyntaxHighlighter):
             hit = cache.get(key, None)
             if hit is None:
                 hit = any(spell.check(word) for spell in spells)
+                # Hunspell accepts iran when Iran is listed; still flag casing.
+                if hit and apply_proper_case and wrong_english_proper_case(word):
+                    hit = False
                 # Bound memory on pathological inputs (each key is one word).
                 if len(cache) < 20000:
                     cache[key] = hit
@@ -808,7 +867,10 @@ class SpellCheckHighlighter(QSyntaxHighlighter):
 
         # pyspellchecker considers unknown words misspelled
         lowered = word.lower()
-        return any(lowered in spell for spell in spells)
+        hit = any(lowered in spell for spell in spells)
+        if hit and apply_proper_case and wrong_english_proper_case(word):
+            return False
+        return hit
 
     def suggest(self, word):
         """Get suggestions for a word from the user dictionary and matching dictionaries."""
@@ -825,6 +887,14 @@ class SpellCheckHighlighter(QSyntaxHighlighter):
             if dict_word.lower().startswith(word.lower())
         ]
 
+        # Prefixed even when the backend accepts the lowercase form and returns
+        # no suggestions (Hunspell / pyspellchecker).
+        preferred = None
+        if uses_english_dictionary(self.spell_languages) and wrong_english_proper_case(word):
+            preferred = preferred_english_capitalization(word)
+            if preferred:
+                suggestions.append(preferred)
+
         try:
             for spell in self._spells_for_word(word):
                 if self.USE_ENCHANT:
@@ -840,6 +910,9 @@ class SpellCheckHighlighter(QSyntaxHighlighter):
         except UnicodeEncodeError:
             pass
 
+        # Preferred capitalization first when present.
+        if preferred:
+            suggestions = [preferred] + [s for s in suggestions if s != preferred]
         return list(dict.fromkeys(suggestions))
 
     def add_to_dictionary(self, word):

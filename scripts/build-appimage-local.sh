@@ -184,6 +184,7 @@ echo "==> Building PyInstaller bundle"
     --add-data "src/jottr/help:jottr/help" \
     --add-data "src/jottr/icons:jottr/icons" \
     --add-data "src/jottr/resources:jottr/resources" \
+    --add-data "src/jottr/editor/data:jottr/editor/data" \
     --add-data "icons:icons" \
     --add-data "translations:translations" \
     src/jottr/main.py

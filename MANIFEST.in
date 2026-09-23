@@ -5,6 +5,7 @@ recursive-include icons *
 recursive-include translations *.po
 recursive-include src/jottr/help *
 recursive-include src/jottr/icons *
+recursive-include src/jottr/editor/data *
 prune .venv
 prune .pybuild
 prune .codebase-memory
