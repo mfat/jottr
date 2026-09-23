@@ -2,7 +2,8 @@
 # Prefer: pip install -e ".[build]"
 #
 # System packages may still be required:
-#   macOS: brew install enchant
+#   macOS DMG: relocatable Enchant + AppleSpell is staged into the .app
+#   macOS from source: brew install enchant (optional; AppleSpell uses system dicts)
 #   Windows: pyspellchecker fallback (libenchant is not bundled)
 #   Ubuntu/Debian: sudo apt-get install hunspell hunspell-en-us myspell-fa
 #   Fedora: sudo dnf install hunspell hunspell-en hunspell-fa

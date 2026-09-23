@@ -422,14 +422,14 @@ jobs:
         with:
           python-version: '3.11'
 
-      # Homebrew treats Intel macOS as Tier 3 (no bottles): enchant's toolchain
-      # builds from source for ~30 min and fails. The Intel app spell-checks
-      # with the pyspellchecker fallback instead.
-      - name: Install enchant (Apple Silicon)
-        if: matrix.arch == 'aarch64'
+      # stage-enchant.sh prefers Homebrew enchant, then builds from source
+      # (Flatpak-style, --enable-relocatable + AppleSpell) using glib from
+      # Homebrew. Intel runners often lack enchant bottles; glib is enough.
+      - name: Install macOS Enchant build dependencies
         run: |
           brew update
-          brew install enchant hunspell
+          brew install glib gettext pkgconf
+          brew install enchant || echo "Homebrew enchant unavailable; stage-enchant.sh will build from source"
 
       - name: Install macOS build dependencies
         run: |

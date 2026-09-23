@@ -183,6 +183,26 @@ class ImportAndPackagingTests(unittest.TestCase):
             # cacert.pem plugin downloads fail to verify any certificate.
             self.assertIn("--hidden-import certifi", text)
             self.assertIn("--collect-data certifi", text)
+        # macOS DMGs stage a relocatable Enchant + AppleSpell into the .app so
+        # spell-check works without Homebrew on the end-user machine.
+        stage_enchant = (
+            PROJECT_ROOT / "packaging" / "macos" / "stage-enchant.sh"
+        ).read_text(encoding="utf-8")
+        self.assertIn("stage-enchant.sh", dmg_script)
+        self.assertIn("--runtime-hook packaging/macos/pyi_rth_jottr_enchant.py", dmg_script)
+        self.assertIn("PYENCHANT_LIBRARY_PATH", dmg_script)
+        self.assertIn("--add-binary", dmg_script)
+        self.assertIn("--hidden-import enchant", dmg_script)
+        self.assertNotIn("--exclude-module enchant", dmg_script)
+        self.assertIn("--enable-relocatable", stage_enchant)
+        self.assertIn("enchant_applespell", stage_enchant)
+        self.assertIn("PYENCHANT_LIBRARY_PATH", stage_enchant)
+        rthook = (
+            PROJECT_ROOT / "packaging" / "macos" / "pyi_rth_jottr_enchant.py"
+        ).read_text(encoding="utf-8")
+        self.assertIn("PYENCHANT_LIBRARY_PATH", rthook)
+        self.assertIn('"enchant"', rthook)
+        self.assertIn('"libenchant-2.dylib"', rthook)
         self.assertIn("src/jottr/main.py", workflow)
         self.assertIn("src/jottr/main.py", appimage_script)
         self.assertNotIn("src/jottr/__main__.py", workflow)
@@ -198,6 +218,14 @@ class ImportAndPackagingTests(unittest.TestCase):
         self.assertNotIn("qt_plugins", appimage_script)
         self.assertNotIn("build-adwaita-qt.sh", workflow)
         self.assertNotIn("build-adwaita-qt.sh", appimage_script)
+
+        macos_workflow = (PROJECT_ROOT / ".github" / "workflows" / "build-macos.yml").read_text(
+            encoding="utf-8"
+        )
+        for text in (workflow, macos_workflow):
+            self.assertIn("Install macOS Enchant build dependencies", text)
+            self.assertIn("brew install glib gettext pkgconf", text)
+            self.assertNotIn("Install enchant (Apple Silicon)", text)
 
     def test_windows_release_packaging(self):
         windows_script = (
