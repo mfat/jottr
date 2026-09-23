@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.9.0](https://github.com/mfat/jottr/compare/v2.8.0...v2.9.0) (2026-09-23)
+
+
+### Features
+
+* bundle relocatable Enchant into macOS DMGs ([d64b723](https://github.com/mfat/jottr/commit/d64b7230bc6912bc0158b13a6dfa293dac623ed4))
+
 ## [2.8.0](https://github.com/mfat/jottr/compare/v2.7.4...v2.8.0) (2026-09-20)
 
 
