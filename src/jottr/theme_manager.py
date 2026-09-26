@@ -868,8 +868,7 @@ class ThemeManager:
                 border-radius: 10px;
             }}
             QMenu::item:selected {{
-                background: {t['act_soft']};
-                color: {t['act_ink']};
+                background: {t['hover']};
             }}
             QMenu::item:disabled {{
                 color: {t['faint']};
@@ -1094,8 +1093,8 @@ class ThemeManager:
                 background: {t['pane']};
                 color: {t['ink']};
                 border: 1px solid {t['line']};
-                selection-background-color: {t['act_soft']};
-                selection-color: {t['act_ink']};
+                selection-background-color: {t['hover']};
+                selection-color: {t['ink']};
                 outline: 0;
             }}
             QStatusBar#statusBar {{
