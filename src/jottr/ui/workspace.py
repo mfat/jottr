@@ -1,6 +1,6 @@
-"""Workspace explorer widgets."""
-from PyQt6.QtWidgets import QPushButton, QStyle, QStyleOptionButton, QTreeView
-from PyQt6.QtCore import QPointF, QRect, QSize, Qt
+"""Workspace explorer and side-panel widgets."""
+from PyQt6.QtWidgets import QListWidget, QPushButton, QStyle, QStyleOptionButton, QTreeView
+from PyQt6.QtCore import QEvent, QPointF, QRect, QSize, Qt
 from PyQt6.QtGui import QFileSystemModel, QFont, QFontMetrics, QPainter, QPainterPath, QPalette, QPen
 
 
@@ -11,6 +11,19 @@ class WorkspaceFileSystemModel(QFileSystemModel):
         if role == Qt.ItemDataRole.ToolTipRole and index.isValid():
             return self.filePath(index)
         return super().data(index, role)
+
+
+class PanelListWidget(QListWidget):
+    """List that re-lays out its rows when its style changes.
+
+    QListView keeps row geometry from its last layout, so rows laid out
+    before a stylesheet arrives keep the old height and item margins.
+    """
+
+    def changeEvent(self, event):
+        super().changeEvent(event)
+        if event.type() == QEvent.Type.StyleChange:
+            self.scheduleDelayedItemsLayout()
 
 
 class WorkspaceTitleButton(QPushButton):

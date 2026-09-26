@@ -24,6 +24,7 @@ from PyQt6.QtGui import (
 )
 
 from jottr.icon_manager import themed_symbolic_icon
+from jottr.ui.workspace import PanelListWidget
 from jottr.snippet_editor_dialog import SnippetEditorDialog
 from jottr.theme_manager import ThemeManager
 from jottr.translation_manager import _, is_rtl_language, localize_digits
@@ -338,7 +339,7 @@ class EditorTab(
         snippet_layout.addWidget(snippet_header)
 
         # Snippet list
-        self.snippet_list = QListWidget()
+        self.snippet_list = PanelListWidget()
         self.snippet_list.setObjectName("snippetList")
         self.snippet_list.itemDoubleClicked.connect(self.insert_snippet)
         self.snippet_list.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)

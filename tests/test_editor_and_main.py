@@ -806,6 +806,9 @@ class EditorAndMainTests(unittest.TestCase):
         editor.snippet_list.resize(220, 300)
         editor.snippet_list.setStyleSheet("QListWidget#snippetList { padding: 8px; }")
         editor.snippet_list.setCurrentRow(0)
+        # The style change schedules a relayout that moves the viewport
+        # inside the padding; settle it before reading positions.
+        editor.snippet_list.executeDelayedItemsLayout()
 
         click_pos = QPoint(20, 20)
         expected = editor.snippet_list.viewport().mapToGlobal(click_pos)
