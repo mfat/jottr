@@ -845,7 +845,7 @@ class ThemeManager:
             QMenuBar {{
                 background: {t['ground']};
                 color: {t['ink']};
-                padding: 6px 10px 2px 10px;
+                padding: 6px 8px 2px 8px;
             }}
             QMenuBar::item {{
                 background: transparent;
@@ -885,9 +885,11 @@ class ThemeManager:
                 border-radius: 8px;
                 padding: 4px 8px;
             }}
+            /* 17px = the panes' 14px inset plus the 3px the group pills
+               extend past their buttons, so the pills line up with the panes. */
             QToolBar#mainToolBar, QToolBar#formatToolBar {{
                 background: {t['ground']};
-                padding: 6px 14px;
+                padding: 6px 17px;
                 spacing: 2px;
             }}
             QToolBar#formatToolBar {{
