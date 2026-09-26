@@ -21,7 +21,7 @@ class ThemeManager:
     _interface_look = "native"
 
     # Organic look tokens, from the Organic design system (cream ground,
-    # terracotta accent). Solid "app" colors feed QPalette; the "organic"
+    # graphite accent). Solid "app" colors feed QPalette; the "organic"
     # tokens (some translucent) feed the look's stylesheet.
     ORGANIC_THEMES = {
         "Light": {
@@ -30,19 +30,19 @@ class ThemeManager:
                 "surface": "#f9f4ed",
                 "surface_alt": "#eee7db",
                 "surface_hover": "#e6dccb",
-                "surface_active": "#ffe1d0",
+                "surface_active": "#dcd1bf",
                 "text": "#201e1d",
                 "muted": "#645c50",
                 "border": "#d3c9ba",
-                "border_active": "#c67139",
-                "accent": "#c67139",
-                "accent_text": "#643312",
+                "border_active": "#3d3a36",
+                "accent": "#3d3a36",
+                "accent_text": "#201e1d",
                 "danger": "#b42318"
             },
             "editor": {
                 "background": "#f9f4ed",
                 "foreground": "#201e1d",
-                "selection": "#ffe1d0",
+                "selection": "#dcd1bf",
                 "current_line": "#eee7db",
                 "border": "#d3c9ba"
             },
@@ -57,12 +57,12 @@ class ThemeManager:
                 "faint": "#a19786",
                 "line": "rgba(32, 30, 29, 41)",
                 "hover": "rgba(32, 30, 29, 18)",
-                "act": "#c67139",
-                "act_hover": "#b2622d",
-                "act_soft": "#ffe1d0",
-                "act_ink": "#643312",
+                "act": "#3d3a36",
+                "act_hover": "#2a2825",
+                "act_soft": "#dcd1bf",
+                "act_ink": "#201e1d",
                 "on_act": "#f5ead8",
-                "selection": "#ffe1d0"
+                "selection": "#dcd1bf"
             }
         },
         "Dark": {
@@ -71,19 +71,19 @@ class ThemeManager:
                 "surface": "#211f1b",
                 "surface_alt": "#282520",
                 "surface_hover": "#3e3b35",
-                "surface_active": "#5e4736",
+                "surface_active": "#4d4a44",
                 "text": "#f9f4ed",
                 "muted": "#c0b6a5",
                 "border": "#46433d",
-                "border_active": "#f6a06b",
-                "accent": "#f6a06b",
-                "accent_text": "#ffe1d0",
+                "border_active": "#e8e0d2",
+                "accent": "#e8e0d2",
+                "accent_text": "#f9f4ed",
                 "danger": "#f87171"
             },
             "editor": {
                 "background": "#211f1b",
                 "foreground": "#f9f4ed",
-                "selection": "#5e4736",
+                "selection": "#4d4a44",
                 "current_line": "#282520",
                 "border": "#46433d"
             },
@@ -98,12 +98,12 @@ class ThemeManager:
                 "faint": "#82796a",
                 "line": "rgba(249, 244, 237, 31)",
                 "hover": "rgba(249, 244, 237, 20)",
-                "act": "#f6a06b",
-                "act_hover": "#ffc6a5",
-                "act_soft": "rgba(246, 160, 107, 61)",
-                "act_ink": "#ffe1d0",
+                "act": "#e8e0d2",
+                "act_hover": "#f9f4ed",
+                "act_soft": "rgba(249, 244, 237, 41)",
+                "act_ink": "#f9f4ed",
                 "on_act": "#2e2b25",
-                "selection": "rgba(246, 160, 107, 82)"
+                "selection": "rgba(249, 244, 237, 51)"
             }
         }
     }
