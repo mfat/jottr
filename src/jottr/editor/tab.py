@@ -419,17 +419,25 @@ class EditorTab(
     def refresh_pane_icons(self):
         """Tint the side-pane glyphs for the active icon pack and theme."""
         if hasattr(self, "snippet_new_btn"):
+            # The snippets pane wears the Editor Theme, so its glyph does too.
+            foreground = ThemeManager.get_theme(self.current_theme)["editor"]["foreground"]
             self.snippet_new_btn.setIcon(
-                themed_symbolic_icon("list-add", self.settings_manager)
+                themed_symbolic_icon("list-add", self.settings_manager, color=foreground)
             )
         self.refresh_browser_icons()
 
     def apply_workspace_style(self):
         """Leave the panes around the editor to the widget style and palette.
 
-        Only the text area follows the Editor Theme, through its own stylesheet.
+        The text area and the snippets pane follow the Editor Theme, each
+        through its own stylesheet.
         """
         self.setStyleSheet("")
+        self.snippet_widget.setStyleSheet(
+            ThemeManager.build_snippet_panel_stylesheet(
+                ThemeManager.get_theme(self.current_theme)
+            )
+        )
         # Organic draws the preview as a rounded card; the web view paints
         # square, so it is inset far enough to clear the 22px corners.
         inset = 7 if ThemeManager.interface_look() == "organic" else 0
@@ -1218,6 +1226,7 @@ class EditorTab(
                 rehighlight=not hasattr(self, 'current_font'),
             )
         self.apply_workspace_style()
+        self.refresh_pane_icons()
         self.update_markdown_preview()
 
     def set_line_numbers_visible(self, visible):

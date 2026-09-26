@@ -670,6 +670,56 @@ class ThemeManager:
         """
 
     @staticmethod
+    def build_snippet_panel_stylesheet(theme):
+        """Snippets pane in the Editor Theme's colors, so it reads as part of the page."""
+        editor_theme = theme["editor"]
+        organic = ThemeManager.interface_look() == "organic"
+        radius = 22 if organic else 0
+        item_radius = 14 if organic else 0
+        button_radius = 11 if organic else 3
+        item_padding = "0px 6px" if organic else "3px 6px"
+        return f"""
+            QWidget#sidePanel {{
+                background: {editor_theme['background']};
+                border-radius: {radius}px;
+            }}
+            QWidget#panelHeader {{
+                background: transparent;
+            }}
+            QLabel#panelTitle {{
+                color: {editor_theme['foreground']};
+            }}
+            QPushButton#panelHeaderButton, QPushButton#panelCloseButton {{
+                background: transparent;
+                border: none;
+                border-radius: {button_radius}px;
+                color: {editor_theme['foreground']};
+                padding: 0px;
+            }}
+            QPushButton#panelHeaderButton:hover, QPushButton#panelCloseButton:hover {{
+                background: {editor_theme['current_line']};
+            }}
+            QListWidget#snippetList {{
+                background: transparent;
+                color: {editor_theme['foreground']};
+                border: none;
+                outline: 0;
+            }}
+            QListWidget#snippetList::item {{
+                color: {editor_theme['foreground']};
+                border-radius: {item_radius}px;
+                padding: {item_padding};
+            }}
+            QListWidget#snippetList::item:hover {{
+                background: {editor_theme['current_line']};
+            }}
+            QListWidget#snippetList::item:selected {{
+                background: {editor_theme['selection']};
+                color: {editor_theme['foreground']};
+            }}
+        """
+
+    @staticmethod
     def build_font_stylesheet(font):
         if font is None:
             return ""
