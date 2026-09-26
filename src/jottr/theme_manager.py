@@ -967,6 +967,9 @@ class ThemeManager:
                 background: {t['pane']};
                 border-radius: 22px;
             }}
+            QWidget#workspaceExplorer {{
+                margin-top: 6px;
+            }}
             QWidget#workspaceHeader, QWidget#panelHeader, QWidget#browserToolbar,
             QWidget#workspaceIdentity {{
                 background: transparent;

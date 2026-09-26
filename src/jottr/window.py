@@ -748,6 +748,12 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
             # The pill tabs sit on the ground; the native base line would
             # cut between them and the panes.
             tab_widget.tabBar().setDrawBase(not tokens)
+        workspace_widget = getattr(self, "workspace_widget", None)
+        if workspace_widget is not None:
+            # Match the pill tabs' 6px top margin so the explorer's top edge
+            # lines up with them. QSS margin moves only the painted background,
+            # so the contents are pushed down here too.
+            workspace_widget.layout().setContentsMargins(0, 6 if tokens else 0, 0, 0)
         group_color = ThemeManager.css_color(tokens["group"]) if tokens else None
         for toolbar in self.findChildren(GroupedToolBar):
             toolbar.set_group_color(group_color)
