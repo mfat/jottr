@@ -2110,10 +2110,10 @@ class EditorAndMainTests(unittest.TestCase):
             self.assertEqual(first_tab.current_font.pointSize(), original_size + 1)
             toolbar_actions["Reset Zoom"].trigger()
             self.assertEqual(first_tab.current_font.pointSize(), original_size)
-            # Comfy only spaces out the toolbar; the widget style draws it,
-            # plus borderless chrome for menubar/toolbar.
+            # The widget style draws the toolbar; the sheet only removes
+            # menubar/toolbar borders.
             sheet = QApplication.instance().styleSheet()
-            self.assertIn("QToolBar#mainToolBar QToolButton", sheet)
+            self.assertNotIn("QToolBar#mainToolBar", sheet)
             self.assertNotIn(":hover", sheet)
             self.assertNotIn("background", sheet)
             self.assertIn("border: none", sheet)
@@ -2284,8 +2284,7 @@ class EditorAndMainTests(unittest.TestCase):
             disabled = refreshed.pixmap(size, QIcon.Mode.Disabled).toImage()
             self.assertNotEqual(normal, disabled)
             sheet = QApplication.instance().styleSheet()
-            self.assertIn("QToolBar#mainToolBar", sheet)
-            self.assertIn("padding:", sheet)
+            self.assertIn("QToolBar {", sheet)
 
     def test_interface_look_organic_and_native_toggle(self):
         from PyQt6.QtWidgets import QTabBar
@@ -2359,75 +2358,6 @@ class EditorAndMainTests(unittest.TestCase):
             self.assertEqual(window.main_surface_layout.contentsMargins().left(), 0)
             self.assertTrue(window.tab_widget.tabBar().drawBase())
             self.assertIsNone(window.toolbar._group_color)
-
-    def test_toolbar_style_comfy_and_compact_toggle(self):
-        from jottr.settings_manager import TOOLBAR_STYLE_COMFY, TOOLBAR_STYLE_COMPACT
-
-        class FakeEditorTab(QWidget):
-            def __init__(self, snippet_manager, settings_manager):
-                super().__init__()
-                self.editor = QTextEdit(self)
-                self.current_file = None
-
-            def set_main_window(self, main_window):
-                self.main_window = main_window
-
-            def apply_theme(self, theme_name):
-                pass
-
-            def apply_autosave_settings(self):
-                pass
-
-            def apply_line_numbers(self, visible):
-                pass
-
-        with patch.object(window_module, "EditorTab", FakeEditorTab):
-            window = TextEditorApp()
-            self.addCleanup(window.close)
-            self.addCleanup(window.deleteLater)
-
-            self.assertEqual(window.settings_manager.get_toolbar_style(), TOOLBAR_STYLE_COMFY)
-            self.assertIn("QToolBar#mainToolBar", QApplication.instance().styleSheet())
-
-            view_menu = next(
-                action.menu()
-                for action in window.menuBar().actions()
-                if action.text().replace("&", "") == "View"
-            )
-            toolbar_style_menu = next(
-                action.menu()
-                for action in view_menu.actions()
-                if action.menu() is not None
-                and action.text().replace("&", "") == "Toolbar Style"
-            )
-            labels = {
-                action.text(): action
-                for action in toolbar_style_menu.actions()
-            }
-            self.assertIn("Comfy", labels)
-            self.assertIn("Compact", labels)
-            self.assertTrue(labels["Comfy"].isChecked())
-
-            window.set_toolbar_style(TOOLBAR_STYLE_COMPACT)
-            self.assertEqual(
-                window.settings_manager.get_toolbar_style(), TOOLBAR_STYLE_COMPACT
-            )
-            compact_sheet = QApplication.instance().styleSheet()
-            self.assertNotIn("QToolBar#mainToolBar", compact_sheet)
-            self.assertNotIn("padding: 6px 10px", compact_sheet)
-            self.assertTrue(labels["Compact"].isChecked())
-            self.assertFalse(labels["Comfy"].isChecked())
-
-            self.assertEqual(
-                window.toolbar.contextMenuPolicy(),
-                Qt.ContextMenuPolicy.CustomContextMenu,
-            )
-            with patch.object(QMenu, "exec", return_value=None) as menu_exec:
-                window.show_toolbar_context_menu(window.toolbar.rect().center())
-                menu_exec.assert_called_once()
-
-            window.set_toolbar_style(TOOLBAR_STYLE_COMFY)
-            self.assertIn("QToolBar#mainToolBar", QApplication.instance().styleSheet())
 
     def test_main_window_hides_menubar_behind_toolbar_hamburger(self):
         class FakeEditorTab(QWidget):
@@ -3416,7 +3346,7 @@ class EditorAndMainTests(unittest.TestCase):
             # Main UI Font reaches the chrome through setFont, not the stylesheet.
             self.assertNotIn("font-family", QApplication.instance().styleSheet())
             self.assertNotIn("QMenu {", QApplication.instance().styleSheet())
-            self.assertIn("QToolBar#mainToolBar", QApplication.instance().styleSheet())
+            self.assertIn("QToolBar {", QApplication.instance().styleSheet())
             self.assertNotIn("QScrollBar:vertical", QApplication.instance().styleSheet())
             self.assertEqual(window.toolbar.font().family(), "Liberation Sans")
             menus = [

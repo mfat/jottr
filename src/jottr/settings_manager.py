@@ -16,12 +16,6 @@ DEFAULT_PLUGIN_CHANNELS = [
         "verified": True,
     }
 ]
-TOOLBAR_STYLE_COMFY = "comfy"
-TOOLBAR_STYLE_COMPACT = "compact"
-TOOLBAR_STYLES = (TOOLBAR_STYLE_COMFY, TOOLBAR_STYLE_COMPACT)
-# Legacy saved value / import alias for Compact.
-TOOLBAR_STYLE_DEFAULT = TOOLBAR_STYLE_COMPACT
-
 # Interface Look: Native leaves chrome to the widget style and palette;
 # Organic paints Jottr's own rounded, warm chrome (see docs/theming.md).
 INTERFACE_LOOK_NATIVE = "native"
@@ -131,7 +125,6 @@ class SettingsManager:
             "language": "en_US",
             "icon_theme": "qlementine",
             "icon_contrast": "auto",
-            "toolbar_style": TOOLBAR_STYLE_COMFY,
             "show_menubar": True,
             "show_format_toolbar": False,
             "enable_animations": True,
@@ -465,23 +458,6 @@ class SettingsManager:
         from jottr.icon_manager import normalize_icon_theme
 
         self.settings["icon_theme"] = normalize_icon_theme(theme_id)
-        self.save_settings()
-
-    @staticmethod
-    def normalize_toolbar_style(style_name):
-        """Map a saved value to comfy (padded QSS) or compact (chrome color, native buttons)."""
-        name = (style_name or TOOLBAR_STYLE_COMFY).strip().casefold()
-        if name in {TOOLBAR_STYLE_COMPACT, "default", "system", "native"}:
-            return TOOLBAR_STYLE_COMPACT
-        return TOOLBAR_STYLE_COMFY
-
-    def get_toolbar_style(self):
-        return self.normalize_toolbar_style(
-            self.settings.get("toolbar_style", TOOLBAR_STYLE_COMFY)
-        )
-
-    def save_toolbar_style(self, style_name):
-        self.settings["toolbar_style"] = self.normalize_toolbar_style(style_name)
         self.save_settings()
 
     def get_format_toolbar_visible(self):

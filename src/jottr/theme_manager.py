@@ -757,19 +757,17 @@ class ThemeManager:
         return palette
 
     @staticmethod
-    def build_app_stylesheet(toolbar_style="comfy", theme=None):
+    def build_app_stylesheet(theme=None):
         """Main window QSS: layout only, plus borderless chrome, never colors or fonts.
 
         Menus, bars, tabs and panels are drawn by the widget style from the
-        palette, and Main UI Font reaches them through setFont. Comfy only
-        adds toolbar spacing; tabs stay left-aligned on every platform.
+        palette, and Main UI Font reaches them through setFont. Tabs stay
+        left-aligned on every platform.
         Menu and toolbar borders are removed so no horizontal line shows.
 
         The Organic look is the exception: when *theme* carries "organic"
         tokens, its colored stylesheet is appended.
         """
-        from jottr.settings_manager import TOOLBAR_STYLE_COMFY, SettingsManager
-
         stylesheet = """
             QMenuBar {
                 border: none;
@@ -784,22 +782,6 @@ class ThemeManager:
                 alignment: left;
             }
         """
-        if SettingsManager.normalize_toolbar_style(toolbar_style) == TOOLBAR_STYLE_COMFY:
-            stylesheet += """
-            QToolBar#mainToolBar, QToolBar#formatToolBar {
-                padding: 6px 10px;
-                spacing: 4px;
-            }
-            QToolBar#formatToolBar {
-                padding-top: 0px;
-            }
-            QToolBar#mainToolBar QToolButton,
-            QToolBar#formatToolBar QToolButton {
-                padding: 6px 7px;
-                min-width: 28px;
-                min-height: 28px;
-            }
-            """
         if isinstance(theme, dict) and theme.get("organic"):
             stylesheet += ThemeManager.build_organic_stylesheet(theme["organic"])
         return stylesheet

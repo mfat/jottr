@@ -355,32 +355,6 @@ class SettingsAndSnippetTests(unittest.TestCase):
         manager.save_icon_theme("NotARealTheme")
         self.assertEqual(manager.get_icon_theme(), DEFAULT_ICON_THEME)
 
-    def test_settings_manager_persists_toolbar_style(self):
-        from jottr.settings_manager import (
-            TOOLBAR_STYLE_COMFY,
-            TOOLBAR_STYLE_COMPACT,
-            SettingsManager,
-        )
-
-        manager = SettingsManager()
-        self.assertEqual(manager.get_toolbar_style(), TOOLBAR_STYLE_COMFY)
-
-        manager.save_toolbar_style("compact")
-        reloaded = SettingsManager()
-        self.assertEqual(reloaded.get_toolbar_style(), TOOLBAR_STYLE_COMPACT)
-
-        # Legacy "default" / "native" values migrate to Compact.
-        manager.save_toolbar_style("default")
-        self.assertEqual(manager.get_toolbar_style(), TOOLBAR_STYLE_COMPACT)
-        manager.save_toolbar_style("native")
-        self.assertEqual(manager.get_toolbar_style(), TOOLBAR_STYLE_COMPACT)
-
-        manager.save_toolbar_style("Comfy")
-        self.assertEqual(manager.get_toolbar_style(), TOOLBAR_STYLE_COMFY)
-
-        manager.save_toolbar_style("nope")
-        self.assertEqual(manager.get_toolbar_style(), TOOLBAR_STYLE_COMFY)
-
     def test_settings_manager_persists_menubar_visibility(self):
         from jottr.settings_manager import SettingsManager
 
@@ -548,21 +522,15 @@ class SettingsAndSnippetTests(unittest.TestCase):
         dracula = ThemeManager.get_theme("Dracula")
         self.assertEqual(dracula["editor"]["background"], "#282a36")
         self.assertEqual(dracula["syntax"]["keyword"], "#ff79c6")
-        # The main window stylesheet carries layout only: Comfy toolbar
-        # spacing and left-aligned tabs, plus borderless chrome, never colors or fonts.
+        # The main window stylesheet carries layout only: left-aligned tabs
+        # plus borderless chrome, never colors or fonts.
         app_style = ThemeManager.build_app_stylesheet()
-        self.assertIn("QToolBar#mainToolBar QToolButton", app_style)
-        self.assertIn("padding: 6px 10px", app_style)
+        self.assertNotIn("QToolBar#mainToolBar", app_style)
         self.assertIn("alignment: left", app_style)
         self.assertIn("QMenuBar", app_style)
         self.assertIn("border: none", app_style)
         for property_name in ("background", "color", "font"):
             self.assertNotIn(property_name, app_style)
-        compact_toolbar = ThemeManager.build_app_stylesheet(toolbar_style="compact")
-        self.assertNotIn("QToolBar#mainToolBar", compact_toolbar)
-        self.assertIn("alignment: left", compact_toolbar)
-        legacy_default = ThemeManager.build_app_stylesheet(toolbar_style="default")
-        self.assertEqual(legacy_default, compact_toolbar)
         for selector in ("QMenu {", "QMenu::", "QStatusBar", "QTreeView", "QSplitter"):
             self.assertNotIn(selector, app_style)
         # Organic is the one look that paints colors, from its theme tokens.

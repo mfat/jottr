@@ -650,11 +650,8 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
         app_font = QFont(font) if font is not None else self.settings_manager.get_font("ui")
         application = QApplication.instance()
         style_swapped = False
-        toolbar_style = self.settings_manager.get_toolbar_style()
         theme = ThemeManager.get_ui_theme(scheme_setting, application)
-        stylesheet = ThemeManager.build_app_stylesheet(
-            toolbar_style=toolbar_style, theme=theme,
-        )
+        stylesheet = ThemeManager.build_app_stylesheet(theme=theme)
         startup_sheet = (
             application.property("_jottr_startup_stylesheet") if application else None
         )
@@ -1506,7 +1503,6 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
         self.toolbar.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonIconOnly)
 
         self.create_shared_actions()
-        self.setup_toolbar_style_actions()
 
         self.toolbar.addAction(self.new_action)
         self.toolbar.addAction(self.open_action)
@@ -1846,18 +1842,6 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
         view_menu.addSeparator()
         view_menu.addAction(self.editor_font_action)
 
-        toolbar_style_menu = view_menu.addMenu(_("Toolbar Style"))
-        toolbar_style_menu.setAccessibleName(
-            _("{title} menu").format(title=_("Toolbar Style"))
-        )
-        toolbar_style_menu.menuAction().setProperty("text_key", "Toolbar Style")
-        self.translatable_actions.append(toolbar_style_menu.menuAction())
-        self.translatable_menus.append((toolbar_style_menu, "Toolbar Style"))
-        self.setup_toolbar_style_actions()
-        for action in self.toolbar_style_actions.actions():
-            toolbar_style_menu.addAction(action)
-        self.sync_toolbar_style_menu()
-
         interface_look_menu = view_menu.addMenu(_("Interface Look"))
         interface_look_menu.setAccessibleName(
             _("{title} menu").format(title=_("Interface Look"))
@@ -2179,30 +2163,6 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
         self.sync_color_scheme_menu()
         self.refresh_settings_dialog()
 
-    def setup_toolbar_style_actions(self):
-        """Exclusive Comfy / Compact actions shared by View and toolbar menus."""
-        from jottr.settings_manager import TOOLBAR_STYLE_COMFY, TOOLBAR_STYLE_COMPACT
-
-        if getattr(self, "toolbar_style_actions", None) is not None:
-            return
-        self.toolbar_style_actions = QActionGroup(self)
-        self.toolbar_style_actions.setExclusive(True)
-        current = self.settings_manager.get_toolbar_style()
-        for style_id, label_key in (
-            (TOOLBAR_STYLE_COMFY, "Comfy"),
-            (TOOLBAR_STYLE_COMPACT, "Compact"),
-        ):
-            action = QAction(_(label_key), self)
-            action.setCheckable(True)
-            action.setData(style_id)
-            action.setProperty("text_key", label_key)
-            action.setChecked(style_id == current)
-            action.triggered.connect(
-                lambda checked=False, tag=style_id: self.set_toolbar_style(tag)
-            )
-            self.toolbar_style_actions.addAction(action)
-            self.translatable_actions.append(action)
-
     def setup_interface_look_actions(self):
         """Exclusive Native / Organic actions for View → Interface Look."""
         from jottr.settings_manager import INTERFACE_LOOK_NATIVE, INTERFACE_LOOK_ORGANIC
@@ -2251,38 +2211,10 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
         self.apply_editor_theme_to_tabs(self.settings_manager.get_theme(), force=True)
         self.sync_interface_look_menu()
 
-    def sync_toolbar_style_menu(self):
-        """Mark the active Toolbar Style entry in View / context menus."""
-        if getattr(self, "toolbar_style_actions", None) is None:
-            return
-        current = self.settings_manager.get_toolbar_style()
-        for action in self.toolbar_style_actions.actions():
-            action.blockSignals(True)
-            action.setChecked(action.data() == current)
-            action.blockSignals(False)
-
-    def set_toolbar_style(self, style_name):
-        """Persist Toolbar Style and restyle chrome."""
-        from jottr.settings_manager import SettingsManager
-
-        style_name = SettingsManager.normalize_toolbar_style(style_name)
-        if style_name == self.settings_manager.get_toolbar_style():
-            self.sync_toolbar_style_menu()
-            return
-        self.settings_manager.save_toolbar_style(style_name)
-        self.apply_app_style()
-        self.sync_toolbar_style_menu()
-
     def show_toolbar_context_menu(self, pos, toolbar=None):
-        """Right-click on a toolbar: Comfy / Compact density and the chrome toggles."""
+        """Right-click on a toolbar: the toolbar and menu bar toggles."""
         toolbar = toolbar if toolbar is not None else self.toolbar
-        self.setup_toolbar_style_actions()
-        self.sync_toolbar_style_menu()
         menu = QMenu(self)
-        menu.setTitle(_("Toolbar Style"))
-        for action in self.toolbar_style_actions.actions():
-            menu.addAction(action)
-        menu.addSeparator()
         menu.addAction(self.format_toolbar_action)
         menu.addAction(self.show_menubar_action)
         menu.exec(toolbar.mapToGlobal(pos))
@@ -3013,18 +2945,15 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
             self.rebuild_chrome()
             self.apply_app_style()
             self.sync_color_scheme_menu()
-            self.sync_toolbar_style_menu()
         elif domain == "chrome":
             self.rebuild_chrome()
             self.apply_app_style()
             self.sync_color_scheme_menu()
-            self.sync_toolbar_style_menu()
         elif domain == "look":
             self.apply_interface_look()
         elif domain == "style":
             self.apply_app_style()
             self.sync_color_scheme_menu()
-            self.sync_toolbar_style_menu()
         elif domain == "editor_theme":
             # force: custom theme JSON can change without renaming the theme.
             self.apply_editor_theme_to_tabs(sm.get_theme(), force=True)
@@ -3058,8 +2987,7 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
                 self.rebuild_chrome()
                 self.apply_app_style()
                 self.sync_color_scheme_menu()
-                self.sync_toolbar_style_menu()
-
+    
     def show_settings(self):
         """Open the Settings window, or raise it when it is already open."""
         from jottr.settings_dialog import SettingsDialog
