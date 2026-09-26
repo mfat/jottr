@@ -184,6 +184,16 @@ def available_qt_styles():
     return [SYSTEM_QT_STYLE, *creatable_qt_style_keys()]
 
 
+# The Organic look is drawn on Breeze; Fusion stands in where it is missing.
+ORGANIC_QT_STYLE = "Breeze"
+ORGANIC_QT_STYLE_FALLBACK = "Fusion"
+
+
+def organic_qt_style():
+    """Widget style the Organic look forces: Breeze, else Fusion."""
+    return _canonical_style_key(ORGANIC_QT_STYLE) or ORGANIC_QT_STYLE_FALLBACK
+
+
 def normalize_qt_style(style_name):
     """Map a saved value to System or a creatable factory key."""
     name = (style_name or SYSTEM_QT_STYLE).strip()

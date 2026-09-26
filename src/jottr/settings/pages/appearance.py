@@ -53,6 +53,7 @@ class AppearancePageMixin:
 
         theme_box = QGroupBox(_("Theme"))
         theme_layout = QFormLayout(theme_box)
+        self.appearance_theme_layout = theme_layout
         theme_layout.setContentsMargins(12, 10, 12, 12)
         theme_layout.setSpacing(8)
 
@@ -134,8 +135,7 @@ class AppearancePageMixin:
         look = sm.get_interface_look()
         if not select_combo_data(self.interface_look_combo, look):
             self.interface_look_combo.setCurrentIndex(0)
-        # Organic brings its own palette; the saved scheme returns with Native.
-        self.window_color_scheme_combo.setEnabled(look != INTERFACE_LOOK_ORGANIC)
+        self.sync_native_look_rows(look)
         # Blocked: a scheme change also restyles this window.
         self.window_color_scheme_combo.blockSignals(True)
         if not select_combo_data(
@@ -143,7 +143,9 @@ class AppearancePageMixin:
         ):
             self.window_color_scheme_combo.setCurrentIndex(0)
         self.window_color_scheme_combo.blockSignals(False)
-        self.qt_style_combo.setCurrentText(sm.get_qt_style())
+        self.qt_style_combo.blockSignals(True)
+        self.qt_style_combo.setCurrentText(sm.get_saved_qt_style())
+        self.qt_style_combo.blockSignals(False)
         self.editor_theme_combo.setCurrentText(sm.get_theme())
         if not select_combo_data(self.icon_theme_combo, sm.get_icon_theme()):
             self.icon_theme_combo.setCurrentIndex(0)
@@ -209,9 +211,16 @@ class AppearancePageMixin:
         self._commit_now(
             "look", lambda: self.settings_manager.save_interface_look(look)
         )
-        self.window_color_scheme_combo.setEnabled(look != INTERFACE_LOOK_ORGANIC)
+        self.sync_native_look_rows(look)
         if self.host is None:
             self.apply_dialog_style()
+
+    def sync_native_look_rows(self, look):
+        """Organic brings its own palette and widget style (Breeze), so the
+        Window Color Scheme and Widget Style rows only show under Native."""
+        native = look != INTERFACE_LOOK_ORGANIC
+        for combo in (self.window_color_scheme_combo, self.qt_style_combo):
+            self.appearance_theme_layout.setRowVisible(combo, native)
 
     def _on_editor_theme_changed(self):
         self._commit(

@@ -32,7 +32,7 @@ A scheme is named when `find_window_color_scheme(scheme_id).path` is non-empty. 
 `interface_look` (Settings → Appearance → Interface Look, or View → Interface Look) is `native` or `organic`. Native is everything described above. Organic is Jottr's own look: a warm cream (or dark) ground, pill-shaped menus, toolbar groups and tabs, and rounded panes.
 
 - `SettingsManager` publishes the look to `ThemeManager.set_interface_look` on load and on save. `effective_chrome_theme` and `ThemeManager.get_ui_theme` then resolve to `ThemeManager.organic_theme(dark)`, following System/Light/Dark as usual.
-- Under Organic, `get_window_color_scheme()` returns Default and the Window Color Scheme controls are disabled; the saved scheme comes back with Native.
+- Under Organic, `get_window_color_scheme()` returns Default and `get_qt_style()` returns Breeze (Fusion where Breeze is not installed, see `organic_qt_style`). The Window Color Scheme and Widget Style controls are hidden; the saved choices (`get_saved_qt_style`) come back with Native.
 - An Organic theme dict carries an extra `organic` section of stylesheet tokens (some translucent, as `rgba(r, g, b, a)`; parse them with `ThemeManager.css_color`).
 
 ### The desktop's light/dark preference

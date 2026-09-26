@@ -2404,7 +2404,9 @@ class EditorAndMainTests(unittest.TestCase):
             }
             look_actions = {a.text(): a for a in menus["Interface Look"].menu().actions()}
             self.assertTrue(look_actions["Native"].isChecked())
-            self.assertTrue(menus["Window Color Scheme"].isEnabled())
+            self.assertTrue(menus["Window Color Scheme"].isVisible())
+            self.assertTrue(menus["Widget Style"].isVisible())
+            sm.save_qt_style("Fusion")
 
             look_actions["Organic"].trigger()
             self.assertEqual(sm.get_interface_look(), INTERFACE_LOOK_ORGANIC)
@@ -2412,7 +2414,16 @@ class EditorAndMainTests(unittest.TestCase):
             self.assertIn("QMenu {", sheet)
             self.assertIn("QTabWidget#documentTabs QTabBar::tab:selected", sheet)
             self.assertTrue(look_actions["Organic"].isChecked())
-            self.assertFalse(menus["Window Color Scheme"].isEnabled())
+            self.assertFalse(menus["Window Color Scheme"].isVisible())
+            self.assertFalse(menus["Widget Style"].isVisible())
+            # Organic forces Breeze (Fusion where Breeze is missing).
+            from jottr.qt_style import organic_qt_style
+
+            self.assertEqual(
+                QApplication.instance().property("_jottr_style_key"),
+                organic_qt_style(),
+            )
+            self.assertEqual(sm.get_saved_qt_style(), "Fusion")
             self.assertEqual(window.main_surface_layout.contentsMargins().left(), 14)
             self.assertFalse(window.tab_widget.tabBar().drawBase())
             self.assertIsNotNone(window.toolbar._group_color)
@@ -2424,7 +2435,9 @@ class EditorAndMainTests(unittest.TestCase):
 
             window.set_interface_look(INTERFACE_LOOK_NATIVE)
             self.assertNotIn("QMenu {", QApplication.instance().styleSheet())
-            self.assertTrue(menus["Window Color Scheme"].isEnabled())
+            self.assertTrue(menus["Window Color Scheme"].isVisible())
+            self.assertTrue(menus["Widget Style"].isVisible())
+            self.assertEqual(sm.get_qt_style(), "Fusion")
             self.assertEqual(window.main_surface_layout.contentsMargins().left(), 0)
             self.assertTrue(window.tab_widget.tabBar().drawBase())
             self.assertIsNone(window.toolbar._group_color)

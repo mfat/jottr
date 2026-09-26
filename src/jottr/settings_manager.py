@@ -482,6 +482,15 @@ class SettingsManager:
         self.save_settings()
 
     def get_qt_style(self):
+        from jottr.qt_style import normalize_qt_style, organic_qt_style
+
+        # Organic forces its own widget style; the saved one returns with Native.
+        if self.get_interface_look() == INTERFACE_LOOK_ORGANIC:
+            return organic_qt_style()
+        return self.get_saved_qt_style()
+
+    def get_saved_qt_style(self):
+        """The Widget Style the user picked, whatever the Interface Look."""
         from jottr.qt_style import normalize_qt_style
 
         return normalize_qt_style(self.settings.get("qt_style", "System"))

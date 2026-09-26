@@ -60,6 +60,12 @@ class SettingsAndSnippetTests(unittest.TestCase):
         # Organic brings its own palette, but the saved scheme is kept.
         self.assertEqual(manager.get_window_color_scheme(), "")
         self.assertEqual(manager.settings["window_color_scheme"], "BreezeDark")
+        from jottr.qt_style import organic_qt_style
+
+        manager.settings["qt_style"] = "Fusion"
+        self.assertEqual(manager.get_qt_style(), organic_qt_style())
+        self.assertIn(organic_qt_style(), {"Breeze", "Fusion"})
+        self.assertEqual(manager.get_saved_qt_style(), "Fusion")
         self.assertEqual(
             effective_chrome_theme("", "Light")["app"]["background"], "#f5ead8"
         )

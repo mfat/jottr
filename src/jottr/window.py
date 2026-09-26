@@ -2560,8 +2560,8 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
             self.translatable_actions.append(action)
 
     def sync_interface_look_menu(self):
-        """Check the active look; Organic brings its own palette, so the
-        Window Color Scheme menu is disabled while it is active."""
+        """Check the active look; Organic brings its own palette and widget
+        style, so the Window Color Scheme and Widget Style menus are hidden."""
         from jottr.settings_manager import INTERFACE_LOOK_ORGANIC
 
         current = self.settings_manager.get_interface_look()
@@ -2571,9 +2571,10 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
                 action.blockSignals(True)
                 action.setChecked(action.data() == current)
                 action.blockSignals(False)
-        menu = getattr(self, "color_scheme_menu", None)
-        if menu is not None:
-            menu.menuAction().setEnabled(current != INTERFACE_LOOK_ORGANIC)
+        for name in ("color_scheme_menu", "widget_style_menu"):
+            menu = getattr(self, name, None)
+            if menu is not None:
+                menu.menuAction().setVisible(current != INTERFACE_LOOK_ORGANIC)
 
     def set_interface_look(self, look):
         """Persist Interface Look and restyle the app."""
@@ -2614,7 +2615,7 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
         for action in list(group.actions()):
             group.removeAction(action)
             action.deleteLater()
-        current = self.settings_manager.get_qt_style()
+        current = self.settings_manager.get_saved_qt_style()
         for style_name in available_qt_styles():
             label = _("Default") if style_name == SYSTEM_QT_STYLE else style_name
             action = QAction(label, self)

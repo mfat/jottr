@@ -789,6 +789,33 @@ class ThemeManager:
         return stylesheet
 
     @staticmethod
+    def organic_chevron_path(color):
+        """Path to a down-chevron SVG in *color*, written to the cache once.
+
+        Styling QComboBox::drop-down drops the widget style's arrow, so the
+        Organic combo boxes draw this one instead.
+        """
+        import os
+
+        from PyQt6.QtCore import QStandardPaths
+
+        name = QColor(color).name().lstrip("#")
+        cache = QStandardPaths.writableLocation(
+            QStandardPaths.StandardLocation.CacheLocation
+        ) or os.path.join(os.path.expanduser("~"), ".cache", "jottr")
+        path = os.path.join(cache, f"organic-chevron-{name}.svg")
+        if not os.path.exists(path):
+            os.makedirs(cache, exist_ok=True)
+            with open(path, "w", encoding="utf-8") as handle:
+                handle.write(
+                    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" '
+                    f'fill="none" stroke="#{name}" stroke-width="2.75" '
+                    'stroke-linecap="round" stroke-linejoin="round">'
+                    '<path d="m6 9 6 6 6-6"/></svg>'
+                )
+        return path.replace("\\", "/")
+
+    @staticmethod
     def build_organic_stylesheet(t):
         """Organic look chrome: pill controls, rounded panes on a warm ground.
 
@@ -1035,6 +1062,16 @@ class ThemeManager:
             }}
             QComboBox:hover {{
                 border-color: {t['muted']};
+            }}
+            QComboBox::drop-down {{
+                border: none;
+                background: transparent;
+                width: 24px;
+            }}
+            QComboBox::down-arrow {{
+                image: url("{ThemeManager.organic_chevron_path(t['muted'])}");
+                width: 12px;
+                height: 12px;
             }}
             QComboBox:disabled, QLineEdit:disabled {{
                 color: {t['faint']};
