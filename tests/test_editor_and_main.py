@@ -2009,15 +2009,19 @@ class EditorAndMainTests(unittest.TestCase):
         self.assertIsNone(editor.browser_widget.graphicsEffect())
         animation.stop()
 
-    def test_main_maps_window_without_opengl_warmup(self):
-        # An OpenGL surface before first show gives Wayland an undecorated
-        # first frame; the window must map as raster.
-        self.assertFalse(hasattr(main_module, "warmup_opengl"))
+    def test_main_warms_opengl_before_show(self):
+        self.assertTrue(
+            callable(getattr(main_module, "warmup_opengl", None))
+        )
         source = Path(main_module.__file__).read_text(encoding="utf-8")
         self.assertIn("AA_ShareOpenGLContexts", source)
         self.assertIn("AA_DontShowIconsInMenus", source)
-        self.assertNotIn("QtOpenGLWidgets", source)
+        self.assertIn("warmup_opengl(window)", source)
         self.assertNotIn("warmup_webengine", source)
+        self.assertLess(
+            source.index("warmup_opengl(window)"),
+            source.index("window.show()"),
+        )
 
     def test_browser_toggle_avoids_fade_over_webengine(self):
         editor = self.make_editor()
