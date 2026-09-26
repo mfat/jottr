@@ -343,12 +343,14 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
         self.watch_system_color_scheme()
 
         # Tests (and JOTTR_SYNC_STARTUP=1) finish content before __init__ returns
-        # so existing callers can assume a ready tab. Production upgrades the
-        # instant editor and restores the session in idle chunks past show().
+        # so existing callers can assume a ready tab. Production finishes the
+        # instant editor and the chrome here, before show(): anything that
+        # changes the layout after first paint makes the window jump. Only the
+        # session restore, which adds tabs without moving anything, waits.
         if self._startup_runs_sync():
             self._ensure_startup_content()
         else:
-            QTimer.singleShot(0, self._upgrade_startup_editor)
+            self._upgrade_startup_editor()
 
     @staticmethod
     def _startup_runs_sync():
@@ -436,7 +438,7 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
             editor.setFocus()
 
     def _upgrade_startup_editor(self, schedule_next=True):
-        """Tint icons and finish the instant tab (chunk 1: typing works)."""
+        """Tint icons and finish the instant tab and status bar, before show()."""
         if getattr(self, "_startup_stage", "done") != "tab":
             return
         self._startup_stage = "editor"
@@ -454,6 +456,9 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
             self.refresh_tab_close_buttons()
 
         self.update_edit_actions()
+        # Fill the dictionary badge now; the restore refreshes it if the
+        # current document changes.
+        self.update_document_language_status()
         self._focus_editor_for_typing()
         if schedule_next and not self._startup_runs_sync():
             QTimer.singleShot(0, self._finish_restored_startup)

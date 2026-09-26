@@ -109,12 +109,13 @@ class InstantTabDropTests(unittest.TestCase):
 
         self.addCleanup(cleanup_window)
 
-    def _upgrade_then_add_extra_tab(self):
+    def _add_extra_tab(self):
         """Leave two tabs with `_instant_tab` still tracked for drop checks."""
-        self.assertEqual(self.window._startup_stage, "tab")
+        # The instant tab is finished before show(); only the restore waits.
+        self.assertEqual(self.window._startup_stage, "editor")
         instant = self.window._instant_tab
         self.assertIsNotNone(instant)
-        self.window._upgrade_startup_editor(schedule_next=False)
+        self.assertFalse(instant._instant_pending)
         # new_editor_tab drains remaining startup while count is still 1, so
         # drop is a no-op; then the extra tab makes count >= 2.
         self.window.new_editor_tab()
@@ -124,7 +125,7 @@ class InstantTabDropTests(unittest.TestCase):
     def test_typed_instant_tab_kept_when_other_tabs_exist(self):
         instant = self.window._instant_tab
         type_text(instant, "keep me")
-        self._upgrade_then_add_extra_tab()
+        self._add_extra_tab()
 
         self.window._drop_redundant_instant_tab()
         self.assertIs(self.window._instant_tab, instant)
@@ -132,7 +133,7 @@ class InstantTabDropTests(unittest.TestCase):
         self.assertIn("keep me", instant.editor.toPlainText())
 
     def test_pristine_instant_tab_dropped_when_other_tabs_exist(self):
-        instant = self._upgrade_then_add_extra_tab()
+        instant = self._add_extra_tab()
         self.assertFalse(instant.editor.toPlainText())
 
         self.window._drop_redundant_instant_tab()
