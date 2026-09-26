@@ -385,15 +385,6 @@ def apply_dialog_window_icon(dialog, icon_name: str, settings_manager=None) -> N
     setter(themed_symbolic_icon(icon_name, manager))
 
 
-# Standard-button → bundled symbolic name (avoids QStyle / host theme icons).
-_MESSAGE_BUTTON_ICONS = {
-    QMessageBox.StandardButton.Save: "save",
-    QMessageBox.StandardButton.Discard: "user-trash",
-    QMessageBox.StandardButton.Cancel: "window-close",
-    QMessageBox.StandardButton.Close: "window-close",
-    QMessageBox.StandardButton.Open: "open",
-}
-
 _MESSAGE_ROLE_ICONS = {
     QMessageBox.Icon.Question: "dialog-question",
     QMessageBox.Icon.Information: "help",
@@ -408,9 +399,11 @@ def apply_message_box_icons(
     *,
     role_icon: str | None = None,
     role_size: int = 48,
-    button_size: int = 16,
 ) -> None:
-    """Replace Qt/style icons on a message box with bundled symbolic glyphs."""
+    """Replace the style's role icon on a message box with a bundled glyph.
+
+    Its buttons stay text-only: dialog buttons never carry icons (JottrStyle).
+    """
     manager = settings_manager or settings_manager_from(message_box)
     icon_name = role_icon or _MESSAGE_ROLE_ICONS.get(
         message_box.icon(), "dialog-question"
@@ -420,12 +413,6 @@ def apply_message_box_icons(
         message_box.setIconPixmap(role.pixmap(QSize(role_size, role_size)))
 
     apply_dialog_window_icon(message_box, icon_name or "dialog-question", manager)
-
-    for standard, name in _MESSAGE_BUTTON_ICONS.items():
-        button = message_box.button(standard)
-        if button is not None:
-            button.setIcon(themed_symbolic_icon(name, manager, size=button_size))
-            button.setIconSize(QSize(button_size, button_size))
 
 
 def ask_themed_question(

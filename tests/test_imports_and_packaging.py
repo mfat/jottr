@@ -526,7 +526,7 @@ class ImportAndPackagingTests(unittest.TestCase):
         self.assertIn("Icon=io.github.mfat.jottr", desktop)
         self.assertIn("StartupWMClass=Jottr", desktop)
 
-    def test_message_box_uses_bundled_button_icons(self):
+    def test_message_box_uses_bundled_role_icon_and_text_only_buttons(self):
         from PyQt6.QtCore import QSize
         from PyQt6.QtWidgets import QApplication, QMessageBox
 
@@ -559,7 +559,7 @@ class ImportAndPackagingTests(unittest.TestCase):
         ):
             button = box.button(standard)
             self.assertIsNotNone(button)
-            self.assertFalse(button.icon().isNull())
+            self.assertTrue(button.icon().isNull())
         self.assertIsNotNone(app)
 
 

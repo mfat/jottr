@@ -9,9 +9,23 @@ from __future__ import annotations
 
 from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QGuiApplication
-from PyQt6.QtWidgets import QApplication
+from PyQt6.QtWidgets import QApplication, QProxyStyle, QStyle, QStyleFactory
 
 APP_QT_STYLE = "Fusion"
+
+
+class JottrStyle(QProxyStyle):
+    """Fusion with Jottr's app-wide rules.
+
+    Dialog buttons never carry icons. Fusion asks the platform theme, and
+    some (KDE) put style icons on OK/Cancel/Save; this answers no everywhere,
+    for every QDialogButtonBox and QMessageBox.
+    """
+
+    def styleHint(self, hint, option=None, widget=None, return_data=None):
+        if hint == QStyle.StyleHint.SH_DialogButtonBox_ButtonsHaveIcons:
+            return 0
+        return super().styleHint(hint, option, widget, return_data)
 
 
 def apply_qt_color_scheme(scheme_name, application=None):
@@ -50,7 +64,7 @@ def apply_qt_color_scheme(scheme_name, application=None):
 
 
 def apply_qt_style(application=None):
-    """Install Fusion once. Returns True when the style was swapped."""
+    """Install Fusion (as JottrStyle) once. Returns True when the style was swapped."""
     app = application or QApplication.instance()
     if app is None:
         return False
@@ -58,8 +72,10 @@ def apply_qt_style(application=None):
     # so remember the style we applied on the application object itself.
     if app.property("_jottr_style_key") == APP_QT_STYLE:
         return False
-    if app.setStyle(APP_QT_STYLE) is None:
+    base = QStyleFactory.create(APP_QT_STYLE)
+    if base is None:
         return False
+    app.setStyle(JottrStyle(base))
     app.setProperty("_jottr_style_key", APP_QT_STYLE)
     return True
 

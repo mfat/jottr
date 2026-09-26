@@ -2881,9 +2881,6 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
         
         # Add button box
         button_box = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok)
-        ok_button = button_box.button(QDialogButtonBox.StandardButton.Ok)
-        if ok_button is not None:
-            ok_button.setIcon(QIcon())
         button_box.accepted.connect(about_dialog.accept)
         button_box.setCenterButtons(True)  # Center the OK button
         layout.addWidget(button_box)

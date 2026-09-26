@@ -6,7 +6,7 @@ Every rule here comes from a bug that shipped: dialogs that stayed light in dark
 
 ## Where Colors Come From
 
-Jottr draws all chrome with Qt's **Fusion** style on every platform (`jottr.qt_style.APP_QT_STYLE`). Fusion ships with Qt and paints purely from the palette, so Jottr's palettes look the same everywhere. There is no Widget Style setting and no KDE `.colors` scheme support; older saved `qt_style` and `window_color_scheme` values are dropped on load (a named scheme becomes the Light or Dark it looked like).
+Jottr draws all chrome with Qt's **Fusion** style on every platform (`jottr.qt_style.APP_QT_STYLE`), wrapped in `JottrStyle`, a proxy that carries the app-wide rules below. Fusion ships with Qt and paints purely from the palette, so Jottr's palettes look the same everywhere. There is no Widget Style setting and no KDE `.colors` scheme support; older saved `qt_style` and `window_color_scheme` values are dropped on load (a named scheme becomes the Light or Dark it looked like).
 
 Two settings decide the chrome colors:
 
@@ -52,7 +52,7 @@ Modal dialogs (`QMessageBox`, font picker, snippet editor, search site) are fine
 - Pass the main window (or another themed widget) as `parent`.
 - Set the window icon with `apply_dialog_window_icon(dialog, "icon-name", settings_manager)`.
 - Do not build a separate Light/Dark palette. Inherit the app or parent palette (see `FontSelectionDialog`).
-- For message boxes, use `ask_themed_question` / `apply_message_box_icons` so buttons get bundled, tinted icons.
+- For message boxes, use `ask_themed_question` / `apply_message_box_icons` so the role icon is a bundled, tinted glyph.
 
 They open and close within one theme, so they never need refreshing.
 
@@ -104,6 +104,7 @@ A non-modal window that can stay open while the theme changes (the Settings wind
 - Use `themed_symbolic_icon(name, settings_manager, palette=...)` for dialogs and lists, or the main window's `build_themed_icon(name)` for chrome. They tint bundled SVGs from `resolve_icon_color`, which follows the effective chrome theme and the Icon Contrast setting.
 - Provide Selected and Disabled modes (the helpers do). Otherwise the style invents its own tint.
 - Rebuild icons after a theme change; tints are baked into pixmaps. `apply_app_style` clears `_themed_icon_cache` and refreshes actions and tabs; do the same for icons you own (see `SettingsDialog.refresh_settings_nav_icons`).
+- **Dialog buttons never have icons.** OK, Cancel, Save, Discard, Close and every other button in a dialog's button row is text only, in `QDialogButtonBox`, `QMessageBox`, and hand-built button rows alike. `JottrStyle` answers no to `SH_DialogButtonBox_ButtonsHaveIcons`, so standard buttons stay bare even on platform themes (KDE) that add icons; never `setIcon` on one yourself. Icons are for chrome: toolbar, pane header and tab buttons.
 
 ## Checklist
 
@@ -115,6 +116,7 @@ Before merging a new widget, dialog, or window:
 - [ ] Long-lived top-level windows set their palette, reapply it on `StyleChange` and `Polish`, are refreshed from `apply_app_style`, and read saved settings.
 - [ ] Palette is set after any stylesheet on the same widget.
 - [ ] Icons are tinted through the helpers and rebuilt on theme change.
+- [ ] Dialog buttons are text only.
 - [ ] Tested under a theme switch in both directions (below).
 
 ## Testing

@@ -13,7 +13,7 @@ SRC_ROOT = PROJECT_ROOT / "src"
 sys.path.insert(0, str(SRC_ROOT))
 
 from PyQt6.QtGui import QFont
-from PyQt6.QtWidgets import QApplication
+from PyQt6.QtWidgets import QApplication, QStyle
 
 from jottr.settings_manager import SettingsManager
 from jottr.snippet_manager import SnippetManager
@@ -374,8 +374,13 @@ class SettingsAndSnippetTests(unittest.TestCase):
         application.setProperty("_jottr_style_key", None)
         self.assertEqual(APP_QT_STYLE, "Fusion")
         self.assertTrue(apply_qt_style(application))
-        self.assertEqual(application.style().name().casefold(), "fusion")
+        self.assertEqual(application.style().baseStyle().name().casefold(), "fusion")
         self.assertEqual(application.property("_jottr_style_key"), "Fusion")
+        # Dialog buttons never carry icons, whatever the platform theme says.
+        self.assertEqual(
+            application.style().styleHint(QStyle.StyleHint.SH_DialogButtonBox_ButtonsHaveIcons),
+            0,
+        )
         # Already installed: no second swap (and no repolish).
         self.assertFalse(apply_qt_style(application))
 
