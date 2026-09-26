@@ -5,6 +5,7 @@ from PyQt6.QtCore import QUrl, Qt, QSize
 from PyQt6.QtGui import QAction, QShortcut, QKeySequence, QIcon, QFont, QDesktopServices
 from PyQt6.QtWidgets import QToolBar, QLineEdit, QLabel, QWidget, QHBoxLayout, QPushButton, QMessageBox
 
+from jottr.icon_manager import themed_symbolic_icon
 from jottr.translation_manager import _
 
 from .web_profile import browser_profile, new_browser_page
@@ -158,6 +159,8 @@ class BrowserPaneMixin:
         self.web_view.urlChanged.connect(self.update_url)
         self.web_view.loadStarted.connect(lambda: self.url_bar.setEnabled(False))
         self.web_view.loadFinished.connect(lambda: self.url_bar.setEnabled(True))
+        self.web_view.loadStarted.connect(lambda: self.set_browser_loading(True))
+        self.web_view.loadFinished.connect(lambda: self.set_browser_loading(False))
         self.web_view.loadFinished.connect(self.update_nav_buttons)
         
         # Connect navigation buttons
@@ -333,27 +336,28 @@ class BrowserPaneMixin:
         toolbar_layout.setSpacing(5)
         
         # Navigation buttons
-        self.back_btn = QPushButton("←")
-        self.back_btn.setFixedSize(28, 28)
+        self.back_btn = self._browser_icon_button(_("Back"))
         self.back_btn.setEnabled(False)  # Initially disabled
         toolbar_layout.addWidget(self.back_btn)
-        
-        self.forward_btn = QPushButton("→")
-        self.forward_btn.setFixedSize(28, 28)
+
+        self.forward_btn = self._browser_icon_button(_("Forward"))
         self.forward_btn.setEnabled(False)  # Initially disabled
         toolbar_layout.addWidget(self.forward_btn)
-        
+
+        # Reload, or Stop while a page is loading
+        self.browser_loading = False
+        self.reload_btn = self._browser_icon_button(_("Reload"))
+        self.reload_btn.clicked.connect(self.reload_or_stop_browser)
+        toolbar_layout.addWidget(self.reload_btn)
+
         # URL bar
         self.url_bar = QLineEdit()
         self.url_bar.setPlaceholderText(_("Search or enter address"))
         self.url_bar.returnPressed.connect(self.navigate_to_url)
         toolbar_layout.addWidget(self.url_bar)
-        
+
         # Open the address in the system browser
-        self.open_external_btn = QPushButton("↗")
-        self.open_external_btn.setFixedSize(28, 28)
-        self.open_external_btn.setToolTip(_("Open in Default Browser"))
-        self.open_external_btn.setAccessibleName(_("Open in Default Browser"))
+        self.open_external_btn = self._browser_icon_button(_("Open in Default Browser"))
         self.open_external_btn.clicked.connect(self.open_in_default_browser)
         toolbar_layout.addWidget(self.open_external_btn)
 
@@ -363,9 +367,51 @@ class BrowserPaneMixin:
         close_btn.setFont(QFont("Arial", 14))
         close_btn.clicked.connect(lambda: self.toggle_pane("browser"))
         toolbar_layout.addWidget(close_btn)
-        
+
+        self.refresh_browser_icons()
+
         # Add toolbar to browser layout
         self.browser_widget.layout().addWidget(toolbar)
+
+    def _browser_icon_button(self, label):
+        button = QPushButton()
+        button.setObjectName("browserIconButton")
+        button.setFixedSize(28, 28)
+        button.setIconSize(QSize(18, 18))
+        button.setToolTip(label)
+        button.setAccessibleName(label)
+        return button
+
+    def refresh_browser_icons(self):
+        """Tint the navigation glyphs for the active icon pack and theme."""
+        if not hasattr(self, "back_btn"):
+            return
+        icons = (
+            (self.back_btn, "go-previous"),
+            (self.forward_btn, "go-next"),
+            (self.open_external_btn, "open-external"),
+        )
+        for button, name in icons:
+            button.setIcon(themed_symbolic_icon(name, self.settings_manager))
+        self.set_browser_loading(self.browser_loading)
+
+    def set_browser_loading(self, loading):
+        """Swap Reload for Stop while a page loads."""
+        self.browser_loading = loading
+        label = _("Stop") if loading else _("Reload")
+        self.reload_btn.setToolTip(label)
+        self.reload_btn.setAccessibleName(label)
+        self.reload_btn.setIcon(themed_symbolic_icon(
+            "process-stop" if loading else "view-refresh", self.settings_manager
+        ))
+
+    def reload_or_stop_browser(self):
+        if not self.web_view:
+            return
+        if self.browser_loading:
+            self.web_view.stop()
+        else:
+            self.web_view.reload()
 
     def update_nav_buttons(self):
         """Update navigation button states"""

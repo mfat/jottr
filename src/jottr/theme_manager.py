@@ -1037,6 +1037,10 @@ class ThemeManager:
                 padding: 0px 10px;
                 border-radius: 13px;
             }}
+            QWidget#browserToolbar QPushButton#browserIconButton {{
+                padding: 0px;
+                border-radius: 14px;
+            }}
             QPushButton#workspaceToolButton, QPushButton#panelCloseButton {{
                 background: transparent;
                 border: none;

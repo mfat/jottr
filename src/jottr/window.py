@@ -725,6 +725,7 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
         if not getattr(self, "_startup_content_pending", False):
             self.update_action_icons()
             self.refresh_tab_icons()
+            self.refresh_browser_toolbar_icons()
         # The Settings window is top-level, so it does not inherit this
         # window's palette; refresh it the same way.
         settings_dialog = getattr(self, "_settings_dialog", None)
@@ -901,6 +902,14 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
         for index in range(self.tab_widget.count()):
             self.update_tab_icon(index)
         self.refresh_tab_close_buttons()
+
+    def refresh_browser_toolbar_icons(self):
+        if not hasattr(self, "tab_widget"):
+            return
+        for index in range(self.tab_widget.count()):
+            refresh = getattr(self.tab_widget.widget(index), "refresh_browser_icons", None)
+            if callable(refresh):
+                refresh()
 
     def tab_close_icon(self):
         """Bundled themed icon for document tab close buttons."""
