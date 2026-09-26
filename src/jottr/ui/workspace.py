@@ -1,7 +1,7 @@
 """Workspace explorer and side-panel widgets."""
-from PyQt6.QtWidgets import QListWidget, QPushButton, QStyle, QStyleOptionButton, QTreeView
+from PyQt6.QtWidgets import QListWidget, QPushButton, QStyle, QStyleOptionButton, QStyleOptionViewItem, QTreeView
 from PyQt6.QtCore import QEvent, QPointF, QRect, QSize, Qt
-from PyQt6.QtGui import QFileSystemModel, QFont, QFontMetrics, QPainter, QPainterPath, QPalette, QPen
+from PyQt6.QtGui import QFileSystemModel, QFont, QFontMetrics, QPainter, QPainterPath, QPalette, QPen, QRegion
 
 
 class WorkspaceFileSystemModel(QFileSystemModel):
@@ -115,10 +115,37 @@ class WorkspaceTitleButton(QPushButton):
 class WorkspaceTreeView(QTreeView):
     """Tree view with subtle branch guides for workspace hierarchy."""
 
+    def drawRow(self, painter, option, index):
+        # The base row painting fills the branch area with the selected
+        # item background, making the chevron look selected with the row.
+        # Keep that area out of the row paint and draw the branches alone.
+        row = option.rect
+        branches = QRect(row.left(), row.top(), self.visualRect(index).left() - row.left(), row.height())
+        if branches.width() <= 0:
+            super().drawRow(painter, option, index)
+            return
+        painter.save()
+        painter.setClipRegion(QRegion(row).subtracted(QRegion(branches)))
+        super().drawRow(painter, option, index)
+        painter.restore()
+        self.drawBranches(painter, branches, index)
+
     def drawBranches(self, painter, rect, index):
-        super().drawBranches(painter, rect, index)
+        # Draw the expand indicator without the selected state; the base
+        # implementation also paints the selection across the branch area.
         if not index.isValid() or rect.width() <= 0:
             return
+
+        indent = self.indentation()
+        opt = QStyleOptionViewItem()
+        self.initViewItemOption(opt)
+        opt.rect = QRect(rect.right() - indent + 1, rect.top(), indent, rect.height())
+        opt.state = QStyle.StateFlag.State_Item | (opt.state & QStyle.StateFlag.State_Enabled)
+        if self.model().hasChildren(index):
+            opt.state |= QStyle.StateFlag.State_Children
+        if self.isExpanded(index):
+            opt.state |= QStyle.StateFlag.State_Open
+        self.style().drawPrimitive(QStyle.PrimitiveElement.PE_IndicatorBranch, opt, painter, self)
 
         color = self.palette().mid().color()
         color.setAlpha(130)
