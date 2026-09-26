@@ -118,12 +118,10 @@ class EditorAndMainTests(unittest.TestCase):
         tree.setIndentation(18)
         tree.setRootIsDecorated(True)
         tree.setAlternatingRowColors(True)
-        tree.setAllColumnsShowFocus(True)
 
         self.assertEqual(tree.indentation(), 18)
         self.assertTrue(tree.rootIsDecorated())
         self.assertTrue(tree.alternatingRowColors())
-        self.assertTrue(tree.allColumnsShowFocus())
 
     def make_editor(self):
         web_view_patch = patch.object(editor_tab_impl, "QWebEngineView", _FakeWebEngineView)

@@ -73,7 +73,6 @@ class WorkspaceControllerMixin:
         self.workspace_tree.setHeaderHidden(True)
         self.workspace_tree.setAnimated(True)
         self.workspace_tree.setAlternatingRowColors(True)
-        self.workspace_tree.setAllColumnsShowFocus(True)
         self.workspace_tree.setExpandsOnDoubleClick(True)
         self.workspace_tree.setIndentation(18)
         self.workspace_tree.setRootIsDecorated(True)
