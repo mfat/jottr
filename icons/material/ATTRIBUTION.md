@@ -24,3 +24,9 @@ Every icon pack ships the same browser toolbar glyphs: `go-previous`,
 (CC-BY-4.0, Microsoft), and `view-refresh` from
 [Material Design Icons](https://github.com/google/material-design-icons)
 (Apache License 2.0, Google).
+
+## Side panels
+
+Every icon pack ships the same `list-add` glyph for the Snippets panel's
+New button, from [Fluent UI System Icons](https://github.com/microsoft/fluentui-system-icons)
+(MIT, Microsoft Corporation).

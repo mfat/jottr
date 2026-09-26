@@ -23,6 +23,7 @@ from PyQt6.QtGui import (
     QPageLayout, QPageSize,
 )
 
+from jottr.icon_manager import themed_symbolic_icon
 from jottr.snippet_editor_dialog import SnippetEditorDialog
 from jottr.theme_manager import ThemeManager
 from jottr.translation_manager import _, is_rtl_language, localize_digits
@@ -318,10 +319,12 @@ class EditorTab(
         header_layout.addWidget(snippet_title)
         header_layout.addStretch()
 
-        snippet_new = QPushButton("+")
+        self.snippet_new_btn = snippet_new = QPushButton()
         snippet_new.setObjectName("panelHeaderButton")
         snippet_new.setFixedSize(24, 24)
+        snippet_new.setIconSize(QSize(18, 18))
         snippet_new.setToolTip(_("New snippet"))
+        snippet_new.setAccessibleName(_("New snippet"))
         snippet_new.clicked.connect(self.new_snippet)
         header_layout.addWidget(snippet_new)
 
@@ -345,6 +348,7 @@ class EditorTab(
 
         # Browser toolbar above the (core-built) web container placeholder
         self.setup_browser_toolbar()
+        self.refresh_pane_icons()
         self.browser_widget.layout().addWidget(self.web_container)
 
         # Create spell checker
@@ -418,6 +422,14 @@ class EditorTab(
         close_btn.setFixedSize(28, 28)
         close_btn.clicked.connect(self.toggle_find)
         find_layout.addWidget(close_btn)
+
+    def refresh_pane_icons(self):
+        """Tint the side-pane glyphs for the active icon pack and theme."""
+        if hasattr(self, "snippet_new_btn"):
+            self.snippet_new_btn.setIcon(
+                themed_symbolic_icon("list-add", self.settings_manager)
+            )
+        self.refresh_browser_icons()
 
     def apply_workspace_style(self):
         """Leave the panes around the editor to the widget style and palette.

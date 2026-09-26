@@ -36,6 +36,7 @@
         <file alias="insert-text.svg">symbolic/insert-text.svg</file>
         <file alias="large-text-symbolic.svg">symbolic/large-text-symbolic.svg</file>
         <file alias="larger.svg">symbolic/larger.svg</file>
+        <file alias="list-add.svg">symbolic/list-add.svg</file>
         <file alias="markdown.svg">symbolic/eye-outline-filled-symbolic.svg</file>
         <file alias="menu.svg">symbolic/menu.svg</file>
         <file alias="new.svg">symbolic/new.svg</file>

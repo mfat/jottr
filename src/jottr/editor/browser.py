@@ -368,8 +368,6 @@ class BrowserPaneMixin:
         close_btn.clicked.connect(lambda: self.toggle_pane("browser"))
         toolbar_layout.addWidget(close_btn)
 
-        self.refresh_browser_icons()
-
         # Add toolbar to browser layout
         self.browser_widget.layout().addWidget(toolbar)
 

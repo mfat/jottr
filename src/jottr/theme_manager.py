@@ -1043,25 +1043,17 @@ class ThemeManager:
                 padding: 0px;
                 border-radius: 14px;
             }}
-            QPushButton#workspaceToolButton, QPushButton#panelCloseButton {{
+            QPushButton#workspaceToolButton, QPushButton#panelCloseButton,
+            QPushButton#panelHeaderButton {{
                 background: transparent;
                 border: none;
                 border-radius: 11px;
                 color: {t['muted']};
                 padding: 0px;
             }}
-            QPushButton#workspaceToolButton:hover, QPushButton#panelCloseButton:hover {{
-                background: {t['hover']};
-            }}
-            QPushButton#panelHeaderButton {{
-                background: {t['act']};
-                border: none;
-                border-radius: 11px;
-                color: {t['on_act']};
-                padding: 0px;
-            }}
+            QPushButton#workspaceToolButton:hover, QPushButton#panelCloseButton:hover,
             QPushButton#panelHeaderButton:hover {{
-                background: {t['act_hover']};
+                background: {t['hover']};
             }}
             QLineEdit {{
                 background: {t['paper']};
