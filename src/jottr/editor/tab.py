@@ -1313,11 +1313,7 @@ class EditorTab(
         sizes = states.get('sizes')
         if not isinstance(sizes, list) or len(sizes) != 3:
             sizes = [700, 300, 300]
-        snippets_visible = bool(states.get('snippets_visible', False))
-        if snippets_visible and sizes[1] <= 0:
-            # Open with no width saved (older builds saved mid-animation).
-            sizes = [max(1, sizes[0] - self.DEFAULT_SNIPPETS_WIDTH), self.DEFAULT_SNIPPETS_WIDTH, sizes[2]]
-        self.snippet_widget.setVisible(snippets_visible)
+        self.snippet_widget.setVisible(bool(states.get('snippets_visible', False)))
         self.splitter.setSizes(sizes)
         markdown_sizes = states.get('markdown_sizes')
         if isinstance(markdown_sizes, list) and len(markdown_sizes) == 2:
@@ -1328,8 +1324,6 @@ class EditorTab(
         if target is None:
             return widget.isVisible()
         return bool(target)
-
-    DEFAULT_SNIPPETS_WIDTH = 260
 
     # Default "Document N" title of an untitled tab named after its text; "" otherwise.
     untitled_title = ""
@@ -1449,21 +1443,11 @@ class EditorTab(
 
     def save_pane_states(self):
         """Save pane visibility and sizes"""
-        snippets_visible = self.intended_widget_visibility(self.snippet_widget)
-        sizes = self.splitter.sizes()
-        if snippets_visible and sizes[1] <= 0:
-            # Still sliding open from zero: keep the width it last had.
-            saved = self.settings_manager.get_setting('pane_states', {})
-            saved_sizes = saved.get('sizes') if isinstance(saved, dict) else None
-            width = self.DEFAULT_SNIPPETS_WIDTH
-            if isinstance(saved_sizes, list) and len(saved_sizes) == 3 and saved_sizes[1] > 0:
-                width = saved_sizes[1]
-            sizes = [max(1, sizes[0] - width), width, sizes[2]]
         states = {
-            'snippets_visible': snippets_visible,
+            'snippets_visible': self.intended_widget_visibility(self.snippet_widget),
             'markdown_preview_visible': self.markdown_preview_visible if hasattr(self, 'markdown_preview') else False,
             'markdown_sizes': self.markdown_splitter.sizes() if hasattr(self, 'markdown_splitter') else [600, 600],
-            'sizes': sizes
+            'sizes': self.splitter.sizes()
         }
         self.settings_manager.save_setting('pane_states', states)
 

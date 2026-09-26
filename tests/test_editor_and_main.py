@@ -191,23 +191,13 @@ class EditorAndMainTests(unittest.TestCase):
         margins = editor.markdown_preview_container.layout().contentsMargins()
         self.assertEqual(margins.left(), 0)
 
-    def test_snippets_pane_saved_open_at_zero_width_reopens(self):
-        self.settings.save_setting('pane_states', {
-            'snippets_visible': True,
-            'markdown_preview_visible': False,
-            'markdown_sizes': [600, 0],
-            'sizes': [1164, 0, 0],
-        })
+    def test_snippets_pane_state_is_saved_once_the_pane_settles(self):
         editor = self.make_editor()
-        self.assertFalse(editor.snippet_widget.isHidden())
-        self.assertFalse(editor.splitter.isCollapsible(1))
-
-    def test_snippets_pane_opening_saves_a_real_width(self):
-        editor = self.make_editor()
-        editor.snippet_widget.setProperty("target_visible", True)
-        editor.snippet_widget.setMaximumWidth(0)  # mid-animation
-        editor.snippet_widget.setVisible(True)
-        editor.save_pane_states()
+        editor.resize(1000, 600)
+        editor.show()
+        self.addCleanup(editor.hide)
+        QApplication.processEvents()
+        editor.toggle_pane("snippets")
         states = self.settings.get_setting('pane_states')
         self.assertTrue(states['snippets_visible'])
         self.assertGreater(states['sizes'][1], 0)

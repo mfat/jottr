@@ -256,8 +256,13 @@ class BrowserPaneMixin:
             elif pane_type == "snippets":
                 self.panes_opened_in_focus['snippets'] = self.snippet_widget.isVisible()
         
-        # Save states after toggle
-        self.save_pane_states()
+        # Save once the pane has settled: mid-slide its width is still 0.
+        pane = self.snippet_widget if pane_type == "snippets" else self.browser_widget
+        animation = self.ui_animations.get(pane)
+        if animation is not None:
+            animation.finished.connect(self.save_pane_states)
+        else:
+            self.save_pane_states()
 
     def setup_browser_shortcuts(self):
         """Setup standard shortcuts for the web browser"""
