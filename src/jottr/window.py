@@ -754,6 +754,11 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
             # lines up with them. QSS margin moves only the painted background,
             # so the contents are pushed down here too.
             workspace_widget.layout().setContentsMargins(0, 6 if tokens else 0, 0, 0)
+        workspace_title = getattr(self, "workspace_title", None)
+        if workspace_title is not None:
+            workspace_title.set_title_weight(
+                QFont.Weight.DemiBold if tokens else QFont.Weight.Normal
+            )
         group_color = ThemeManager.css_color(tokens["group"]) if tokens else None
         for toolbar in self.findChildren(GroupedToolBar):
             toolbar.set_group_color(group_color)

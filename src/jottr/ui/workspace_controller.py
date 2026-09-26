@@ -12,7 +12,7 @@ from PyQt6.QtWidgets import (
 from jottr.translation_manager import _
 from jottr.icon_manager import ask_themed_question
 from jottr.file_dialogs import get_existing_directory
-from jottr.ui.workspace import WorkspaceFileSystemModel, WorkspaceTreeView
+from jottr.ui.workspace import WorkspaceFileSystemModel, WorkspaceTitleButton, WorkspaceTreeView
 
 
 class WorkspaceControllerMixin:
@@ -30,11 +30,14 @@ class WorkspaceControllerMixin:
         header_layout.setContentsMargins(10, 8, 8, 8)
         header_layout.setSpacing(8)
 
-        self.workspace_title = QPushButton(_("Workspace"))
+        self.workspace_title = WorkspaceTitleButton(_("Workspace"))
         self.workspace_title.setObjectName("workspaceTitle")
         self.workspace_title.setFlat(True)
         self.workspace_title.setToolTip(_("Switch workspace"))
-        self.workspace_title.clicked.connect(self.show_workspace_navigator)
+        # The chevron the button draws marks the title as a switcher.
+        self.workspace_navigator_menu = QMenu(self.workspace_title)
+        self.workspace_navigator_menu.aboutToShow.connect(self.populate_workspace_navigator)
+        self.workspace_title.setMenu(self.workspace_navigator_menu)
         self.workspace_path_label = QLabel(_("No folder open"))
         self.workspace_path_label.setObjectName("workspacePath")
 
@@ -43,7 +46,8 @@ class WorkspaceControllerMixin:
         title_stack_layout = QVBoxLayout(title_stack)
         title_stack_layout.setContentsMargins(0, 0, 0, 0)
         title_stack_layout.setSpacing(1)
-        title_stack_layout.addWidget(self.workspace_title)
+        # Leading-aligned so the button hugs its text and the chevron sits beside it.
+        title_stack_layout.addWidget(self.workspace_title, 0, Qt.AlignmentFlag.AlignLeft)
         title_stack_layout.addWidget(self.workspace_path_label)
         header_layout.addWidget(title_stack, 1)
 
@@ -192,9 +196,10 @@ class WorkspaceControllerMixin:
             added = True
         return added
 
-    def show_workspace_navigator(self):
-        """Show recent workspace switcher under the workspace title."""
-        menu = QMenu(self)
+    def populate_workspace_navigator(self):
+        """Fill the recent workspace switcher under the workspace title."""
+        menu = self.workspace_navigator_menu
+        menu.clear()
         added = self.populate_recent_workspace_actions(menu)
         if added or self.workspace_path:
             menu.addSeparator()
@@ -202,7 +207,6 @@ class WorkspaceControllerMixin:
         menu.addAction(_("Clear Missing Workspaces"), self.clear_missing_workspaces)
         if self.workspace_path:
             menu.addAction(_("Close Workspace"), self.close_workspace)
-        menu.exec(self.workspace_title.mapToGlobal(self.workspace_title.rect().bottomLeft()))
 
     def refresh_workspace_menu(self):
         """Rebuild the Workspace menubar with current recent entries."""

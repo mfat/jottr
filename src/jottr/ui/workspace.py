@@ -1,7 +1,7 @@
 """Workspace explorer widgets."""
-from PyQt6.QtWidgets import QTreeView
-from PyQt6.QtCore import Qt
-from PyQt6.QtGui import QFileSystemModel, QPen
+from PyQt6.QtWidgets import QPushButton, QStyle, QStyleOptionButton, QTreeView
+from PyQt6.QtCore import QPointF, QRect, QSize, Qt
+from PyQt6.QtGui import QFileSystemModel, QFont, QFontMetrics, QPainter, QPainterPath, QPalette, QPen
 
 
 class WorkspaceFileSystemModel(QFileSystemModel):
@@ -11,6 +11,92 @@ class WorkspaceFileSystemModel(QFileSystemModel):
         if role == Qt.ItemDataRole.ToolTipRole and index.isValid():
             return self.filePath(index)
         return super().data(index, role)
+
+
+class WorkspaceTitleButton(QPushButton):
+    """Menu button that draws its title followed by a dropdown chevron.
+
+    The style's own menu indicator is a tiny triangle that stylesheets can
+    paint over the text, so the label and chevron are painted here instead.
+    Long titles are elided rather than widening the explorer.
+    """
+
+    _CHEVRON_WIDTH = 9
+    _GAP = 6
+    _PADDING = 4
+
+    def __init__(self, text, parent=None):
+        super().__init__(text, parent)
+        self._title_weight = QFont.Weight.Normal
+
+    def set_title_weight(self, weight):
+        """Title weight; the chrome font overrides stylesheet font-weight."""
+        self._title_weight = weight
+        self.updateGeometry()
+        self.update()
+
+    def _title_font(self):
+        font = QFont(self.font())
+        font.setWeight(self._title_weight)
+        return font
+
+    def _extra_width(self):
+        # One pixel of slack for fractional text advances.
+        return self._GAP + self._CHEVRON_WIDTH + 2 * self._PADDING + 1
+
+    def sizeHint(self):
+        width = QFontMetrics(self._title_font()).horizontalAdvance(self.text()) + self._extra_width()
+        return QSize(width, super().sizeHint().height())
+
+    def minimumSizeHint(self):
+        width = QFontMetrics(self._title_font()).horizontalAdvance("\u2026") + self._extra_width()
+        return QSize(width, super().minimumSizeHint().height())
+
+    def paintEvent(self, event):
+        painter = QPainter(self)
+        option = QStyleOptionButton()
+        self.initStyleOption(option)
+        option.text = ""
+        option.features &= ~QStyleOptionButton.ButtonFeature.HasMenu
+        self.style().drawControl(QStyle.ControlElement.CE_PushButton, option, painter, self)
+
+        area = self.rect().adjusted(self._PADDING, 0, -self._PADDING, 0)
+        font = self._title_font()
+        metrics = QFontMetrics(font)
+        available = max(0, area.width() - self._GAP - self._CHEVRON_WIDTH)
+        text = self.text()
+        # elidedText compares fractional widths, so a title sized to its
+        # rounded advance would be elided without this check.
+        if metrics.horizontalAdvance(text) > available:
+            text = metrics.elidedText(text, Qt.TextElideMode.ElideRight, available)
+        text_width = metrics.horizontalAdvance(text)
+        direction = self.layoutDirection()
+        text_rect = QStyle.visualRect(
+            direction, area, QRect(area.left(), area.top(), text_width, area.height())
+        )
+        chevron_rect = QStyle.visualRect(
+            direction,
+            area,
+            QRect(area.left() + text_width + self._GAP, area.top(),
+                  self._CHEVRON_WIDTH, area.height()),
+        )
+
+        color = self.palette().color(QPalette.ColorRole.ButtonText)
+        painter.setFont(font)
+        painter.setPen(color)
+        painter.drawText(text_rect, Qt.AlignmentFlag.AlignVCenter, text)
+
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing, True)
+        pen = QPen(color, 1.5)
+        pen.setCapStyle(Qt.PenCapStyle.RoundCap)
+        pen.setJoinStyle(Qt.PenJoinStyle.RoundJoin)
+        painter.setPen(pen)
+        center = QPointF(chevron_rect.center()) + QPointF(0.5, 0.5)
+        half = self._CHEVRON_WIDTH / 2 - 1
+        path = QPainterPath(center + QPointF(-half, -half / 2))
+        path.lineTo(center + QPointF(0, half / 2))
+        path.lineTo(center + QPointF(half, -half / 2))
+        painter.drawPath(path)
 
 
 class WorkspaceTreeView(QTreeView):

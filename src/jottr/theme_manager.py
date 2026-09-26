@@ -978,7 +978,6 @@ class ThemeManager:
                 background: transparent;
                 border: none;
                 color: {t['ink']};
-                font-weight: 600;
                 text-align: left;
                 padding: 2px 4px;
             }}
