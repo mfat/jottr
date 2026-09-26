@@ -757,8 +757,14 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
                 QFont.Weight.DemiBold if tokens else QFont.Weight.Normal
             )
         group_color = ThemeManager.css_color(tokens["group"]) if tokens else None
+        # 17px sides = the panes' 14px inset plus the 3px the group pills
+        # extend past their buttons, so the pills line up with the panes.
+        # QToolBar pads all four sides alike (6px in the Organic QSS), so
+        # the other 11px come from the toolbar's side inset.
+        side = 11 if tokens else 0
         for toolbar in self.findChildren(GroupedToolBar):
             toolbar.set_group_color(group_color)
+            toolbar.set_side_inset(side)
 
 
     def _sync_document_tab_strip_style(self):

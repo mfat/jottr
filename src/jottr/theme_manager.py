@@ -867,15 +867,13 @@ class ThemeManager:
                 border-radius: 8px;
                 padding: 4px 8px;
             }}
-            /* 17px = the panes' 14px inset plus the 3px the group pills
-               extend past their buttons, so the pills line up with the panes. */
+            /* QToolBar applies one padding value to all four sides; the
+               window adds the rest of the 17px side inset as contents
+               margins (see apply_interface_look_chrome). */
             QToolBar#mainToolBar, QToolBar#formatToolBar {{
                 background: {t['ground']};
-                padding: 6px 17px;
+                padding: 6px;
                 spacing: 2px;
-            }}
-            QToolBar#formatToolBar {{
-                padding-top: 0px;
             }}
             QToolBar::separator {{
                 width: 10px;

@@ -133,6 +133,18 @@ class EditorAndMainTests(unittest.TestCase):
 
         self.assertEqual(toolbar.layout().contentsMargins().left(), 20)
 
+        # A side inset widens only the left/right padding.
+        button = toolbar.widgetForAction(toolbar.actions()[0])
+        start_x, start_y = button.x(), button.y()
+        toolbar.set_side_inset(11)
+        application.processEvents()
+        self.assertEqual(button.x(), start_x + 11)
+        self.assertEqual(button.y(), start_y)
+        toolbar.set_side_inset(0)
+        application.processEvents()
+        self.assertEqual(button.x(), start_x)
+        self.assertEqual(len(toolbar.actions()), 1)
+
     def test_workspace_tree_uses_visible_hierarchy_settings(self):
         tree = WorkspaceTreeView()
         self.addCleanup(tree.deleteLater)
