@@ -948,6 +948,11 @@ class ThemeManager:
                 background: {t['pane']};
                 border-radius: 22px;
             }}
+            /* The preview page is always white; the card matches it so the
+               inset web view blends into the rounded corners. */
+            QWidget#markdownPreviewContainer {{
+                background: #ffffff;
+            }}
             QWidget#workspaceExplorer {{
                 margin-top: 6px;
             }}

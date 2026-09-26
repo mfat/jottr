@@ -150,6 +150,11 @@ class MarkdownPreviewMixin:
     def freeze_markdown_preview_width(self, width):
         """Pin the page's layout width so it cannot reflow while the pane moves."""
         if getattr(self, "_markdown_preview_ready", False):
+            container = getattr(self, "markdown_preview_container", None)
+            if container is not None and width > 0:
+                # The view sits inside the container's card inset.
+                margins = container.layout().contentsMargins()
+                width -= margins.left() + margins.right()
             self.markdown_preview.setMinimumWidth(max(0, int(width)))
 
     def set_markdown_preview_visible(self, visible, save_state=True):

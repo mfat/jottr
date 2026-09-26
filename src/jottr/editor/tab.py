@@ -438,6 +438,10 @@ class EditorTab(
         Only the text area follows the Editor Theme, through its own stylesheet.
         """
         self.setStyleSheet("")
+        # Organic draws the preview as a rounded card; the web view paints
+        # square, so it is inset far enough to clear the 22px corners.
+        inset = 7 if ThemeManager.interface_look() == "organic" else 0
+        self.markdown_preview_container.layout().setContentsMargins(inset, inset, inset, inset)
 
     def autosave_enabled(self):
         """Return whether autosave should write existing files."""
