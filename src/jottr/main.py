@@ -26,11 +26,7 @@ from PyQt6.QtWidgets import QApplication, QInputDialog, QMessageBox
 from jottr.editor.web_profile import release_browser_profiles, wipe_pending_data
 from jottr.file_dialogs import use_portal_file_dialogs
 from jottr.icon_manager import load_app_icon
-from jottr.qt_style import (
-    apply_startup_app_chrome,
-    capture_platform_qt_style,
-    register_bundled_qt_plugins,
-)
+from jottr.qt_style import apply_startup_app_chrome
 from jottr.settings_manager import SettingsManager
 from jottr.window import (
     APP_NAME,
@@ -104,9 +100,6 @@ def main():
     # Share GL contexts for Qt WebEngine (must be set before QApplication).
     QApplication.setAttribute(Qt.ApplicationAttribute.AA_ShareOpenGLContexts)
 
-    # Register optional package-local Qt style plugins before any style lookup.
-    register_bundled_qt_plugins()
-
     # Open and save through the desktop portal's dialogs, as in Flatpak.
     use_portal_file_dialogs()
 
@@ -114,8 +107,6 @@ def main():
     app = QApplication(sys.argv)
     # Menus are text-only; toolbar/tabs keep icons.
     app.setAttribute(Qt.ApplicationAttribute.AA_DontShowIconsInMenus, True)
-    # Remember the platform style before any user override is applied.
-    capture_platform_qt_style(app)
 
     # Set application metadata
     app.setApplicationName("Jottr")

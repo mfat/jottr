@@ -22,7 +22,6 @@ from PyQt6.QtGui import QFont
 from PyQt6.QtWidgets import QApplication
 
 from jottr.main import warmup_opengl
-from jottr.qt_style import capture_platform_qt_style, register_bundled_qt_plugins
 from jottr.window import TextEditorApp
 
 OUT = ROOT / "screenshots"
@@ -145,10 +144,8 @@ def wait_animation(widget_host, widget, app: QApplication, timeout_ms: int = 800
 
 def main() -> int:
     QApplication.setAttribute(Qt.ApplicationAttribute.AA_ShareOpenGLContexts)
-    register_bundled_qt_plugins()
     app = QApplication(sys.argv)
     app.setAttribute(Qt.ApplicationAttribute.AA_DontShowIconsInMenus, True)
-    capture_platform_qt_style(app)
     app.setApplicationName("Jottr")
     app.setApplicationDisplayName("Jottr")
 

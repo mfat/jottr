@@ -29,10 +29,9 @@ def _delete_windows_left_by_test():
     # Interface Look is process-wide; a test that picked Organic must not
     # leak its chrome colors into the next one.
     from jottr.theme_manager import ThemeManager
-    from jottr.window_color_scheme import clear_effective_chrome_theme_cache
 
     ThemeManager.set_interface_look("native")
-    clear_effective_chrome_theme_cache()
+    ThemeManager.clear_ui_theme_cache()
     app.setProperty("_jottr_startup_stylesheet", None)
     app.setProperty("_jottr_style_key", None)
     for widget in QApplication.topLevelWidgets():

@@ -110,13 +110,6 @@ class ImportAndPackagingTests(unittest.TestCase):
         self.assertIn("Architecture: all", debian_control)
         self.assertNotIn("qt6-base-dev", debian_control)
 
-    def test_register_bundled_qt_plugins_is_noop_without_tree(self):
-        from jottr.qt_style import register_bundled_qt_plugins
-
-        # Missing styles/ directories are ignored; must not raise.
-        registered = register_bundled_qt_plugins()
-        self.assertIsInstance(registered, list)
-
     def test_release_pyinstaller_bundles_package_modules(self):
         workflow = (PROJECT_ROOT / ".github" / "workflows" / "release-please.yml").read_text(
             encoding="utf-8"
@@ -143,7 +136,6 @@ class ImportAndPackagingTests(unittest.TestCase):
             "jottr.paths",
             "jottr.plugin_manager",
             "jottr.qt_style",
-            "jottr.window_color_scheme",
             "jottr.settings_dialog",
             "jottr.settings_manager",
             "jottr.snippet_editor_dialog",
@@ -265,7 +257,6 @@ class ImportAndPackagingTests(unittest.TestCase):
             "jottr.paths",
             "jottr.plugin_manager",
             "jottr.qt_style",
-            "jottr.window_color_scheme",
             "jottr.settings_dialog",
             "jottr.settings_manager",
             "jottr.snippet_editor_dialog",

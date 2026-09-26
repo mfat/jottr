@@ -601,17 +601,33 @@ class ThemeManager:
         theme["organic"] = dict(source["organic"])
         return theme
 
+    # (look, "Light"/"Dark") -> chrome theme; icon tinting resolves it often.
+    _ui_theme_cache = {}
+
+    @staticmethod
+    def clear_ui_theme_cache():
+        ThemeManager._ui_theme_cache.clear()
+
     @staticmethod
     def get_ui_theme(theme_name, application=None):
-        """Return White or Black theme dict for chrome (from ColorScheme setting).
+        """Chrome theme for a Color Scheme setting (System, Light or Dark).
 
-        Under the Organic look, return its light or dark chrome instead.
+        System resolves through the desktop. Native chrome uses the White or
+        Black theme, the Organic look its own light or dark chrome. Every
+        chrome color comes from here; callers share the returned dict.
         """
         ui_name = ThemeManager.effective_ui_theme_name(theme_name, application)
-        if ThemeManager.interface_look() == "organic":
-            return ThemeManager.organic_theme(ui_name == "Dark")
-        editor_name = ThemeManager.normalize_editor_theme_name(ui_name)
-        return ThemeManager.get_theme(editor_name)
+        look = ThemeManager.interface_look()
+        key = (look, ui_name)
+        cached = ThemeManager._ui_theme_cache.get(key)
+        if cached is not None:
+            return cached
+        if look == "organic":
+            theme = ThemeManager.organic_theme(ui_name == "Dark")
+        else:
+            theme = ThemeManager.get_theme(ThemeManager.normalize_editor_theme_name(ui_name))
+        ThemeManager._ui_theme_cache[key] = theme
+        return theme
 
     @staticmethod
     def theme_is_dark(theme):

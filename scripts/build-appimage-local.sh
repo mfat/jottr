@@ -167,7 +167,6 @@ echo "==> Building PyInstaller bundle"
     --hidden-import jottr.paths \
     --hidden-import jottr.plugin_manager \
     --hidden-import jottr.qt_style \
-    --hidden-import jottr.window_color_scheme \
     --hidden-import jottr.settings_dialog \
     --hidden-import jottr.settings_manager \
     --hidden-import jottr.snippet_editor_dialog \

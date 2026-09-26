@@ -124,34 +124,19 @@ class DialogTests(unittest.TestCase):
             dialog.search_open_in_combo.findData("default")
         )
         dialog.editor_theme_combo.setCurrentText("Monokai")
-        self.assertGreaterEqual(dialog.window_color_scheme_combo.count(), 1)
-        self.assertEqual(dialog.window_color_scheme_combo.itemData(0), "")
+        self.assertEqual(
+            [dialog.color_scheme_combo.itemData(i)
+             for i in range(dialog.color_scheme_combo.count())],
+            ["System", "Light", "Dark"],
+        )
+        self.assertEqual(dialog.color_scheme_combo.currentData(), "Dark")
         self.assertEqual(dialog.selected_ui_theme(), "Dark")
         self.assertIn("Dracula", [
             dialog.editor_theme_combo.itemText(i)
             for i in range(dialog.editor_theme_combo.count())
         ])
-        fusion = next(
-            (name for name in (
-                dialog.qt_style_combo.itemText(i)
-                for i in range(dialog.qt_style_combo.count())
-            ) if name.casefold() == "fusion"),
-            None,
-        )
-        self.assertIsNotNone(fusion)
-        from PyQt6.QtWidgets import QStyleFactory
-
-        combo_styles = {
-            dialog.qt_style_combo.itemText(i)
-            for i in range(dialog.qt_style_combo.count())
-        }
-        self.assertIn("System", combo_styles)
-        for key in QStyleFactory.keys():
-            self.assertTrue(
-                any(name.casefold() == key.casefold() for name in combo_styles),
-                msg=f"settings combo missing style {key!r}",
-            )
-        dialog.qt_style_combo.setCurrentText(fusion)
+        # Every platform uses Fusion; there is no Widget Style control.
+        self.assertFalse(hasattr(dialog, "qt_style_combo"))
         self.assertEqual(
             [
                 dialog.icon_theme_combo.itemData(i)
@@ -198,10 +183,9 @@ class DialogTests(unittest.TestCase):
         self.assertNotIn("spell_languages", data)
         self.assertFalse(hasattr(dialog, "document_language_combo"))
         self.assertEqual(data["ui_theme"], "Dark")
-        self.assertEqual(data["window_color_scheme"], "")
         self.assertEqual(data["theme"], "Monokai")
         self.assertEqual(manager.get_theme(), "Monokai")
-        self.assertEqual(data["qt_style"], fusion)
+        self.assertNotIn("qt_style", data)
         self.assertEqual(data["icon_theme"], "bootstrap")
         self.assertEqual(data["icon_contrast"], "light")
         self.assertFalse(data["enable_animations"])
@@ -512,10 +496,10 @@ class DialogTests(unittest.TestCase):
         self.assertEqual(dialog.font().pointSize(), 13)
         self.assertEqual(dialog.settings_nav.font().family(), "Liberation Sans")
         self.assertEqual(dialog.settings_nav.font().pointSize(), 13)
-        self.assertEqual(dialog.window_color_scheme_combo.font().family(), "Liberation Sans")
-        self.assertEqual(dialog.qt_style_combo.font().family(), "Liberation Sans")
+        self.assertEqual(dialog.color_scheme_combo.font().family(), "Liberation Sans")
+        self.assertEqual(dialog.interface_look_combo.font().family(), "Liberation Sans")
         self.assertEqual(
-            dialog.window_color_scheme_combo.view().font().family(), "Liberation Sans"
+            dialog.color_scheme_combo.view().font().family(), "Liberation Sans"
         )
         self.assertEqual(dialog.ui_font.family(), "Liberation Sans")
         stylesheet = dialog.styleSheet()

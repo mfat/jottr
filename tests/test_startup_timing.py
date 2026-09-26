@@ -28,14 +28,11 @@ t0 = time.perf_counter()
 from PyQt6.QtCore import Qt
 from PyQt6.QtWidgets import QApplication
 from jottr.file_dialogs import use_portal_file_dialogs
-from jottr.qt_style import capture_platform_qt_style, register_bundled_qt_plugins
 from jottr.window import TextEditorApp
 
-register_bundled_qt_plugins()
 use_portal_file_dialogs()
 app = QApplication([])
 app.setAttribute(Qt.ApplicationAttribute.AA_DontShowIconsInMenus, True)
-capture_platform_qt_style(app)
 
 window = TextEditorApp()
 assert window._startup_content_pending

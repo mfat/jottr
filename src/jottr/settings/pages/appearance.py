@@ -6,7 +6,6 @@ from PyQt6.QtWidgets import (
 
 from jottr.font_dialog import FontSelectionDialog
 from jottr.icon_manager import list_bundled_icon_themes
-from jottr.qt_style import available_qt_styles
 from jottr.settings_manager import INTERFACE_LOOK_NATIVE, INTERFACE_LOOK_ORGANIC
 from jottr.theme_manager import ThemeManager
 from jottr.translation_manager import _, format_language_label, get_available_languages
@@ -53,7 +52,6 @@ class AppearancePageMixin:
 
         theme_box = QGroupBox(_("Theme"))
         theme_layout = QFormLayout(theme_box)
-        self.appearance_theme_layout = theme_layout
         theme_layout.setContentsMargins(12, 10, 12, 12)
         theme_layout.setSpacing(8)
 
@@ -61,7 +59,7 @@ class AppearancePageMixin:
         self.interface_look_combo.addItem(_("Native"), INTERFACE_LOOK_NATIVE)
         self.interface_look_combo.addItem(_("Organic"), INTERFACE_LOOK_ORGANIC)
         self.interface_look_combo.setToolTip(
-            _("Native draws menus, toolbars and panels with the widget style. "
+            _("Native is a plain, familiar look. "
               "Organic uses Jottr's own rounded, warm look in light and dark.")
         )
         self.interface_look_combo.currentIndexChanged.connect(
@@ -69,28 +67,18 @@ class AppearancePageMixin:
         )
         theme_layout.addRow(QLabel(_("Interface Look:")), self.interface_look_combo)
 
-        self.window_color_scheme_combo = QComboBox()
-        self._populate_window_color_scheme_combo()
-        self.window_color_scheme_combo.setToolTip(
-            _("Kate-style window palette from installed KDE .colors schemes. "
-              "Default follows the system (Breeze Light/Dark when available).")
+        self.color_scheme_combo = QComboBox()
+        for scheme in ThemeManager.UI_THEME_NAMES:
+            label = _("Follow System") if scheme == "System" else _(scheme)
+            self.color_scheme_combo.addItem(label, scheme)
+        self.color_scheme_combo.setToolTip(
+            _("Light or dark menus, toolbars and panels. "
+              "Follow System matches the desktop.")
         )
-        self.window_color_scheme_combo.currentIndexChanged.connect(
-            self._on_window_color_scheme_changed
+        self.color_scheme_combo.currentIndexChanged.connect(
+            self._on_color_scheme_changed
         )
-        theme_layout.addRow(QLabel(_("Window Color Scheme:")), self.window_color_scheme_combo)
-
-        self.qt_style_combo = QComboBox()
-        self.qt_style_combo.addItems(available_qt_styles())
-        self.qt_style_combo.setToolTip(
-            _("Lists every Qt widget style available on this system "
-              "(Fusion, Windows, Darkly, desktop styles, and plugins). "
-              "System keeps the platform default. "
-              "Paired light/dark styles follow Window Color Scheme when both "
-              "variants are installed.")
-        )
-        self.qt_style_combo.currentTextChanged.connect(self._on_qt_style_changed)
-        theme_layout.addRow(QLabel(_("Widget Style:")), self.qt_style_combo)
+        theme_layout.addRow(QLabel(_("Color Scheme:")), self.color_scheme_combo)
 
         self.editor_theme_combo = QComboBox()
         for name, theme in ThemeManager.get_themes().items():
@@ -135,17 +123,11 @@ class AppearancePageMixin:
         look = sm.get_interface_look()
         if not select_combo_data(self.interface_look_combo, look):
             self.interface_look_combo.setCurrentIndex(0)
-        self.sync_native_look_rows(look)
         # Blocked: a scheme change also restyles this window.
-        self.window_color_scheme_combo.blockSignals(True)
-        if not select_combo_data(
-            self.window_color_scheme_combo, sm.get_window_color_scheme()
-        ):
-            self.window_color_scheme_combo.setCurrentIndex(0)
-        self.window_color_scheme_combo.blockSignals(False)
-        self.qt_style_combo.blockSignals(True)
-        self.qt_style_combo.setCurrentText(sm.get_saved_qt_style())
-        self.qt_style_combo.blockSignals(False)
+        self.color_scheme_combo.blockSignals(True)
+        if not select_combo_data(self.color_scheme_combo, sm.get_ui_theme()):
+            self.color_scheme_combo.setCurrentIndex(0)
+        self.color_scheme_combo.blockSignals(False)
         self.editor_theme_combo.setCurrentText(sm.get_theme())
         if not select_combo_data(self.icon_theme_combo, sm.get_icon_theme()):
             self.icon_theme_combo.setCurrentIndex(0)
@@ -164,41 +146,13 @@ class AppearancePageMixin:
             ),
         )
 
-    def _populate_window_color_scheme_combo(self):
-        from jottr.window_color_scheme import (
-            DEFAULT_WINDOW_COLOR_SCHEME,
-            create_preview_icon,
-            discover_window_color_schemes,
-        )
-
-        combo = self.window_color_scheme_combo
-        combo.blockSignals(True)
-        combo.clear()
-        for scheme in discover_window_color_schemes():
-            label = (
-                _("Default")
-                if scheme.scheme_id == DEFAULT_WINDOW_COLOR_SCHEME
-                else scheme.name
-            )
-            combo.addItem(create_preview_icon(scheme.path), label, scheme.scheme_id)
-        combo.blockSignals(False)
-
-    def selected_window_color_scheme(self):
-        if hasattr(self, "window_color_scheme_combo"):
-            data = self.window_color_scheme_combo.currentData()
-            if data is not None:
-                return data
-        return self.settings_manager.get_window_color_scheme()
-
-    def _on_window_color_scheme_changed(self):
+    def _on_color_scheme_changed(self):
         if self._loading:
             return
-        # Kate applies Window Color Scheme immediately (palette swap).
+        # Applied immediately, like a palette swap.
+        scheme = self.color_scheme_combo.currentData()
         self._commit_now(
-            "style",
-            lambda: self.settings_manager.save_window_color_scheme(
-                self.selected_window_color_scheme()
-            ),
+            "style", lambda: self.settings_manager.save_ui_theme(scheme)
         )
         if self.host is None:
             # With a host, its restyle already refreshes this window.
@@ -211,29 +165,13 @@ class AppearancePageMixin:
         self._commit_now(
             "look", lambda: self.settings_manager.save_interface_look(look)
         )
-        self.sync_native_look_rows(look)
         if self.host is None:
             self.apply_dialog_style()
-
-    def sync_native_look_rows(self, look):
-        """Organic brings its own palette and widget style (Breeze), so the
-        Window Color Scheme and Widget Style rows only show under Native."""
-        native = look != INTERFACE_LOOK_ORGANIC
-        for combo in (self.window_color_scheme_combo, self.qt_style_combo):
-            self.appearance_theme_layout.setRowVisible(combo, native)
 
     def _on_editor_theme_changed(self):
         self._commit(
             "editor_theme",
             lambda: self.settings_manager.save_theme(self.editor_theme_combo.currentText()),
-        )
-
-    def _on_qt_style_changed(self):
-        # Kate/KStyleManager: write widgetStyle then QApplication.setStyle
-        # in the same turn — no QSS/icon/font rebuild on the hot path.
-        self._commit_now(
-            "widget_style",
-            lambda: self.settings_manager.save_qt_style(self.qt_style_combo.currentText()),
         )
 
     def _on_icon_theme_changed(self):

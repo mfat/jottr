@@ -42,35 +42,20 @@ class SettingsAndSnippetTests(unittest.TestCase):
     def test_interface_look_setting_and_organic_chrome(self):
         from PyQt6.QtGui import QColor
 
-        from jottr.window_color_scheme import (
-            clear_effective_chrome_theme_cache,
-            effective_chrome_theme,
-        )
-
         manager = SettingsManager()
         self.addCleanup(ThemeManager.set_interface_look, "native")
-        self.addCleanup(clear_effective_chrome_theme_cache)
+        self.addCleanup(ThemeManager.clear_ui_theme_cache)
         self.assertEqual(manager.get_interface_look(), "native")
         self.assertEqual(ThemeManager.interface_look(), "native")
-        manager.settings["window_color_scheme"] = "BreezeDark"
 
         manager.save_interface_look("Organic")
         self.assertEqual(manager.get_interface_look(), "organic")
         self.assertEqual(ThemeManager.interface_look(), "organic")
-        # Organic brings its own palette, but the saved scheme is kept.
-        self.assertEqual(manager.get_window_color_scheme(), "")
-        self.assertEqual(manager.settings["window_color_scheme"], "BreezeDark")
-        from jottr.qt_style import organic_qt_style
-
-        manager.settings["qt_style"] = "Fusion"
-        self.assertEqual(manager.get_qt_style(), organic_qt_style())
-        self.assertIn(organic_qt_style(), {"Breeze", "Fusion"})
-        self.assertEqual(manager.get_saved_qt_style(), "Fusion")
         self.assertEqual(
-            effective_chrome_theme("", "Light")["app"]["background"], "#f5ead8"
+            ThemeManager.get_ui_theme("Light")["app"]["background"], "#f5ead8"
         )
         self.assertEqual(
-            effective_chrome_theme("", "Dark")["app"]["background"], "#2e2b25"
+            ThemeManager.get_ui_theme("Dark")["app"]["background"], "#2e2b25"
         )
         self.assertIn("organic", ThemeManager.get_ui_theme("Dark"))
 
@@ -81,7 +66,7 @@ class SettingsAndSnippetTests(unittest.TestCase):
 
         manager.save_interface_look("bogus")
         self.assertEqual(manager.get_interface_look(), "native")
-        self.assertNotIn("organic", effective_chrome_theme("", "Light"))
+        self.assertNotIn("organic", ThemeManager.get_ui_theme("Light"))
 
         self.assertEqual(
             ThemeManager.css_color("rgba(1, 2, 3, 40)"), QColor(1, 2, 3, 40)
@@ -302,9 +287,8 @@ class SettingsAndSnippetTests(unittest.TestCase):
 
         # Only built-in editor themes exist; a saved custom name falls back.
         self.assertEqual(reloaded.get_theme(), ThemeManager.DEFAULT_THEME_NAME)
-        # Default Window Color Scheme follows the desktop, so a stale Light/Dark
-        # ui_theme is migrated to System on load.
-        self.assertEqual(reloaded.get_ui_theme(), "System")
+        # Color Scheme is a user choice; Light/Dark survive a reload.
+        self.assertEqual(reloaded.get_ui_theme(), "Dark")
         self.assertNotIn("custom_themes", reloaded.settings)
         reloaded.save_theme("Forest")
         self.assertEqual(reloaded.get_theme(), ThemeManager.DEFAULT_THEME_NAME)
@@ -318,60 +302,27 @@ class SettingsAndSnippetTests(unittest.TestCase):
         manager.save_ui_theme("default")
         self.assertEqual(manager.get_ui_theme(), "System")
 
-    def test_settings_manager_persists_window_color_scheme(self):
-        from jottr.window_color_scheme import (
-            DEFAULT_WINDOW_COLOR_SCHEME,
-            discover_window_color_schemes,
-            create_application_palette,
-        )
-
-        schemes = discover_window_color_schemes()
-        self.assertEqual(schemes[0].scheme_id, DEFAULT_WINDOW_COLOR_SCHEME)
-        self.assertEqual(schemes[0].name, "Default")
-
+    def test_settings_manager_drops_retired_scheme_and_style_settings(self):
         manager = SettingsManager()
-        self.assertEqual(manager.get_window_color_scheme(), DEFAULT_WINDOW_COLOR_SCHEME)
+        self.assertNotIn("window_color_scheme", manager.settings)
+        self.assertNotIn("qt_style", manager.settings)
 
-        named = next((s for s in schemes if s.path), None)
-        if named is None:
-            self.skipTest("no KDE .colors schemes installed")
-
-        manager.save_window_color_scheme(named.scheme_id)
-        reloaded = SettingsManager()
-        self.assertEqual(reloaded.get_window_color_scheme(), named.scheme_id)
-
-        palette = create_application_palette(named.path)
-        self.assertTrue(palette.color(palette.ColorRole.Window).isValid())
-        self.assertTrue(palette.color(palette.ColorRole.Base).isValid())
-
-        manager.save_window_color_scheme("NotARealScheme")
-        self.assertEqual(manager.get_window_color_scheme(), DEFAULT_WINDOW_COLOR_SCHEME)
-
-    def test_settings_manager_persists_qt_style(self):
-        from PyQt6.QtWidgets import QStyleFactory
-
-        from jottr.qt_style import SYSTEM_QT_STYLE, available_qt_styles, normalize_qt_style
-
-        styles = available_qt_styles()
-        self.assertEqual(styles[0], SYSTEM_QT_STYLE)
-        for key in QStyleFactory.keys():
-            self.assertTrue(
-                any(name.casefold() == key.casefold() for name in styles),
-                msg=f"missing style {key!r} in {styles}",
+        # A named KDE scheme becomes the Light or Dark it looked like.
+        for scheme_id, expected in (("BreezeDark", "Dark"), ("BreezeLight", "Light")):
+            manager.settings.update(
+                {"window_color_scheme": scheme_id, "qt_style": "Windows", "ui_theme": "System"}
             )
-        self.assertTrue(any(name.casefold() == "fusion" for name in styles))
-        self.assertTrue(any(name.casefold() == "windows" for name in styles))
+            manager.save_settings()
+            migrated = SettingsManager()
+            self.assertEqual(migrated.get_ui_theme(), expected)
+            self.assertNotIn("window_color_scheme", migrated.settings)
+            self.assertNotIn("qt_style", migrated.settings)
+            manager = migrated
 
-        manager = SettingsManager()
-        self.assertEqual(manager.get_qt_style(), SYSTEM_QT_STYLE)
-
-        fusion = normalize_qt_style("fusion")
-        manager.save_qt_style("fusion")
-        reloaded = SettingsManager()
-        self.assertEqual(reloaded.get_qt_style(), fusion)
-
-        manager.save_qt_style("NotARealStyle")
-        self.assertEqual(manager.get_qt_style(), SYSTEM_QT_STYLE)
+        # Default ("") keeps the Color Scheme as it was.
+        manager.settings.update({"window_color_scheme": "", "ui_theme": "System"})
+        manager.save_settings()
+        self.assertEqual(SettingsManager().get_ui_theme(), "System")
 
     def test_settings_manager_persists_icon_theme(self):
         from jottr.icon_manager import DEFAULT_ICON_THEME, list_bundled_icon_themes
@@ -442,48 +393,17 @@ class SettingsAndSnippetTests(unittest.TestCase):
         manager.save_menubar_visible(True)
         self.assertTrue(SettingsManager().get_menubar_visible())
 
-    def test_apply_qt_style_switches_application_style(self):
-        from PyQt6.QtWidgets import QStyleFactory
-
-        from jottr.qt_style import (
-            SYSTEM_QT_STYLE,
-            apply_qt_style,
-            capture_platform_qt_style,
-            normalize_qt_style,
-            register_bundled_qt_plugins,
-        )
+    def test_apply_qt_style_installs_fusion_once(self):
+        from jottr.qt_style import APP_QT_STYLE, apply_qt_style
 
         application = app()
-        register_bundled_qt_plugins()
-        capture_platform_qt_style(application)
-        fusion = normalize_qt_style("Fusion")
-        self.assertEqual(apply_qt_style(fusion, application), fusion)
-        style_name = (application.style().objectName() or "").casefold()
-        # Some Qt builds leave Fusion's objectName empty after plugin registration.
-        if style_name:
-            self.assertEqual(style_name, fusion.casefold())
-
-        apply_qt_style(SYSTEM_QT_STYLE, application)
-        self.assertTrue(application.style() is not None)
-
-        if QStyleFactory.create("Adwaita") is not None:
-            self.assertEqual(apply_qt_style("Adwaita", application), "Adwaita")
-            adwaita_name = (application.style().objectName() or "").casefold()
-            self.assertTrue(
-                not adwaita_name or "adwaita" in adwaita_name,
-                msg=f"unexpected Adwaita style name {adwaita_name!r}",
-            )
-            dark = ThemeManager.get_theme("Black")
-            if QStyleFactory.create("Adwaita-Dark") is not None:
-                self.assertEqual(
-                    apply_qt_style("Adwaita", application, theme=dark),
-                    "Adwaita-Dark",
-                )
-                self.assertEqual(
-                    apply_qt_style("Adwaita-Dark", application, theme=ThemeManager.get_theme("White")),
-                    "Adwaita",
-                )
-            self.assertEqual(apply_qt_style(fusion, application), fusion)
+        application.setProperty("_jottr_style_key", None)
+        self.assertEqual(APP_QT_STYLE, "Fusion")
+        self.assertTrue(apply_qt_style(application))
+        self.assertEqual(application.style().name().casefold(), "fusion")
+        self.assertEqual(application.property("_jottr_style_key"), "Fusion")
+        # Already installed: no second swap (and no repolish).
+        self.assertFalse(apply_qt_style(application))
 
     def test_apply_qt_color_scheme_sets_style_hints(self):
         from PyQt6.QtCore import Qt

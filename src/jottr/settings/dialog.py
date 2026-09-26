@@ -84,8 +84,7 @@ class SettingsDialog(
     # Saves run synchronously so SettingsManager is always fresh; host
     # rebuilds (restyle, rehighlight) are debounced per domain so scrolling
     # through a combo coalesces into one apply instead of one per item.
-    # Widget style follows Kate/KStyleManager: persist + apply immediately
-    # (see _commit_now) — QApplication.setStyle must not wait on the timer.
+    # Color Scheme and Interface Look apply immediately (see _commit_now).
     _NOTIFY_DELAY_MS = 150
 
     def _commit(self, domain, save):
@@ -102,8 +101,7 @@ class SettingsDialog(
     def _commit_now(self, domain, save):
         """Persist and notify the host immediately (no debounce).
 
-        Matches Kate's Application Style path: write config, then apply
-        QApplication.setStyle in the same turn.
+        For appearance changes that should restyle in the same turn.
         """
         if self._loading:
             return
@@ -180,6 +178,14 @@ class SettingsDialog(
             # Menus, the status bar, and the editor context menu can change
             # settings while this window is open; pick those up on activation.
             self.sync_from_settings()
+
+    def event(self, event):
+        handled = super().event(event)
+        if event.type() == QEvent.Type.Polish and not getattr(self, "_loading", True):
+            # A Light/Dark pin queues a repolish with no StyleChange, and
+            # polishing restores the first-polish palette as well.
+            self.apply_dialog_palette(pin_app_scheme=False)
+        return handled
 
     def save_window_state(self):
         item = self.settings_nav.currentItem()
@@ -314,8 +320,7 @@ class SettingsDialog(
         return index >= 0
 
     def selected_ui_theme(self):
-        # Window Color Scheme owns chrome colors; ui_theme remains the
-        # System/Light/Dark hint used when the scheme is Default.
+        # Color Scheme: Follow System, Light or Dark.
         return self.settings_manager.get_ui_theme()
 
     def selected_icon_theme(self):
@@ -350,45 +355,16 @@ class SettingsDialog(
     def _apply_dialog_palette(self, pin_app_scheme=True):
         # A top-level window does not inherit the main window's palette, so
         # set it explicitly, the same way the main window does.
-        from jottr.qt_style import (
-            apply_qt_color_scheme,
-            reconcile_chrome_theme_with_color_scheme,
-        )
-        from jottr.window_color_scheme import (
-            activate_window_color_scheme,
-            effective_chrome_theme,
-            find_window_color_scheme,
-            scheme_is_dark,
-        )
-        from PyQt6.QtWidgets import QApplication
+        from jottr.qt_style import apply_qt_color_scheme
 
-        scheme = self.selected_ui_theme()
         # Saved settings, not the combo: every control saves before it notifies,
         # while a menu change restyles before the combo is synced.
-        window_scheme_id = self.settings_manager.get_window_color_scheme()
-        window_scheme = find_window_color_scheme(window_scheme_id)
-        if window_scheme.path:
-            color_scheme_setting = (
-                "Dark" if scheme_is_dark(window_scheme.path) else "Light"
-            )
-            theme = effective_chrome_theme(window_scheme_id, scheme)
-        else:
-            color_scheme_setting = scheme
-            theme = reconcile_chrome_theme_with_color_scheme(
-                effective_chrome_theme(window_scheme_id, scheme),
-                color_scheme_setting,
-            )
+        scheme = self.selected_ui_theme()
         # The host window owns app-wide color scheme state; only apply it
         # here when running standalone.
         if self.host is None and pin_app_scheme:
-            apply_qt_color_scheme(color_scheme_setting)
-            activate_window_color_scheme(window_scheme_id)
-        if not window_scheme.path:
-            ThemeManager.apply_app_palette(self, theme)
-        else:
-            app = QApplication.instance()
-            if app is not None:
-                self.setPalette(app.palette())
+            apply_qt_color_scheme(scheme)
+        ThemeManager.apply_app_palette(self, ThemeManager.get_ui_theme(scheme))
         apply_dialog_window_icon(self, "settings", self.settings_manager)
         self.refresh_settings_nav_icons()
 
@@ -397,7 +373,7 @@ class SettingsDialog(
         ui_font = QFont(font) if font is not None else QFont(self.ui_font)
         self.ui_font = QFont(ui_font)
         self.setFont(ui_font)
-        # setFont alone is not enough: Fusion/Breeze paint QGroupBox titles and
+        # setFont alone is not enough: Fusion paints QGroupBox titles and
         # some form labels from the style, so set a font-only stylesheet too.
         font_style = ThemeManager.build_font_stylesheet(ui_font)
         self.setStyleSheet(
@@ -472,9 +448,7 @@ class SettingsDialog(
             'user_dictionary': self.get_user_dictionary(),
             'spell_check': self.spell_check_enabled.isChecked(),
             'ui_theme': self.selected_ui_theme(),
-            'window_color_scheme': self.selected_window_color_scheme(),
             'theme': self.editor_theme_combo.currentText(),
-            'qt_style': self.qt_style_combo.currentText(),
             'language': self.language_combo.currentData() or self.language_combo.currentText(),
             'icon_theme': self.selected_icon_theme(),
             'icon_contrast': self.icon_contrast_combo.currentData(),

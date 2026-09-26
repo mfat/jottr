@@ -2238,9 +2238,6 @@ class EditorAndMainTests(unittest.TestCase):
 
     def test_style_domain_rebuilds_toolbar_icons_with_explicit_modes(self):
         from PyQt6.QtGui import QIcon
-        from PyQt6.QtWidgets import QStyleFactory
-
-        from jottr.qt_style import normalize_qt_style
 
         class FakeEditorTab(QWidget):
             def __init__(self, snippet_manager, settings_manager):
@@ -2269,21 +2266,12 @@ class EditorAndMainTests(unittest.TestCase):
             self.assertTrue(save_icon.availableSizes(QIcon.Mode.Selected))
             self.assertTrue(save_icon.availableSizes(QIcon.Mode.Disabled))
 
-            styles = [normalize_qt_style(key) for key in QStyleFactory.keys()]
-            styles = [key for key in dict.fromkeys(styles) if key]
-            if len(styles) < 2:
-                self.skipTest("need at least two Qt styles to swap")
-
-            first, second = styles[0], styles[1]
-            window.settings_manager.save_qt_style(first)
-            window.apply_settings_domain("style")
-
-            # Trigger style synthesis paths, then switch styles.
+            # Trigger style synthesis paths, then restyle for a new scheme.
             window.undo_action.setEnabled(False)
             window.focus_mode_action.setChecked(True)
             QApplication.processEvents()
 
-            window.settings_manager.save_qt_style(second)
+            window.settings_manager.save_ui_theme("Dark")
             window.apply_settings_domain("style")
 
             refreshed = window.save_action.icon()
@@ -2294,68 +2282,9 @@ class EditorAndMainTests(unittest.TestCase):
             normal = refreshed.pixmap(size, QIcon.Mode.Normal).toImage()
             disabled = refreshed.pixmap(size, QIcon.Mode.Disabled).toImage()
             self.assertNotEqual(normal, disabled)
-            # Style swap clears QSS before setStyle; sheet must be re-applied even
-            # when theme/font (and thus stylesheet text) did not change.
             sheet = QApplication.instance().styleSheet()
             self.assertIn("QToolBar#mainToolBar", sheet)
             self.assertIn("padding:", sheet)
-
-    def test_qt_style_combo_applies_immediately_like_kate(self):
-        """Widget Style must setStyle in the same turn (Kate/KStyleManager)."""
-        from PyQt6.QtWidgets import QStyleFactory
-
-        from jottr.qt_style import normalize_qt_style, resolve_qt_style_key
-        from jottr.theme_manager import ThemeManager
-
-        class FakeEditorTab(QWidget):
-            def __init__(self, snippet_manager, settings_manager):
-                super().__init__()
-                self.editor = QTextEdit(self)
-                self.current_file = None
-
-            def set_main_window(self, main_window):
-                self.main_window = main_window
-
-            def apply_theme(self, theme_name):
-                pass
-
-            def apply_autosave_settings(self):
-                pass
-
-            def apply_line_numbers(self, visible):
-                pass
-
-        with patch.object(window_module, "EditorTab", FakeEditorTab):
-            window = TextEditorApp()
-            self.addCleanup(window.close)
-            self.addCleanup(window.deleteLater)
-
-            styles = [normalize_qt_style(key) for key in QStyleFactory.keys()]
-            styles = [key for key in dict.fromkeys(styles) if key]
-            if len(styles) < 2:
-                self.skipTest("need at least two Qt styles to swap")
-
-            first, second = styles[0], styles[1]
-            window.settings_manager.save_qt_style(first)
-            window.apply_settings_domain("style")
-
-            settings_tab = window.show_settings()
-            # If widget style were still debounced, a huge delay would prevent apply.
-            settings_tab._NOTIFY_DELAY_MS = 60_000
-            settings_tab.qt_style_combo.setCurrentText(second)
-
-            self.assertEqual(window.settings_manager.get_qt_style(), second)
-            theme = ThemeManager.get_ui_theme(
-                window.settings_manager.get_ui_theme(), app()
-            )
-            expected = resolve_qt_style_key(second, theme=theme)
-            self.assertEqual(app().property("_jottr_style_key"), expected)
-            timer = getattr(settings_tab, "_notify_timer", None)
-            self.assertTrue(timer is None or not timer.isActive())
-            # The chrome stylesheet is restored on the next event-loop tick.
-            QApplication.processEvents()
-            sheet = QApplication.instance().styleSheet()
-            self.assertIn("QToolBar#mainToolBar", sheet)
 
     def test_interface_look_organic_and_native_toggle(self):
         from PyQt6.QtWidgets import QTabBar
@@ -2387,7 +2316,6 @@ class EditorAndMainTests(unittest.TestCase):
             self.addCleanup(window.close)
             self.addCleanup(window.deleteLater)
             sm = window.settings_manager
-            sm.save_window_color_scheme("")
             self.assertEqual(sm.get_interface_look(), INTERFACE_LOOK_NATIVE)
             self.assertIsInstance(window.toolbar, GroupedToolBar)
             self.assertNotIn("QMenu {", QApplication.instance().styleSheet())
@@ -2404,9 +2332,7 @@ class EditorAndMainTests(unittest.TestCase):
             }
             look_actions = {a.text(): a for a in menus["Interface Look"].menu().actions()}
             self.assertTrue(look_actions["Native"].isChecked())
-            self.assertTrue(menus["Window Color Scheme"].isVisible())
-            self.assertTrue(menus["Widget Style"].isVisible())
-            sm.save_qt_style("Fusion")
+            self.assertNotIn("Widget Style", menus)
 
             look_actions["Organic"].trigger()
             self.assertEqual(sm.get_interface_look(), INTERFACE_LOOK_ORGANIC)
@@ -2414,16 +2340,9 @@ class EditorAndMainTests(unittest.TestCase):
             self.assertIn("QMenu {", sheet)
             self.assertIn("QTabWidget#documentTabs QTabBar::tab:selected", sheet)
             self.assertTrue(look_actions["Organic"].isChecked())
-            self.assertFalse(menus["Window Color Scheme"].isVisible())
-            self.assertFalse(menus["Widget Style"].isVisible())
-            # Organic forces Breeze (Fusion where Breeze is missing).
-            from jottr.qt_style import organic_qt_style
-
-            self.assertEqual(
-                QApplication.instance().property("_jottr_style_key"),
-                organic_qt_style(),
-            )
-            self.assertEqual(sm.get_saved_qt_style(), "Fusion")
+            self.assertTrue(menus["Color Scheme"].isVisible())
+            # Both looks are drawn on Fusion.
+            self.assertEqual(QApplication.instance().property("_jottr_style_key"), "Fusion")
             self.assertEqual(window.main_surface_layout.contentsMargins().left(), 14)
             self.assertFalse(window.tab_widget.tabBar().drawBase())
             self.assertIsNotNone(window.toolbar._group_color)
@@ -2435,9 +2354,7 @@ class EditorAndMainTests(unittest.TestCase):
 
             window.set_interface_look(INTERFACE_LOOK_NATIVE)
             self.assertNotIn("QMenu {", QApplication.instance().styleSheet())
-            self.assertTrue(menus["Window Color Scheme"].isVisible())
-            self.assertTrue(menus["Widget Style"].isVisible())
-            self.assertEqual(sm.get_qt_style(), "Fusion")
+            self.assertEqual(QApplication.instance().property("_jottr_style_key"), "Fusion")
             self.assertEqual(window.main_surface_layout.contentsMargins().left(), 0)
             self.assertTrue(window.tab_widget.tabBar().drawBase())
             self.assertIsNone(window.toolbar._group_color)
@@ -2785,7 +2702,7 @@ class EditorAndMainTests(unittest.TestCase):
                 for action in view_menu.actions()
                 if not action.isSeparator()
             }
-            self.assertIn("Window Color Scheme", view_items)
+            self.assertIn("Color Scheme", view_items)
             self.assertIn("Editor Theme", view_items)
             view_texts = list(view_items)
             self.assertEqual(view_texts.index("Toggle Browser Pane"), view_texts.index("Toggle Snippets") + 1)
@@ -2795,30 +2712,18 @@ class EditorAndMainTests(unittest.TestCase):
             window.tab_widget.currentWidget().toggle_pane = toggled_panes.append
             window.browser_action.trigger()
             self.assertEqual(toggled_panes, ["browser"])
-            color_scheme_menu = view_items["Window Color Scheme"].menu()
+            color_scheme_menu = view_items["Color Scheme"].menu()
             editor_theme_menu = view_items["Editor Theme"].menu()
             self.assertIsNotNone(color_scheme_menu)
             self.assertIsNotNone(editor_theme_menu)
-            # Both grids are built when their menu is about to show.
-            color_scheme_menu.aboutToShow.emit()
+            scheme_actions = {
+                action.text(): action for action in color_scheme_menu.actions()
+            }
+            self.assertEqual(list(scheme_actions), ["Follow System", "Light", "Dark"])
+            self.assertTrue(scheme_actions["Follow System"].isChecked())
+            # The editor theme grid is built when its menu is about to show.
             editor_theme_menu.aboutToShow.emit()
-            scheme_actions = [
-                action for action in color_scheme_menu.actions() if not action.isSeparator()
-            ]
-            self.assertEqual(len(scheme_actions), 1)
             from PyQt6.QtWidgets import QWidgetAction
-
-            self.assertIsInstance(scheme_actions[0], QWidgetAction)
-            scheme_scroll = scheme_actions[0].defaultWidget()
-            from PyQt6.QtWidgets import QScrollArea
-
-            self.assertIsInstance(scheme_scroll, QScrollArea)
-            scheme_grid = scheme_scroll.widget()
-            self.assertIsInstance(scheme_grid, window_module.WindowColorSchemeGrid)
-            self.assertGreaterEqual(len(scheme_grid._cards), 1)
-            self.assertIn("", scheme_grid._cards)
-            self.assertTrue(scheme_grid._cards[""].is_selected())
-            self.assertEqual(scheme_grid._cards[""]._name_label.text(), "Default")
             theme_actions = [
                 action for action in editor_theme_menu.actions() if not action.isSeparator()
             ]
@@ -2928,95 +2833,6 @@ class EditorAndMainTests(unittest.TestCase):
             # Back again: a repolish must not restore the first theme's colors.
             self.assertLess(window_background("Dark").lightnessF(), 0.5)
 
-            # A widget style swap repolishes without apply_app_style; the
-            # window must not fall back to the light palette it was built with.
-            previous_style = QApplication.instance().style().name()
-            self.addCleanup(QApplication.instance().setStyle, previous_style)
-            window.settings_manager.save_qt_style(
-                "Windows" if previous_style.lower() != "windows" else "Fusion"
-            )
-            window.apply_widget_style()
-            QApplication.processEvents()
-            self.assertLess(
-                window.palette().color(QPalette.ColorRole.Window).lightnessF(), 0.5
-            )
-
-    def test_union_widget_style_does_not_pollute_later_styles(self):
-        """Union replaces the app palette and stamps the menubar; leaving it
-        must not leave Fusion (etc.) with light/black chrome under Dark.
-        """
-        from PyQt6.QtWidgets import QStyleFactory
-
-        if QStyleFactory.create("Union") is None:
-            self.skipTest("Union style not installed (Flatpak KDE runtime)")
-
-        class FakeEditorTab(QWidget):
-            def __init__(self, snippet_manager, settings_manager):
-                super().__init__()
-                self.editor = QTextEdit(self)
-                self.current_file = None
-
-            def set_main_window(self, main_window):
-                self.main_window = main_window
-
-        with patch.object(window_module, "EditorTab", FakeEditorTab):
-            self.settings.save_ui_theme("Dark")
-            self.settings.save_qt_style("Fusion")
-            window = TextEditorApp()
-            self.addCleanup(window.close)
-            self.addCleanup(window.deleteLater)
-            self.addCleanup(lambda: QApplication.instance().setStyleSheet(""))
-            previous_style = QApplication.instance().style().name()
-            self.addCleanup(QApplication.instance().setStyle, previous_style)
-            window.show()
-            QApplication.processEvents()
-
-            menubar = window.menuBar()
-            self.assertLess(
-                menubar.palette().color(QPalette.ColorRole.Window).lightnessF(),
-                0.5,
-            )
-
-            window.settings_manager.save_qt_style("Union")
-            window.apply_widget_style()
-            QApplication.processEvents()
-            self.assertLess(
-                QApplication.instance()
-                .palette()
-                .color(QPalette.ColorRole.Window)
-                .lightnessF(),
-                0.5,
-                "Union must not leave the application on its light Breeze palette",
-            )
-            self.assertLess(
-                menubar.palette().color(QPalette.ColorRole.Window).lightnessF(),
-                0.5,
-                "Union must not leave the menubar on a light stamped palette",
-            )
-
-            window.settings_manager.save_qt_style("Fusion")
-            window.apply_widget_style()
-            QApplication.processEvents()
-            self.assertLess(
-                QApplication.instance()
-                .palette()
-                .color(QPalette.ColorRole.Window)
-                .lightnessF(),
-                0.5,
-            )
-            self.assertLess(
-                menubar.palette().color(QPalette.ColorRole.Window).lightnessF(),
-                0.5,
-                "switching away from Union must restore a dark menubar",
-            )
-            self.assertGreater(
-                menubar.palette()
-                .color(QPalette.ColorRole.WindowText)
-                .lightnessF(),
-                0.5,
-                "dark mode menubar text must stay light after leaving Union",
-            )
-
     def test_system_appearance_restyle_not_skipped_after_startup_chrome(self):
         """Startup chrome skip is one-shot; System dark/light must fully reapply.
 
@@ -3073,26 +2889,10 @@ class EditorAndMainTests(unittest.TestCase):
     def test_settings_window_palette_follows_menu_scheme_and_widget_style(self):
         """The top-level Settings window must track restyles made elsewhere.
 
-        A View menu Window Color Scheme change restyles before the Settings
+        A View menu Color Scheme change restyles before the Settings
         combo is synced, and a widget style swap repolishes without the main
         window reapplying palettes; neither may leave Settings on stale colors.
         """
-        from jottr.window_color_scheme import (
-            discover_window_color_schemes,
-            scheme_is_dark,
-        )
-
-        dark_scheme = next(
-            (
-                scheme.scheme_id
-                for scheme in discover_window_color_schemes()
-                if scheme.path and scheme_is_dark(scheme.path)
-            ),
-            None,
-        )
-        if dark_scheme is None:
-            self.skipTest("no dark .colors scheme installed")
-
         class FakeEditorTab(QWidget):
             def __init__(self, snippet_manager, settings_manager):
                 super().__init__()
@@ -3107,10 +2907,7 @@ class EditorAndMainTests(unittest.TestCase):
             self.addCleanup(window.close)
             self.addCleanup(window.deleteLater)
             self.addCleanup(lambda: QApplication.instance().setStyleSheet(""))
-            previous_style = QApplication.instance().style().name()
-            self.addCleanup(QApplication.instance().setStyle, previous_style)
             window.settings_manager.save_ui_theme("Light")
-            window.settings_manager.save_qt_style("Fusion")
             window.apply_app_style()
             dialog = window.show_settings()
             self.addCleanup(dialog.close)
@@ -3120,15 +2917,11 @@ class EditorAndMainTests(unittest.TestCase):
                 return dialog.palette().color(QPalette.ColorRole.Window).lightnessF()
 
             self.assertGreater(settings_lightness(), 0.5)
-            window.set_window_color_scheme(dark_scheme)
+            window.set_color_scheme("Dark")
             self.assertLess(settings_lightness(), 0.5)
 
             # Its own font stylesheet repolishes it too (Main UI Font picker).
             dialog.apply_ui_font()
-            self.assertLess(settings_lightness(), 0.5)
-
-            window.settings_manager.save_qt_style("Windows")
-            window.apply_widget_style()
             self.assertLess(settings_lightness(), 0.5)
 
     def test_cut_copy_paste_actions_follow_selection_and_clipboard(self):
@@ -3192,29 +2985,59 @@ class EditorAndMainTests(unittest.TestCase):
             self.assertTrue(window.capitalization_menu_action.isEnabled())
             self.assertTrue(window.paste_action.isEnabled())
 
-    def test_view_menu_color_scheme_and_editor_theme(self):
-        from jottr.window_color_scheme import discover_window_color_schemes
+    def test_color_scheme_switch_survives_refused_pin_and_repolish(self):
+        """Light must show even when the platform refuses the Light pin.
 
+        GNOME's portal platform theme keeps reporting Dark after
+        setColorScheme(Light). Fusion paints from the palette, so the chrome
+        must follow the choice, not the refusal.
+        """
+        from PyQt6.QtCore import QEvent
+        from PyQt6.QtGui import QStyleHints
+
+        from jottr.theme_manager import ThemeManager
+
+        def lightness(widget):
+            return widget.palette().color(QPalette.ColorRole.Window).lightnessF()
+
+        with patch.object(QStyleHints, "colorScheme", lambda _self: Qt.ColorScheme.Dark):
+            window = TextEditorApp()
+            self.addCleanup(window.close)
+            self.addCleanup(window.deleteLater)
+            self.addCleanup(lambda: QApplication.instance().setStyleSheet(""))
+
+            window.set_color_scheme("Light")
+            self.assertGreater(lightness(window), 0.5)
+            self.assertGreater(lightness(window.menuBar()), 0.5)
+            window.set_color_scheme("Dark")
+            self.assertLess(lightness(window), 0.5)
+
+            # A queued repolish restores the first-polish palette; the window
+            # must put the current one back.
+            window.setPalette(ThemeManager.build_app_palette(ThemeManager.get_theme("White")))
+            QApplication.sendEvent(window, QEvent(QEvent.Type.Polish))
+            self.assertLess(lightness(window), 0.5)
+
+    def test_view_menu_color_scheme_and_editor_theme(self):
         window = TextEditorApp()
         self.addCleanup(window.close)
         self.addCleanup(window.deleteLater)
         self.addCleanup(lambda: QApplication.instance().setStyleSheet(""))
 
-        self.assertEqual(window.settings_manager.get_window_color_scheme(), "")
-        window.sync_window_color_scheme_menu()
-        scheme_grid = window.color_scheme_grid
-        self.assertIsInstance(scheme_grid, window_module.WindowColorSchemeGrid)
-        self.assertIn("", scheme_grid._cards)
-        self.assertTrue(scheme_grid._cards[""].is_selected())
-
-        named = next((s for s in discover_window_color_schemes() if s.path), None)
-        if named is not None:
-            window.set_window_color_scheme(named.scheme_id)
-            self.assertEqual(
-                window.settings_manager.get_window_color_scheme(), named.scheme_id
-            )
-            self.assertTrue(scheme_grid._cards[named.scheme_id].is_selected())
-            self.assertFalse(scheme_grid._cards[""].is_selected())
+        actions = {a.data(): a for a in window.color_scheme_actions.actions()}
+        self.assertTrue(actions["System"].isChecked())
+        window.set_color_scheme("Dark")
+        self.assertEqual(window.settings_manager.get_ui_theme(), "Dark")
+        self.assertTrue(actions["Dark"].isChecked())
+        self.assertFalse(actions["System"].isChecked())
+        self.assertLess(
+            window.palette().color(QPalette.ColorRole.Window).lightnessF(), 0.5
+        )
+        actions["Light"].trigger()
+        self.assertEqual(window.settings_manager.get_ui_theme(), "Light")
+        self.assertGreater(
+            window.palette().color(QPalette.ColorRole.Window).lightnessF(), 0.5
+        )
 
         window.set_editor_theme("Dracula")
         self.assertEqual(window.settings_manager.get_theme(), "Dracula")
@@ -3610,10 +3433,10 @@ class EditorAndMainTests(unittest.TestCase):
             self.assertEqual(settings_tab.settings_nav.font().family(), "Liberation Sans")
             self.assertEqual(settings_tab.settings_nav.font().pointSize(), 13)
             self.assertEqual(
-                settings_tab.window_color_scheme_combo.font().family(), "Liberation Sans"
+                settings_tab.color_scheme_combo.font().family(), "Liberation Sans"
             )
             self.assertEqual(
-                settings_tab.window_color_scheme_combo.view().font().family(),
+                settings_tab.color_scheme_combo.view().font().family(),
                 "Liberation Sans",
             )
             self.assertEqual(window.menuBar().font().family(), "Liberation Sans")

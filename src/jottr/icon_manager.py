@@ -288,12 +288,9 @@ def resolve_icon_color(settings_manager=None) -> str:
         return theme["app"]["text"]
 
     mode = settings_manager.get_setting("icon_contrast", "auto")
-    from jottr.window_color_scheme import effective_chrome_theme
+    from jottr.theme_manager import ThemeManager
 
-    app = effective_chrome_theme(
-        settings_manager.get_window_color_scheme(),
-        settings_manager.get_ui_theme(),
-    )["app"]
+    app = ThemeManager.get_ui_theme(settings_manager.get_ui_theme())["app"]
     if mode == "light":
         return "#f8f8f2"
     if mode == "dark":
@@ -324,12 +321,9 @@ def resolve_icon_mode_colors(
     if settings_manager is None:
         return None, None
 
-    from jottr.window_color_scheme import effective_chrome_theme
+    from jottr.theme_manager import ThemeManager
 
-    app = effective_chrome_theme(
-        settings_manager.get_window_color_scheme(),
-        settings_manager.get_ui_theme(),
-    )["app"]
+    app = ThemeManager.get_ui_theme(settings_manager.get_ui_theme())["app"]
     accent = QColor(app["accent"])
     # Flat white/black on accent chips when no widget palette is available.
     selected = "#1a1a1a" if accent.lightnessF() >= 0.55 else "#ffffff"

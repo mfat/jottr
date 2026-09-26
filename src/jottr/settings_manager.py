@@ -126,10 +126,8 @@ class SettingsManager:
             # system fixed-width font, so a face the user picks later stays.
             "editor_font_from_system": True,
             "ui_theme": "System",
-            "window_color_scheme": "",
             "interface_look": INTERFACE_LOOK_NATIVE,
             "theme": "Sepia",
-            "qt_style": "System",
             "language": "en_US",
             "icon_theme": "qlementine",
             "icon_contrast": "auto",
@@ -269,21 +267,22 @@ class SettingsManager:
                         had_follow_flag=had_follow_flag,
                         had_editor_font_flag=had_editor_font_flag,
                     )
-                    self.migrate_default_window_scheme_follows_system()
+                    self.migrate_named_window_color_scheme()
             except Exception as e:
                 print(f"Error loading settings: {str(e)}")
 
-    def migrate_default_window_scheme_follows_system(self):
-        """Default Window Color Scheme must follow the desktop (System ui_theme)."""
-        from jottr.window_color_scheme import find_window_color_scheme
+    def migrate_named_window_color_scheme(self):
+        """Drop the retired Window Color Scheme and Widget Style settings.
 
-        scheme_id = self.settings.get("window_color_scheme", "")
-        if find_window_color_scheme(scheme_id).path:
-            return
-        if self.get_ui_theme() == "System":
-            return
-        self.settings["ui_theme"] = "System"
-        self.save_settings()
+        A named KDE scheme becomes the Light or Dark Color Scheme it looked
+        like (by name: KDE's dark schemes say so); every style is Fusion now.
+        """
+        scheme_id = str(self.settings.pop("window_color_scheme", "") or "")
+        dropped_style = self.settings.pop("qt_style", None) is not None
+        if scheme_id:
+            self.settings["ui_theme"] = "Dark" if "dark" in scheme_id.casefold() else "Light"
+        if scheme_id or dropped_style:
+            self.save_settings()
 
     def migrate_legacy_font_settings(self, had_follow_flag=True, had_editor_font_flag=True):
         """Replace the old DejaVu defaults and coerce Qt5 font weights."""
@@ -456,50 +455,6 @@ class SettingsManager:
         from jottr.theme_manager import ThemeManager
 
         ThemeManager.set_interface_look(self.get_interface_look())
-
-    def get_window_color_scheme(self):
-        from jottr.window_color_scheme import normalize_window_color_scheme
-
-        # Organic brings its own palette; the saved scheme returns with Native.
-        if self.get_interface_look() == INTERFACE_LOOK_ORGANIC:
-            return ""
-        return normalize_window_color_scheme(
-            self.settings.get("window_color_scheme", "")
-        )
-
-    def save_window_color_scheme(self, scheme_id):
-        from jottr.window_color_scheme import (
-            find_window_color_scheme,
-            normalize_window_color_scheme,
-        )
-
-        scheme_id = normalize_window_color_scheme(scheme_id)
-        self.settings["window_color_scheme"] = scheme_id
-        # Default follows the desktop; drop a stale Light/Dark ui_theme so
-        # chrome matches GNOME/Plasma after the Appearance control was removed.
-        if not find_window_color_scheme(scheme_id).path:
-            self.settings["ui_theme"] = "System"
-        self.save_settings()
-
-    def get_qt_style(self):
-        from jottr.qt_style import normalize_qt_style, organic_qt_style
-
-        # Organic forces its own widget style; the saved one returns with Native.
-        if self.get_interface_look() == INTERFACE_LOOK_ORGANIC:
-            return organic_qt_style()
-        return self.get_saved_qt_style()
-
-    def get_saved_qt_style(self):
-        """The Widget Style the user picked, whatever the Interface Look."""
-        from jottr.qt_style import normalize_qt_style
-
-        return normalize_qt_style(self.settings.get("qt_style", "System"))
-
-    def save_qt_style(self, style_name):
-        from jottr.qt_style import normalize_qt_style
-
-        self.settings["qt_style"] = normalize_qt_style(style_name)
-        self.save_settings()
 
     def get_icon_theme(self):
         from jottr.icon_manager import DEFAULT_ICON_THEME, normalize_icon_theme

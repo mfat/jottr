@@ -1,38 +1,34 @@
 # Theming Widgets and Dialogs
 
-This document explains how Jottr's light/dark appearance reaches widgets, and the rules new widgets, dialogs, and windows must follow so they pick up dark mode, Window Color Schemes, and live desktop switches.
+This document explains how Jottr's light/dark appearance reaches widgets, and the rules new widgets, dialogs, and windows must follow so they pick up dark mode, the Interface Look, and live desktop switches.
 
-Every rule here comes from a bug that shipped: dialogs that stayed light in dark mode, windows that snapped back to an old theme after a widget style change, icons tinted for the wrong background, and a desktop that was dark while Jottr started light.
+Every rule here comes from a bug that shipped: dialogs that stayed light in dark mode, windows that snapped back to an old theme after a repolish, icons tinted for the wrong background, and a desktop that was dark while Jottr started light.
 
 ## Where Colors Come From
 
+Jottr draws all chrome with Qt's **Fusion** style on every platform (`jottr.qt_style.APP_QT_STYLE`). Fusion ships with Qt and paints purely from the palette, so Jottr's palettes look the same everywhere. There is no Widget Style setting and no KDE `.colors` scheme support; older saved `qt_style` and `window_color_scheme` values are dropped on load (a named scheme becomes the Light or Dark it looked like).
+
 Two settings decide the chrome colors:
 
-- `window_color_scheme` — a KDE `.colors` scheme (`BreezeDark`, `Oxygen`, …) or `""` for **Default**.
-- `ui_theme` — `System`, `Light`, or `Dark`. Only used under Default. Default migrates it to `System`, so in practice Default follows the desktop.
+- **Color Scheme**, `ui_theme`: `System` (Follow System), `Light`, or `Dark`.
+- **Interface Look**, `interface_look`: `native` or `organic`.
 
-Resolve them together, never one at a time:
+Resolve them through one call:
 
 ```python
-from jottr.window_color_scheme import effective_chrome_theme, find_window_color_scheme
-
-theme = effective_chrome_theme(
-    settings_manager.get_window_color_scheme(),
-    settings_manager.get_ui_theme(),
-)
+theme = ThemeManager.get_ui_theme(settings_manager.get_ui_theme())
 colors = theme["app"]  # "surface", "text", "accent", ...
 ```
 
-`effective_chrome_theme` handles every case: a named scheme's colors, Default + `System` resolved through the desktop (Breeze Light/Dark when installed), and explicit Light/Dark. `ThemeManager.get_ui_theme(ui_theme)` alone ignores the desktop and named schemes — using it is how the tab rail got the wrong color.
+`get_ui_theme` resolves `System` through the desktop, then returns the White or Black theme (Native) or the Organic light or dark theme. Results are cached per look and resolved scheme; `apply_app_style` clears the cache (`ThemeManager.clear_ui_theme_cache`). Apply palettes with `ThemeManager.apply_app_palette(target, theme)`.
 
-A scheme is named when `find_window_color_scheme(scheme_id).path` is non-empty. Named schemes install their palette on the application; Default chrome uses `ThemeManager.apply_app_palette(target, theme)`.
+`apply_qt_color_scheme` also asks Qt for the matching Light/Dark appearance, which tints what the palette does not reach (window decorations, native dialogs). Some platform themes refuse it, notably GNOME's portal theme under a dark session. That is fine: never derive chrome colors from `QStyleHints.colorScheme()`, or a refused Light request turns the chrome dark.
 
 ### The Organic interface look
 
-`interface_look` (Settings → Appearance → Interface Look, or View → Interface Look) is `native` or `organic`. Native is everything described above. Organic is Jottr's own look: a warm cream (or dark) ground, pill-shaped menus, toolbar groups and tabs, and rounded panes.
+Organic is Jottr's own look: a warm cream (or dark) ground, pill-shaped menus, toolbar groups and tabs, and rounded panes. Native is a plain look drawn by Fusion from the palette.
 
-- `SettingsManager` publishes the look to `ThemeManager.set_interface_look` on load and on save. `effective_chrome_theme` and `ThemeManager.get_ui_theme` then resolve to `ThemeManager.organic_theme(dark)`, following System/Light/Dark as usual.
-- Under Organic, `get_window_color_scheme()` returns Default and `get_qt_style()` returns Breeze (Fusion where Breeze is not installed, see `organic_qt_style`). The Window Color Scheme and Widget Style controls are hidden; the saved choices (`get_saved_qt_style`) come back with Native.
+- `SettingsManager` publishes the look to `ThemeManager.set_interface_look` on load and on save; `get_ui_theme` then returns `ThemeManager.organic_theme(dark)`.
 - An Organic theme dict carries an extra `organic` section of stylesheet tokens (some translucent, as `rgba(r, g, b, a)`; parse them with `ThemeManager.css_color`).
 
 ### The desktop's light/dark preference
@@ -47,7 +43,7 @@ Only the main window subscribes to desktop changes (`connect_system_color_scheme
 
 Widgets inside the main window (panels, tabs, bars) inherit the application palette and the chrome stylesheet. Usually nothing is needed.
 
-If the widget paints colors itself, read them at paint time from `effective_chrome_theme` (see `LeftAlignedDocumentTabBar.theme_app_colors`) or from its own `palette()`. Never cache colors in `__init__`; they go stale on the next theme change.
+If the widget paints colors itself, read them at paint time from `ThemeManager.get_ui_theme` or from its own `palette()`. Never cache colors in `__init__`; they go stale on the next theme change.
 
 ### Short-lived dialogs
 
@@ -68,24 +64,11 @@ A non-modal window that can stay open while the theme changes (the Settings wind
 
    ```python
    def _apply_palette(self):
-       from jottr.qt_style import reconcile_chrome_theme_with_color_scheme
-       from jottr.window_color_scheme import effective_chrome_theme, find_window_color_scheme
-
-       app = QApplication.instance()
-       scheme_id = self.settings_manager.get_window_color_scheme()
-       if find_window_color_scheme(scheme_id).path:
-           self.setPalette(app.palette())
-           return
-       ui_theme = self.settings_manager.get_ui_theme()
-       theme = reconcile_chrome_theme_with_color_scheme(
-           effective_chrome_theme(scheme_id, ui_theme, app), ui_theme, app
-       )
+       theme = ThemeManager.get_ui_theme(self.settings_manager.get_ui_theme())
        ThemeManager.apply_app_palette(self, theme)
    ```
 
-   `reconcile_chrome_theme_with_color_scheme` is for Default only; it realigns chrome when the platform refuses a Light/Dark pin. Never apply it to a named scheme.
-
-2. **Reapply it on every `StyleChange`.** Qt's stylesheet style restores the palette a widget had when it was *first* polished on every repolish: a widget style swap, the deferred chrome stylesheet restore after that swap, or the widget's own `setStyleSheet`. Without this, the window snaps back to the theme it was opened with.
+2. **Reapply it on every `StyleChange` and `Polish`.** Qt's stylesheet style restores the palette a widget had when it was *first* polished on every repolish: a new app stylesheet, the widget's own `setStyleSheet`, or the repolish Qt queues after a Light/Dark request (that one arrives as `Polish` with no `StyleChange`; handle it in `event()`). Without this, the window snaps back to the theme it was opened with.
 
    ```python
    def changeEvent(self, event):
@@ -100,7 +83,7 @@ A non-modal window that can stay open while the theme changes (the Settings wind
                self._applying_palette = False
    ```
 
-   Skip it until construction finishes, and guard against re-entrancy, because reapplying can repolish again. A refresh triggered by a repolish must only repaint this window; it must not call `apply_qt_color_scheme` or `activate_window_color_scheme`, which change the whole application (the Settings window passes `pin_app_scheme=False` for this).
+   Skip it until construction finishes, and guard against re-entrancy, because reapplying can repolish again. A refresh triggered by a repolish must only repaint this window; it must not call `apply_qt_color_scheme`, which changes the whole application (the Settings window passes `pin_app_scheme=False` for this).
 
 3. **Let the main window refresh it.** `TextEditorApp.apply_app_style` ends by refreshing the open Settings window. Register a new long-lived window the same way, after the main window's own palette is set.
 
@@ -119,20 +102,20 @@ A non-modal window that can stay open while the theme changes (the Settings wind
 ## Icons
 
 - Use `themed_symbolic_icon(name, settings_manager, palette=...)` for dialogs and lists, or the main window's `build_themed_icon(name)` for chrome. They tint bundled SVGs from `resolve_icon_color`, which follows the effective chrome theme and the Icon Contrast setting.
-- Provide Selected and Disabled modes (the helpers do). Otherwise each Qt style invents its own tint, and icons change after a widget style swap.
+- Provide Selected and Disabled modes (the helpers do). Otherwise the style invents its own tint.
 - Rebuild icons after a theme change; tints are baked into pixmaps. `apply_app_style` clears `_themed_icon_cache` and refreshes actions and tabs; do the same for icons you own (see `SettingsDialog.refresh_settings_nav_icons`).
 
 ## Checklist
 
 Before merging a new widget, dialog, or window:
 
-- [ ] Colors come from `effective_chrome_theme` or the widget's palette at paint time, never from `ThemeManager.get_ui_theme` or constants.
+- [ ] Colors come from `ThemeManager.get_ui_theme` or the widget's palette at paint time, never from constants or `QStyleHints`.
 - [ ] Desktop light/dark comes from `system_color_scheme()`, not `QStyleHints`.
 - [ ] Dialogs have a themed parent and `apply_dialog_window_icon`.
-- [ ] Long-lived top-level windows set their palette, reapply it on `StyleChange`, are refreshed from `apply_app_style`, and read saved settings.
+- [ ] Long-lived top-level windows set their palette, reapply it on `StyleChange` and `Polish`, are refreshed from `apply_app_style`, and read saved settings.
 - [ ] Palette is set after any stylesheet on the same widget.
 - [ ] Icons are tinted through the helpers and rebuilt on theme change.
-- [ ] Tested under a theme switch and a widget style swap (below).
+- [ ] Tested under a theme switch in both directions (below).
 
 ## Testing
 
@@ -142,8 +125,8 @@ A useful theming test for a window:
 
 1. Build it under an explicit theme (`settings.save_ui_theme("Light")` before construction), so a fallback to its first palette is detectable whatever the test machine's desktop prefers.
 2. `show()` it. Hidden widgets are not repolished like the running app, and hidden resizes deliver no resize event.
-3. Switch the theme the way the app does (`save_ui_theme` / `set_window_color_scheme` + `apply_app_style`) and assert on `palette().color(QPalette.ColorRole.Window).lightnessF()`.
-4. Swap the widget style (`save_qt_style` + `apply_widget_style`), call `QApplication.processEvents()` for the deferred stylesheet restore, and assert again.
+3. Switch the theme the way the app does (`set_color_scheme`, or `save_ui_theme` + `apply_app_style`) and assert on `palette().color(QPalette.ColorRole.Window).lightnessF()`.
+4. Switch back, call `QApplication.processEvents()` for any queued repolish, and assert again.
 5. Confirm the test fails without your fix. Several palette tests in this suite passed on broken code until they showed the window and started from the opposite theme.
 
-`test_main_window_palette_follows_later_ui_theme_switches` and `test_settings_window_palette_follows_menu_scheme_and_widget_style` in `tests/test_editor_and_main.py` are working examples.
+`test_main_window_palette_follows_later_ui_theme_switches`, `test_settings_window_palette_follows_menu_scheme_and_widget_style` and `test_color_scheme_switch_survives_refused_pin_and_repolish` in `tests/test_editor_and_main.py` are working examples.

@@ -13,7 +13,7 @@ sys.path.insert(0, str(SRC_ROOT))
 
 from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QStyleHints
-from PyQt6.QtWidgets import QApplication, QStyleFactory
+from PyQt6.QtWidgets import QApplication
 
 import jottr.system_color_scheme as system_color_scheme_module
 from jottr.system_color_scheme import (
@@ -169,10 +169,8 @@ class SystemUiThemeTests(unittest.TestCase):
         app()
         clear_system_color_scheme_cache()
         self.addCleanup(clear_system_color_scheme_cache)
-        from jottr.window_color_scheme import clear_window_color_scheme_caches
-
-        clear_window_color_scheme_caches()
-        self.addCleanup(clear_window_color_scheme_caches)
+        ThemeManager.clear_ui_theme_cache()
+        self.addCleanup(ThemeManager.clear_ui_theme_cache)
 
     def _resolver(self, scheme):
         return patch.object(
@@ -194,31 +192,18 @@ class SystemUiThemeTests(unittest.TestCase):
             self.assertEqual(ThemeManager.effective_ui_theme_name("Light", app()), "Light")
 
     def test_chrome_theme_cache_is_keyed_on_the_resolved_scheme(self):
-        from jottr.window_color_scheme import effective_chrome_theme
-
         with self._resolver(Qt.ColorScheme.Light):
-            light = effective_chrome_theme("", "System", app())
+            light = ThemeManager.get_ui_theme("System", app())
         with self._resolver(Qt.ColorScheme.Dark):
-            dark = effective_chrome_theme("", "System", app())
+            dark = ThemeManager.get_ui_theme("System", app())
         self.assertFalse(ThemeManager.theme_is_dark(light))
         self.assertTrue(ThemeManager.theme_is_dark(dark))
 
-    def test_automatic_window_scheme_follows_the_desktop(self):
-        from jottr.window_color_scheme import (
-            automatic_scheme_for_system,
-            discover_window_color_schemes,
-            scheme_is_dark,
-        )
-
-        if not any(scheme.path for scheme in discover_window_color_schemes()):
-            self.skipTest("no KDE .colors schemes installed")
-        with patch.object(
-            system_color_scheme_module, "system_prefers_dark", return_value=True
-        ):
-            auto = automatic_scheme_for_system()
-        if not auto.path:
-            self.skipTest("no dark .colors scheme installed")
-        self.assertTrue(scheme_is_dark(auto.path))
+    def test_explicit_light_and_dark_ignore_the_desktop(self):
+        with self._resolver(Qt.ColorScheme.Dark):
+            self.assertFalse(ThemeManager.theme_is_dark(ThemeManager.get_ui_theme("Light", app())))
+        with self._resolver(Qt.ColorScheme.Light):
+            self.assertTrue(ThemeManager.theme_is_dark(ThemeManager.get_ui_theme("Dark", app())))
 
 
 class QtColorSchemePinTests(unittest.TestCase):
@@ -299,45 +284,16 @@ class QtColorSchemePinTests(unittest.TestCase):
             with self._desktop(Qt.ColorScheme.Light):
                 self.assertEqual(system_color_scheme(app()), Qt.ColorScheme.Light)
 
-    def test_chrome_theme_realigns_when_platform_ignores_light_pin(self):
-        """Flatpak/KDE may keep Dark after setColorScheme(Light); avoid white-on-white."""
-        from jottr.qt_style import reconcile_chrome_theme_with_color_scheme
-        from jottr.theme_manager import ThemeManager
+    def test_refused_light_pin_keeps_light_chrome(self):
+        """GNOME's portal platform theme can refuse a Light pin while the
+        desktop is dark. Fusion paints from the palette, so Light must stay
+        Light instead of following the refusal."""
+        from jottr.qt_style import apply_qt_color_scheme
 
-        light = ThemeManager.get_ui_theme("Light", app())
         with patch.object(QStyleHints, "colorScheme", lambda _self: Qt.ColorScheme.Dark):
-            reconciled = reconcile_chrome_theme_with_color_scheme(
-                light, "Light", app()
-            )
-        self.assertTrue(ThemeManager.theme_is_dark(reconciled))
-        with patch.object(QStyleHints, "colorScheme", lambda _self: Qt.ColorScheme.Light):
-            unchanged = reconcile_chrome_theme_with_color_scheme(
-                light, "Light", app()
-            )
-        self.assertFalse(ThemeManager.theme_is_dark(unchanged))
-
-    def test_adwaita_variant_follows_immutable_color_scheme(self):
-        from jottr.qt_style import (
-            reconcile_chrome_theme_with_color_scheme,
-            resolve_qt_style_key,
-        )
-        from jottr.theme_manager import ThemeManager
-
-        if QStyleFactory.create("Adwaita") is None:
-            self.skipTest("Adwaita style unavailable")
-        if QStyleFactory.create("Adwaita-Dark") is None:
-            self.skipTest("Adwaita-Dark style unavailable")
-
-        light = ThemeManager.get_ui_theme("Light", app())
-        with patch.object(QStyleHints, "colorScheme", lambda _self: Qt.ColorScheme.Dark):
-            reconciled = reconcile_chrome_theme_with_color_scheme(
-                light, "Light", app()
-            )
-            self.assertEqual(
-                resolve_qt_style_key("Adwaita", theme=reconciled, application=app()),
-                "Adwaita-Dark",
-            )
-
+            apply_qt_color_scheme("Light", app())
+            theme = ThemeManager.get_ui_theme("Light", app())
+        self.assertFalse(ThemeManager.theme_is_dark(theme))
 
 if __name__ == "__main__":
     unittest.main()

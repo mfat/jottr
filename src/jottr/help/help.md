@@ -3,27 +3,20 @@
 ## Themes
 Jottr separates chrome and editor colors:
 
-- **Window Color Scheme** (View → Window Color Scheme, or Settings → Appearance): Kate-style chrome palette from installed KDE `.colors` schemes. **Default** follows the system (Breeze Light/Dark when available); picking a named scheme installs that palette.
+- **Color Scheme** (View → Color Scheme, or Settings → Appearance): **Follow System**, **Light**, or **Dark** menus, toolbars and panels. Follow System matches the desktop.
+- **Interface Look** (View → Interface Look, or Settings → Appearance): **Native** is a plain, familiar look; **Organic** is Jottr's own rounded, warm look.
 - **Editor Theme** (View → Editor Theme, or Settings → Appearance): White, Black, Sepia, Dracula, Monokai, Monaspace, Tokyo Night, Matcha, or Darkly — applied to the writing surface and syntax colors only. The View menu shows a palette grid of preview cards for each theme.
 
-## Widget styles
-In Settings > Appearance, **Widget Style** lists every Qt style available on your system, including:
-- System: Keep the platform default style
-- Built-in styles such as Fusion and Windows
-- Platform styles such as WindowsVista, windows11, or macos when provided by Qt
-- Desktop or plugin styles installed on your system (for example Breeze, Oxygen, or [Darkly](https://github.com/Bali10050/Darkly))
-
-The dropdown is filled from Qt's style factory, so everything your Qt build can create is offered. Window Color Scheme drives the application palette; menus, toolbar, tabs and panels are drawn by the widget style in those colors, with no extra Jottr styling. Paired light/dark styles (when both are installed) automatically follow the active scheme.
-
+Jottr draws its menus, toolbars and panels with Qt's Fusion style on every platform, so they look the same everywhere and follow the Color Scheme exactly.
 
 To change the editor theme:
 1. Click the Theme button in the toolbar, open View → Editor Theme (palette grid), or use Settings → Appearance
 2. Select your preferred theme
 3. Changes are applied immediately
 
-To change the window color scheme:
-1. Open View → Window Color Scheme or Settings → Appearance
-2. Choose Default (follow system) or a named KDE color scheme
+To change the color scheme:
+1. Open View → Color Scheme or Settings → Appearance
+2. Choose Follow System, Light, or Dark
 
 ## Font Customization
 Customize the editor font to your preference:
