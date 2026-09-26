@@ -999,6 +999,7 @@ class ThemeManager:
                 min-height: 30px;
                 border-radius: 14px;
                 padding: 0px 6px;
+                margin: 1px 0px;
             }}
             QTreeView#workspaceTree::item:hover, QListWidget#snippetList::item:hover {{
                 background: {t['hover']};
