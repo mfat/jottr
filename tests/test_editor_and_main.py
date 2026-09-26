@@ -191,7 +191,7 @@ class EditorAndMainTests(unittest.TestCase):
         margins = editor.markdown_preview_container.layout().contentsMargins()
         self.assertEqual(margins.left(), 0)
 
-    def test_snippets_pane_saved_at_zero_width_restores_closed(self):
+    def test_snippets_pane_saved_open_at_zero_width_reopens(self):
         self.settings.save_setting('pane_states', {
             'snippets_visible': True,
             'markdown_preview_visible': False,
@@ -199,8 +199,18 @@ class EditorAndMainTests(unittest.TestCase):
             'sizes': [1164, 0, 0],
         })
         editor = self.make_editor()
-        self.assertTrue(editor.snippet_widget.isHidden())
+        self.assertFalse(editor.snippet_widget.isHidden())
         self.assertFalse(editor.splitter.isCollapsible(1))
+
+    def test_snippets_pane_opening_saves_a_real_width(self):
+        editor = self.make_editor()
+        editor.snippet_widget.setProperty("target_visible", True)
+        editor.snippet_widget.setMaximumWidth(0)  # mid-animation
+        editor.snippet_widget.setVisible(True)
+        editor.save_pane_states()
+        states = self.settings.get_setting('pane_states')
+        self.assertTrue(states['snippets_visible'])
+        self.assertGreater(states['sizes'][1], 0)
 
     def test_ctrl_wheel_zooms_editor(self):
         from PyQt6.QtCore import QPointF
