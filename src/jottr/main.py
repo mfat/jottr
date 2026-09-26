@@ -64,31 +64,6 @@ def __getattr__(name):
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 
-def warmup_opengl(parent):
-    """Switch the window into OpenGL compositing before it is mapped.
-
-    Qt6 blanks the whole UI the first time a visible QWebEngineView forces an
-    OpenGL compositor path. A tiny off-screen QOpenGLWidget does that switch
-    cheaply — without starting a second Chromium process at startup.
-    """
-    from PyQt6.QtOpenGLWidgets import QOpenGLWidget
-
-    warmup = QOpenGLWidget(parent)
-    warmup.setAttribute(Qt.WidgetAttribute.WA_DontShowOnScreen, True)
-    warmup.resize(1, 1)
-    warmup.show()
-    parent._opengl_gl_warmup = warmup
-
-    def cleanup():
-        view = getattr(parent, "_opengl_gl_warmup", None)
-        if view is None:
-            return
-        parent._opengl_gl_warmup = None
-        view.deleteLater()
-
-    QTimer.singleShot(0, cleanup)
-
-
 def restart_command():
     """Program and arguments that start Jottr again, without reopening files."""
     if getattr(sys, "frozen", False):
@@ -131,9 +106,11 @@ def main():
     if len(sys.argv) > 1:
         file_paths = [arg for arg in sys.argv[1:] if os.path.isfile(arg)]
 
-    # Create main window and prime OpenGL compositing before mapping.
+    # Create the main window. It maps as a raster window so its first frame
+    # carries the title bar; Qt switches it to OpenGL when a web view first
+    # appears. Pre-switching it (an off-screen QOpenGLWidget) made Wayland
+    # show an undecorated first frame, and the title bar then popped in.
     window = TextEditorApp()
-    warmup_opengl(window)
     window.show()
     # Resume cyclic GC once the window is up and the event loop is idle.
     QTimer.singleShot(0, gc.enable)
