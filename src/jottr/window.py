@@ -334,6 +334,10 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
             # Another running Jottr owns the last session: start empty, and
             # save the session only once that instance has exited.
             self._session_loaded = True
+        else:
+            self.reserve_startup_workspace_panel(
+                self.startup_workspace() or self.saved_workspace_path()
+            )
 
         self.apply_app_style()
         self.watch_system_color_scheme()
@@ -521,9 +525,13 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
         """Reopen the workspace and tabs of the previous run."""
         startup_workspace = self.startup_workspace()
         if startup_workspace:
-            self.set_workspace_path(startup_workspace, save=True)
+            self.set_workspace_path(startup_workspace, save=True, restoring=True)
         else:
             self.restore_workspace(open_files=False)
+        if not self.workspace_path:
+            # The panel reserved at startup has no workspace to show after all.
+            self.workspace_widget.setProperty("target_visible", False)
+            self.workspace_widget.setVisible(False)
         # Read before the session reopens tabs: each one saves the workspace's
         # open files again, which would drop the tabs not reopened yet.
         workspace_files = (
@@ -1317,6 +1325,12 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
             "Close Workspace",
             self.close_workspace,
             tooltip="Close Workspace",
+        )
+        self.workspace_panel_action = self._make_action(
+            "Show Workspace Panel",
+            self.set_workspace_panel_visible,
+            tooltip="Show or hide the workspace panel",
+            checkable=True,
         )
         self.clear_missing_workspaces_action = self._make_action(
             "Clear Missing Workspaces",

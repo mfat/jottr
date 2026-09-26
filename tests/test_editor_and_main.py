@@ -18,9 +18,12 @@ sys.path.insert(0, str(SRC_ROOT))
 
 from PyQt6.QtCore import QPoint, QRect, Qt, QEvent
 from PyQt6.QtGui import QColor, QFont, QKeyEvent, QPalette, QTextCharFormat, QTextCursor, QTextDocument
-from PyQt6.QtWidgets import QApplication, QDialog, QFrame, QMessageBox, QMenu, QTabBar, QTextEdit, QWidget
+from PyQt6.QtWidgets import (
+    QApplication, QDialog, QFrame, QMessageBox, QMenu, QPushButton, QTabBar, QTextEdit, QWidget,
+)
 
 from jottr.editor_tab import EditorTab, SpellCheckHighlighter
+from jottr.theme_manager import ThemeManager
 import jottr.editor.markdown as editor_markdown_module
 import jottr.editor.tab as editor_tab_impl
 import jottr.editor_tab as editor_tab_module
@@ -171,6 +174,22 @@ class EditorAndMainTests(unittest.TestCase):
         self.addCleanup(editor.preview_scroll_timer.stop)
         self.addCleanup(editor.markdown_render_timer.stop)
         return editor
+
+    def test_organic_preview_is_inset_inside_its_rounded_card(self):
+        ThemeManager.set_interface_look("organic")
+        self.addCleanup(ThemeManager.set_interface_look, "native")
+        editor = self.make_editor()
+        margins = editor.markdown_preview_container.layout().contentsMargins()
+        self.assertEqual((margins.left(), margins.top()), (7, 7))
+
+        # The page keeps the width it will have inside the inset.
+        editor.freeze_markdown_preview_width(500)
+        self.assertEqual(editor.markdown_preview.minimumWidth(), 486)
+
+        ThemeManager.set_interface_look("native")
+        editor.apply_workspace_style()
+        margins = editor.markdown_preview_container.layout().contentsMargins()
+        self.assertEqual(margins.left(), 0)
 
     def test_ctrl_wheel_zooms_editor(self):
         from PyQt6.QtCore import QPointF
@@ -3790,6 +3809,35 @@ class EditorAndMainTests(unittest.TestCase):
             ]
             self.assertEqual(open_files, [str(note)])
             self.assertFalse(window.workspace_widget.isHidden())
+
+    def test_workspace_panel_close_button_hides_panel_until_shown_again(self):
+        workspace = Path(self.temp_dir.name) / "workspace"
+        workspace.mkdir()
+
+        window = TextEditorApp()
+        self.addCleanup(window.close)
+        self.addCleanup(window.deleteLater)
+        self.assertTrue(window.set_workspace_path(str(workspace)))
+        self.assertFalse(window.workspace_widget.isHidden())
+        self.assertTrue(window.workspace_panel_action.isChecked())
+
+        close_button = window.workspace_widget.findChild(QPushButton, "panelCloseButton")
+        close_button.click()
+
+        self.assertTrue(window.workspace_widget.isHidden())
+        self.assertEqual(window.workspace_path, str(workspace))
+        self.assertFalse(window.workspace_panel_action.isChecked())
+
+        # The hidden panel is remembered for the next run.
+        restored = TextEditorApp()
+        self.addCleanup(restored.close)
+        self.addCleanup(restored.deleteLater)
+        self.assertEqual(restored.workspace_path, str(workspace))
+        self.assertTrue(restored.workspace_widget.isHidden())
+
+        restored.workspace_panel_action.trigger()
+        self.assertFalse(restored.workspace_widget.isHidden())
+        self.assertTrue(SettingsManager().get_setting("workspace_panel_visible"))
 
     def test_switch_workspace_restores_recent_workspace_session(self):
         class FakeEditorTab(QWidget):

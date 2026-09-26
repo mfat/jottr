@@ -58,6 +58,13 @@ class WorkspaceControllerMixin:
         new_file_button.clicked.connect(self.create_workspace_file)
         header_layout.addWidget(new_file_button)
 
+        close_button = QPushButton("×")
+        close_button.setObjectName("panelCloseButton")
+        close_button.setFixedSize(24, 24)
+        close_button.setToolTip(_("Hide workspace panel"))
+        close_button.clicked.connect(lambda: self.set_workspace_panel_visible(False))
+        header_layout.addWidget(close_button)
+
         workspace_layout.addWidget(header)
 
         self.workspace_model = WorkspaceFileSystemModel(self)
@@ -83,18 +90,63 @@ class WorkspaceControllerMixin:
             self.workspace_tree.hideColumn(column)
         workspace_layout.addWidget(self.workspace_tree)
         self.workspace_widget.hide()
+        self.workspace_widget.setProperty("target_visible", False)
         self.ui_animations = {}
 
     def restore_workspace(self, open_files=True):
         """Restore the last workspace and, with *open_files*, its open files."""
-        path = self.settings_manager.get_setting("workspace_path", "")
-        if path and os.path.isdir(path):
-            self.set_workspace_path(path, save=False)
+        path = self.saved_workspace_path()
+        if path:
+            self.set_workspace_path(path, save=False, restoring=True)
             if open_files:
                 self.restore_workspace_session(path)
 
-    def set_workspace_path(self, path, save=True):
-        """Set and display the active workspace directory."""
+    def saved_workspace_path(self):
+        """The last run's workspace, if it still exists."""
+        path = self.settings_manager.get_setting("workspace_path", "")
+        if isinstance(path, str) and path and os.path.isdir(path):
+            return os.path.abspath(path)
+        return ""
+
+    def workspace_panel_enabled(self):
+        """Whether the workspace panel shows while a workspace is open."""
+        return bool(self.settings_manager.get_setting("workspace_panel_visible", True))
+
+    def reserve_startup_workspace_panel(self, path):
+        """Show the panel for *path* before first paint.
+
+        The workspace itself is restored after first paint; showing its panel
+        now keeps the tabs and editor from shifting when it arrives.
+        """
+        if not path or not self.workspace_panel_enabled():
+            return
+        self.set_workspace_labels(path)
+        self.workspace_widget.setProperty("target_visible", True)
+        self.workspace_widget.setVisible(True)
+
+    def set_workspace_labels(self, path):
+        """Show *path* in the panel header."""
+        self.workspace_title.setText(os.path.basename(path) or path)
+        self.workspace_title.setToolTip(_("Switch workspace\n{path}").format(path=path))
+        self.workspace_path_label.setText(os.path.dirname(path) or path)
+        self.workspace_path_label.setToolTip(path)
+
+    def set_workspace_panel_visible(self, visible, save=True):
+        """Show or hide the workspace panel without closing the workspace."""
+        visible = bool(visible and self.workspace_path)
+        if save and self.workspace_path:
+            self.settings_manager.save_setting("workspace_panel_visible", visible)
+        if self.workspace_widget.property("target_visible") != visible:
+            self.workspace_widget.setProperty("target_visible", visible)
+            self.animate_widget_visibility(self.workspace_widget, visible)
+        self.update_workspace_actions()
+
+    def set_workspace_path(self, path, save=True, restoring=False):
+        """Set and display the active workspace directory.
+
+        *restoring* brings back the last run's workspace: its panel appears
+        without animating and only if it was left open.
+        """
         path = os.path.abspath(path)
         if not os.path.isdir(path):
             return False
@@ -102,11 +154,13 @@ class WorkspaceControllerMixin:
         self.workspace_path = path
         root_index = self.workspace_model.setRootPath(path)
         self.workspace_tree.setRootIndex(root_index)
-        self.workspace_title.setText(os.path.basename(path) or path)
-        self.workspace_title.setToolTip(_("Switch workspace\n{path}").format(path=path))
-        self.workspace_path_label.setText(os.path.dirname(path) or path)
-        self.workspace_path_label.setToolTip(path)
-        self.animate_widget_visibility(self.workspace_widget, True)
+        self.set_workspace_labels(path)
+        if restoring:
+            visible = self.workspace_panel_enabled()
+            self.workspace_widget.setProperty("target_visible", visible)
+            self.workspace_widget.setVisible(visible)
+        else:
+            self.set_workspace_panel_visible(True)
         self.workspace_tree.expand(root_index)
         if save:
             self.settings_manager.save_setting("workspace_path", path)
@@ -136,6 +190,7 @@ class WorkspaceControllerMixin:
         self.workspace_title.setToolTip(_("Switch workspace"))
         self.workspace_path_label.setText(_("No folder open"))
         self.workspace_path_label.setToolTip("")
+        self.workspace_widget.setProperty("target_visible", False)
         self.animate_widget_visibility(self.workspace_widget, False)
         self.settings_manager.save_setting("workspace_path", "")
         self.settings_manager.save_setting("workspace_open_files", [])
@@ -153,6 +208,12 @@ class WorkspaceControllerMixin:
             self.close_workspace_action.setEnabled(has_workspace)
         if hasattr(self, "new_workspace_folder_action"):
             self.new_workspace_folder_action.setEnabled(has_workspace)
+        action = getattr(self, "workspace_panel_action", None)
+        if action is not None:
+            action.setEnabled(has_workspace)
+            action.setChecked(
+                has_workspace and bool(self.workspace_widget.property("target_visible"))
+            )
 
     def workspace_display_label(self, path, candidates):
         """Prefer basename; disambiguate when multiple entries share it."""
@@ -221,6 +282,8 @@ class WorkspaceControllerMixin:
             menu.addSeparator()
             self.populate_recent_workspace_actions(menu)
 
+        menu.addSeparator()
+        menu.addAction(self.workspace_panel_action)
         menu.addSeparator()
         menu.addAction(self.new_workspace_file_action)
         menu.addAction(self.new_workspace_folder_action)
