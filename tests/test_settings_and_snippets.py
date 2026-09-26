@@ -39,6 +39,50 @@ class SettingsAndSnippetTests(unittest.TestCase):
         self.env.start()
         self.addCleanup(self.env.stop)
 
+    def test_interface_look_setting_and_organic_chrome(self):
+        from PyQt6.QtGui import QColor
+
+        from jottr.window_color_scheme import (
+            clear_effective_chrome_theme_cache,
+            effective_chrome_theme,
+        )
+
+        manager = SettingsManager()
+        self.addCleanup(ThemeManager.set_interface_look, "native")
+        self.addCleanup(clear_effective_chrome_theme_cache)
+        self.assertEqual(manager.get_interface_look(), "native")
+        self.assertEqual(ThemeManager.interface_look(), "native")
+        manager.settings["window_color_scheme"] = "BreezeDark"
+
+        manager.save_interface_look("Organic")
+        self.assertEqual(manager.get_interface_look(), "organic")
+        self.assertEqual(ThemeManager.interface_look(), "organic")
+        # Organic brings its own palette, but the saved scheme is kept.
+        self.assertEqual(manager.get_window_color_scheme(), "")
+        self.assertEqual(manager.settings["window_color_scheme"], "BreezeDark")
+        self.assertEqual(
+            effective_chrome_theme("", "Light")["app"]["background"], "#f5ead8"
+        )
+        self.assertEqual(
+            effective_chrome_theme("", "Dark")["app"]["background"], "#2e2b25"
+        )
+        self.assertIn("organic", ThemeManager.get_ui_theme("Dark"))
+
+        # A fresh manager publishes the saved look again.
+        ThemeManager.set_interface_look("native")
+        self.assertEqual(SettingsManager().get_interface_look(), "organic")
+        self.assertEqual(ThemeManager.interface_look(), "organic")
+
+        manager.save_interface_look("bogus")
+        self.assertEqual(manager.get_interface_look(), "native")
+        self.assertNotIn("organic", effective_chrome_theme("", "Light"))
+
+        self.assertEqual(
+            ThemeManager.css_color("rgba(1, 2, 3, 40)"), QColor(1, 2, 3, 40)
+        )
+        self.assertEqual(ThemeManager.css_color("#c67139"), QColor("#c67139"))
+        self.assertFalse(ThemeManager.css_color("rgba(bad)").isValid())
+
     def test_settings_manager_uses_isolated_config_and_defaults(self):
         manager = SettingsManager()
 
@@ -595,6 +639,13 @@ class SettingsAndSnippetTests(unittest.TestCase):
         self.assertEqual(legacy_default, compact_toolbar)
         for selector in ("QMenu {", "QMenu::", "QStatusBar", "QTreeView", "QSplitter"):
             self.assertNotIn(selector, app_style)
+        # Organic is the one look that paints colors, from its theme tokens.
+        organic = ThemeManager.organic_theme(False)
+        organic_style = ThemeManager.build_app_stylesheet(theme=organic)
+        self.assertTrue(organic_style.startswith(app_style))
+        self.assertIn("background: #f5ead8", organic_style)
+        self.assertIn("QMenu {", organic_style)
+        self.assertEqual(ThemeManager.build_app_stylesheet(theme=dracula), app_style)
         from PyQt6.QtGui import QPalette
         palette = ThemeManager.build_app_palette(dracula)
         self.assertEqual(palette.color(QPalette.ColorRole.Window).name(), "#282a36")

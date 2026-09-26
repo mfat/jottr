@@ -2357,6 +2357,78 @@ class EditorAndMainTests(unittest.TestCase):
             sheet = QApplication.instance().styleSheet()
             self.assertIn("QToolBar#mainToolBar", sheet)
 
+    def test_interface_look_organic_and_native_toggle(self):
+        from PyQt6.QtWidgets import QTabBar
+
+        from jottr.settings_manager import INTERFACE_LOOK_NATIVE, INTERFACE_LOOK_ORGANIC
+        from jottr.ui.grouped_toolbar import GroupedToolBar
+
+        class FakeEditorTab(QWidget):
+            def __init__(self, snippet_manager, settings_manager):
+                super().__init__()
+                self.editor = QTextEdit(self)
+                self.current_file = None
+                self.themes_applied = []
+
+            def set_main_window(self, main_window):
+                self.main_window = main_window
+
+            def apply_theme(self, theme_name):
+                self.themes_applied.append(theme_name)
+
+            def apply_autosave_settings(self):
+                pass
+
+            def apply_line_numbers(self, visible):
+                pass
+
+        with patch.object(window_module, "EditorTab", FakeEditorTab):
+            window = TextEditorApp()
+            self.addCleanup(window.close)
+            self.addCleanup(window.deleteLater)
+            sm = window.settings_manager
+            sm.save_window_color_scheme("")
+            self.assertEqual(sm.get_interface_look(), INTERFACE_LOOK_NATIVE)
+            self.assertIsInstance(window.toolbar, GroupedToolBar)
+            self.assertNotIn("QMenu {", QApplication.instance().styleSheet())
+
+            view_menu = next(
+                action.menu()
+                for action in window.menuBar().actions()
+                if action.text().replace("&", "") == "View"
+            )
+            menus = {
+                action.text(): action
+                for action in view_menu.actions()
+                if action.menu() is not None
+            }
+            look_actions = {a.text(): a for a in menus["Interface Look"].menu().actions()}
+            self.assertTrue(look_actions["Native"].isChecked())
+            self.assertTrue(menus["Window Color Scheme"].isEnabled())
+
+            look_actions["Organic"].trigger()
+            self.assertEqual(sm.get_interface_look(), INTERFACE_LOOK_ORGANIC)
+            sheet = QApplication.instance().styleSheet()
+            self.assertIn("QMenu {", sheet)
+            self.assertIn("QTabWidget#documentTabs QTabBar::tab:selected", sheet)
+            self.assertTrue(look_actions["Organic"].isChecked())
+            self.assertFalse(menus["Window Color Scheme"].isEnabled())
+            self.assertEqual(window.main_surface_layout.contentsMargins().left(), 14)
+            self.assertFalse(window.tab_widget.tabBar().drawBase())
+            self.assertIsNotNone(window.toolbar._group_color)
+            # The palette follows the Organic ground (light or dark).
+            ground = window.palette().color(window.backgroundRole()).name()
+            self.assertIn(ground, {"#f5ead8", "#2e2b25"})
+            tab = window.tab_widget.widget(0)
+            self.assertTrue(tab.themes_applied)
+
+            window.set_interface_look(INTERFACE_LOOK_NATIVE)
+            self.assertNotIn("QMenu {", QApplication.instance().styleSheet())
+            self.assertTrue(menus["Window Color Scheme"].isEnabled())
+            self.assertEqual(window.main_surface_layout.contentsMargins().left(), 0)
+            self.assertTrue(window.tab_widget.tabBar().drawBase())
+            self.assertIsNone(window.toolbar._group_color)
+
     def test_toolbar_style_comfy_and_compact_toggle(self):
         from jottr.settings_manager import TOOLBAR_STYLE_COMFY, TOOLBAR_STYLE_COMPACT
 

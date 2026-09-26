@@ -27,6 +27,14 @@ colors = theme["app"]  # "surface", "text", "accent", ...
 
 A scheme is named when `find_window_color_scheme(scheme_id).path` is non-empty. Named schemes install their palette on the application; Default chrome uses `ThemeManager.apply_app_palette(target, theme)`.
 
+### The Organic interface look
+
+`interface_look` (Settings → Appearance → Interface Look, or View → Interface Look) is `native` or `organic`. Native is everything described above. Organic is Jottr's own look: a warm cream (or dark) ground, pill-shaped menus, toolbar groups and tabs, and rounded panes.
+
+- `SettingsManager` publishes the look to `ThemeManager.set_interface_look` on load and on save. `effective_chrome_theme` and `ThemeManager.get_ui_theme` then resolve to `ThemeManager.organic_theme(dark)`, following System/Light/Dark as usual.
+- Under Organic, `get_window_color_scheme()` returns Default and the Window Color Scheme controls are disabled; the saved scheme comes back with Native.
+- An Organic theme dict carries an extra `organic` section of stylesheet tokens (some translucent, as `rgba(r, g, b, a)`; parse them with `ThemeManager.css_color`).
+
 ### The desktop's light/dark preference
 
 Use `jottr.system_color_scheme.system_color_scheme()` or `system_prefers_dark()`. Do not read `QStyleHints.colorScheme()` to learn what the desktop wants: Qt reports `Light` on native GNOME Wayland when the session is dark, and `Unknown` inside the Flatpak. The resolver asks the desktop portal first, then GTK settings, then Qt.
@@ -105,6 +113,8 @@ A non-modal window that can stay open while the theme changes (the Settings wind
 - Style Jottr chrome by object name through `ThemeManager.build_app_stylesheet`; do not add app-wide color rules elsewhere.
 - A widget-level stylesheet repolishes that widget and triggers the palette restore described above. Keep it font-only where possible (`ThemeManager.build_font_stylesheet`), and set the palette after it.
 - Never hard-code light or dark colors in QSS. Take them from the theme dict.
+- The Organic look is the one place the app stylesheet carries colors: `build_app_stylesheet(theme=...)` appends `build_organic_stylesheet` when the theme has `organic` tokens. Style new chrome for it there, by object name. Keep every `border-radius` at or below half the control's smallest height, or Qt ignores it and draws square corners.
+- Layout and painting a stylesheet cannot express (pane insets, the toolbar group pills drawn by `GroupedToolBar`, the tab bar base line) belong in `TextEditorApp.apply_interface_look_chrome`, which runs on every `apply_app_style`.
 
 ## Icons
 

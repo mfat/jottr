@@ -26,6 +26,13 @@ def _delete_windows_left_by_test():
     # widget style swap) leaves the stylesheet style with dangling entries,
     # and the next setStyleSheet crashes. Tests re-apply their own chrome.
     app.setStyleSheet("")
+    # Interface Look is process-wide; a test that picked Organic must not
+    # leak its chrome colors into the next one.
+    from jottr.theme_manager import ThemeManager
+    from jottr.window_color_scheme import clear_effective_chrome_theme_cache
+
+    ThemeManager.set_interface_look("native")
+    clear_effective_chrome_theme_cache()
     app.setProperty("_jottr_startup_stylesheet", None)
     app.setProperty("_jottr_style_key", None)
     for widget in QApplication.topLevelWidgets():

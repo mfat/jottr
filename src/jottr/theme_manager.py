@@ -17,6 +17,97 @@ class ThemeManager:
         "default": "Sepia",
     }
 
+    # Interface Look published by SettingsManager ("native" or "organic").
+    _interface_look = "native"
+
+    # Organic look tokens, from the Organic design system (cream ground,
+    # terracotta accent). Solid "app" colors feed QPalette; the "organic"
+    # tokens (some translucent) feed the look's stylesheet.
+    ORGANIC_THEMES = {
+        "Light": {
+            "app": {
+                "background": "#f5ead8",
+                "surface": "#f9f4ed",
+                "surface_alt": "#eee7db",
+                "surface_hover": "#e6dccb",
+                "surface_active": "#ffe1d0",
+                "text": "#201e1d",
+                "muted": "#645c50",
+                "border": "#d3c9ba",
+                "border_active": "#c67139",
+                "accent": "#c67139",
+                "accent_text": "#643312",
+                "danger": "#b42318"
+            },
+            "editor": {
+                "background": "#f9f4ed",
+                "foreground": "#201e1d",
+                "selection": "#ffe1d0",
+                "current_line": "#eee7db",
+                "border": "#d3c9ba"
+            },
+            "organic": {
+                "ground": "#f5ead8",
+                "pane": "#f9f4ed",
+                "paper": "#f9f4ed",
+                "tab": "#f9f4ed",
+                "group": "#f9f4ed",
+                "ink": "#201e1d",
+                "muted": "#645c50",
+                "faint": "#a19786",
+                "line": "rgba(32, 30, 29, 41)",
+                "hover": "rgba(32, 30, 29, 18)",
+                "act": "#c67139",
+                "act_hover": "#b2622d",
+                "act_soft": "#ffe1d0",
+                "act_ink": "#643312",
+                "on_act": "#f5ead8",
+                "selection": "#ffe1d0"
+            }
+        },
+        "Dark": {
+            "app": {
+                "background": "#2e2b25",
+                "surface": "#211f1b",
+                "surface_alt": "#282520",
+                "surface_hover": "#3e3b35",
+                "surface_active": "#5e4736",
+                "text": "#f9f4ed",
+                "muted": "#c0b6a5",
+                "border": "#46433d",
+                "border_active": "#f6a06b",
+                "accent": "#f6a06b",
+                "accent_text": "#ffe1d0",
+                "danger": "#f87171"
+            },
+            "editor": {
+                "background": "#211f1b",
+                "foreground": "#f9f4ed",
+                "selection": "#5e4736",
+                "current_line": "#282520",
+                "border": "#46433d"
+            },
+            "organic": {
+                "ground": "#2e2b25",
+                "pane": "#282520",
+                "paper": "#211f1b",
+                "tab": "#211f1b",
+                "group": "rgba(249, 244, 237, 15)",
+                "ink": "#f9f4ed",
+                "muted": "#c0b6a5",
+                "faint": "#82796a",
+                "line": "rgba(249, 244, 237, 31)",
+                "hover": "rgba(249, 244, 237, 20)",
+                "act": "#f6a06b",
+                "act_hover": "#ffc6a5",
+                "act_soft": "rgba(246, 160, 107, 61)",
+                "act_ink": "#ffe1d0",
+                "on_act": "#2e2b25",
+                "selection": "rgba(246, 160, 107, 82)"
+            }
+        }
+    }
+
     BASE_APP = {
         "background": "#f4f6f8",
         "surface": "#ffffff",
@@ -481,9 +572,44 @@ class ThemeManager:
         return "Light"
 
     @staticmethod
+    def set_interface_look(look):
+        ThemeManager._interface_look = "organic" if look == "organic" else "native"
+
+    @staticmethod
+    def interface_look():
+        return ThemeManager._interface_look
+
+    @staticmethod
+    def css_color(value):
+        """QColor from a "#rrggbb" or "rgba(r, g, b, a)" token (a is 0-255)."""
+        text = str(value or "").strip()
+        if text.startswith("rgba(") and text.endswith(")"):
+            try:
+                r, g, b, a = (int(part) for part in text[5:-1].split(","))
+            except ValueError:
+                return QColor()
+            return QColor(r, g, b, a)
+        return QColor(text)
+
+    @staticmethod
+    def organic_theme(dark):
+        """Chrome theme dict for the Organic look, with its "organic" tokens."""
+        source = ThemeManager.ORGANIC_THEMES["Dark" if dark else "Light"]
+        theme = ThemeManager.normalize_theme(
+            {"name": "Organic", **source, "syntax": ThemeManager.get_theme("White")["syntax"]}
+        )
+        theme["organic"] = dict(source["organic"])
+        return theme
+
+    @staticmethod
     def get_ui_theme(theme_name, application=None):
-        """Return White or Black theme dict for chrome (from ColorScheme setting)."""
+        """Return White or Black theme dict for chrome (from ColorScheme setting).
+
+        Under the Organic look, return its light or dark chrome instead.
+        """
         ui_name = ThemeManager.effective_ui_theme_name(theme_name, application)
+        if ThemeManager.interface_look() == "organic":
+            return ThemeManager.organic_theme(ui_name == "Dark")
         editor_name = ThemeManager.normalize_editor_theme_name(ui_name)
         return ThemeManager.get_theme(editor_name)
 
@@ -509,13 +635,16 @@ class ThemeManager:
         point_size = editor_font.pointSizeF() if editor_font.pointSizeF() > 0 else editor_font.pointSize()
         if point_size <= 0:
             point_size = 10
+        # Organic panes are rounded cards; the padding keeps the square
+        # viewport inside the rounded corners.
+        radius = 22 if ThemeManager.interface_look() == "organic" else 0
         return f"""
             QTextEdit#writingEditor {{
                 background-color: {editor_theme['background']};
                 color: {editor_theme['foreground']};
                 selection-background-color: {editor_theme['selection']};
                 border: none;
-                border-radius: 0px;
+                border-radius: {radius}px;
                 padding: 18px 22px;
                 font-family: "{font_family}";
                 font-size: {point_size:g}pt;
@@ -612,13 +741,16 @@ class ThemeManager:
         return palette
 
     @staticmethod
-    def build_app_stylesheet(toolbar_style="comfy"):
+    def build_app_stylesheet(toolbar_style="comfy", theme=None):
         """Main window QSS: layout only, plus borderless chrome, never colors or fonts.
 
         Menus, bars, tabs and panels are drawn by the widget style from the
         palette, and Main UI Font reaches them through setFont. Comfy only
         adds toolbar spacing; tabs stay left-aligned on every platform.
         Menu and toolbar borders are removed so no horizontal line shows.
+
+        The Organic look is the exception: when *theme* carries "organic"
+        tokens, its colored stylesheet is appended.
         """
         from jottr.settings_manager import TOOLBAR_STYLE_COMFY, SettingsManager
 
@@ -652,7 +784,289 @@ class ThemeManager:
                 min-height: 28px;
             }
             """
+        if isinstance(theme, dict) and theme.get("organic"):
+            stylesheet += ThemeManager.build_organic_stylesheet(theme["organic"])
         return stylesheet
+
+    @staticmethod
+    def build_organic_stylesheet(t):
+        """Organic look chrome: pill controls, rounded panes on a warm ground.
+
+        Qt drops a border-radius larger than half a widget's height, so each
+        radius here stays under half its control's smallest height.
+        """
+        return f"""
+            QMainWindow, QWidget#mainSurface {{
+                background: {t['ground']};
+            }}
+            QMenuBar {{
+                background: {t['ground']};
+                color: {t['ink']};
+                padding: 6px 10px 2px 10px;
+            }}
+            QMenuBar::item {{
+                background: transparent;
+                padding: 5px 11px;
+                border-radius: 11px;
+            }}
+            QMenuBar::item:selected, QMenuBar::item:pressed {{
+                background: {t['hover']};
+            }}
+            QMenu {{
+                background: {t['pane']};
+                color: {t['ink']};
+                border: 1px solid {t['line']};
+                border-radius: 14px;
+                padding: 6px;
+            }}
+            QMenu::item {{
+                background: transparent;
+                padding: 7px 28px 7px 12px;
+                border-radius: 10px;
+            }}
+            QMenu::item:selected {{
+                background: {t['act_soft']};
+                color: {t['act_ink']};
+            }}
+            QMenu::item:disabled {{
+                color: {t['faint']};
+            }}
+            QMenu::separator {{
+                height: 1px;
+                background: {t['line']};
+                margin: 5px 10px;
+            }}
+            QToolTip {{
+                background: {t['pane']};
+                color: {t['ink']};
+                border: 1px solid {t['line']};
+                border-radius: 8px;
+                padding: 4px 8px;
+            }}
+            QToolBar#mainToolBar, QToolBar#formatToolBar {{
+                background: {t['ground']};
+                padding: 6px 14px;
+                spacing: 2px;
+            }}
+            QToolBar#formatToolBar {{
+                padding-top: 0px;
+            }}
+            QToolBar::separator {{
+                width: 10px;
+                background: transparent;
+            }}
+            QToolBar#mainToolBar QToolButton, QToolBar#formatToolBar QToolButton {{
+                background: transparent;
+                color: {t['ink']};
+                border: none;
+                border-radius: 18px;
+                padding: 0px;
+                margin: 3px 0px;
+                min-width: 36px;
+                min-height: 36px;
+            }}
+            QToolBar#mainToolBar QToolButton:hover, QToolBar#formatToolBar QToolButton:hover {{
+                background: {t['hover']};
+            }}
+            QToolBar#mainToolBar QToolButton:checked, QToolBar#formatToolBar QToolButton:checked,
+            QToolBar#mainToolBar QToolButton:pressed, QToolBar#formatToolBar QToolButton:pressed {{
+                background: {t['act_soft']};
+                color: {t['act_ink']};
+            }}
+            QToolBar#mainToolBar QToolButton::menu-indicator {{
+                image: none;
+                width: 0px;
+            }}
+            QTabWidget#documentTabs::pane {{
+                border: none;
+                background: transparent;
+            }}
+            QTabWidget#documentTabs QTabBar {{
+                background: {t['ground']};
+            }}
+            QTabWidget#documentTabs QTabBar::tab {{
+                background: transparent;
+                color: {t['muted']};
+                border: none;
+                border-radius: 17px;
+                padding: 0px 8px 0px 14px;
+                margin: 6px 0px 6px 6px;
+                min-height: 34px;
+            }}
+            QTabWidget#documentTabs QTabBar::tab:first {{
+                margin-left: 0px;
+            }}
+            QTabWidget#documentTabs QTabBar::tab:hover {{
+                background: {t['hover']};
+            }}
+            QTabWidget#documentTabs QTabBar::tab:selected {{
+                background: {t['tab']};
+                color: {t['ink']};
+                font-weight: 600;
+            }}
+            QToolButton#tabCloseButton {{
+                background: transparent;
+                border: none;
+                border-radius: 9px;
+                margin-right: 8px;
+            }}
+            QToolButton#tabCloseButton:hover {{
+                background: {t['hover']};
+            }}
+            QSplitter#mainSplitter::handle, QSplitter#workspaceSplitter::handle,
+            QSplitter#markdownSplitter::handle {{
+                background: transparent;
+                width: 10px;
+            }}
+            QWidget#editorPane {{
+                background: transparent;
+            }}
+            QWidget#workspaceExplorer, QWidget#sidePanel, QWidget#markdownPreviewContainer {{
+                background: {t['pane']};
+                border-radius: 22px;
+            }}
+            QWidget#workspaceHeader, QWidget#panelHeader, QWidget#browserToolbar,
+            QWidget#workspaceIdentity {{
+                background: transparent;
+            }}
+            QPushButton#workspaceTitle {{
+                background: transparent;
+                border: none;
+                color: {t['ink']};
+                font-weight: 600;
+                text-align: left;
+                padding: 2px 4px;
+            }}
+            QLabel#workspacePath {{
+                color: {t['muted']};
+                padding: 0px 4px;
+            }}
+            QLabel#panelTitle {{
+                color: {t['ink']};
+                font-weight: 600;
+            }}
+            QTreeView#workspaceTree, QListWidget#snippetList {{
+                background: transparent;
+                alternate-background-color: transparent;
+                border: none;
+                outline: 0;
+                padding: 2px 8px 8px 8px;
+            }}
+            QTreeView#workspaceTree::item, QListWidget#snippetList::item {{
+                color: {t['ink']};
+                min-height: 30px;
+                border-radius: 14px;
+                padding: 0px 6px;
+            }}
+            QTreeView#workspaceTree::item:hover, QListWidget#snippetList::item:hover {{
+                background: {t['hover']};
+            }}
+            QTreeView#workspaceTree::item:selected, QListWidget#snippetList::item:selected {{
+                background: {t['act_soft']};
+                color: {t['act_ink']};
+            }}
+            QPushButton {{
+                background: transparent;
+                color: {t['ink']};
+                border: 1px solid {t['line']};
+                border-radius: 12px;
+                padding: 4px 14px;
+            }}
+            QPushButton:hover {{
+                background: {t['hover']};
+            }}
+            QPushButton:pressed, QPushButton:checked {{
+                background: {t['act_soft']};
+                color: {t['act_ink']};
+            }}
+            QPushButton:default {{
+                background: {t['act']};
+                border-color: {t['act']};
+                color: {t['on_act']};
+            }}
+            QPushButton:default:hover {{
+                background: {t['act_hover']};
+            }}
+            QPushButton:disabled {{
+                color: {t['faint']};
+            }}
+            QWidget#findToolbar QPushButton, QWidget#browserToolbar QPushButton {{
+                padding: 0px 10px;
+                border-radius: 13px;
+            }}
+            QPushButton#workspaceToolButton, QPushButton#panelCloseButton {{
+                background: transparent;
+                border: none;
+                border-radius: 11px;
+                color: {t['muted']};
+                padding: 0px;
+            }}
+            QPushButton#workspaceToolButton:hover, QPushButton#panelCloseButton:hover {{
+                background: {t['hover']};
+            }}
+            QPushButton#panelHeaderButton {{
+                background: {t['act']};
+                border: none;
+                border-radius: 11px;
+                color: {t['on_act']};
+                padding: 0px;
+            }}
+            QPushButton#panelHeaderButton:hover {{
+                background: {t['act_hover']};
+            }}
+            QLineEdit {{
+                background: {t['paper']};
+                color: {t['ink']};
+                border: 1px solid {t['line']};
+                border-radius: 12px;
+                padding: 3px 12px;
+                selection-background-color: {t['selection']};
+                selection-color: {t['ink']};
+            }}
+            QLineEdit:focus {{
+                border-color: {t['act']};
+            }}
+            QComboBox {{
+                background: {t['paper']};
+                color: {t['ink']};
+                border: 1px solid {t['line']};
+                border-radius: 11px;
+                padding: 2px 10px 2px 12px;
+            }}
+            QComboBox:hover {{
+                border-color: {t['muted']};
+            }}
+            QComboBox:disabled, QLineEdit:disabled {{
+                color: {t['faint']};
+            }}
+            QComboBox QAbstractItemView {{
+                background: {t['pane']};
+                color: {t['ink']};
+                border: 1px solid {t['line']};
+                selection-background-color: {t['act_soft']};
+                selection-color: {t['act_ink']};
+                outline: 0;
+            }}
+            QStatusBar#statusBar {{
+                background: {t['ground']};
+                color: {t['muted']};
+                min-height: 38px;
+                padding: 0px 14px;
+            }}
+            QStatusBar#statusBar::item {{
+                border: none;
+            }}
+            QStatusBar#statusBar QLabel {{
+                color: {t['muted']};
+            }}
+            QLabel#documentLanguageStatus {{
+                background: {t['act_soft']};
+                color: {t['act_ink']};
+                border-radius: 10px;
+                padding: 2px 10px;
+                font-weight: 600;
+            }}
+        """
 
     @staticmethod
     def build_dialog_stylesheet(theme, font=None):

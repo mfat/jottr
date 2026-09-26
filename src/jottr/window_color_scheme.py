@@ -408,7 +408,9 @@ def effective_chrome_theme(scheme_id, ui_theme_name, application=None):
         if normalized in {"Light", "Dark"}
         else None
     )
+    organic = ThemeManager.interface_look() == "organic"
     cache_key = (
+        organic,
         (scheme_id or DEFAULT_WINDOW_COLOR_SCHEME).strip(),
         normalized,
         resolved,
@@ -419,11 +421,11 @@ def effective_chrome_theme(scheme_id, ui_theme_name, application=None):
         return cached
 
     scheme = find_window_color_scheme(scheme_id)
-    if scheme.path:
+    if scheme.path and not organic:
         theme = chrome_theme_from_scheme(scheme.path)
     else:
-        auto = automatic_scheme_for_system()
-        if auto.path and normalized == "System":
+        auto = None if organic else automatic_scheme_for_system()
+        if auto is not None and auto.path and normalized == "System":
             theme = chrome_theme_from_scheme(auto.path)
         else:
             theme = ThemeManager.get_ui_theme(ui_theme_name, application)

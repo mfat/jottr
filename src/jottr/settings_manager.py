@@ -21,6 +21,12 @@ TOOLBAR_STYLE_COMPACT = "compact"
 TOOLBAR_STYLES = (TOOLBAR_STYLE_COMFY, TOOLBAR_STYLE_COMPACT)
 # Legacy saved value / import alias for Compact.
 TOOLBAR_STYLE_DEFAULT = TOOLBAR_STYLE_COMPACT
+
+# Interface Look: Native leaves chrome to the widget style and palette;
+# Organic paints Jottr's own rounded, warm chrome (see docs/theming.md).
+INTERFACE_LOOK_NATIVE = "native"
+INTERFACE_LOOK_ORGANIC = "organic"
+INTERFACE_LOOKS = (INTERFACE_LOOK_NATIVE, INTERFACE_LOOK_ORGANIC)
 # Former baked-in UI default (Qt5 Normal weight=50). Migrate to the system UI font.
 _LEGACY_DEFAULT_UI_FONT = ("DejaVu Sans", 10, 50, False)
 # Former baked-in editor defaults (Qt5 Normal weight=50 and its Qt6 equivalent).
@@ -121,6 +127,7 @@ class SettingsManager:
             "editor_font_from_system": True,
             "ui_theme": "System",
             "window_color_scheme": "",
+            "interface_look": INTERFACE_LOOK_NATIVE,
             "theme": "Sepia",
             "qt_style": "System",
             "language": "en_US",
@@ -201,6 +208,7 @@ class SettingsManager:
 
         # Initialize settings
         self.load_settings()
+        self._publish_interface_look()
         
         # # Create autosave directory
         # self.autosave_dir = os.path.join(os.path.expanduser("~"), ".ap_editor_autosave")
@@ -428,9 +436,33 @@ class SettingsManager:
         self.settings["ui_theme"] = ThemeManager.normalize_ui_theme(theme)
         self.save_settings()
 
+    @staticmethod
+    def normalize_interface_look(look):
+        name = str(look or INTERFACE_LOOK_NATIVE).strip().casefold()
+        return name if name in INTERFACE_LOOKS else INTERFACE_LOOK_NATIVE
+
+    def get_interface_look(self):
+        return self.normalize_interface_look(
+            self.settings.get("interface_look", INTERFACE_LOOK_NATIVE)
+        )
+
+    def save_interface_look(self, look):
+        self.settings["interface_look"] = self.normalize_interface_look(look)
+        self._publish_interface_look()
+        self.save_settings()
+
+    def _publish_interface_look(self):
+        """Tell ThemeManager which look chrome colors resolve for."""
+        from jottr.theme_manager import ThemeManager
+
+        ThemeManager.set_interface_look(self.get_interface_look())
+
     def get_window_color_scheme(self):
         from jottr.window_color_scheme import normalize_window_color_scheme
 
+        # Organic brings its own palette; the saved scheme returns with Native.
+        if self.get_interface_look() == INTERFACE_LOOK_ORGANIC:
+            return ""
         return normalize_window_color_scheme(
             self.settings.get("window_color_scheme", "")
         )

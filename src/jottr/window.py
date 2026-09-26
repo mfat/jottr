@@ -79,6 +79,7 @@ from jottr.paths import find_data_file
 from jottr import __version__
 from jottr.ui.workspace_controller import WorkspaceControllerMixin
 from jottr.ui.document_tab_bar import DocumentTabWidget
+from jottr.ui.grouped_toolbar import GroupedToolBar
 
 APP_NAME = "Jottr"
 APP_VERSION = __version__
@@ -433,6 +434,7 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
         layout = QVBoxLayout(main_widget)
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(0)
+        self.main_surface_layout = layout
         
         # Create tab widget
         self.main_splitter = QSplitter(Qt.Orientation.Horizontal)
@@ -846,8 +848,16 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
         application = QApplication.instance()
         style_swapped = False
         window_scheme = find_window_color_scheme(window_scheme_id)
+        toolbar_style = self.settings_manager.get_toolbar_style()
+        # Only the Organic look puts colors in the sheet; its theme is refined
+        # again below once the color scheme is pinned.
+        sheet_theme = effective_chrome_theme(window_scheme_id, scheme_setting, application)
+        if not window_scheme.path:
+            sheet_theme = reconcile_chrome_theme_with_color_scheme(
+                sheet_theme, scheme_setting, application
+            )
         stylesheet = ThemeManager.build_app_stylesheet(
-            toolbar_style=self.settings_manager.get_toolbar_style(),
+            toolbar_style=toolbar_style, theme=sheet_theme,
         )
         startup_sheet = (
             application.property("_jottr_startup_stylesheet") if application else None
@@ -894,6 +904,9 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
                     theme = reconcile_chrome_theme_with_color_scheme(
                         theme, color_scheme_setting, application
                     )
+                stylesheet = ThemeManager.build_app_stylesheet(
+                    toolbar_style=toolbar_style, theme=theme,
+                )
                 next_key = resolve_qt_style_key(
                     self.settings_manager.get_qt_style(),
                     theme=theme,
@@ -954,6 +967,7 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
         else:
             self.setPalette(application.palette() if application else self.palette())
         self._apply_palette_to_chrome_widgets()
+        self.apply_interface_look_chrome(theme)
         # Rebuild icons so styles cannot keep synthesized Selected/Disabled tints.
         # During deferred startup, icons are filled in _upgrade_startup_editor.
         if getattr(self, "_app_style_applied", False):
@@ -967,6 +981,26 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
         settings_dialog = getattr(self, "_settings_dialog", None)
         if settings_dialog is not None:
             settings_dialog.apply_dialog_palette()
+
+    def apply_interface_look_chrome(self, theme):
+        """Layout and painted details the Organic look adds beyond its QSS.
+
+        Organic insets the panes from the window edge and backs each toolbar
+        button group with a pill; Native clears both.
+        """
+        tokens = theme.get("organic") if isinstance(theme, dict) else None
+        layout = getattr(self, "main_surface_layout", None)
+        if layout is not None:
+            inset = 14 if tokens else 0
+            layout.setContentsMargins(inset, 0, inset, 0)
+        tab_widget = getattr(self, "tab_widget", None)
+        if tab_widget is not None:
+            # The pill tabs sit on the ground; the native base line would
+            # cut between them and the panes.
+            tab_widget.tabBar().setDrawBase(not tokens)
+        group_color = ThemeManager.css_color(tokens["group"]) if tokens else None
+        for toolbar in self.findChildren(GroupedToolBar):
+            toolbar.set_group_color(group_color)
 
     def apply_widget_style(self):
         """Kate/KStyleManager path: QApplication.setStyle without stylesheet wrap.
@@ -1218,7 +1252,10 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
                 tab_bar.setTabButton(index, QTabBar.ButtonPosition.RightSide, button)
             button.setIcon(icon)
             button.setIconSize(QSize(12, 12))
-            button.setFixedSize(18, 18)
+            # Tab buttons sit flush with the tab's right edge; Organic's pill
+            # tabs need room after the button, which its QSS margin provides.
+            organic = ThemeManager.interface_look() == "organic"
+            button.setFixedSize(26 if organic else 18, 18)
 
     def _on_tab_close_button_clicked(self):
         button = self.sender()
@@ -1718,7 +1755,7 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
     def setup_format_toolbar(self):
         """Second toolbar row with the Markdown commands; hidden by default."""
         self.addToolBarBreak()
-        self.format_toolbar = QToolBar(_("Formatting Toolbar"))
+        self.format_toolbar = GroupedToolBar(_("Formatting Toolbar"))
         self.format_toolbar.setObjectName("formatToolBar")
         self.format_toolbar.setMovable(False)
         self.format_toolbar.setFloatable(False)
@@ -1766,7 +1803,7 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
 
     def setup_toolbar(self):
         """Setup the main toolbar from shared QActions."""
-        self.toolbar = QToolBar(_("Main Toolbar"))
+        self.toolbar = GroupedToolBar(_("Main Toolbar"))
         self.toolbar.setObjectName("mainToolBar")
         self.toolbar.setMovable(False)
         self.toolbar.setFloatable(False)
@@ -2144,6 +2181,17 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
         # filled when opened instead of during startup.
         widget_style_menu.aboutToShow.connect(self.sync_widget_style_menu)
 
+        interface_look_menu = view_menu.addMenu(_("Interface Look"))
+        interface_look_menu.setAccessibleName(
+            _("{title} menu").format(title=_("Interface Look"))
+        )
+        interface_look_menu.menuAction().setProperty("text_key", "Interface Look")
+        self.translatable_actions.append(interface_look_menu.menuAction())
+        self.translatable_menus.append((interface_look_menu, "Interface Look"))
+        self.setup_interface_look_actions()
+        for action in self.interface_look_actions.actions():
+            interface_look_menu.addAction(action)
+
         color_scheme_menu = view_menu.addMenu(_("Window Color Scheme"))
         color_scheme_menu.setAccessibleName(
             _("{title} menu").format(title=_("Window Color Scheme"))
@@ -2154,6 +2202,7 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
         self.color_scheme_menu = color_scheme_menu
         self.color_scheme_grid = None
         color_scheme_menu.aboutToShow.connect(self.refresh_window_color_scheme_menu)
+        self.sync_interface_look_menu()
 
         editor_theme_menu = view_menu.addMenu(_("Editor Theme"))
         editor_theme_menu.setAccessibleName(
@@ -2487,6 +2536,61 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
             )
             self.toolbar_style_actions.addAction(action)
             self.translatable_actions.append(action)
+
+    def setup_interface_look_actions(self):
+        """Exclusive Native / Organic actions for View → Interface Look."""
+        from jottr.settings_manager import INTERFACE_LOOK_NATIVE, INTERFACE_LOOK_ORGANIC
+
+        if getattr(self, "interface_look_actions", None) is not None:
+            return
+        self.interface_look_actions = QActionGroup(self)
+        self.interface_look_actions.setExclusive(True)
+        for look, label_key in (
+            (INTERFACE_LOOK_NATIVE, "Native"),
+            (INTERFACE_LOOK_ORGANIC, "Organic"),
+        ):
+            action = QAction(_(label_key), self)
+            action.setCheckable(True)
+            action.setData(look)
+            action.setProperty("text_key", label_key)
+            action.triggered.connect(
+                lambda checked=False, tag=look: self.set_interface_look(tag)
+            )
+            self.interface_look_actions.addAction(action)
+            self.translatable_actions.append(action)
+
+    def sync_interface_look_menu(self):
+        """Check the active look; Organic brings its own palette, so the
+        Window Color Scheme menu is disabled while it is active."""
+        from jottr.settings_manager import INTERFACE_LOOK_ORGANIC
+
+        current = self.settings_manager.get_interface_look()
+        actions = getattr(self, "interface_look_actions", None)
+        if actions is not None:
+            for action in actions.actions():
+                action.blockSignals(True)
+                action.setChecked(action.data() == current)
+                action.blockSignals(False)
+        menu = getattr(self, "color_scheme_menu", None)
+        if menu is not None:
+            menu.menuAction().setEnabled(current != INTERFACE_LOOK_ORGANIC)
+
+    def set_interface_look(self, look):
+        """Persist Interface Look and restyle the app."""
+        look = SettingsManager.normalize_interface_look(look)
+        if look != self.settings_manager.get_interface_look():
+            self.settings_manager.save_interface_look(look)
+            self.apply_interface_look()
+        self.sync_interface_look_menu()
+        self.refresh_settings_dialog()
+
+    def apply_interface_look(self):
+        """Restyle chrome and editors after the Interface Look changed."""
+        self.apply_app_style()
+        # Editor stylesheets carry the look's corner radius.
+        self.apply_editor_theme_to_tabs(self.settings_manager.get_theme(), force=True)
+        self.sync_interface_look_menu()
+        self.sync_window_color_scheme_menu()
 
     def sync_toolbar_style_menu(self):
         """Mark the active Toolbar Style entry in View / context menus."""
@@ -3303,6 +3407,8 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
             self.sync_toolbar_style_menu()
         elif domain == "widget_style":
             self.apply_widget_style()
+        elif domain == "look":
+            self.apply_interface_look()
         elif domain == "style":
             self.apply_app_style()
             self.sync_color_scheme_menu()

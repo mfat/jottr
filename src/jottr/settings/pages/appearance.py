@@ -7,6 +7,7 @@ from PyQt6.QtWidgets import (
 from jottr.font_dialog import FontSelectionDialog
 from jottr.icon_manager import list_bundled_icon_themes
 from jottr.qt_style import available_qt_styles
+from jottr.settings_manager import INTERFACE_LOOK_NATIVE, INTERFACE_LOOK_ORGANIC
 from jottr.theme_manager import ThemeManager
 from jottr.translation_manager import _, format_language_label, get_available_languages
 
@@ -54,6 +55,18 @@ class AppearancePageMixin:
         theme_layout = QFormLayout(theme_box)
         theme_layout.setContentsMargins(12, 10, 12, 12)
         theme_layout.setSpacing(8)
+
+        self.interface_look_combo = QComboBox()
+        self.interface_look_combo.addItem(_("Native"), INTERFACE_LOOK_NATIVE)
+        self.interface_look_combo.addItem(_("Organic"), INTERFACE_LOOK_ORGANIC)
+        self.interface_look_combo.setToolTip(
+            _("Native draws menus, toolbars and panels with the widget style. "
+              "Organic uses Jottr's own rounded, warm look in light and dark.")
+        )
+        self.interface_look_combo.currentIndexChanged.connect(
+            self._on_interface_look_changed
+        )
+        theme_layout.addRow(QLabel(_("Interface Look:")), self.interface_look_combo)
 
         self.window_color_scheme_combo = QComboBox()
         self._populate_window_color_scheme_combo()
@@ -118,6 +131,11 @@ class AppearancePageMixin:
         self.enable_animations_check.setChecked(
             bool(sm.get_setting("enable_animations", True))
         )
+        look = sm.get_interface_look()
+        if not select_combo_data(self.interface_look_combo, look):
+            self.interface_look_combo.setCurrentIndex(0)
+        # Organic brings its own palette; the saved scheme returns with Native.
+        self.window_color_scheme_combo.setEnabled(look != INTERFACE_LOOK_ORGANIC)
         # Blocked: a scheme change also restyles this window.
         self.window_color_scheme_combo.blockSignals(True)
         if not select_combo_data(
@@ -182,6 +200,17 @@ class AppearancePageMixin:
         )
         if self.host is None:
             # With a host, its restyle already refreshes this window.
+            self.apply_dialog_style()
+
+    def _on_interface_look_changed(self):
+        if self._loading:
+            return
+        look = self.interface_look_combo.currentData()
+        self._commit_now(
+            "look", lambda: self.settings_manager.save_interface_look(look)
+        )
+        self.window_color_scheme_combo.setEnabled(look != INTERFACE_LOOK_ORGANIC)
+        if self.host is None:
             self.apply_dialog_style()
 
     def _on_editor_theme_changed(self):
