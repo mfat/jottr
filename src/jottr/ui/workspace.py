@@ -1,15 +1,51 @@
 """Workspace explorer and side-panel widgets."""
 from PyQt6.QtWidgets import QListWidget, QPushButton, QStyle, QStyleOptionButton, QStyleOptionViewItem, QTreeView
 from PyQt6.QtCore import QEvent, QPointF, QRect, QSize, Qt
-from PyQt6.QtGui import QFileSystemModel, QFont, QFontMetrics, QPainter, QPainterPath, QPalette, QPen, QRegion
+from PyQt6.QtGui import (
+    QAbstractFileIconProvider, QFileSystemModel, QFont, QFontMetrics, QIcon, QPainter,
+    QPainterPath, QPalette, QPen, QRegion,
+)
+
+
+class _NoLookupIconProvider(QAbstractFileIconProvider):
+    """Skips the desktop icon theme and MIME database entirely.
+
+    The default provider looks both up for every entry on the GUI thread,
+    about 100ms for a 60-entry folder on GNOME. Right after startup that
+    stall keeps Wayland's undecorated first frame on screen, and the title
+    bar then pops in and shifts the window content.
+    """
+
+    def icon(self, _arg):
+        return QIcon()
+
+    def type(self, _info):
+        # The tree hides the Type column.
+        return ""
 
 
 class WorkspaceFileSystemModel(QFileSystemModel):
-    """File model that exposes full paths as tooltips."""
+    """File model with full-path tooltips and Jottr's bundled item icons."""
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self._icon_provider = _NoLookupIconProvider()
+        self.setIconProvider(self._icon_provider)
+        self._folder_icon = QIcon()
+        self._file_icon = QIcon()
+
+    def set_item_icons(self, folder_icon, file_icon):
+        """Icons for directories and files; tinted by the caller per theme."""
+        self._folder_icon = folder_icon
+        self._file_icon = file_icon
 
     def data(self, index, role=Qt.ItemDataRole.DisplayRole):
         if role == Qt.ItemDataRole.ToolTipRole and index.isValid():
             return self.filePath(index)
+        # Served here rather than cached per node, so a theme change only
+        # needs new icons and a repaint.
+        if role == Qt.ItemDataRole.DecorationRole and index.isValid() and index.column() == 0:
+            return self._folder_icon if self.isDir(index) else self._file_icon
         return super().data(index, role)
 
 

@@ -14,6 +14,7 @@
         <file alias="eye.svg">symbolic/eye-outline-filled-symbolic.svg</file>
         <file alias="find.svg">symbolic/find.svg</file>
         <file alias="focus-mode.svg">symbolic/focus-mode.svg</file>
+        <file alias="folder.svg">symbolic/folder.svg</file>
         <file alias="font.svg">symbolic/large-text-symbolic.svg</file>
         <file alias="format-bold.svg">symbolic/format-bold.svg</file>
         <file alias="format-clear.svg">symbolic/format-clear.svg</file>

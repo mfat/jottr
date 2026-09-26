@@ -444,6 +444,7 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
         self._startup_stage = "editor"
 
         self.update_action_icons()
+        self.refresh_workspace_icons()
         self._populate_document_language_combo(self.document_language_combo)
 
         instant = self._take_alive_instant_tab()
@@ -736,6 +737,7 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
             self.update_action_icons()
             self.refresh_tab_icons()
             self.refresh_tab_pane_icons()
+            self.refresh_workspace_icons()
         # The Settings window is top-level, so it does not inherit this
         # window's palette; refresh it the same way.
         settings_dialog = getattr(self, "_settings_dialog", None)

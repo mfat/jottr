@@ -93,6 +93,14 @@ class WorkspaceControllerMixin:
         self.workspace_widget.setProperty("target_visible", False)
         self.ui_animations = {}
 
+    def refresh_workspace_icons(self):
+        """Tint the workspace tree's folder and file glyphs for the chrome theme."""
+        self.workspace_model.set_item_icons(
+            self.build_themed_icon("folder"),
+            self.build_themed_icon("document"),
+        )
+        self.workspace_tree.viewport().update()
+
     def restore_workspace(self, open_files=True):
         """Restore the last workspace and, with *open_files*, its open files."""
         path = self.saved_workspace_path()

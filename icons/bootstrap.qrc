@@ -14,6 +14,7 @@
         <file alias="eye.svg">bootstrap/eye.svg</file>
         <file alias="find.svg">bootstrap/find.svg</file>
         <file alias="focus-mode.svg">bootstrap/focus-mode.svg</file>
+        <file alias="folder.svg">bootstrap/folder.svg</file>
         <file alias="font.svg">bootstrap/font.svg</file>
         <file alias="format-bold.svg">bootstrap/format-bold.svg</file>
         <file alias="format-clear.svg">bootstrap/format-clear.svg</file>
