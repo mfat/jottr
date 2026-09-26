@@ -191,6 +191,17 @@ class EditorAndMainTests(unittest.TestCase):
         margins = editor.markdown_preview_container.layout().contentsMargins()
         self.assertEqual(margins.left(), 0)
 
+    def test_snippets_pane_saved_at_zero_width_restores_closed(self):
+        self.settings.save_setting('pane_states', {
+            'snippets_visible': True,
+            'markdown_preview_visible': False,
+            'markdown_sizes': [600, 0],
+            'sizes': [1164, 0, 0],
+        })
+        editor = self.make_editor()
+        self.assertTrue(editor.snippet_widget.isHidden())
+        self.assertFalse(editor.splitter.isCollapsible(1))
+
     def test_ctrl_wheel_zooms_editor(self):
         from PyQt6.QtCore import QPointF
         from PyQt6.QtGui import QWheelEvent

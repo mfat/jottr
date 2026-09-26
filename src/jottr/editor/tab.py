@@ -279,6 +279,14 @@ class EditorTab(
         self.splitter.addWidget(self.snippet_widget)
         self.splitter.addWidget(self.browser_widget)
 
+        # Side panes close through their buttons; dragged to zero they
+        # would stay "open" as a bare handle.
+        self.splitter.setCollapsible(1, False)
+        self.splitter.setCollapsible(2, False)
+        # Before first paint, so an open snippets pane is there from the start
+        # instead of pushing the editor aside once the tab finishes building.
+        self.restore_pane_layout()
+
         # Add splitter to layout
         layout.addWidget(self.splitter)
         layout.addWidget(self.find_toolbar)
@@ -356,24 +364,8 @@ class EditorTab(
         self.highlighter = SpellCheckHighlighter(self.editor.document(), self.settings_manager)
         self.markdown_preview.installEventFilter(self)
 
-        # Restore pane states
-        states = self.settings_manager.get_setting('pane_states', {
-            'snippets_visible': False,
-            'markdown_preview_visible': False,
-            'markdown_sizes': [600, 600],
-            'sizes': [700, 300, 300]
-        })
-
-        # Apply visibility
-        self.snippet_widget.setVisible(states.get('snippets_visible', False))
         # The browser pane always starts closed and is not restored.
         self.set_markdown_preview_visible(False, save_state=False)
-
-        # Apply sizes
-        if 'sizes' in states:
-            self.splitter.setSizes(states['sizes'])
-        if 'markdown_sizes' in states:
-            self.markdown_splitter.setSizes(states['markdown_sizes'])
 
         # Connect splitter moved signal to save states
         self.splitter.splitterMoved.connect(self.save_pane_states)
@@ -1312,6 +1304,22 @@ class EditorTab(
         group.finished.connect(finish_animation)
         group.start()
         return group
+
+    def restore_pane_layout(self):
+        """Apply the saved snippets pane visibility and splitter sizes."""
+        states = self.settings_manager.get_setting('pane_states', {})
+        if not isinstance(states, dict):
+            states = {}
+        sizes = states.get('sizes')
+        if not isinstance(sizes, list) or len(sizes) != 3:
+            sizes = [700, 300, 300]
+        # A pane saved at zero width was collapsed by dragging: treat it as closed.
+        snippets_visible = bool(states.get('snippets_visible', False)) and sizes[1] > 0
+        self.snippet_widget.setVisible(snippets_visible)
+        self.splitter.setSizes(sizes)
+        markdown_sizes = states.get('markdown_sizes')
+        if isinstance(markdown_sizes, list) and len(markdown_sizes) == 2:
+            self.markdown_splitter.setSizes(markdown_sizes)
 
     def intended_widget_visibility(self, widget):
         target = widget.property("target_visible")
