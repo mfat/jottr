@@ -15,7 +15,7 @@ from PyQt6.QtCore import (
 )
 from PyQt6.QtGui import (
     QAction, QActionGroup, QIcon, QDesktopServices,
-    QKeySequence, QFont, QPalette, QPixmap,
+    QKeySequence, QFont, QPalette,
 )
 
 from jottr.editor_tab import EditorTab
@@ -262,32 +262,21 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
         # Set initial status message
         self.statusBar.showMessage(_("Words: 0 | Characters: 0"))
         self.statusBar.setObjectName("statusBar")
-        # Qt shows the grip only once the window has mapped, which shoves the
-        # permanent widgets left; windows resize from their edges anyway.
-        self.statusBar.setSizeGripEnabled(False)
         self.document_language_combo = QComboBox()
         self.document_language_combo.setObjectName("documentLanguageCombo")
         self.document_language_combo.setToolTip(_("Document language for spell checking"))
-        # A fixed width: the combo is filled after first paint, and sized to
-        # its contents it would widen then and shove the status bar over.
-        # The popup list widens to the full names (see
-        # _populate_document_language_combo).
-        self.document_language_combo.setMinimumContentsLength(22)
+        self.document_language_combo.setMinimumContentsLength(18)
         self.document_language_combo.setSizeAdjustPolicy(
-            QComboBox.SizeAdjustPolicy.AdjustToMinimumContentsLengthWithIcon
+            QComboBox.SizeAdjustPolicy.AdjustToContents
         )
         self.document_language_combo.currentIndexChanged.connect(
             self._on_status_document_language_changed
         )
-        # The dictionary badge goes left of the combo: its text changes as the
-        # language is detected, and on the right it would push the combo about.
-        self.document_language_status = QLabel()
-        self.document_language_status.setObjectName("documentLanguageStatus")
-        # Hidden until the dictionary is known, so no empty pill shows at startup.
-        self.document_language_status.setVisible(False)
-        self.statusBar.addPermanentWidget(self.document_language_status)
         self.statusBar.addPermanentWidget(QLabel(_("Language:")))
         self.statusBar.addPermanentWidget(self.document_language_combo)
+        self.document_language_status = QLabel()
+        self.document_language_status.setObjectName("documentLanguageStatus")
+        self.statusBar.addPermanentWidget(self.document_language_status)
         
         # Create main widget and layout
         main_widget = QWidget()
@@ -395,8 +384,7 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
             number=self.tab_widget.count() + 1
         )
         with QSignalBlocker(self.tab_widget):
-            # The tab icon is tinted after first paint; hold its place.
-            self.tab_widget.addTab(tab, self.placeholder_icon(), tab.untitled_title)
+            self.tab_widget.addTab(tab, QIcon(), tab.untitled_title)
             self.tab_widget.setCurrentWidget(tab)
         self._instant_tab = tab
         self.refresh_tab_close_buttons()
@@ -1064,20 +1052,6 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
         action.setStatusTip(translated)
         action.setWhatsThis(translated)
 
-    @staticmethod
-    def placeholder_icon():
-        """Transparent stand-in until the real icon is tinted after first paint.
-
-        A button or tab with no icon at all lays out as text, then jumps to
-        icon size when the icon arrives; this one reserves the space instead.
-        """
-        icon = getattr(TextEditorApp, "_placeholder_icon", None)
-        if icon is None:
-            pixmap = QPixmap(16, 16)
-            pixmap.fill(Qt.GlobalColor.transparent)
-            icon = TextEditorApp._placeholder_icon = QIcon(pixmap)
-        return icon
-
     def _make_action(
         self,
         text,
@@ -1094,7 +1068,6 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
         if icon_name and icon_name in self.icons:
             # Icons are tinted in update_action_icons() after first paint.
             self.icon_actions.append((action, icon_name))
-            action.setIcon(self.placeholder_icon())
             # Keep menus text-only while toolbar still shows the icon.
             action.setIconVisibleInMenu(False)
         action.setProperty("text_key", text)
@@ -2400,9 +2373,6 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
             index = combo.findData(current)
         combo.setCurrentIndex(max(0, index))
         combo.blockSignals(False)
-        view = combo.view()
-        if view is not None:
-            view.setMinimumWidth(view.sizeHintForColumn(0) + 24)
 
     def _on_status_document_language_changed(self, _index=None):
         language = self.document_language_combo.currentData()
@@ -2413,8 +2383,6 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
         """Show document language and missing-dictionary warnings in the status bar."""
         if not hasattr(self, "document_language_status"):
             return
-        # Every branch below sets its text.
-        self.document_language_status.setVisible(True)
 
         configured = get_document_language(self.settings_manager)
         if hasattr(self, "document_language_combo"):
