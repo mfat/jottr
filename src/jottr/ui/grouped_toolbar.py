@@ -1,8 +1,8 @@
 """Toolbar that can paint a rounded pill behind each group of buttons."""
 
-from PyQt6.QtCore import QRect, Qt
+from PyQt6.QtCore import QEvent, QRect, Qt
 from PyQt6.QtGui import QColor, QPainter
-from PyQt6.QtWidgets import QToolBar, QToolButton
+from PyQt6.QtWidgets import QApplication, QToolBar, QToolButton
 
 
 class GroupedToolBar(QToolBar):
@@ -17,6 +17,15 @@ class GroupedToolBar(QToolBar):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self._group_color = None
+
+    def event(self, event):
+        result = super().event(event)
+        if event.type() == QEvent.Type.Polish:
+            # QToolBarLayout reads its margins and spacing when it is built,
+            # before the object name lets "QToolBar#id" rules match, and only
+            # reads them again on a style change. Send one once polished.
+            QApplication.sendEvent(self, QEvent(QEvent.Type.StyleChange))
+        return result
 
     def set_group_color(self, color):
         """Set the pill color, or None to paint no groups."""

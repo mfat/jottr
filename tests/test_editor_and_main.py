@@ -111,6 +111,28 @@ class EditorAndMainTests(unittest.TestCase):
 
         self.assertEqual(model.data(index, Qt.ItemDataRole.ToolTipRole), str(note))
 
+    def test_grouped_toolbar_applies_id_padding_set_before_it_was_named(self):
+        from PyQt6.QtWidgets import QMainWindow
+
+        from jottr.ui.grouped_toolbar import GroupedToolBar
+
+        application = app()
+        previous_sheet = application.styleSheet()
+        self.addCleanup(application.setStyleSheet, previous_sheet)
+        # The startup stylesheet is set before the toolbar exists and only
+        # matches it once it has its object name.
+        application.setStyleSheet("QToolBar#groupedToolBarTest { padding: 20px; }")
+        window = QMainWindow()
+        self.addCleanup(window.deleteLater)
+        toolbar = GroupedToolBar("Test")
+        toolbar.setObjectName("groupedToolBarTest")
+        toolbar.addAction("Action")
+        window.addToolBar(toolbar)
+        window.show()
+        application.processEvents()
+
+        self.assertEqual(toolbar.layout().contentsMargins().left(), 20)
+
     def test_workspace_tree_uses_visible_hierarchy_settings(self):
         tree = WorkspaceTreeView()
         self.addCleanup(tree.deleteLater)
