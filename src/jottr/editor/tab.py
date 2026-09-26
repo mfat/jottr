@@ -205,6 +205,9 @@ class EditorTab(
         # Create splitter for editor and side panes
         self.splitter = QSplitter(Qt.Orientation.Horizontal)
         self.splitter.setObjectName("workspaceSplitter")
+        # QSS width on ::handle is ignored, so the gap between the editor
+        # and side panes is set here.
+        self.splitter.setHandleWidth(8)
 
         # Create text editor with default font
         self.editor = CompletingTextEdit(self)  # Pass self as parent
@@ -220,6 +223,7 @@ class EditorTab(
 
         self.markdown_splitter = QSplitter(Qt.Orientation.Horizontal)
         self.markdown_splitter.setObjectName("markdownSplitter")
+        self.markdown_splitter.setHandleWidth(8)
         self.markdown_splitter.addWidget(self.editor)
 
         # Placeholder until markdown preview is first shown — avoids starting

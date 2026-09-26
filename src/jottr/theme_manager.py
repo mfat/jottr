@@ -959,7 +959,6 @@ class ThemeManager:
             QSplitter#mainSplitter::handle, QSplitter#workspaceSplitter::handle,
             QSplitter#markdownSplitter::handle {{
                 background: transparent;
-                width: 10px;
             }}
             QWidget#editorPane {{
                 background: transparent;

@@ -290,6 +290,7 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
         # Create tab widget
         self.main_splitter = QSplitter(Qt.Orientation.Horizontal)
         self.main_splitter.setObjectName("mainSplitter")
+        self.main_splitter.setHandleWidth(8)
         self.setup_workspace_explorer()
 
         self.tab_widget = DocumentTabWidget()
