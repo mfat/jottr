@@ -725,9 +725,6 @@ class EditorAndMainTests(unittest.TestCase):
             lambda self, pos: captured.update(menu=self) or None,
         ):
             editor._show_context_menu_impl(QPoint(10, 10))
-        self.assertTrue(
-            captured["menu"].testAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
-        )
         return captured["menu"]
 
     def test_editor_context_menu_formatting_acts_on_word_under_caret(self):

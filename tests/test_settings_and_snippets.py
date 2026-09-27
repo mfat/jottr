@@ -397,7 +397,9 @@ class SettingsAndSnippetTests(unittest.TestCase):
 
         menu = QMenu()
         menu.addAction("Test Item")
-        # WA_TranslucentBackground is set on menus for transparent rounded corners
+        # The style sets it at polish, which show() runs before the popup's
+        # native window exists.
+        menu.ensurePolished()
         self.assertTrue(
             menu.testAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
         )
