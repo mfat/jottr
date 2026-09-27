@@ -1020,6 +1020,7 @@ class EditorTab(
         global_pos is already in global screen coordinates (from the viewport).
         """
         menu = QMenu(self)
+        menu.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground, True)
 
         # Get selected text (only real user selections; we never auto-select)
         selected_text = self.editor.textCursor().selectedText()
@@ -1115,7 +1116,8 @@ class EditorTab(
             self.update_snippet_list()
 
     def show_snippet_context_menu(self, position):
-        menu = QMenu()
+        menu = QMenu(self)
+        menu.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground, True)
         menu.addAction(_("New Snippet"), self.new_snippet)
         # Only offer edit/delete when the click landed on a snippet
         current_item = self.snippet_list.itemAt(position)

@@ -384,6 +384,41 @@ class SettingsAndSnippetTests(unittest.TestCase):
         # Already installed: no second swap (and no repolish).
         self.assertFalse(apply_qt_style(application))
 
+    def test_menus_enable_translucent_background_for_rounded_corners(self):
+        from PyQt6.QtCore import Qt
+        from PyQt6.QtGui import QImage, QPainter
+        from PyQt6.QtWidgets import QMenu
+
+        from jottr.qt_style import apply_qt_style
+        from jottr.theme_manager import ThemeManager
+
+        application = app()
+        apply_qt_style(application)
+
+        menu = QMenu()
+        menu.addAction("Test Item")
+        # WA_TranslucentBackground is set on menus for transparent rounded corners
+        self.assertTrue(
+            menu.testAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
+        )
+
+        # In Organic look, corners outside the 14px border radius must render transparent (alpha == 0)
+        t = ThemeManager.ORGANIC_THEMES["Dark"]["organic"]
+        menu.setStyleSheet(
+            f"QMenu {{ background: {t['pane']}; border: 1px solid {t['line']}; border-radius: 14px; padding: 6px; }}"
+        )
+        menu.adjustSize()
+        img = QImage(menu.size(), QImage.Format.Format_ARGB32_Premultiplied)
+        img.fill(Qt.GlobalColor.transparent)
+        p = QPainter(img)
+        menu.render(p)
+        p.end()
+
+        # Corner pixel (0, 0) must be transparent so it doesn't show sharp corners against the editor
+        self.assertEqual(img.pixelColor(0, 0).alpha(), 0)
+        # Inside the menu (e.g. (15, 15)) must be opaque
+        self.assertEqual(img.pixelColor(15, 15).alpha(), 255)
+
     def test_apply_qt_color_scheme_sets_style_hints(self):
         from PyQt6.QtCore import Qt
 

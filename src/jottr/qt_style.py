@@ -7,11 +7,22 @@ with Qt and paints purely from the palette, so Jottr's Light/Dark palettes
 
 from __future__ import annotations
 
-from PyQt6.QtCore import Qt
+from PyQt6.QtCore import QObject, Qt
 from PyQt6.QtGui import QGuiApplication
-from PyQt6.QtWidgets import QApplication, QProxyStyle, QStyle, QStyleFactory
+from PyQt6.QtWidgets import QApplication, QMenu, QProxyStyle, QStyle, QStyleFactory, QWidget
 
 APP_QT_STYLE = "Fusion"
+
+
+class MenuTranslucencyFilter(QObject):
+    """Ensure menus enable translucent background for rounded stylesheet corners."""
+
+    def eventFilter(self, obj, ev):
+        if isinstance(obj, QMenu) and not obj.testAttribute(
+            Qt.WidgetAttribute.WA_TranslucentBackground
+        ):
+            obj.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground, True)
+        return super().eventFilter(obj, ev)
 
 
 class JottrStyle(QProxyStyle):
@@ -20,12 +31,24 @@ class JottrStyle(QProxyStyle):
     Dialog buttons never carry icons. Fusion asks the platform theme, and
     some (KDE) put style icons on OK/Cancel/Save; this answers no everywhere,
     for every QDialogButtonBox and QMessageBox.
+
+    Menus enable WA_TranslucentBackground so stylesheets with border-radius
+    render transparent corners instead of clipping against sharp window rects.
     """
 
     def styleHint(self, hint, option=None, widget=None, return_data=None):
         if hint == QStyle.StyleHint.SH_DialogButtonBox_ButtonsHaveIcons:
             return 0
         return super().styleHint(hint, option, widget, return_data)
+
+    def polish(self, *args):
+        if len(args) == 1 and isinstance(args[0], QWidget):
+            widget = args[0]
+            if isinstance(widget, QMenu) and not widget.testAttribute(
+                Qt.WidgetAttribute.WA_TranslucentBackground
+            ):
+                widget.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground, True)
+        return super().polish(*args)
 
 
 def apply_qt_color_scheme(scheme_name, application=None):
@@ -68,6 +91,10 @@ def apply_qt_style(application=None):
     app = application or QApplication.instance()
     if app is None:
         return False
+    if not hasattr(app, "_jottr_menu_translucency_filter"):
+        filt = MenuTranslucencyFilter(app)
+        app._jottr_menu_translucency_filter = filt
+        app.installEventFilter(filt)
     # style().objectName() is not reliable across platforms (often empty),
     # so remember the style we applied on the application object itself.
     if app.property("_jottr_style_key") == APP_QT_STYLE:

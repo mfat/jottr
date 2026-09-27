@@ -36,6 +36,7 @@ class WorkspaceControllerMixin:
         self.workspace_title.setToolTip(_("Switch workspace"))
         # The chevron the button draws marks the title as a switcher.
         self.workspace_navigator_menu = QMenu(self.workspace_title)
+        self.workspace_navigator_menu.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground, True)
         self.workspace_navigator_menu.aboutToShow.connect(self.populate_workspace_navigator)
         self.workspace_title.setMenu(self.workspace_navigator_menu)
         self.workspace_path_label = QLabel(_("No folder open"))
@@ -600,6 +601,7 @@ class WorkspaceControllerMixin:
         if not self.workspace_path:
             return
         menu = QMenu(self)
+        menu.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground, True)
         index = self.workspace_tree.indexAt(position)
         path = ""
         if index.isValid():

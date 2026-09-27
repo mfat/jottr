@@ -1270,6 +1270,7 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
             "Menu", self.show_menu_button_popup, icon_name="menu", tooltip="Menu"
         )
         self.menu_button_menu = QMenu(self)
+        self.menu_button_menu.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground, True)
         self.menu_button_menu.aboutToShow.connect(self.populate_menu_button_menu)
         self.zoom_in_action = self._make_action(
             "Zoom In",
@@ -1382,6 +1383,7 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
         )
         # The toolbar button opens this menu; the action itself applies H2.
         self.heading_menu = QMenu(self)
+        self.heading_menu.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground, True)
         for level in (1, 2, 3):
             level_action = self._make_action(
                 "Heading {level}",
@@ -1787,6 +1789,7 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
 
         def add_menu(title):
             menu = menubar.addMenu(_(title))
+            menu.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground, True)
             plain = _(title).replace("&", "")
             menu.setAccessibleName(_("{title} menu").format(title=plain))
             menu.menuAction().setProperty("text_key", title)
@@ -2028,6 +2031,7 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
     def createPopupMenu(self):
         """Right-click on the menubar: Qt's toolbar toggles plus Show Menubar."""
         menu = super().createPopupMenu() or QMenu(self)
+        menu.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground, True)
         if hasattr(self, "show_menubar_action"):
             menu.addSeparator()
             menu.addAction(self.show_menubar_action)
@@ -2242,6 +2246,7 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
         """Right-click on a toolbar: the toolbar and menu bar toggles."""
         toolbar = toolbar if toolbar is not None else self.toolbar
         menu = QMenu(self)
+        menu.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground, True)
         menu.addAction(self.format_toolbar_action)
         menu.addAction(self.show_menubar_action)
         menu.exec(toolbar.mapToGlobal(pos))
@@ -2253,6 +2258,7 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
         if not isinstance(tab, EditorTab):
             return
         menu = QMenu(self)
+        menu.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground, True)
         action_text = _("Rename") if tab.current_file else _("Change Title")
         menu.addAction(
             action_text,
