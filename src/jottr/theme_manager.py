@@ -15,6 +15,8 @@ class ThemeManager:
         "Light": "White",
         "Dark": "Black",
         "default": "Sepia",
+        # Darkly was a generic charcoal; Nord replaced it.
+        "Darkly": "Nord",
     }
 
     # Interface Look published by SettingsManager ("native" or "organic").
@@ -417,37 +419,70 @@ class ThemeManager:
             }
         },
         # Colors from https://github.com/Bali10050/Darkly
-        "Darkly": {
+        "Catppuccin Latte": {
             "app": {
-                "background": "#222222",
-                "surface": "#323232",
-                "surface_alt": "#363636",
-                "surface_hover": "#4d4d4d",
-                "surface_active": "#1b91d5",
-                "text": "#f1f1f1",
-                "muted": "#c7c7c7",
-                "border": "#4d4d4d",
-                "border_active": "#00a1ec",
-                "accent": "#3478da",
-                "accent_text": "#f1f1f1",
-                "danger": "#da4453"
+                "background": "#e6e9ef",
+                "surface": "#eff1f5",
+                "surface_alt": "#e6e9ef",
+                "surface_hover": "#dce0e8",
+                "surface_active": "#ccd0da",
+                "text": "#4c4f69",
+                "muted": "#6c6f85",
+                "border": "#ccd0da",
+                "border_active": "#7287fd",
+                "accent": "#1e66f5",
+                "accent_text": "#174ab8",
+                "danger": "#d20f39"
             },
             "editor": {
-                "background": "#2c2c2c",
-                "foreground": "#f1f1f1",
-                "selection": "#1b91d5",
-                "current_line": "#363636",
-                "border": "#4d4d4d"
+                "background": "#eff1f5",
+                "foreground": "#4c4f69",
+                "selection": "#bccaf5",
+                "current_line": "#e6e9ef",
+                "border": "#ccd0da"
             },
             "syntax": {
-                "comment": "#c7c7c7",
-                "keyword": "#3daee9",
-                "string": "#24ad59",
-                "number": "#f67400",
-                "function": "#3478da",
-                "type": "#73739e",
-                "constant": "#f67400",
-                "error": "#da4453"
+                "comment": "#7c7f93",
+                "keyword": "#8839ef",
+                "string": "#40a02b",
+                "number": "#fe640b",
+                "function": "#1e66f5",
+                "type": "#179299",
+                "constant": "#d20f39",
+                "error": "#d20f39"
+            }
+        },
+        "Nord": {
+            "app": {
+                "background": "#2e3440",
+                "surface": "#3b4252",
+                "surface_alt": "#434c5e",
+                "surface_hover": "#434c5e",
+                "surface_active": "#4c566a",
+                "text": "#eceff4",
+                "muted": "#b8c0ce",
+                "border": "#4c566a",
+                "border_active": "#88c0d0",
+                "accent": "#88c0d0",
+                "accent_text": "#eceff4",
+                "danger": "#bf616a"
+            },
+            "editor": {
+                "background": "#2e3440",
+                "foreground": "#d8dee9",
+                "selection": "#44608a",
+                "current_line": "#3b4252",
+                "border": "#4c566a"
+            },
+            "syntax": {
+                "comment": "#7b88a1",
+                "keyword": "#81a1c1",
+                "string": "#a3be8c",
+                "number": "#b48ead",
+                "function": "#88c0d0",
+                "type": "#8fbcbb",
+                "constant": "#ebcb8b",
+                "error": "#bf616a"
             }
         }
     }
