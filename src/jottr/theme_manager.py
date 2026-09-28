@@ -28,6 +28,7 @@ class ThemeManager:
     ACCENT_DEFAULT = "default"
     ACCENTS = {
         "terracotta": ("Terracotta", "#c67139", "#ffe1d0", "#f6a06b", "#643312"),
+        "orange": ("Orange", "#d2690f", "#ffe3c4", "#f5a04a", "#6b3408"),
         "sage": ("Sage", "#7a8a5e", "#e1eecc", "#aebf92", "#3d472b"),
         "ink": ("Ink", "#2e2b25", "#eee7db", "#f9f4ed", "#2e2b25"),
         "ocean": ("Ocean", "#3f6f9e", "#d6e4f2", "#7fa7d0", "#1f3a56"),

@@ -566,7 +566,7 @@ class DialogTests(unittest.TestCase):
         keys = [control.itemData(i) for i in range(control.count())]
         # The design's three accents, more besides, and each look's own default.
         self.assertEqual(keys[0], "default")
-        for key in ("terracotta", "sage", "ink", "ocean", "plum"):
+        for key in ("terracotta", "orange", "sage", "ink", "ocean", "plum"):
             self.assertIn(key, keys)
         self.assertEqual(control.currentData(), "default")
 
