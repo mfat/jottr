@@ -9,9 +9,48 @@ from __future__ import annotations
 
 from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QGuiApplication
-from PyQt6.QtWidgets import QApplication, QMenu, QProxyStyle, QStyle, QStyleFactory
+from PyQt6.QtWidgets import (
+    QApplication, QComboBox, QMenu, QProxyStyle, QStyle, QStyledItemDelegate,
+    QStyleFactory, QWidget,
+)
 
 APP_QT_STYLE = "Fusion"
+
+
+class ComboItemDelegate(QStyledItemDelegate):
+    """Paint combo box rows so the Organic look can round them.
+
+    Fusion's combo popup paints rows as menu items against the combo, and
+    any padding or radius on ``QComboBox::item`` makes Qt size each row
+    thousands of pixels tall. A styled item delegate follows the view's
+    ``::item`` rules instead. The Native look keeps the combo's own delegate.
+    """
+
+    def __init__(self, combo, native):
+        super().__init__(combo)
+        self.native = native
+
+    @staticmethod
+    def _organic():
+        from jottr.theme_manager import ThemeManager
+
+        return ThemeManager.interface_look() == "organic"
+
+    def paint(self, painter, option, index):
+        if self._organic():
+            super().paint(painter, option, index)
+        else:
+            self.native.paint(painter, option, index)
+
+    def sizeHint(self, option, index):
+        if self._organic():
+            return super().sizeHint(option, index)
+        return self.native.sizeHint(option, index)
+
+    def editorEvent(self, event, model, option, index):
+        if self._organic():
+            return super().editorEvent(event, model, option, index)
+        return self.native.editorEvent(event, model, option, index)
 
 
 class JottrStyle(QProxyStyle):
@@ -25,7 +64,9 @@ class JottrStyle(QProxyStyle):
     and an opaque one fills the corners outside the stylesheet's
     border-radius with the palette's window color: invisible over the chrome,
     sharp corners where a menu overlaps the editor. Polish runs before the
-    popup's native window is created, so this reaches every menu.
+    popup's native window is created, so this reaches every menu. Combo
+    box popups are the same kind of window, so they get it too, and every
+    combo box gets a ComboItemDelegate.
     """
 
     def styleHint(self, hint, option=None, widget=None, return_data=None):
@@ -34,8 +75,15 @@ class JottrStyle(QProxyStyle):
         return super().styleHint(hint, option, widget, return_data)
 
     def polish(self, target):
-        if isinstance(target, QMenu):
+        if isinstance(target, QMenu) or (
+            isinstance(target, QWidget)
+            and target.metaObject().className() == "QComboBoxPrivateContainer"
+        ):
             target.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground, True)
+        elif isinstance(target, QComboBox):
+            native = target.itemDelegate()
+            if not isinstance(native, ComboItemDelegate):
+                target.setItemDelegate(ComboItemDelegate(target, native))
         return super().polish(target)
 
 

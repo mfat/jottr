@@ -451,6 +451,39 @@ class SettingsAndSnippetTests(unittest.TestCase):
         # Inside the menu (e.g. (15, 15)) must be opaque
         self.assertEqual(img.pixelColor(15, 15).alpha(), 255)
 
+    def test_combo_popups_follow_the_organic_look(self):
+        from PyQt6.QtCore import Qt
+        from PyQt6.QtWidgets import QComboBox
+
+        from jottr.qt_style import ComboItemDelegate, apply_qt_style
+        from jottr.theme_manager import ThemeManager
+
+        application = app()
+        apply_qt_style(application)
+        previous_look = ThemeManager.interface_look()
+        previous_sheet = application.styleSheet()
+        self.addCleanup(ThemeManager.set_interface_look, previous_look)
+        self.addCleanup(application.setStyleSheet, previous_sheet)
+        ThemeManager.set_interface_look("organic")
+        application.setStyleSheet(
+            ThemeManager.build_app_stylesheet(ThemeManager.organic_theme(True))
+        )
+
+        combo = QComboBox()
+        combo.addItems(["Bootstrap", "Qlementine"])
+        combo.ensurePolished()
+        self.assertIsInstance(combo.itemDelegate(), ComboItemDelegate)
+        # Its popup is a top-level window like QMenu's, so its corners
+        # outside the rounded list must be see-through.
+        container = combo.view().window()
+        container.ensurePolished()
+        self.assertTrue(
+            container.testAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
+        )
+        # Padding on the rows must not trip Qt's menu-item sizing, which
+        # makes each row thousands of pixels tall.
+        self.assertLess(combo.view().sizeHintForRow(0), 60)
+
     def test_apply_qt_color_scheme_sets_style_hints(self):
         from PyQt6.QtCore import Qt
 

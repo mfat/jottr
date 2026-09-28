@@ -1295,13 +1295,30 @@ class ThemeManager:
             QComboBox:disabled, QLineEdit:disabled {{
                 color: {t['faint']};
             }}
+            /* The open list matches QMenu: a rounded card with pill rows.
+               JottrStyle makes its popup window translucent. */
+            QComboBoxPrivateContainer {{
+                background: transparent;
+                border: none;
+            }}
             QComboBox QAbstractItemView {{
                 background: {t['popover']};
                 color: {t['ink']};
                 border: 1px solid {t['line']};
+                border-radius: 14px;
+                padding: 6px;
                 selection-background-color: {t['act_soft']};
                 selection-color: {t['act_ink']};
                 outline: 0;
+            }}
+            /* Rows are painted by JottrStyle's ComboItemDelegate. */
+            QComboBox QAbstractItemView::item {{
+                padding: 7px 12px;
+                border-radius: 10px;
+            }}
+            QComboBox QAbstractItemView::item:selected {{
+                background: {t['act_soft']};
+                color: {t['act_ink']};
             }}
             QStatusBar#statusBar {{
                 background: {t['ground']};
