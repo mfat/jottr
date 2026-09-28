@@ -116,7 +116,9 @@ class ThemeSwatch(QAbstractButton):
         return self.fontMetrics().height() + 6
 
     def sizeHint(self):
-        return QSize(96, self.SWATCH_HEIGHT + self._label_height())
+        # Wide enough for the whole name; eliding is a last resort.
+        label = self.fontMetrics().horizontalAdvance(self.text()) + 8
+        return QSize(max(96, label), self.SWATCH_HEIGHT + self._label_height())
 
     def minimumSizeHint(self):
         return QSize(64, self.SWATCH_HEIGHT + self._label_height())
@@ -223,6 +225,7 @@ class ThemeSwatchGrid(QWidget):
         self._group = QButtonGroup(self)
         self._group.setExclusive(True)
         self._names = []
+        self._columns = columns
         for index, (name, background, foreground, *accents) in enumerate(themes):
             swatch = ThemeSwatch(name, background, foreground, *accents)
             self._group.addButton(swatch, index)
@@ -232,6 +235,22 @@ class ThemeSwatchGrid(QWidget):
             layout.setColumnStretch(column, 1)
         self._group.idToggled.connect(self._on_toggled)
         self._group.idClicked.connect(lambda index: self.themeClicked.emit(self._names[index]))
+
+    def sizeHint(self):
+        # Columns share width equally, so each needs the widest swatch's.
+        hint = super().sizeHint()
+        swatches = self._group.buttons()
+        if not swatches:
+            return hint
+        layout = self.layout()
+        columns = min(self._columns, len(swatches))
+        margins = layout.contentsMargins() + self.contentsMargins()
+        width = (
+            columns * max(swatch.sizeHint().width() for swatch in swatches)
+            + (columns - 1) * layout.horizontalSpacing()
+            + margins.left() + margins.right()
+        )
+        return QSize(max(hint.width(), width), hint.height())
 
     def themeNames(self):
         return list(self._names)
