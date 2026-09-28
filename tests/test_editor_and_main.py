@@ -2167,9 +2167,9 @@ class EditorAndMainTests(unittest.TestCase):
             }
             self.assertEqual(toolbar_tooltips["Editor Font"], "Choose Editor Font")
             self.assertEqual(toolbar_tooltips["Editor Theme"], "Choose Editor Theme")
-            self.assertEqual(toolbar_tooltips["Zoom In"], "Zoom In (Ctrl+=)")
-            self.assertEqual(toolbar_tooltips["Zoom Out"], "Zoom Out (Ctrl+-)")
-            self.assertEqual(toolbar_tooltips["Reset Zoom"], "Reset Zoom (Ctrl+0)")
+            self.assertNotIn("Zoom In", toolbar_tooltips)
+            self.assertNotIn("Zoom Out", toolbar_tooltips)
+            self.assertNotIn("Reset Zoom", toolbar_tooltips)
             self.assertNotIn("Preview Font", toolbar_tooltips)
             self.assertFalse(window.menu_button_action.isVisible())
             self.assertTrue(all(toolbar_tooltips.values()))
@@ -2199,18 +2199,32 @@ class EditorAndMainTests(unittest.TestCase):
             )
             self.assertFalse(window.browser_action.icon().isNull())
             self.assertEqual(window.icons["browser"], ":/icons/qlementine/browser.svg")
-            self.assertFalse(toolbar_actions["Zoom In"].icon().isNull())
-            self.assertFalse(toolbar_actions["Zoom Out"].icon().isNull())
-            self.assertFalse(toolbar_actions["Reset Zoom"].icon().isNull())
-            self.assertEqual(toolbar_actions["Reset Zoom"].shortcut().toString(), "Ctrl+0")
-            zoom_in_keys = [seq.toString() for seq in toolbar_actions["Zoom In"].shortcuts()]
-            zoom_out_keys = [seq.toString() for seq in toolbar_actions["Zoom Out"].shortcuts()]
+            self.assertEqual(window.zoom_reset_action.shortcut().toString(), "Ctrl+0")
+            zoom_in_keys = [seq.toString() for seq in window.zoom_in_action.shortcuts()]
+            zoom_out_keys = [seq.toString() for seq in window.zoom_out_action.shortcuts()]
             self.assertEqual(zoom_in_keys[0], "Ctrl+=")
             self.assertIn("Ctrl++", zoom_in_keys)
             self.assertEqual(zoom_out_keys.count("Ctrl+-"), 1)
-            toolbar_actions["Zoom In"].trigger()
+            window.zoom_in_action.trigger()
             self.assertEqual(first_tab.current_font.pointSize(), original_size + 1)
-            toolbar_actions["Reset Zoom"].trigger()
+            window.zoom_reset_action.trigger()
+            self.assertEqual(first_tab.current_font.pointSize(), original_size)
+            # Word-style zoom controls live in the status bar.
+            self.assertEqual(window.zoom_percent_button.text(), "100%")
+            self.assertEqual(window.zoom_slider.value(), window.ZOOM_SLIDER_MID)
+            window.zoom_in_button.click()
+            self.assertEqual(first_tab.current_font.pointSize(), original_size + 1)
+            self.assertEqual(
+                window.zoom_percent_button.text(),
+                f"{round((original_size + 1) * 100 / original_size)}%",
+            )
+            self.assertGreater(window.zoom_slider.value(), window.ZOOM_SLIDER_MID)
+            window.zoom_percent_button.click()
+            self.assertEqual(first_tab.current_font.pointSize(), original_size)
+            window.zoom_slider.setValue(2 * window.ZOOM_SLIDER_MID)
+            self.assertEqual(first_tab.current_font.pointSize(), original_size * 5)
+            self.assertEqual(window.zoom_percent_button.text(), "500%")
+            window.zoom_slider.setValue(window.ZOOM_SLIDER_MID)
             self.assertEqual(first_tab.current_font.pointSize(), original_size)
             # The widget style draws the toolbar; the sheet only removes
             # menubar/toolbar borders.

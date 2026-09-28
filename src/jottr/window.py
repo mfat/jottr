@@ -7,7 +7,7 @@ from PyQt6.QtWidgets import (
     QMainWindow, QTabWidget, QWidget, QVBoxLayout, QHBoxLayout,
     QSplitter, QToolBar, QMessageBox, QLabel, QDialog, QSizePolicy, QMenu,
     QDialogButtonBox, QToolButton, QTabBar, QWidgetAction,
-    QGraphicsOpacityEffect, QApplication,
+    QGraphicsOpacityEffect, QApplication, QSlider,
 )
 from PyQt6.QtCore import (
     Qt, QUrl, QTimer, QEvent, QPropertyAnimation,
@@ -139,6 +139,7 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
         self.document_language_status = QLabel()
         self.document_language_status.setObjectName("documentLanguageStatus")
         self.statusBar.addPermanentWidget(self.document_language_status)
+        self.setup_zoom_status()
         
         # Create main widget and layout
         main_widget = QWidget()
@@ -166,6 +167,7 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
         self.tab_widget.tabCloseRequested.connect(self.close_tab)
         self.tab_widget.currentChanged.connect(self.update_document_language_status)
         self.tab_widget.currentChanged.connect(self.update_edit_actions)
+        self.tab_widget.currentChanged.connect(self.update_zoom_status)
         self.tab_widget.currentChanged.connect(self.save_session)
         self.tab_widget.tabBar().tabMoved.connect(self.save_session)
         self.tab_widget.tabBar().tabs_changed.connect(self.refresh_tab_close_buttons)
@@ -1419,10 +1421,6 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
             )
             self.toolbar.addAction(action)
 
-        self.toolbar.addSeparator()
-        self.toolbar.addAction(self.zoom_in_action)
-        self.toolbar.addAction(self.zoom_out_action)
-        self.toolbar.addAction(self.zoom_reset_action)
 
         spacer = QWidget()
         spacer.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
@@ -1948,6 +1946,7 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
             tab = self.tab_widget.widget(index)
             if isinstance(tab, EditorTab):
                 tab.update_font(font)
+        self.update_zoom_status()
 
     def show_editor_font_dialog(self):
         dialog = FontSelectionDialog(
@@ -2758,35 +2757,143 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
         if hasattr(self, 'focus_mode_action'):
             self.focus_mode_action.setChecked(checked)
 
+    # Word-style zoom: the slider's middle is 100%, its left half spans
+    # ZOOM_MIN..100% and its right half 100%..ZOOM_MAX.
+    ZOOM_MIN = 10
+    ZOOM_MAX = 500
+    ZOOM_SLIDER_MID = 100
+
+    def setup_zoom_status(self):
+        """Add the zoom out / slider / zoom in / percentage controls to the status bar."""
+        container = QWidget()
+        container.setObjectName("zoomStatus")
+        layout = QHBoxLayout(container)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(2)
+
+        # The buttons call the zoom slots directly: rebuild_chrome recreates the actions.
+        self.zoom_out_button = QToolButton()
+        self.zoom_out_button.setObjectName("zoomOutButton")
+        self.zoom_out_button.setText("\u2212")
+        self.zoom_out_button.setAutoRaise(True)
+        self.zoom_out_button.setToolTip(_("Zoom Out (Ctrl+-)"))
+        self.zoom_out_button.clicked.connect(self.zoom_out)
+
+        self.zoom_slider = QSlider(Qt.Orientation.Horizontal)
+        self.zoom_slider.setObjectName("zoomSlider")
+        self.zoom_slider.setRange(0, 2 * self.ZOOM_SLIDER_MID)
+        self.zoom_slider.setValue(self.ZOOM_SLIDER_MID)
+        self.zoom_slider.setFixedWidth(120)
+        self.zoom_slider.setFocusPolicy(Qt.FocusPolicy.NoFocus)
+        self.zoom_slider.setToolTip(_("Zoom"))
+        self.zoom_slider.valueChanged.connect(self._on_zoom_slider_changed)
+
+        self.zoom_in_button = QToolButton()
+        self.zoom_in_button.setObjectName("zoomInButton")
+        self.zoom_in_button.setText("+")
+        self.zoom_in_button.setAutoRaise(True)
+        self.zoom_in_button.setToolTip(_("Zoom In (Ctrl+=)"))
+        self.zoom_in_button.clicked.connect(self.zoom_in)
+
+        self.zoom_percent_button = QToolButton()
+        self.zoom_percent_button.setObjectName("zoomPercentButton")
+        self.zoom_percent_button.setAutoRaise(True)
+        self.zoom_percent_button.setToolTip(_("Reset Zoom (Ctrl+0)"))
+        self.zoom_percent_button.clicked.connect(self.zoom_reset)
+        self.zoom_percent_button.setText("100%")
+
+        # The style's default tool button width spreads the controls apart; keep
+        # the step buttons square and reserve room for "500%" so nothing shifts.
+        step_size = self.zoom_out_button.fontMetrics().height() + 8
+        for button in (self.zoom_out_button, self.zoom_in_button):
+            button.setFixedSize(step_size, step_size)
+        self.zoom_percent_button.setFixedSize(
+            self.zoom_percent_button.fontMetrics().horizontalAdvance("500%") + 16,
+            step_size,
+        )
+
+        for widget in (
+            self.zoom_out_button,
+            self.zoom_slider,
+            self.zoom_in_button,
+            self.zoom_percent_button,
+        ):
+            layout.addWidget(widget)
+        container.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
+        self.statusBar.addPermanentWidget(container)
+
+    def _default_editor_point_size(self):
+        return max(1, self.settings_manager.get_font("editor").pointSize())
+
+    @classmethod
+    def _zoom_percent_to_slider(cls, percent):
+        percent = min(max(percent, cls.ZOOM_MIN), cls.ZOOM_MAX)
+        mid = cls.ZOOM_SLIDER_MID
+        if percent <= 100:
+            return round((percent - cls.ZOOM_MIN) * mid / (100 - cls.ZOOM_MIN))
+        return mid + round((percent - 100) * mid / (cls.ZOOM_MAX - 100))
+
+    @classmethod
+    def _zoom_slider_to_percent(cls, value):
+        mid = cls.ZOOM_SLIDER_MID
+        if value <= mid:
+            return cls.ZOOM_MIN + value * (100 - cls.ZOOM_MIN) / mid
+        return 100 + (value - mid) * (cls.ZOOM_MAX - 100) / mid
+
+    def _set_current_point_size(self, size):
+        current_tab = self.tab_widget.currentWidget()
+        if not isinstance(current_tab, EditorTab):
+            return
+        size = max(1, size)
+        if size != current_tab.current_font.pointSize():
+            new_font = QFont(current_tab.current_font)
+            new_font.setPointSize(size)
+            current_tab.update_font(new_font)
+        self.update_zoom_status()
+
+    def _on_zoom_slider_changed(self, value):
+        percent = self._zoom_slider_to_percent(value)
+        self._set_current_point_size(round(self._default_editor_point_size() * percent / 100))
+
+    def update_zoom_status(self, *_args):
+        """Sync the status bar zoom controls with the current editor's font size."""
+        if not hasattr(self, "zoom_slider"):
+            return
+        current_tab = self.tab_widget.currentWidget() if hasattr(self, "tab_widget") else None
+        enabled = isinstance(current_tab, EditorTab)
+        for widget in (
+            self.zoom_out_button,
+            self.zoom_slider,
+            self.zoom_in_button,
+            self.zoom_percent_button,
+        ):
+            widget.setEnabled(enabled)
+        percent = 100
+        if enabled:
+            percent = round(
+                current_tab.current_font.pointSize() * 100 / self._default_editor_point_size()
+            )
+        self.zoom_percent_button.setText(f"{percent}%")
+        # Don't snap the handle while it is being dragged between font sizes.
+        if not self.zoom_slider.isSliderDown():
+            with QSignalBlocker(self.zoom_slider):
+                self.zoom_slider.setValue(self._zoom_percent_to_slider(percent))
+
     def zoom_in(self):
         """Increase editor font size"""
         current_tab = self.tab_widget.currentWidget()
-        if current_tab:
-            current_font = current_tab.current_font  # Use stored font
-            new_font = QFont(current_font)  # Create new font based on current
-            new_font.setPointSize(current_font.pointSize() + 1)
-            current_tab.update_font(new_font)
+        if isinstance(current_tab, EditorTab):
+            self._set_current_point_size(current_tab.current_font.pointSize() + 1)
 
     def zoom_out(self):
         """Decrease editor font size"""
         current_tab = self.tab_widget.currentWidget()
-        if current_tab:
-            current_font = current_tab.current_font  # Use stored font
-            size = current_font.pointSize()
-            if size > 1:  # Prevent font from becoming too small
-                new_font = QFont(current_font)  # Create new font based on current
-                new_font.setPointSize(size - 1)
-                current_tab.update_font(new_font)
+        if isinstance(current_tab, EditorTab):
+            self._set_current_point_size(current_tab.current_font.pointSize() - 1)
 
     def zoom_reset(self):
         """Reset editor font to default size"""
-        current_tab = self.tab_widget.currentWidget()
-        if current_tab:
-            default_font = self.settings_manager.get_font("editor")
-            # Preserve current font properties except size
-            new_font = QFont(current_tab.current_font)
-            new_font.setPointSize(default_font.pointSize())
-            current_tab.update_font(new_font)
+        self._set_current_point_size(self._default_editor_point_size())
 
     def rebuild_chrome(self):
         """Reload icons and rebuild toolbar + menu bar (extracted from full apply)."""
