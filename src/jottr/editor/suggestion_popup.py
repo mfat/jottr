@@ -1,7 +1,7 @@
 """Completion popup: snippet triggers and dictionary words under the cursor."""
-from PyQt6.QtCore import QRectF, QSize, Qt
+from PyQt6.QtCore import QEvent, QRectF, QSize, Qt
 from PyQt6.QtGui import QColor, QFont, QFontDatabase, QFontMetrics, QPainter
-from PyQt6.QtWidgets import QWidget
+from PyQt6.QtWidgets import QApplication, QWidget
 
 from jottr.theme_manager import ThemeManager
 from jottr.translation_manager import _
@@ -14,6 +14,10 @@ class SuggestionPopup(QWidget):
     its text) or a plain word. The row Tab or Enter would insert is filled
     and carries that key as a hint. Rows are painted, not widgets, so the
     app stylesheet never reaches them.
+
+    It never takes focus, so nothing closes it for free: while shown it
+    calls *on_dismiss* on a click anywhere outside it, when the editor loses
+    focus, or when the app goes inactive.
     """
 
     SHADOW = 10          # transparent margin the drop shadow is drawn in
@@ -22,7 +26,7 @@ class SuggestionPopup(QWidget):
     MIN_WIDTH = 250
     MAX_WIDTH = 460
 
-    def __init__(self, parent, rows, theme, font, on_activate):
+    def __init__(self, parent, rows, theme, font, on_activate, on_dismiss):
         """*rows* is a list of (kind, trigger, text); kind is "snippet" or "word"."""
         super().__init__(parent, Qt.WindowType.ToolTip | Qt.WindowType.FramelessWindowHint)
         self.setObjectName("suggestionPopup")
@@ -32,6 +36,7 @@ class SuggestionPopup(QWidget):
         self.setMouseTracking(True)
         self.rows = list(rows)
         self.on_activate = on_activate
+        self.on_dismiss = on_dismiss
         self.selected = -1
         self.hint_row = -1
         self.hint_key = ""
@@ -118,6 +123,36 @@ class SuggestionPopup(QWidget):
         self.hint_row = index
         self.hint_key = key
         self.update()
+
+    # Dismissal.
+
+    def showEvent(self, event):
+        super().showEvent(event)
+        app = QApplication.instance()
+        app.installEventFilter(self)
+        app.applicationStateChanged.connect(self._on_app_state_changed)
+
+    def hideEvent(self, event):
+        app = QApplication.instance()
+        app.removeEventFilter(self)
+        try:
+            app.applicationStateChanged.disconnect(self._on_app_state_changed)
+        except TypeError:
+            pass
+        super().hideEvent(event)
+
+    def eventFilter(self, obj, event):
+        kind = event.type()
+        if kind == QEvent.Type.MouseButtonPress and isinstance(obj, QWidget):
+            if obj is not self and not self.isAncestorOf(obj):
+                self.on_dismiss()
+        elif kind == QEvent.Type.FocusOut and obj is self.parent():
+            self.on_dismiss()
+        return False
+
+    def _on_app_state_changed(self, state):
+        if state != Qt.ApplicationState.ApplicationActive:
+            self.on_dismiss()
 
     # Painting.
 

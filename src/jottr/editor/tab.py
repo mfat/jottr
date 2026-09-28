@@ -1505,7 +1505,8 @@ class EditorTab(
 
         theme = ThemeManager.get_ui_theme(self.settings_manager.get_ui_theme())
         self.suggestion_tooltip = SuggestionPopup(
-            self.editor, rows, theme, QApplication.font(), self.apply_suggestion
+            self.editor, rows, theme, QApplication.font(), self.apply_suggestion,
+            self.hide_suggestions,
         )
         self.update_suggestion_highlighting()
 

@@ -1081,6 +1081,42 @@ class EditorAndMainTests(unittest.TestCase):
         ).y()
         self.assertGreaterEqual(editor.suggestion_tooltip.y(), cursor_bottom)
 
+    def _show_snippet_suggestion(self):
+        editor = self.make_editor()
+        editor.snippet_manager.add_snippet("sbx", "soundbite text")
+        editor.editor.setPlainText("sb")
+        editor.editor.moveCursor(QTextCursor.MoveOperation.End)
+        editor.show()
+        QApplication.processEvents()
+        editor.show_suggestion_tooltip([("snippet", "sbx")], editor.editor.textCursor())
+        QApplication.processEvents()
+        return editor
+
+    def test_suggestion_popup_hides_on_click_away(self):
+        from PyQt6.QtTest import QTest
+
+        editor = self._show_snippet_suggestion()
+        self.assertIsNotNone(editor.suggestion_tooltip)
+
+        QTest.mouseClick(editor.editor.viewport(), Qt.MouseButton.LeftButton)
+        QApplication.processEvents()
+
+        self.assertIsNone(editor.suggestion_tooltip)
+        self.assertEqual(editor.editor.toPlainText(), "sb")
+
+    def test_suggestion_popup_row_click_still_inserts(self):
+        from PyQt6.QtTest import QTest
+
+        editor = self._show_snippet_suggestion()
+        popup = editor.suggestion_tooltip
+
+        QTest.mouseClick(popup, Qt.MouseButton.LeftButton,
+                         pos=popup.row_rect(0).center().toPoint())
+        QApplication.processEvents()
+
+        self.assertIsNone(editor.suggestion_tooltip)
+        self.assertEqual(editor.editor.toPlainText(), "soundbite text")
+
     def test_editor_scroll_ratio_tracks_scrollbar_progress(self):
         editor = self.make_editor()
         scroll_bar = editor.editor.verticalScrollBar()
