@@ -240,6 +240,16 @@ class MarkdownPreviewMixin:
         if self.markdown_render_timer:
             self.markdown_render_timer.start()
 
+    def preview_base_folder(self):
+        """Folder the preview resolves relative image links against.
+
+        Inside Flatpak that is the document's folder through a granted portal
+        folder when there is one; the bare portal folder shows only the file.
+        """
+        document_folder = getattr(self, "document_folder", None)
+        folder = document_folder() if document_folder is not None else None
+        return folder or os.path.dirname(self.current_file)
+
     def update_markdown_preview(self, preserve_preview_scroll=True, fade_in=False):
         """Render editor markdown into the preview pane."""
         if not self.markdown_preview_visible:
@@ -248,7 +258,7 @@ class MarkdownPreviewMixin:
             self.ensure_markdown_preview()
 
         if self.current_file:
-            content_base_url = QUrl.fromLocalFile(os.path.dirname(self.current_file) + os.sep).toString()
+            content_base_url = QUrl.fromLocalFile(self.preview_base_folder() + os.sep).toString()
         else:
             content_base_url = QUrl.fromLocalFile(os.getcwd() + os.sep).toString()
 
@@ -625,7 +635,7 @@ class MarkdownPreviewMixin:
 
             current_file = getattr(self, 'current_file', None)
             if current_file and not os.path.isabs(source):
-                source = os.path.join(os.path.dirname(current_file), source)
+                source = os.path.join(self.preview_base_folder(), source)
             return os.path.abspath(os.path.expanduser(source))
 
         def image_file_to_data_url(path):

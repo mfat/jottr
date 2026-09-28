@@ -51,6 +51,7 @@ Markdown documents link images the way Typora and VS Code do:
 - Pasted images are saved as PNG files (pasted-date-time.png) in an **images** folder beside the document, and dropped or chosen files are copied there; the link is relative, so the document and its images can move together
 - Files already inside the document's folder are linked where they are, not copied
 - In an untitled document, images wait in Jottr's settings folder and move beside the document when you first save it
+- In the Flatpak, Jottr sees only the document you opened, not its folder. The first time it needs to save an image there, it asks you to choose that folder (or one above it, such as your home folder) and remembers the choice across sessions; the preview then shows the document's images too
 - Settings > Editor > Markdown changes the folder name (leave it empty for the document's own folder) or links dropped files where they are instead of copying them
 
 ## Spell Checking

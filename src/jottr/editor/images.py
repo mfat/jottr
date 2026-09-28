@@ -5,6 +5,9 @@ Like Typora and VS Code, an image is copied into a folder beside the document
 a note and its images move together. A never-saved document has no folder
 yet: its images wait in the config directory under an absolute file:// link,
 and the first save moves them beside the document and rewrites the links.
+
+Inside Flatpak a document opened through the portal comes without its folder;
+see jottr.portal_folders for how Jottr asks for it once and remembers it.
 """
 import os
 import re
@@ -16,6 +19,12 @@ from PyQt6.QtGui import QImage, QPixmap, QTextCursor
 from PyQt6.QtWidgets import QMessageBox
 
 from jottr.file_dialogs import get_open_file_name
+from jottr.portal_folders import (
+    accessible_folder,
+    host_path,
+    is_within,
+    request_folder_access,
+)
 from jottr.translation_manager import _
 
 IMAGE_EXTENSIONS = frozenset({
@@ -35,20 +44,13 @@ def is_image_path(path):
     return os.path.splitext(path)[1].lower() in IMAGE_EXTENSIONS
 
 
-def is_within(path, directory):
-    """True when *path* is *directory* or lies somewhere under it."""
-    path = os.path.normcase(os.path.abspath(path))
-    directory = os.path.normcase(os.path.abspath(directory))
-    try:
-        return os.path.commonpath([path, directory]) == directory
-    except ValueError:  # different drives on Windows
-        return False
+class FolderAccessDeclined(Exception):
+    """The user would not grant access to the document's folder."""
 
 
-def image_folder(document_path, folder_name):
-    """Folder beside *document_path* that its images are copied into."""
+def image_folder(document_dir, folder_name):
+    """Folder in *document_dir* that the document's images are copied into."""
     folder_name = (folder_name or "").strip().strip("/\\")
-    document_dir = os.path.dirname(os.path.abspath(document_path))
     return os.path.join(document_dir, folder_name) if folder_name else document_dir
 
 
@@ -68,14 +70,20 @@ def pasted_image_name(now=None):
 
 
 def link_target(image_path, document_path):
-    """How a document links to *image_path*: relative if saved, else file://."""
+    """How a document links to *image_path*: relative if saved, else file://.
+
+    Worked out between host paths, since in Flatpak the two can sit in
+    different portal folders.
+    """
+    image_path = host_path(image_path) or image_path
     if document_path:
+        document_host = host_path(document_path)
         try:
-            relative = os.path.relpath(image_path, os.path.dirname(os.path.abspath(document_path)))
+            if document_host:
+                relative = os.path.relpath(image_path, os.path.dirname(document_host))
+                return relative.replace(os.sep, "/")
         except ValueError:  # different drives on Windows
             pass
-        else:
-            return relative.replace(os.sep, "/")
     return QUrl.fromLocalFile(image_path).toString()
 
 
@@ -162,10 +170,23 @@ class MarkdownImagesMixin:
     def unsaved_images_dir(self):
         return os.path.join(self.settings_manager.config_dir, UNSAVED_IMAGES_DIRNAME)
 
+    def document_folder(self, ask=False):
+        """Writable folder of the saved document, None if the sandbox hides it.
+
+        With *ask*, a hidden folder is requested through the portal.
+        """
+        folder = accessible_folder(self.settings_manager, self.current_file)
+        if folder is None and ask:
+            folder = request_folder_access(self, self.settings_manager, self.current_file)
+        return folder
+
     def image_destination_dir(self):
-        if self.current_file:
-            return image_folder(self.current_file, self.image_folder_name())
-        return self.unsaved_images_dir()
+        if not self.current_file:
+            return self.unsaved_images_dir()
+        folder = self.document_folder(ask=True)
+        if folder is None:
+            raise FolderAccessDeclined()
+        return image_folder(folder, self.image_folder_name())
 
     def accepts_pasted_images(self):
         """Paste and drop turn images into links in Markdown and untitled documents."""
@@ -179,7 +200,12 @@ class MarkdownImagesMixin:
             return source
         if self.current_file:
             # An image already beside the note is linked where it is.
-            if not copy or is_within(source, os.path.dirname(os.path.abspath(self.current_file))):
+            source_host = host_path(source)
+            document_host = host_path(self.current_file)
+            if not copy or (
+                source_host and document_host
+                and is_within(source_host, os.path.dirname(document_host))
+            ):
                 return source
         elif not copy:
             return source
@@ -234,6 +260,8 @@ class MarkdownImagesMixin:
                     markdown_image(os.path.splitext(os.path.basename(QUrl(url).path()))[0], url)
                     for url in value
                 ]
+        except FolderAccessDeclined:
+            return True
         except OSError as error:
             self.report_image_failure(error)
             return True
@@ -259,6 +287,8 @@ class MarkdownImagesMixin:
             return False
         try:
             links = self.image_links_for_files([path])
+        except FolderAccessDeclined:
+            return False
         except OSError as error:
             self.report_image_failure(error)
             return False
@@ -279,6 +309,9 @@ class MarkdownImagesMixin:
         moved = {}
         edits = []
         failures = []
+        directory = None
+        # Declining folder access once is not asked again on every save.
+        declined = getattr(self, "_folder_access_declined_for", None) == self.current_file
         for match in _IMAGE_TARGET_RE.finditer(text):
             local = local_path_of_target(match.group(1))
             if not local or not is_within(local, unsaved_dir):
@@ -287,8 +320,16 @@ class MarkdownImagesMixin:
             if key not in moved:
                 if not os.path.isfile(local):
                     continue
+                if directory is None:
+                    if declined:
+                        break
+                    try:
+                        directory = self.image_destination_dir()
+                    except FolderAccessDeclined:
+                        # The links still work from the unsaved images folder.
+                        self._folder_access_declined_for = self.current_file
+                        break
                 try:
-                    directory = image_folder(self.current_file, self.image_folder_name())
                     os.makedirs(directory, exist_ok=True)
                     destination = unique_path(directory, os.path.basename(local))
                     shutil.move(local, destination)
