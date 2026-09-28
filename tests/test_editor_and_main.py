@@ -537,6 +537,9 @@ class EditorAndMainTests(unittest.TestCase):
         self.assertIn(r'<span class="math-inline">\[x\]</span>', html)
         self.assertIn("<code>$HOME</code>", html)
 
+        html = editor.render_markdown_html("$$\na +- b ~~c~~ :x:\n$$")
+        self.assertIn(r"\[a +- b ~~c~~ :x:\]", html)
+
     def test_markdown_preview_anchors_fenced_code_lines(self):
         editor = self.make_editor()
 

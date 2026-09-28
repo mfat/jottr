@@ -1250,11 +1250,14 @@ class MarkdownPreviewMixin:
         """
         text, fenced_blocks = self.stash_fenced_code_blocks(text)
         text = self.preprocess_task_lists(text)
-        text = self.preprocess_math_blocks(text)
+        text, math_blocks = self.stash_math_blocks(self.preprocess_math_blocks(text))
         text, inline_math = self.stash_inline_math(text)
         text = re.sub(r'~~(.+?)~~', r'<del>\1</del>', text, flags=re.DOTALL)
         text = self.apply_typographer_replacements(text)
         text = self.apply_emoji_shortcodes(text)
+        # Rendered math blocks are raw HTML blocks, which Markdown leaves
+        # alone, so they only need keeping from the rewrites above.
+        text = self.restore_math_blocks(text, math_blocks)
         text = self.restore_fenced_code_blocks(text, fenced_blocks)
         return text, inline_math
 
@@ -1299,6 +1302,25 @@ class MarkdownPreviewMixin:
             lambda match: stash[int(match.group(1))],
             text
         )
+
+    @staticmethod
+    def stash_math_blocks(text):
+        """Swap rendered $$ math blocks for plain tokens."""
+        stash = []
+
+        def replace(match):
+            stash.append(match.group(0))
+            return f"JOTTRMATHBLOCK{len(stash) - 1}END"
+
+        # The TeX inside is HTML-escaped, so it holds no </div> of its own.
+        return re.sub(r'<div class="math-block"[^>]*>.*?</div>', replace, text, flags=re.DOTALL), stash
+
+    @staticmethod
+    def restore_math_blocks(text, stash):
+        """Put stashed math blocks back in place of their tokens."""
+        if not stash:
+            return text
+        return re.sub(r'JOTTRMATHBLOCK(\d+)END', lambda match: stash[int(match.group(1))], text)
 
     @staticmethod
     def stash_fenced_code_blocks(text):
