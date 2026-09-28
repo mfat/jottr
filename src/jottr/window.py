@@ -7,7 +7,7 @@ from PyQt6.QtWidgets import (
     QMainWindow, QTabWidget, QWidget, QVBoxLayout, QHBoxLayout, QGridLayout,
     QSplitter, QToolBar, QMessageBox, QLabel, QDialog, QSizePolicy, QMenu,
     QDialogButtonBox, QToolButton, QTabBar, QWidgetAction, QFrame,
-    QGraphicsOpacityEffect, QApplication, QComboBox,
+    QGraphicsOpacityEffect, QApplication,
 )
 from PyQt6.QtCore import (
     Qt, QUrl, QTimer, QEvent, QPropertyAnimation,
@@ -262,18 +262,6 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
         # Set initial status message
         self.statusBar.showMessage(_("Words: 0 | Characters: 0"))
         self.statusBar.setObjectName("statusBar")
-        self.document_language_combo = QComboBox()
-        self.document_language_combo.setObjectName("documentLanguageCombo")
-        self.document_language_combo.setToolTip(_("Document language for spell checking"))
-        self.document_language_combo.setMinimumContentsLength(18)
-        self.document_language_combo.setSizeAdjustPolicy(
-            QComboBox.SizeAdjustPolicy.AdjustToContents
-        )
-        self.document_language_combo.currentIndexChanged.connect(
-            self._on_status_document_language_changed
-        )
-        self.statusBar.addPermanentWidget(QLabel(_("Language:")))
-        self.statusBar.addPermanentWidget(self.document_language_combo)
         self.document_language_status = QLabel()
         self.document_language_status.setObjectName("documentLanguageStatus")
         self.statusBar.addPermanentWidget(self.document_language_status)
@@ -445,7 +433,6 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
 
         self.update_action_icons()
         self.refresh_workspace_icons()
-        self._populate_document_language_combo(self.document_language_combo)
 
         instant = self._take_alive_instant_tab()
         if instant is not None:
@@ -824,8 +811,6 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
                 except Exception:
                     pass
                 child.setFont(app_font)
-                if isinstance(child, QComboBox) and child.view() is not None:
-                    child.view().setFont(app_font)
 
         for name in (
             "workspaceExplorer",
@@ -2361,39 +2346,12 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
             self.update_document_language_status()
         return changed
 
-    def _populate_document_language_combo(self, combo):
-        """Fill a document-language combo without emitting change signals."""
-        current = get_document_language(self.settings_manager)
-        combo.blockSignals(True)
-        combo.clear()
-        for language in list_document_language_choices(extra=[current]):
-            if language == DOCUMENT_LANGUAGE_AUTO:
-                label = _("Auto-detect")
-            else:
-                label = format_language_label(language)
-                if not match_dictionary_for_language(language):
-                    label = _("{language} (no dictionary)").format(language=label)
-            combo.addItem(label, language)
-        index = combo.findData(current)
-        if index < 0:
-            combo.addItem(format_language_label(current), current)
-            index = combo.findData(current)
-        combo.setCurrentIndex(max(0, index))
-        combo.blockSignals(False)
-
-    def _on_status_document_language_changed(self, _index=None):
-        language = self.document_language_combo.currentData()
-        if language:
-            self.set_document_language(language)
-
     def update_document_language_status(self):
         """Show document language and missing-dictionary warnings in the status bar."""
         if not hasattr(self, "document_language_status"):
             return
 
         configured = get_document_language(self.settings_manager)
-        if hasattr(self, "document_language_combo"):
-            self._populate_document_language_combo(self.document_language_combo)
 
         current_tab = self.tab_widget.currentWidget() if hasattr(self, "tab_widget") else None
         highlighter = getattr(current_tab, "highlighter", None) if current_tab else None
@@ -2501,8 +2459,6 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
                 action.blockSignals(True)
                 action.setChecked(action.data() == language)
                 action.blockSignals(False)
-        if hasattr(self, "document_language_combo"):
-            self._populate_document_language_combo(self.document_language_combo)
         self.apply_spell_check_to_tabs()
         self.refresh_settings_dialog()
         if language != DOCUMENT_LANGUAGE_AUTO and not match_dictionary_for_language(language):
