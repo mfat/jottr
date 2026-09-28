@@ -83,6 +83,7 @@ class ThemeManager:
                 "pane": "#f9f4ed",
                 "paper": "#f9f4ed",
                 "tab": "#f9f4ed",
+                "popover": "#f9f4ed",
                 "group": "#f9f4ed",
                 "ink": "#201e1d",
                 "muted": "#645c50",
@@ -98,46 +99,50 @@ class ThemeManager:
                 "danger": "#b42318"
             }
         },
+        # Dark follows GNOME's libadwaita (1.9) dark neutrals: header bar and
+        # sidebar #2e2e32, secondary sidebar #28282c, view #1d1d20, popover
+        # #36363a, white text with translucent white lines and fills.
         "Dark": {
             "app": {
-                "background": "#2e2b25",
-                "surface": "#211f1b",
-                "surface_alt": "#282520",
-                "surface_hover": "#3e3b35",
-                "surface_active": "#4d4a44",
-                "text": "#f9f4ed",
-                "muted": "#c0b6a5",
-                "border": "#46433d",
-                "border_active": "#e8e0d2",
-                "accent": "#e8e0d2",
-                "accent_text": "#f9f4ed",
-                "danger": "#f87171"
+                "background": "#2e2e32",
+                "surface": "#1d1d20",
+                "surface_alt": "#28282c",
+                "surface_hover": "#3a3a3e",
+                "surface_active": "#45454a",
+                "text": "#ffffff",
+                "muted": "#a3a3a8",
+                "border": "#45454a",
+                "border_active": "#e6e6e8",
+                "accent": "#e6e6e8",
+                "accent_text": "#ffffff",
+                "danger": "#ff7b63"
             },
             "editor": {
-                "background": "#211f1b",
-                "foreground": "#f9f4ed",
-                "selection": "#4d4a44",
-                "current_line": "#282520",
-                "border": "#46433d"
+                "background": "#1d1d20",
+                "foreground": "#ffffff",
+                "selection": "#45454a",
+                "current_line": "#28282c",
+                "border": "#45454a"
             },
             "organic": {
-                "ground": "#2e2b25",
-                "pane": "#282520",
-                "paper": "#211f1b",
-                "tab": "#211f1b",
-                "group": "rgba(249, 244, 237, 15)",
-                "ink": "#f9f4ed",
-                "muted": "#c0b6a5",
-                "faint": "#82796a",
-                "line": "rgba(249, 244, 237, 31)",
-                "hover": "rgba(249, 244, 237, 20)",
-                "act": "#e8e0d2",
-                "act_hover": "#f9f4ed",
-                "act_soft": "rgba(249, 244, 237, 41)",
-                "act_ink": "#f9f4ed",
-                "on_act": "#2e2b25",
-                "selection": "rgba(249, 244, 237, 51)",
-                "danger": "#f87171"
+                "ground": "#2e2e32",
+                "pane": "#28282c",
+                "paper": "#1d1d20",
+                "tab": "#1d1d20",
+                "popover": "#36363a",
+                "group": "rgba(255, 255, 255, 15)",
+                "ink": "#ffffff",
+                "muted": "#a3a3a8",
+                "faint": "#77777c",
+                "line": "rgba(255, 255, 255, 38)",
+                "hover": "rgba(255, 255, 255, 20)",
+                "act": "#e6e6e8",
+                "act_hover": "#ffffff",
+                "act_soft": "rgba(255, 255, 255, 41)",
+                "act_ink": "#ffffff",
+                "on_act": "#222226",
+                "selection": "rgba(255, 255, 255, 51)",
+                "danger": "#ff7b63"
             }
         }
     }
@@ -1036,7 +1041,7 @@ class ThemeManager:
                 color: {t['act_ink']};
             }}
             QMenu {{
-                background: {t['pane']};
+                background: {t['popover']};
                 color: {t['ink']};
                 border: 1px solid {t['line']};
                 border-radius: 14px;
@@ -1061,7 +1066,7 @@ class ThemeManager:
                 margin: 5px 10px;
             }}
             QToolTip {{
-                background: {t['pane']};
+                background: {t['popover']};
                 color: {t['ink']};
                 border: 1px solid {t['line']};
                 border-radius: 8px;
@@ -1283,7 +1288,7 @@ class ThemeManager:
                 color: {t['faint']};
             }}
             QComboBox QAbstractItemView {{
-                background: {t['pane']};
+                background: {t['popover']};
                 color: {t['ink']};
                 border: 1px solid {t['line']};
                 selection-background-color: {t['act_soft']};
