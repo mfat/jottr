@@ -420,7 +420,7 @@ class ThemeManager:
             }
         },
         # Colors from https://github.com/Bali10050/Darkly
-        # Catppuccin Latte.
+        # Catppuccin Latte, named short so its swatch label fits.
         "Latte": {
             "app": {
                 "background": "#e6e9ef",
