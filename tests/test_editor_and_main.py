@@ -1268,6 +1268,39 @@ class EditorAndMainTests(unittest.TestCase):
         self.assertIn("font-size: 21pt", preview_html)
         self.assertIn("Title", preview_html)
 
+    def test_markdown_preview_opens_followed_links_outside(self):
+        from PyQt6.QtWebEngineCore import QWebEnginePage
+
+        NavigationType = QWebEnginePage.NavigationType
+        navigation = editor_markdown_module.markdown_preview_navigation
+        page = QUrl.fromLocalFile("/tmp/preview.html")
+
+        self.assertEqual(navigation(page, QUrl(), NavigationType.NavigationTypeTyped), "load")
+        # Headings linked from a table of contents stay in the page.
+        self.assertEqual(
+            navigation(QUrl(page.toString() + "#usage"), page,
+                       NavigationType.NavigationTypeLinkClicked),
+            "load",
+        )
+        self.assertEqual(
+            navigation(QUrl("https://example.com/"), page,
+                       NavigationType.NavigationTypeLinkClicked),
+            "open",
+        )
+        self.assertEqual(
+            navigation(QUrl.fromLocalFile("/tmp/other.md"), page,
+                       NavigationType.NavigationTypeLinkClicked),
+            "open",
+        )
+        # Going back or reloading would show the page as of its last load.
+        for navigation_type in (
+            NavigationType.NavigationTypeBackForward,
+            NavigationType.NavigationTypeReload,
+            NavigationType.NavigationTypeFormSubmitted,
+            NavigationType.NavigationTypeOther,
+        ):
+            self.assertEqual(navigation(page, page, navigation_type), "block")
+
     def test_markdown_preview_reloads_after_following_a_link(self):
         editor = self.make_editor()
         editor.editor.setPlainText("# Title")

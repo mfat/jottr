@@ -30,8 +30,50 @@ def markdown_preview_page_class():
             def javaScriptConsoleMessage(self, level, message, line_number, source_id):
                 print(f"Markdown preview JS: {message} ({source_id}:{line_number})")
 
+            def acceptNavigationRequest(self, url, navigation_type, is_main_frame):
+                if not is_main_frame:
+                    return super().acceptNavigationRequest(url, navigation_type, is_main_frame)
+                action = markdown_preview_navigation(url, self.url(), navigation_type)
+                if action == "open":
+                    from PyQt6.QtGui import QDesktopServices
+
+                    QDesktopServices.openUrl(url)
+                return action == "load"
+
         _markdown_preview_page_class = MarkdownPreviewPage
     return _markdown_preview_page_class
+
+
+def markdown_preview_navigation(url, current_url, navigation_type):
+    """What the preview does with a navigation: "load", "open", or "block".
+
+    Like the page in Qt's Markdown Editor example, the preview only shows
+    what Jottr loads into it; followed links open outside. History and
+    reloads are blocked too, because the page on disk is only as new as the
+    last full load, not the render swapped into it since.
+    """
+    from PyQt6.QtWebEngineCore import QWebEnginePage
+
+    NavigationType = QWebEnginePage.NavigationType
+    if navigation_type == NavigationType.NavigationTypeTyped:
+        return "load"
+    if navigation_type != NavigationType.NavigationTypeLinkClicked:
+        return "block"
+    remove_fragment = QUrl.UrlFormattingOption.RemoveFragment
+    if url.hasFragment() and url.adjusted(remove_fragment) == current_url.adjusted(remove_fragment):
+        return "load"
+    return "open"
+
+
+# Context menu entries worth keeping: the rest navigate, reload, or save a
+# page that is not the document.
+MARKDOWN_PREVIEW_MENU_ACTIONS = (
+    "Copy",
+    "SelectAll",
+    "CopyLinkToClipboard",
+    "CopyImageToClipboard",
+    "CopyImageUrlToClipboard",
+)
 
 
 def __getattr__(name):
@@ -97,6 +139,8 @@ class MarkdownPreviewMixin:
         if page is not None and hasattr(page, "setBackgroundColor"):
             page.setBackgroundColor(QColor("#ffffff"))
         view.installEventFilter(self)
+        view.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
+        view.customContextMenuRequested.connect(self.show_markdown_preview_context_menu)
         if hasattr(view, "loadFinished"):
             view.loadFinished.connect(self.markdown_preview_load_finished)
 
@@ -123,6 +167,25 @@ class MarkdownPreviewMixin:
         if hasattr(self, "apply_language_direction"):
             self.apply_language_direction()
         return view
+
+    def show_markdown_preview_context_menu(self, pos):
+        """Chromium's context menu, without the entries that navigate."""
+        from PyQt6.QtWebEngineCore import QWebEnginePage
+
+        view = self.markdown_preview
+        menu = view.createStandardContextMenu()
+        kept = {
+            view.pageAction(getattr(QWebEnginePage.WebAction, name))
+            for name in MARKDOWN_PREVIEW_MENU_ACTIONS
+        }
+        for action in menu.actions():
+            if not action.isSeparator() and action not in kept:
+                menu.removeAction(action)
+        menu.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
+        if any(not action.isSeparator() for action in menu.actions()):
+            menu.popup(view.mapToGlobal(pos))
+        else:
+            menu.close()
 
     def is_markdown_file(self, file_path=None):
         """Return True when a path should be treated as markdown."""
