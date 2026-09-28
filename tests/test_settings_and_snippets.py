@@ -611,8 +611,8 @@ class SettingsAndSnippetTests(unittest.TestCase):
         ThemeManager.apply_theme(editor, "Black")
 
         style = editor.styleSheet()
-        self.assertIn("#111827", style)
-        self.assertIn("#e5e7eb", style)
+        self.assertIn("#0a0a0a", style)
+        self.assertIn("#e6e6e6", style)
         self.assertIn('font-family: "Liberation Serif"', style)
         self.assertIn("font-size: 15pt", style)
 

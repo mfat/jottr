@@ -181,6 +181,7 @@ class ThemeManager:
                 "number": "#b45309",
                 "function": "#0f766e",
                 "type": "#7c3aed",
+                "constant": "#a21caf",
                 "error": "#dc2626"
             }
         },
@@ -200,19 +201,20 @@ class ThemeManager:
                 "danger": "#f87171"
             },
             "editor": {
-                "background": "#111827",
-                "foreground": "#e5e7eb",
+                "background": "#0a0a0a",
+                "foreground": "#e6e6e6",
                 "selection": "#1966c5",
-                "current_line": "#1f2937",
-                "border": "#374151"
+                "current_line": "#1a1a1a",
+                "border": "#2e2e2e"
             },
             "syntax": {
-                "comment": "#94a3b8",
+                "comment": "#8f8f8f",
                 "keyword": "#93c5fd",
                 "string": "#86efac",
                 "number": "#fdba74",
                 "function": "#67e8f9",
                 "type": "#c4b5fd",
+                "constant": "#f0abfc",
                 "error": "#f87171"
             }
         },
@@ -245,6 +247,7 @@ class ThemeManager:
                 "number": "#9a5f2a",
                 "function": "#37635f",
                 "type": "#7654a3",
+                "constant": "#8e3b5f",
                 "error": "#b42318"
             }
         },
