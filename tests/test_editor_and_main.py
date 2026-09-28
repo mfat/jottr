@@ -3984,6 +3984,13 @@ class EditorAndMainTests(unittest.TestCase):
             self.assertIn("New Folder...", labels)
             self.assertIn("Close Workspace", labels)
             self.assertIn("Clear Missing Workspaces", labels)
+            by_label = {
+                action.text().replace("&", ""): action
+                for action in window.workspace_menu.actions()
+            }
+            self.assertTrue(by_label["notes"].isEnabled())
+            self.assertTrue(by_label["notes"].isChecked())
+            self.assertFalse(by_label["archive"].isChecked())
             self.assertTrue(window.close_workspace_action.isEnabled())
             self.assertTrue(window.new_workspace_folder_action.isEnabled())
 

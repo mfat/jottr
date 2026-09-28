@@ -3,7 +3,7 @@ import os
 import shutil
 
 from PyQt6.QtCore import Qt, QDir, QUrl
-from PyQt6.QtGui import QDesktopServices
+from PyQt6.QtGui import QActionGroup, QDesktopServices
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QLabel, QMenu,
     QMessageBox, QInputDialog, QApplication,
@@ -243,20 +243,23 @@ class WorkspaceControllerMixin:
         if self.workspace_path and self.workspace_path not in candidates:
             candidates.insert(0, self.workspace_path)
 
-        if self.workspace_path:
-            current_action = menu.addAction(
-                self.workspace_display_label(self.workspace_path, candidates)
-            )
-            current_action.setEnabled(False)
-            current_action.setToolTip(self.workspace_path)
-            menu.addSeparator()
+        # Exclusive group renders a radio mark and keeps the active entry
+        # checked when it is clicked again.
+        previous_group = getattr(menu, "_workspace_group", None)
+        if previous_group is not None:
+            previous_group.deleteLater()
+        group = QActionGroup(menu)
+        menu._workspace_group = group
 
         added = False
-        for workspace in recent:
-            if workspace == self.workspace_path:
-                continue
+        for workspace in candidates:
             action = menu.addAction(self.workspace_display_label(workspace, candidates))
             action.setToolTip(workspace)
+            action.setCheckable(True)
+            group.addAction(action)
+            if workspace == self.workspace_path:
+                action.setChecked(True)
+                continue
             action.setEnabled(os.path.isdir(workspace))
             action.triggered.connect(
                 lambda checked=False, path=workspace: self.switch_workspace(path)
