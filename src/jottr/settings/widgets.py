@@ -90,7 +90,7 @@ class SegmentedControl(QWidget):
 
 
 class ThemeSwatch(QAbstractButton):
-    """A checkable miniature page in an editor theme's colors, with its name below.
+    """A checkable miniature page in an editor theme's colors; its name is the tooltip.
 
     *accents* are the Markdown heading, link and code colors; themes that
     share a page color still look different by them.
@@ -105,6 +105,7 @@ class ThemeSwatch(QAbstractButton):
         self.setCheckable(True)
         self.setText(name)
         self.setToolTip(name)
+        self.setAccessibleName(name)
         self.setCursor(Qt.CursorShape.PointingHandCursor)
         self.setFocusPolicy(Qt.FocusPolicy.TabFocus)
         self.background = QColor(background)
@@ -112,14 +113,11 @@ class ThemeSwatch(QAbstractButton):
         self.accents = [QColor(color) for color in accents]
         self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
 
-    def _label_height(self):
-        return self.fontMetrics().height() + 6
-
     def sizeHint(self):
-        return QSize(96, self.SWATCH_HEIGHT + self._label_height())
+        return QSize(96, self.SWATCH_HEIGHT)
 
     def minimumSizeHint(self):
-        return QSize(64, self.SWATCH_HEIGHT + self._label_height())
+        return QSize(64, self.SWATCH_HEIGHT)
 
     def paintEvent(self, event):
         palette = self.palette()
@@ -170,17 +168,6 @@ class ThemeSwatch(QAbstractButton):
                                 Qt.PenStyle.DotLine))
             painter.drawRoundedRect(page.adjusted(3, 3, -3, -3),
                                     self.RADIUS - 4, self.RADIUS - 4)
-
-        painter.setPen(palette.color(
-            QPalette.ColorRole.WindowText if self.isChecked()
-            else QPalette.ColorRole.PlaceholderText
-        ))
-        label = QRectF(page.left() + 2, self.SWATCH_HEIGHT, page.width() - 2,
-                       self._label_height())
-        text = self.fontMetrics().elidedText(
-            self.text(), Qt.TextElideMode.ElideRight, int(label.width())
-        )
-        painter.drawText(label, Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignBottom, text)
         painter.end()
 
 
