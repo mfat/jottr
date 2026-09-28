@@ -17,6 +17,7 @@ class ThemeManager:
         "default": "Sepia",
         # Darkly was a generic charcoal; Nord replaced it.
         "Darkly": "Nord",
+        "Catppuccin Latte": "Latte",
     }
 
     # Interface Look published by SettingsManager ("native" or "organic").
@@ -419,7 +420,8 @@ class ThemeManager:
             }
         },
         # Colors from https://github.com/Bali10050/Darkly
-        "Catppuccin Latte": {
+        # Catppuccin Latte, named short so its swatch label fits.
+        "Latte": {
             "app": {
                 "background": "#e6e9ef",
                 "surface": "#eff1f5",
