@@ -62,19 +62,27 @@ class PluginCardDelegate(QStyledItemDelegate):
     def _text_width(self, width):
         return max(40, width - 2 * _PAD - _AVATAR - _GAP)
 
+    def _badge_below(self, title_font, title, text_width, badge):
+        """True when the name's longest word won't fit beside the badge."""
+        words = (title or "").split() or [""]
+        longest = max(QFontMetrics(title_font).horizontalAdvance(word) for word in words)
+        return longest > text_width - badge.width() - 6
+
     def sizeHint(self, option, index):
         card = index.data(PLUGIN_CARD_ROLE) or {}
         width = self.view.viewport().width() - 2 * self.view.spacing()
         title_font, badge_font, desc_font, meta_font, _initial = self._fonts(option.font)
         text_width = self._text_width(width)
         badge = self._badge_size(badge_font, card.get("status", ""))
-        title_height = max(
-            QFontMetrics(title_font).boundingRect(
-                QRect(0, 0, max(20, text_width - badge.width() - 6), 10000),
-                Qt.TextFlag.TextWordWrap, card.get("title", "")
-            ).height(),
-            badge.height(),
-        )
+        below = self._badge_below(title_font, card.get("title", ""), text_width, badge)
+        title_width = text_width if below else max(20, text_width - badge.width() - 6)
+        title_only = QFontMetrics(title_font).boundingRect(
+            QRect(0, 0, title_width, 10000), Qt.TextFlag.TextWordWrap, card.get("title", "")
+        ).height()
+        if below:
+            title_height = title_only + _LINE_GAP + badge.height()
+        else:
+            title_height = max(title_only, badge.height())
         desc_height = QFontMetrics(desc_font).boundingRect(
             QRect(0, 0, text_width, 10000), Qt.TextFlag.TextWordWrap,
             card.get("description", "")
@@ -139,17 +147,26 @@ class PluginCardDelegate(QStyledItemDelegate):
         y = int(rect.top()) + _PAD - 1
         status = card.get("status", "")
         badge = self._badge_size(badge_font, status)
-        if status:
-            badge_rect = QRectF(right - badge.width(), y, badge.width(), badge.height())
-            self._paint_badge(painter, badge_rect, badge_font, status,
-                              card.get("status_kind", ""), t, ink, selected and not organic)
+        # The badge sits right of the name, or under it when a word of the
+        # name would otherwise be cut.
+        below = self._badge_below(title_font, card.get("title", ""), right - x, badge)
         painter.setFont(title_font)
         painter.setPen(ink)
-        title_rect = QRect(x, y, max(20, right - x - badge.width() - 6), 10000)
+        title_width = right - x if below else max(20, right - x - badge.width() - 6)
+        title_rect = QRect(x, y, title_width, 10000)
         title_bounds = painter.boundingRect(title_rect, Qt.TextFlag.TextWordWrap,
                                             card.get("title", ""))
         painter.drawText(title_rect, Qt.TextFlag.TextWordWrap, card.get("title", ""))
-        y += max(title_bounds.height(), badge.height()) + _LINE_GAP
+        if below:
+            badge_rect = QRectF(x, y + title_bounds.height() + _LINE_GAP,
+                                badge.width(), badge.height())
+            y += title_bounds.height() + _LINE_GAP + badge.height() + _LINE_GAP
+        else:
+            badge_rect = QRectF(right - badge.width(), y, badge.width(), badge.height())
+            y += max(title_bounds.height(), badge.height()) + _LINE_GAP
+        if status:
+            self._paint_badge(painter, badge_rect, badge_font, status,
+                              card.get("status_kind", ""), t, ink, selected and not organic)
 
         # Description, then version and channel.
         painter.setFont(desc_font)
