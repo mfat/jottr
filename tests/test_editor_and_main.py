@@ -98,6 +98,8 @@ class EditorAndMainTests(unittest.TestCase):
         self.env.start()
         self.addCleanup(self.env.stop)
         self.settings = SettingsManager()
+        # Windows here start on Native; tests of the Organic look switch to it.
+        self.settings.save_interface_look("native")
         self.snippets = SnippetManager(self.settings)
 
     def test_workspace_model_tooltip_is_full_path(self):

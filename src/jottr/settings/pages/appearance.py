@@ -9,7 +9,8 @@ from PyQt6.QtWidgets import (
 from jottr.font_dialog import FontSelectionDialog
 from jottr.icon_manager import list_bundled_icon_themes
 from jottr.settings_manager import (
-    INTERFACE_LOOK_NATIVE, INTERFACE_LOOK_ORGANIC, UI_FONT_DEFAULT, UI_FONT_SYSTEM,
+    DEFAULT_INTERFACE_LOOK, INTERFACE_LOOK_NATIVE, INTERFACE_LOOK_ORGANIC, UI_FONT_DEFAULT,
+    UI_FONT_SYSTEM,
 )
 from jottr.theme_manager import ThemeManager
 from jottr.translation_manager import _, format_language_label, get_available_languages
@@ -190,7 +191,7 @@ class AppearancePageMixin:
             bool(sm.get_setting("enable_animations", True))
         )
         if not self.interface_look_control.setCurrentData(sm.get_interface_look()):
-            self.interface_look_control.setCurrentData(INTERFACE_LOOK_NATIVE)
+            self.interface_look_control.setCurrentData(DEFAULT_INTERFACE_LOOK)
         # Blocked like the scheme below: an accent change restyles this window.
         self.accent_color_control.blockSignals(True)
         self.accent_color_control.setCurrentData(sm.get_accent())

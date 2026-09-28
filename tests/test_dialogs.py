@@ -559,6 +559,10 @@ class DialogTests(unittest.TestCase):
         manager.save_ui_theme("Light")
         self.addCleanup(ThemeManager.clear_ui_theme_cache)
         self.addCleanup(ThemeManager.set_accent, ThemeManager.ACCENT_DEFAULT)
+        # New installs start on Marigold; this test walks from each look's own.
+        self.assertEqual(manager.get_accent(), "marigold")
+        manager.save_interface_look("native")
+        manager.save_accent("default")
         dialog = SettingsDialog(manager)
         self.addCleanup(dialog.deleteLater)
 

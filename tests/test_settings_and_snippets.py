@@ -51,6 +51,13 @@ class SettingsAndSnippetTests(unittest.TestCase):
         manager = SettingsManager()
         self.addCleanup(ThemeManager.set_interface_look, "native")
         self.addCleanup(ThemeManager.clear_ui_theme_cache)
+        # New installs start on Organic with the Marigold accent.
+        self.assertEqual(manager.get_interface_look(), "organic")
+        self.assertEqual(ThemeManager.interface_look(), "organic")
+        self.assertEqual(manager.get_accent(), "marigold")
+        self.assertEqual(ThemeManager.accent(), "marigold")
+
+        manager.save_interface_look("native")
         self.assertEqual(manager.get_interface_look(), "native")
         self.assertEqual(ThemeManager.interface_look(), "native")
 
@@ -70,8 +77,10 @@ class SettingsAndSnippetTests(unittest.TestCase):
         self.assertEqual(SettingsManager().get_interface_look(), "organic")
         self.assertEqual(ThemeManager.interface_look(), "organic")
 
+        manager.save_interface_look("native")
         manager.save_interface_look("bogus")
-        self.assertEqual(manager.get_interface_look(), "native")
+        self.assertEqual(manager.get_interface_look(), "organic")
+        manager.save_interface_look("native")
         self.assertNotIn("organic", ThemeManager.get_ui_theme("Light"))
 
         self.assertEqual(
@@ -526,6 +535,8 @@ class SettingsAndSnippetTests(unittest.TestCase):
         self.assertEqual(ThemeManager.UI_THEME_NAMES, ("System", "Light", "Dark"))
         self.assertEqual(ThemeManager.DEFAULT_THEME_NAME, "Sepia")
         self.assertEqual(SettingsManager().get_theme(), "Sepia")
+        # The chrome checks below are for the Native look.
+        ThemeManager.set_interface_look("native")
         from PyQt6.QtCore import Qt
 
         self.assertEqual(

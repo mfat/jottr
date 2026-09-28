@@ -23,6 +23,8 @@ DEFAULT_PLUGIN_CHANNELS = [
 INTERFACE_LOOK_NATIVE = "native"
 INTERFACE_LOOK_ORGANIC = "organic"
 INTERFACE_LOOKS = (INTERFACE_LOOK_NATIVE, INTERFACE_LOOK_ORGANIC)
+DEFAULT_INTERFACE_LOOK = INTERFACE_LOOK_ORGANIC
+DEFAULT_ACCENT = "marigold"
 # Former baked-in UI default (Qt5 Normal weight=50). Migrate to the system UI font.
 _LEGACY_DEFAULT_UI_FONT = ("DejaVu Sans", 10, 50, False)
 # Former baked-in editor defaults (Qt5 Normal weight=50 and its Qt6 equivalent).
@@ -141,8 +143,8 @@ class SettingsManager:
             # system fixed-width font, so a face the user picks later stays.
             "editor_font_from_system": True,
             "ui_theme": "System",
-            "interface_look": INTERFACE_LOOK_NATIVE,
-            "accent_color": "default",
+            "interface_look": DEFAULT_INTERFACE_LOOK,
+            "accent_color": DEFAULT_ACCENT,
             "theme": "Sepia",
             "language": "en_US",
             "icon_theme": "qlementine",
@@ -466,12 +468,12 @@ class SettingsManager:
 
     @staticmethod
     def normalize_interface_look(look):
-        name = str(look or INTERFACE_LOOK_NATIVE).strip().casefold()
-        return name if name in INTERFACE_LOOKS else INTERFACE_LOOK_NATIVE
+        name = str(look or DEFAULT_INTERFACE_LOOK).strip().casefold()
+        return name if name in INTERFACE_LOOKS else DEFAULT_INTERFACE_LOOK
 
     def get_interface_look(self):
         return self.normalize_interface_look(
-            self.settings.get("interface_look", INTERFACE_LOOK_NATIVE)
+            self.settings.get("interface_look", DEFAULT_INTERFACE_LOOK)
         )
 
     def save_interface_look(self, look):
@@ -490,7 +492,7 @@ class SettingsManager:
         from jottr.theme_manager import ThemeManager
 
         return ThemeManager.normalize_accent(
-            self.settings.get("accent_color", ThemeManager.ACCENT_DEFAULT)
+            self.settings.get("accent_color", DEFAULT_ACCENT)
         )
 
     def save_accent(self, accent):
