@@ -20,7 +20,8 @@ class SegmentedControl(QWidget):
         super().__init__(parent)
         self.setObjectName("segmentedControl")
         self.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
-        self.setSizePolicy(QSizePolicy.Policy.Maximum, QSizePolicy.Policy.Fixed)
+        # Never squeezed: a clipped option label is unreadable.
+        self.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
         self._layout = QHBoxLayout(self)
         self._layout.setContentsMargins(3, 3, 3, 3)
         self._layout.setSpacing(2)

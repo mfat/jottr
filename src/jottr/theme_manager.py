@@ -1207,12 +1207,17 @@ class ThemeManager:
                 background: {t['act_soft']};
                 color: {t['act_ink']};
             }}
+            /* libadwaita's pill button (button.pill in 1.9): a 24px content
+               height inside 10px 32px padding, with fully round ends. Qt
+               drops a radius over half the height, so 22px stands in for
+               its 9999px on the 46px-tall result. */
             QPushButton {{
                 background: transparent;
                 color: {t['ink']};
                 border: 1px solid {t['line']};
-                border-radius: 12px;
-                padding: 4px 14px;
+                border-radius: 22px;
+                min-height: 24px;
+                padding: 10px 32px;
             }}
             QPushButton:hover {{
                 background: {t['hover']};
@@ -1232,7 +1237,9 @@ class ThemeManager:
             QPushButton:disabled {{
                 color: {t['faint']};
             }}
+            /* Compact and icon buttons keep their own (often fixed) sizes. */
             QWidget#findToolbar QPushButton, QWidget#browserToolbar QPushButton {{
+                min-height: 0px;
                 padding: 0px 10px;
                 border-radius: 13px;
             }}
@@ -1246,6 +1253,7 @@ class ThemeManager:
                 border: none;
                 border-radius: 11px;
                 color: {t['muted']};
+                min-height: 0px;
                 padding: 0px;
             }}
             QPushButton#workspaceToolButton:hover, QPushButton#panelCloseButton:hover,
@@ -1401,14 +1409,18 @@ class ThemeManager:
             QLineEdit#pluginSearchField:focus {{
                 border-color: {t['act']};
             }}
-            QWidget#settingsContent QPushButton {{
-                min-height: 28px;
+            /* Buttons packed into a row of actions are libadwaita's regular
+               34px buttons rather than pills; flat ones drop the border. */
+            QPushButton[compact="true"] {{
                 border-radius: 16px;
-                padding: 2px 16px;
+                min-height: 24px;
+                padding: 4px 18px;
             }}
+            /* Flat actions are libadwaita's regular (34px) flat buttons. */
             QPushButton#pluginBrowseButton, QPushButton#pluginChannelAction {{
                 border-color: transparent;
-                padding: 2px 14px;
+                border-radius: 16px;
+                padding: 4px 14px;
             }}
             QPushButton#pluginBrowseButton:hover, QPushButton#pluginChannelAction:hover {{
                 background: {t['hover']};
@@ -1432,8 +1444,9 @@ class ThemeManager:
             }}
             QPushButton#pluginRemoveButton {{
                 border-color: transparent;
+                border-radius: 16px;
                 color: {t['danger']};
-                padding: 2px 14px;
+                padding: 4px 14px;
             }}
             QPushButton#pluginRemoveButton:hover {{
                 background: {t['hover']};

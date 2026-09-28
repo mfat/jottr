@@ -155,6 +155,7 @@ class PluginsTabMixin:
         list_panel.addWidget(self.plugin_search_edit)
         self.plugin_list = QListWidget()
         self.plugin_list.setObjectName("pluginCardList")
+        self.plugin_list.setMinimumWidth(220)
         self.plugin_list.setSpacing(2)
         self.plugin_list.setUniformItemSizes(False)
         self.plugin_list.setResizeMode(QListWidget.ResizeMode.Adjust)
@@ -210,10 +211,11 @@ class PluginsTabMixin:
         version_row = QHBoxLayout()
         version_row.setSpacing(10)
         self.plugin_version_combo = QComboBox()
-        self.plugin_version_combo.setMinimumWidth(160)
+        self.plugin_version_combo.setMinimumWidth(120)
         self.plugin_version_combo.currentTextChanged.connect(self.change_selected_plugin_version)
         self.plugin_version_note = QLabel("")
         self.plugin_version_note.setObjectName("pluginFieldLabel")
+        self.plugin_version_note.setWordWrap(True)
         self.plugin_version_note.setForegroundRole(QPalette.ColorRole.PlaceholderText)
         version_row.addWidget(self.plugin_version_combo)
         version_row.addWidget(self.plugin_version_note, 1)
@@ -259,6 +261,12 @@ class PluginsTabMixin:
         self.toggle_plugin_button.clicked.connect(self.toggle_selected_plugin)
         self.update_plugin_button.clicked.connect(self.update_selected_plugin)
         self.remove_plugin_button.clicked.connect(self.remove_selected_plugin)
+        # A row of actions: regular-size buttons, not pills.
+        for button in (
+            self.toggle_plugin_button, self.update_plugin_button,
+            self.show_add_channel_button, self.add_plugin_channel_button,
+        ):
+            button.setProperty("compact", True)
         plugin_buttons.addWidget(self.update_plugin_button)
         plugin_buttons.addWidget(self.toggle_plugin_button)
         plugin_buttons.addStretch(1)
