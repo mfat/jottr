@@ -116,6 +116,47 @@ The index is the app-facing catalog: where a plugin lives, which package version
 
 `plugins.json.sha256` contains the SHA-256 of `plugins.json`. Each plugin release uploads both the package zip and a sibling `.zip.sha256` asset generated during the package build. Jottr verifies the index checksum after updating the catalog, downloads the package checksum asset, verifies the zip before extraction, and then reads `plugin.json` from the extracted package for permissions and contributions.
 
+## Releasing a Plugin Update
+
+A plugin update reaches users in two merges: the plugin's own release PR, then the index PR in `Jottrhq/plugins`. Using `mermaid-charts-plugin` as the example:
+
+1. **Commit the fix to the plugin's `main`** with a Conventional Commit message. `fix:` bumps the patch version and `feat:` the minor version; release-please ignores `docs:` and `chore:` commits. Validate first:
+
+   ```bash
+   python scripts/validate-plugin-json.py plugin.json
+   python scripts/package-plugin.py --name mermaid-charts --version 0.0.0  # optional: check what the zip contains
+   ```
+
+   Test against a real preview before pushing. Load the plugin module in a Jottr `EditorTab` offscreen and drive it through at least one in-place preview update, not only the first load; see `PluginAPI.register_markdown_extension()` under [Python Plugin API](#python-plugin-api).
+
+2. **Push `main`.** The Release Please workflow opens a PR titled `chore(main): release <name> <version>` that bumps `plugin.json`, `.release-please-manifest.json`, and `CHANGELOG.md`.
+
+3. **Merge the release PR.** Release Please tags `<name>-v<version>`, creates the GitHub release, and the `package` job uploads `<name>-<version>.zip` and `<name>-<version>.zip.sha256`. Check the assets:
+
+   ```bash
+   gh release view -R Jottrhq/mermaid-charts-plugin --json tagName,assets --jq '.tagName, .assets[].name'
+   ```
+
+4. **Update the index.** The Sync Plugin Index workflow in `Jottrhq/plugins` runs daily at 03:17 UTC; to publish right away, dispatch it:
+
+   ```bash
+   gh workflow run sync-plugin-index.yml -R Jottrhq/plugins
+   ```
+
+   It opens (or updates) the `chore: sync plugin index` PR from the `automation/sync-plugin-index` branch. Its diff should only add the new version, move `latestVersion`, and update `updatedAt` and `plugins.json.sha256`.
+
+5. **Validate the index PR locally, then merge it.** Pull requests opened by the Release Please and index-sync bots never get CI: their runs end as `action_required` or `failure` with no jobs ("This run likely failed because of a workflow file issue"). That is GitHub holding workflows on bot-opened PRs, not a broken workflow, so validate by hand and then approve and merge the PR yourself:
+
+   ```bash
+   git fetch origin automation/sync-plugin-index
+   git checkout FETCH_HEAD
+   python scripts/validate-plugins-json.py plugins.json --checksum plugins.json.sha256
+   ```
+
+Once the index PR is merged, **Update Channel(s)** in Settings › Plugins lists the new version, and users install it with **Update**. Plugins never update on their own.
+
+Preview extensions must keep working with released Jottr versions as well as `main`: users update Jottr and plugins separately.
+
 ## Manifest
 
 Validate plugin manifests before packaging:
