@@ -17,12 +17,12 @@ class DictionaryPageMixin:
         dict_tab = QWidget()
         dict_layout = QVBoxLayout(dict_tab)
         dict_layout.setContentsMargins(0, 0, 0, 0)
-        dict_layout.setSpacing(10)
+        dict_layout.setSpacing(20)
 
         spell_box = QGroupBox(_("Spell Checking"))
         spell_form = QFormLayout(spell_box)
-        spell_form.setContentsMargins(12, 10, 12, 12)
-        spell_form.setSpacing(8)
+        spell_form.setContentsMargins(14, 14, 14, 16)
+        spell_form.setSpacing(12)
         self.spell_check_enabled = QCheckBox(_("Enable spell checking"))
         self.spell_check_enabled.toggled.connect(self._on_spell_toggled)
         spell_form.addRow(self.spell_check_enabled)
@@ -37,8 +37,8 @@ class DictionaryPageMixin:
 
         user_box = QGroupBox(_("User Dictionary"))
         user_layout = QVBoxLayout(user_box)
-        user_layout.setContentsMargins(12, 10, 12, 12)
-        user_layout.setSpacing(8)
+        user_layout.setContentsMargins(14, 14, 14, 16)
+        user_layout.setSpacing(12)
         self.dict_list = QListWidget()
         self.dict_list.setMinimumHeight(120)
         self.dict_list.itemSelectionChanged.connect(self._update_dict_buttons)
@@ -56,8 +56,8 @@ class DictionaryPageMixin:
 
         detected_box = QGroupBox(_("Detected dictionaries"))
         detected_layout = QVBoxLayout(detected_box)
-        detected_layout.setContentsMargins(12, 10, 12, 12)
-        detected_layout.setSpacing(8)
+        detected_layout.setContentsMargins(14, 14, 14, 16)
+        detected_layout.setSpacing(12)
         detected_hint = QLabel(
             _("Spell dictionaries found on this system via Enchant. "
               "Install hunspell/myspell packages to add more languages.")

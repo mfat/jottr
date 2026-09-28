@@ -60,7 +60,7 @@ class PluginsTabMixin:
         plugins_tab.setObjectName("pluginsSettingsTab")
         layout = QVBoxLayout(plugins_tab)
         layout.setContentsMargins(0, 0, 0, 0)
-        layout.setSpacing(14)
+        layout.setSpacing(22)
 
         # Beside the page title: the local plugins folder.
         self.plugins_header = QWidget()

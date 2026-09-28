@@ -33,7 +33,7 @@ class AppearancePageMixin:
         appearance_tab = QWidget()
         appearance_layout = QVBoxLayout(appearance_tab)
         appearance_layout.setContentsMargins(0, 0, 0, 0)
-        appearance_layout.setSpacing(14)
+        appearance_layout.setSpacing(24)
 
         self.interface_look_control = SegmentedControl()
         self.interface_look_control.addOption(_("Native"), INTERFACE_LOOK_NATIVE)
@@ -132,7 +132,7 @@ class AppearancePageMixin:
 
         fields = QGridLayout()
         fields.setHorizontalSpacing(14)
-        fields.setVerticalSpacing(10)
+        fields.setVerticalSpacing(20)
         fields.setColumnStretch(0, 1)
         fields.setColumnStretch(1, 1)
         fields.addLayout(self.settings_field(_("Icon theme"), self.icon_theme_combo), 0, 0)
@@ -158,7 +158,7 @@ class AppearancePageMixin:
         row = QHBoxLayout()
         row.setSpacing(16)
         text = QVBoxLayout()
-        text.setSpacing(1)
+        text.setSpacing(3)
         text.addWidget(self.settings_field_title(title))
         hint_label = QLabel(hint)
         hint_label.setObjectName("settingsFieldHint")
@@ -172,7 +172,7 @@ class AppearancePageMixin:
     def settings_field(self, title, control):
         """A bold title above its control."""
         field = QVBoxLayout()
-        field.setSpacing(8)
+        field.setSpacing(10)
         title_label = self.settings_field_title(title)
         title_label.setBuddy(control)
         field.addWidget(title_label)

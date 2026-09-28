@@ -34,12 +34,12 @@ class SessionsPageMixin:
         page = QWidget()
         layout = QVBoxLayout(page)
         layout.setContentsMargins(0, 0, 0, 0)
-        layout.setSpacing(10)
+        layout.setSpacing(20)
 
         startup_box = QGroupBox(_("Session restore behavior on startup"))
         startup_layout = QVBoxLayout(startup_box)
-        startup_layout.setContentsMargins(12, 10, 12, 12)
-        startup_layout.setSpacing(8)
+        startup_layout.setContentsMargins(14, 14, 14, 16)
+        startup_layout.setSpacing(12)
         self.restore_session_always_radio = QRadioButton(_("Always restore previous session"))
         self.restore_session_unsaved_radio = QRadioButton(
             _("Only restore if unsaved changes are detected")
@@ -69,8 +69,8 @@ class SessionsPageMixin:
 
         box = QGroupBox(_("Unsaved Files"))
         box_layout = QVBoxLayout(box)
-        box_layout.setContentsMargins(12, 10, 12, 12)
-        box_layout.setSpacing(8)
+        box_layout.setContentsMargins(14, 14, 14, 16)
+        box_layout.setSpacing(12)
 
         self.swap_file_enabled_check = QCheckBox(_("Back up unsaved files to swap files"))
         self.swap_file_enabled_check.toggled.connect(

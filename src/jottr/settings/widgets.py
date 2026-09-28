@@ -180,7 +180,7 @@ class ThemeSwatchGrid(QWidget):
         layout = QGridLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setHorizontalSpacing(10)
-        layout.setVerticalSpacing(10)
+        layout.setVerticalSpacing(16)
         self._group = QButtonGroup(self)
         self._group.setExclusive(True)
         self._names = []

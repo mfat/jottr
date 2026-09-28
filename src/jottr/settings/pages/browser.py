@@ -31,12 +31,12 @@ class BrowserPageMixin:
         self.browser_settings_page = browser_tab
         layout = QVBoxLayout(browser_tab)
         layout.setContentsMargins(0, 0, 0, 0)
-        layout.setSpacing(10)
+        layout.setSpacing(20)
 
         general_box = QGroupBox(_("General"))
         general_layout = QFormLayout(general_box)
-        general_layout.setContentsMargins(12, 10, 12, 12)
-        general_layout.setSpacing(8)
+        general_layout.setContentsMargins(14, 14, 14, 16)
+        general_layout.setSpacing(12)
         self.search_open_in_combo = QComboBox()
         self.search_open_in_combo.addItem(_("Built-in browser"), "builtin")
         self.search_open_in_combo.addItem(_("Default browser"), "default")
@@ -50,8 +50,8 @@ class BrowserPageMixin:
 
         privacy_box = QGroupBox(_("Privacy"))
         privacy_layout = QVBoxLayout(privacy_box)
-        privacy_layout.setContentsMargins(12, 10, 12, 12)
-        privacy_layout.setSpacing(8)
+        privacy_layout.setContentsMargins(14, 14, 14, 16)
+        privacy_layout.setSpacing(12)
         self.browser_remember_data_check = QCheckBox(
             _("Remember cookies and logins between sessions")
         )
@@ -76,8 +76,8 @@ class BrowserPageMixin:
 
         search_box = QGroupBox(_("Site-Specific Searches"))
         search_layout = QVBoxLayout(search_box)
-        search_layout.setContentsMargins(12, 10, 12, 12)
-        search_layout.setSpacing(8)
+        search_layout.setContentsMargins(14, 14, 14, 16)
+        search_layout.setSpacing(12)
         search_hint = QLabel(
             _("Each site adds a Google search scoped to that site "
               "to the editor's context menu.")

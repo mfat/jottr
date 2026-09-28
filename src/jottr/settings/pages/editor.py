@@ -25,12 +25,12 @@ class EditorPageMixin:
         page = QWidget()
         layout = QVBoxLayout(page)
         layout.setContentsMargins(0, 0, 0, 0)
-        layout.setSpacing(10)
+        layout.setSpacing(20)
 
         tabs_box = QGroupBox(_("Tabs"))
         tabs_layout = QVBoxLayout(tabs_box)
-        tabs_layout.setContentsMargins(12, 10, 12, 12)
-        tabs_layout.setSpacing(8)
+        tabs_layout.setContentsMargins(14, 14, 14, 16)
+        tabs_layout.setSpacing(12)
         self.double_click_empty_tab_bar_new_tab_check = QCheckBox(
             _("Double-click empty tab bar to open a new tab")
         )
@@ -55,8 +55,8 @@ class EditorPageMixin:
 
         markdown_box = QGroupBox(_("Markdown"))
         markdown_layout = QVBoxLayout(markdown_box)
-        markdown_layout.setContentsMargins(12, 10, 12, 12)
-        markdown_layout.setSpacing(8)
+        markdown_layout.setContentsMargins(14, 14, 14, 16)
+        markdown_layout.setSpacing(12)
         self.markdown_preview_on_open_check = QCheckBox(
             _("Show the preview when opening a markdown file")
         )
@@ -81,8 +81,8 @@ class EditorPageMixin:
 
         saving_box = QGroupBox(_("Saving"))
         saving_layout = QFormLayout(saving_box)
-        saving_layout.setContentsMargins(12, 10, 12, 12)
-        saving_layout.setSpacing(8)
+        saving_layout.setContentsMargins(14, 14, 14, 16)
+        saving_layout.setSpacing(12)
         self.save_name_date_check = QCheckBox(_("Add the date to suggested file names"))
         self.save_name_date_check.toggled.connect(self._on_save_name_date_toggled)
         saving_layout.addRow(self.save_name_date_check)
@@ -101,8 +101,8 @@ class EditorPageMixin:
 
         autosave_box = QGroupBox(_("Autosave"))
         autosave_layout = QFormLayout(autosave_box)
-        autosave_layout.setContentsMargins(12, 10, 12, 12)
-        autosave_layout.setSpacing(8)
+        autosave_layout.setContentsMargins(14, 14, 14, 16)
+        autosave_layout.setSpacing(12)
         self.autosave_enabled_check = QCheckBox(_("Automatically save changed files"))
         self.autosave_enabled_check.toggled.connect(self._on_autosave_toggled)
         autosave_layout.addRow(self.autosave_enabled_check)
