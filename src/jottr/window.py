@@ -2834,7 +2834,7 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
         """Show about dialog"""
         about_dialog = QDialog(self)
         about_dialog.setWindowTitle(_("About {APP_NAME}").format(APP_NAME=APP_NAME))
-        about_dialog.setMinimumWidth(400)
+        about_dialog.setMinimumWidth(420)
         app_icon = load_app_icon()
         if not app_icon.isNull():
             about_dialog.setWindowIcon(app_icon)
@@ -2842,56 +2842,75 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
             apply_dialog_window_icon(about_dialog, "about", self.settings_manager)
         
         layout = QVBoxLayout(about_dialog)
-        layout.setSpacing(10)
+        layout.setContentsMargins(40, 36, 40, 24)
+        layout.setSpacing(0)
+
+        palette = about_dialog.palette()
+        muted = palette.color(QPalette.ColorRole.PlaceholderText).name()
+        accent = palette.color(QPalette.ColorRole.Highlight)
+
+        def centered_label(text, parent_layout=layout):
+            label = QLabel(text)
+            label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            parent_layout.addWidget(label)
+            return label
 
         # App icon
         if not app_icon.isNull():
             icon_label = QLabel()
-            icon_label.setPixmap(app_icon.pixmap(64, 64))
+            icon_label.setPixmap(app_icon.pixmap(96, 96))
             icon_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
             layout.addWidget(icon_label)
-        
+            layout.addSpacing(16)
+
         # App name
-        title_label = QLabel(APP_NAME)
-        title_label.setStyleSheet("font-size: 18pt; font-weight: bold;")
-        title_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        layout.addWidget(title_label)
-        
-        # Version
-        version_label = QLabel(_("Version {APP_VERSION}").format(APP_VERSION=APP_VERSION))
-        version_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        layout.addWidget(version_label)
-        
-        # Description
-        desc_label = QLabel(_("A simple text editor for writers, journalists and researchers"))
-        desc_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        layout.addWidget(desc_label)
-        
-        # Add some spacing
-        layout.addSpacing(10)
-        
+        title_label = centered_label(APP_NAME)
+        title_font = QFont(about_dialog.font())
+        title_font.setPointSizeF(title_font.pointSizeF() * 1.8)
+        title_font.setWeight(QFont.Weight.Bold)
+        title_label.setFont(title_font)
+        layout.addSpacing(4)
+
         # Developer
-        dev_label = QLabel(_("Developed by mFat"))
-        dev_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        layout.addWidget(dev_label)
-        
-        # License
-        license_label = QLabel(_("Licensed under GNU GPL v3.0"))
-        license_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        layout.addWidget(license_label)
-        
-        # Homepage link
-        link_label = QLabel(_('<a href="{APP_HOMEPAGE}">Project Homepage</a>').format(APP_HOMEPAGE=APP_HOMEPAGE))
+        dev_label = centered_label(_("Developed by mFat"))
+        dev_label.setStyleSheet(f"color: {muted};")
+        layout.addSpacing(14)
+
+        # Version, as an accent-tinted pill
+        version_row = QHBoxLayout()
+        version_row.addStretch()
+        version_label = QLabel(_("Version {APP_VERSION}").format(APP_VERSION=APP_VERSION))
+        version_label.setStyleSheet(
+            f"color: {accent.name()};"
+            f"background: rgba({accent.red()}, {accent.green()}, {accent.blue()}, 38);"
+            "border-radius: 13px; padding: 4px 14px; font-weight: 600;"
+        )
+        version_row.addWidget(version_label)
+        version_row.addStretch()
+        layout.addLayout(version_row)
+        layout.addSpacing(20)
+
+        # Description
+        centered_label(_("A simple text editor for writers, journalists and researchers"))
+        layout.addSpacing(20)
+
+        # Homepage link and license
+        link_label = centered_label(
+            _('<a href="{APP_HOMEPAGE}">Project Homepage</a>').format(APP_HOMEPAGE=APP_HOMEPAGE)
+        )
         link_label.setOpenExternalLinks(True)
-        link_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        layout.addWidget(link_label)
-        
+        layout.addSpacing(4)
+        license_label = centered_label(_("Licensed under GNU GPL v3.0"))
+        license_label.setStyleSheet(f"color: {muted};")
+        layout.addSpacing(28)
+        layout.addStretch()
+
         # Add button box
         button_box = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok)
         button_box.accepted.connect(about_dialog.accept)
         button_box.setCenterButtons(True)  # Center the OK button
         layout.addWidget(button_box)
-        
+
         about_dialog.exec()
 
     def toggle_focus_mode(self):

@@ -828,8 +828,8 @@ class DialogTests(unittest.TestCase):
         labels = dialog.findChildren(QLabel)
         icon_labels = [lbl for lbl in labels if not lbl.pixmap().isNull()]
         self.assertEqual(len(icon_labels), 1)
-        self.assertEqual(icon_labels[0].pixmap().size().width(), 64)
-        self.assertEqual(icon_labels[0].pixmap().size().height(), 64)
+        self.assertEqual(icon_labels[0].pixmap().size().width(), 96)
+        self.assertEqual(icon_labels[0].pixmap().size().height(), 96)
 
         button_box = dialog.findChild(QDialogButtonBox)
         self.assertIsNotNone(button_box)
