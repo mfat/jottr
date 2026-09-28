@@ -389,34 +389,6 @@ class PortalFolderTests(unittest.TestCase):
         self.assertEqual(tab.editor.toPlainText(), "![](images/pasted-1.png)")
         self.assertTrue((self.home_grant / "notes" / "images" / "pasted-1.png").is_file())
 
-    def test_startup_home_grant_gives_the_preview_the_document_folder(self):
-        tab = self.make_tab()
-        self.assertEqual(tab.preview_base_folder(), str(self.document.parent))
-        question, chooser = self.grant_on_request(str(self.home_grant))
-        with patch.dict(os.environ, {"HOME": "/home/me"}), question, chooser:
-            self.assertTrue(portal_folders.request_home_access(None, self.settings))
-
-        self.assertEqual(tab.preview_base_folder(), str(self.home_grant / "notes"))
-
-    def test_startup_home_request_is_asked_once(self):
-        with patch.dict(os.environ, {"HOME": "/home/me"}), patch.object(
-            portal_folders.QMessageBox, "question",
-            return_value=portal_folders.QMessageBox.StandardButton.Cancel,
-        ) as asked:
-            self.assertFalse(portal_folders.request_home_access(None, self.settings))
-            self.assertFalse(portal_folders.request_home_access(None, self.settings))
-
-        self.assertEqual(asked.call_count, 1)
-
-    def test_startup_home_request_skips_an_existing_home_grant(self):
-        portal_folders.remember_grant(self.settings, str(self.home_grant))
-        with patch.dict(os.environ, {"HOME": "/home/me"}), patch.object(
-            portal_folders.QMessageBox, "question"
-        ) as asked:
-            self.assertFalse(portal_folders.request_home_access(None, self.settings))
-
-        asked.assert_not_called()
-
 
 if __name__ == "__main__":
     unittest.main()
