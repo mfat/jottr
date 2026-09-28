@@ -34,8 +34,8 @@ def _scaled(font, factor, weight=None):
 class PluginCardDelegate(QStyledItemDelegate):
     """Paints each plugin row as a card: avatar, name and status, description, meta.
 
-    Organic fills the selected card with the accent; Native uses the palette
-    highlight like any list row. Colors come from
+    Organic fills the selected card with the soft accent and rings it; Native
+    uses the palette highlight like any list row. Colors come from
     *tokens_for*, a callable returning ThemeManager.chrome_tokens.
     """
 
@@ -111,12 +111,9 @@ class PluginCardDelegate(QStyledItemDelegate):
         ink, muted, faint = t["ink"], t["muted"], t["faint"]
         avatar_fill, avatar_ink = t["code"], t["muted"]
         if selected and organic:
-            fill = t["act"]
-            ink = t["on_act"]
-            muted, faint = QColor(ink), QColor(ink)
-            muted.setAlphaF(0.85)
-            faint.setAlphaF(0.7)
-            avatar_fill, avatar_ink = ink, fill
+            fill = t["act_soft"]
+            ink, muted, faint = t["act_ink"], t["ink"], t["muted"]
+            avatar_fill, avatar_ink = t["act"], t["on_act"]
         elif selected:
             fill = palette.color(QPalette.ColorRole.Highlight)
             ink = muted = faint = palette.color(QPalette.ColorRole.HighlightedText)
@@ -129,6 +126,11 @@ class PluginCardDelegate(QStyledItemDelegate):
             painter.setPen(Qt.PenStyle.NoPen)
             painter.setBrush(fill)
             painter.drawRoundedRect(rect, radius, radius)
+        if selected and organic:
+            painter.setPen(QPen(t["act"], 1.5))
+            painter.setBrush(Qt.BrushStyle.NoBrush)
+            painter.drawRoundedRect(rect.adjusted(0.75, 0.75, -0.75, -0.75),
+                                    radius - 0.75, radius - 0.75)
 
         # Avatar.
         avatar = QRectF(rect.left() + _PAD - 1, rect.top() + _PAD - 1, _AVATAR, _AVATAR)
@@ -164,7 +166,7 @@ class PluginCardDelegate(QStyledItemDelegate):
             y += max(title_bounds.height(), badge.height()) + _LINE_GAP
         if status:
             self._paint_badge(painter, badge_rect, badge_font, status,
-                              card.get("status_kind", ""), t, ink, selected)
+                              card.get("status_kind", ""), t, ink, selected and not organic)
 
         # Description, then version and channel.
         painter.setFont(desc_font)

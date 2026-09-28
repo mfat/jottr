@@ -323,10 +323,11 @@ def resolve_icon_mode_colors(
 
     from jottr.theme_manager import ThemeManager
 
-    theme = ThemeManager.get_ui_theme(settings_manager.get_ui_theme())
-    # The ink of accent fills when no widget palette is available.
-    selected = ThemeManager.chrome_tokens(theme)["on_act"].name()
-    return selected, theme["app"]["muted"]
+    app = ThemeManager.get_ui_theme(settings_manager.get_ui_theme())["app"]
+    accent = QColor(app["accent"])
+    # Flat white/black on accent chips when no widget palette is available.
+    selected = "#1a1a1a" if accent.lightnessF() >= 0.55 else "#ffffff"
+    return selected, app["muted"]
 
 
 def themed_symbolic_icon(
