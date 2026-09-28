@@ -9,7 +9,7 @@ from urllib.parse import quote
 
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QSplitter, QTextEdit, QListWidget,
-    QInputDialog, QMenu, QDialog, QToolBar, QCompleter,
+    QMenu, QDialog, QToolBar, QCompleter,
     QListWidgetItem, QLineEdit, QPushButton, QMessageBox, QLabel, QToolTip,
     QGraphicsOpacityEffect, QWIDGETSIZE_MAX, QApplication,
 )
@@ -24,6 +24,7 @@ from PyQt6.QtGui import (
 )
 
 from jottr.icon_manager import themed_symbolic_icon
+from jottr.ui.text_prompt import ask_text
 from jottr.ui.workspace import PanelListWidget
 from jottr.snippet_editor_dialog import SnippetEditorDialog
 from jottr.theme_manager import ThemeManager
@@ -1066,7 +1067,7 @@ class EditorTab(
 
     def save_snippet(self, text):
         """Save selected text as a snippet"""
-        title, ok = QInputDialog.getText(self, _("Save Snippet"), _("Enter snippet title:"))
+        title, ok = ask_text(self, _("Save Snippet"), _("Enter snippet title:"))
         if ok and title:
             self.snippet_manager.add_snippet(title, text)
             self.update_snippet_list()

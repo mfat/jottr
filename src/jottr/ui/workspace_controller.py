@@ -6,12 +6,13 @@ from PyQt6.QtCore import Qt, QDir, QUrl
 from PyQt6.QtGui import QActionGroup, QDesktopServices
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QLabel, QMenu,
-    QMessageBox, QInputDialog, QApplication,
+    QMessageBox, QApplication,
 )
 
 from jottr.translation_manager import _
 from jottr.icon_manager import ask_themed_question
 from jottr.file_dialogs import get_existing_directory
+from jottr.ui.text_prompt import ask_text
 from jottr.ui.workspace import WorkspaceFileSystemModel, WorkspaceTitleButton, WorkspaceTreeView
 
 
@@ -635,7 +636,7 @@ class WorkspaceControllerMixin:
             if not self.workspace_path:
                 return
         directory = self.selected_workspace_directory()
-        name, ok = QInputDialog.getText(self, _("New File"), _("File name:"))
+        name, ok = ask_text(self, _("New File"), _("File name:"))
         if not ok or not name.strip():
             return
         target = os.path.abspath(os.path.join(directory, name.strip()))
@@ -662,7 +663,7 @@ class WorkspaceControllerMixin:
             if not self.workspace_path:
                 return
         directory = self.selected_workspace_directory()
-        name, ok = QInputDialog.getText(self, _("New Folder"), _("Folder name:"))
+        name, ok = ask_text(self, _("New Folder"), _("Folder name:"))
         if not ok or not name.strip():
             return
         target = os.path.abspath(os.path.join(directory, name.strip()))
@@ -683,7 +684,7 @@ class WorkspaceControllerMixin:
             return
         if path == os.path.abspath(self.workspace_path):
             return
-        name, ok = QInputDialog.getText(
+        name, ok = ask_text(
             self,
             _("Rename"),
             _("New name:"),

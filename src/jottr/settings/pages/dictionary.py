@@ -2,10 +2,11 @@
 from PyQt6.QtCore import Qt
 from PyQt6.QtWidgets import (
     QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QListWidget,
-    QWidget, QCheckBox, QGroupBox, QFormLayout, QInputDialog,
+    QWidget, QCheckBox, QGroupBox, QFormLayout,
 )
 
 from jottr.editor.spellcheck import list_available_spell_languages
+from jottr.ui.text_prompt import ask_text
 from jottr.translation_manager import _, format_language_label
 
 
@@ -130,7 +131,7 @@ class DictionaryPageMixin:
     def add_dict_word(self, word=None):
         """Add a word to the user dictionary (prompts when no word is given)."""
         if word is None:
-            word, ok = QInputDialog.getText(self, _("Add Word"), _("Enter word:"))
+            word, ok = ask_text(self, _("Add Word"), _("Enter word:"))
             if not ok:
                 return
         word = (word or "").strip()

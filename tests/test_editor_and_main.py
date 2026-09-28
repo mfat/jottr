@@ -3935,7 +3935,7 @@ class EditorAndMainTests(unittest.TestCase):
             self.addCleanup(window.deleteLater)
             window.set_workspace_path(str(workspace))
 
-            with patch("jottr.ui.workspace_controller.QInputDialog.getText", return_value=("draft.txt", True)):
+            with patch("jottr.ui.workspace_controller.ask_text", return_value=("draft.txt", True)):
                 window.create_workspace_file()
 
             target = workspace / "draft.txt"
@@ -4068,7 +4068,7 @@ class EditorAndMainTests(unittest.TestCase):
             window.set_workspace_path(str(workspace))
             window.open_file(str(note))
 
-            with patch("jottr.ui.workspace_controller.QInputDialog.getText", return_value=("new.md", True)):
+            with patch("jottr.ui.workspace_controller.ask_text", return_value=("new.md", True)):
                 window.rename_workspace_item(str(note))
 
             renamed = workspace / "new.md"
@@ -4118,6 +4118,29 @@ class EditorAndMainTests(unittest.TestCase):
                 if getattr(window.tab_widget.widget(index), "current_file", None)
             ]
             self.assertEqual(open_files, [])
+
+    def test_text_prompt_is_wide_enough_for_names(self):
+        from PyQt6.QtWidgets import QInputDialog, QLineEdit
+        from jottr.ui import text_prompt
+
+        shown = []
+
+        def fake_exec(dialog):
+            shown.append(dialog)
+            dialog.setTextValue("draft.md")
+            return QInputDialog.DialogCode.Accepted
+
+        with patch.object(QInputDialog, "exec", fake_exec):
+            result = text_prompt.ask_text(None, "New File", "File name:")
+
+        self.assertEqual(result, ("draft.md", True))
+        dialog = shown[0]
+        self.assertEqual(dialog.windowTitle(), "New File")
+        field = dialog.findChild(QLineEdit)
+        self.assertGreaterEqual(
+            field.minimumWidth(),
+            field.fontMetrics().averageCharWidth() * text_prompt.PROMPT_WIDTH_CHARS,
+        )
 
     def test_workspace_display_label_disambiguates_shared_basenames(self):
         class FakeEditorTab(QWidget):
