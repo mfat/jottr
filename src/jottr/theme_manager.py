@@ -807,6 +807,7 @@ class ThemeManager:
                 background-color: {editor_theme['background']};
                 color: {editor_theme['foreground']};
                 selection-background-color: {editor_theme['selection']};
+                selection-color: {editor_theme['foreground']};
                 border: none;
                 border-radius: {radius}px;
                 padding: 18px 22px;
