@@ -1004,8 +1004,13 @@ class ThemeManager:
                 padding: 5px 11px;
                 border-radius: 11px;
             }}
-            QMenuBar::item:selected, QMenuBar::item:pressed {{
+            QMenuBar::item:selected {{
                 background: {t['hover']};
+            }}
+            /* The open menu's title matches its highlighted items. */
+            QMenuBar::item:pressed {{
+                background: {t['act_soft']};
+                color: {t['act_ink']};
             }}
             QMenu {{
                 background: {t['pane']};
@@ -1019,8 +1024,10 @@ class ThemeManager:
                 padding: 7px 28px 7px 12px;
                 border-radius: 10px;
             }}
+            /* Highlighted menu and dropdown items take the accent. */
             QMenu::item:selected {{
-                background: {t['hover']};
+                background: {t['act_soft']};
+                color: {t['act_ink']};
             }}
             QMenu::item:disabled {{
                 color: {t['faint']};
@@ -1256,8 +1263,8 @@ class ThemeManager:
                 background: {t['pane']};
                 color: {t['ink']};
                 border: 1px solid {t['line']};
-                selection-background-color: {t['hover']};
-                selection-color: {t['ink']};
+                selection-background-color: {t['act_soft']};
+                selection-color: {t['act_ink']};
                 outline: 0;
             }}
             QStatusBar#statusBar {{
