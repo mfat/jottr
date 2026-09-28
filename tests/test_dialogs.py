@@ -566,8 +566,20 @@ class DialogTests(unittest.TestCase):
         keys = [control.itemData(i) for i in range(control.count())]
         # The design's three accents, more besides, and each look's own default.
         self.assertEqual(keys[0], "default")
-        for key in ("terracotta", "orange", "sage", "ink", "ocean", "plum"):
+        for key in ("terracotta", "orange", "clay", "marigold", "sage", "ink", "ocean", "plum"):
             self.assertIn(key, keys)
+        # Clay's light ramp is exact, including its hover and button text.
+        clay = ThemeManager.apply_accent(ThemeManager.organic_theme(False), "clay", False)["organic"]
+        self.assertEqual(
+            (clay["act"], clay["act_hover"], clay["act_soft"], clay["act_ink"], clay["on_act"]),
+            ("#a4552d", "#884423", "#e9d3c2", "#5c2c14", "#fffaf3"),
+        )
+        marigold = ThemeManager.apply_accent(ThemeManager.organic_theme(True), "marigold", True)["organic"]
+        self.assertEqual(
+            (marigold["act"], marigold["act_hover"], marigold["act_soft"],
+             marigold["act_ink"], marigold["on_act"]),
+            ("#eba24a", "#f2b76b", "rgba(235, 162, 74, 56)", "#f8d8a8", "#2e2b25"),
+        )
         self.assertEqual(control.currentData(), "default")
 
         default_native = ThemeManager.get_ui_theme("Light")["app"]["accent"]

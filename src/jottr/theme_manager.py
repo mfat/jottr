@@ -21,14 +21,28 @@ class ThemeManager:
     _interface_look = "native"
 
     # Accent Color published by SettingsManager: "default" keeps each look's
-    # own accent; the others are (label, main, soft, bright, deep) ramps. The
-    # first three come from the Organic design; light schemes use main, soft
+    # own accent; the others are (label, main, soft, bright, deep) ramps, with
+    # an optional {"light": {...}, "dark": {...}} of exact act, hover, soft,
+    # ink and on_act colors that replace the derived ones. Terracotta,
+    # Sage and Ink come from the Organic design; light schemes use main, soft
     # and deep, dark schemes the bright step and translucent fills of it.
     _accent = "default"
     ACCENT_DEFAULT = "default"
     ACCENTS = {
         "terracotta": ("Terracotta", "#c67139", "#ffe1d0", "#f6a06b", "#643312"),
         "orange": ("Orange", "#d2690f", "#ffe3c4", "#f5a04a", "#6b3408"),
+        "clay": ("Clay", "#a4552d", "#e9d3c2", "#d6916a", "#5c2c14", {
+            "light": {"act": "#a4552d", "hover": "#884423", "soft": "#e9d3c2",
+                      "ink": "#5c2c14", "on_act": "#fffaf3"},
+            "dark": {"act": "#d6916a", "hover": "#e3a986", "soft": "rgba(214, 145, 106, 56)",
+                     "ink": "#f1cbb3", "on_act": "#2e2b25"},
+        }),
+        "marigold": ("Marigold", "#b0650f", "#f1dcb8", "#eba24a", "#5e3406", {
+            "light": {"act": "#b0650f", "hover": "#93530a", "soft": "#f1dcb8",
+                      "ink": "#5e3406", "on_act": "#fffaf3"},
+            "dark": {"act": "#eba24a", "hover": "#f2b76b", "soft": "rgba(235, 162, 74, 56)",
+                     "ink": "#f8d8a8", "on_act": "#2e2b25"},
+        }),
         "sage": ("Sage", "#7a8a5e", "#e1eecc", "#aebf92", "#3d472b"),
         "ink": ("Ink", "#2e2b25", "#eee7db", "#f9f4ed", "#2e2b25"),
         "ocean": ("Ocean", "#3f6f9e", "#d6e4f2", "#7fa7d0", "#1f3a56"),
@@ -617,7 +631,7 @@ class ThemeManager:
                 return QColor(ThemeManager.ORGANIC_THEMES["Dark" if dark else "Light"]["organic"]["act"])
             name = ThemeManager.normalize_editor_theme_name("Dark" if dark else "Light")
             return QColor(ThemeManager.get_theme(name)["app"]["accent"])
-        _label, main, _soft, bright, _deep = ThemeManager.ACCENTS[accent]
+        _label, main, _soft, bright, _deep, *_extra = ThemeManager.ACCENTS[accent]
         return QColor(bright if dark else main)
 
     @staticmethod
@@ -626,7 +640,8 @@ class ThemeManager:
         accent = ThemeManager.normalize_accent(accent)
         if accent == ThemeManager.ACCENT_DEFAULT:
             return theme
-        _label, main, soft, bright, deep = ThemeManager.ACCENTS[accent]
+        _label, main, soft, bright, deep, *extra = ThemeManager.ACCENTS[accent]
+        exact = (extra[0] if extra else {}).get("dark" if dark else "light", {})
         theme = deepcopy(theme)
         app = theme["app"]
 
@@ -635,21 +650,26 @@ class ThemeManager:
             return f"rgba({c.red()}, {c.green()}, {c.blue()}, {alpha})"
 
         def blend(color, over, amount):
-            a, b = QColor(color), QColor(over)
+            a, b = ThemeManager.css_color(color), QColor(over)
             mix = lambda x, y: round(x * amount + y * (1 - amount))
             return QColor(mix(a.red(), b.red()), mix(a.green(), b.green()),
                           mix(a.blue(), b.blue())).name()
 
         if dark:
-            act, act_hover = bright, QColor(bright).lighter(110).name()
-            act_soft, act_ink = rgba(bright, 61), soft
-            selection = rgba(bright, 82)
-            surface_active = blend(bright, app["background"], 0.24)
+            act = exact.get("act", bright)
+            act_hover = exact.get("hover") or QColor(act).lighter(110).name()
+            act_soft = exact.get("soft") or rgba(act, 61)
+            act_ink = exact.get("ink", soft)
+            selection = rgba(act, 82)
+            fill = ThemeManager.css_color(act_soft).alphaF() if exact.get("soft") else 0.24
+            surface_active = blend(act, app["background"], fill)
         else:
-            act, act_hover = main, QColor(main).darker(115).name()
-            act_soft, act_ink = soft, deep
-            selection = soft
-            surface_active = soft
+            act = exact.get("act", main)
+            act_hover = exact.get("hover") or QColor(act).darker(115).name()
+            act_soft = exact.get("soft", soft)
+            act_ink = exact.get("ink", deep)
+            selection = act_soft
+            surface_active = act_soft
         app.update({
             "accent": act, "border_active": act,
             "surface_active": surface_active, "accent_text": act_ink,
@@ -660,6 +680,8 @@ class ThemeManager:
                 "act": act, "act_hover": act_hover, "act_soft": act_soft,
                 "act_ink": act_ink, "selection": selection,
             })
+            if exact.get("on_act"):
+                tokens["on_act"] = exact["on_act"]
         return theme
 
     @staticmethod
