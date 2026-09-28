@@ -45,7 +45,13 @@ class MarkdownPreviewMixin:
     # pane holds its fade for this long, so text appears once the pane has
     # settled rather than sliding around while it moves.
     markdown_preview_reveal_duration_ms = 260
-    rendered_preview_signature = None
+    # The page is loaded once and then updated in place, like Qt's Markdown
+    # Editor example: only a change to its shell (styles, fonts, base folder,
+    # plugin output) loads it again. These track the shell requested, the
+    # shell actually showing, and the rendered document inside it.
+    requested_preview_shell_signature = None
+    loaded_preview_shell_signature = None
+    rendered_preview_body_html = None
 
     def ensure_markdown_preview(self):
         """Create the Chromium markdown preview on first use."""
@@ -92,7 +98,7 @@ class MarkdownPreviewMixin:
             page.setBackgroundColor(QColor("#ffffff"))
         view.installEventFilter(self)
         if hasattr(view, "loadFinished"):
-            view.loadFinished.connect(self.render_markdown_preview_scripts)
+            view.loadFinished.connect(self.markdown_preview_load_finished)
 
         if container is not None and placeholder is not None:
             container.layout().replaceWidget(placeholder, view)
@@ -262,32 +268,31 @@ class MarkdownPreviewMixin:
         else:
             content_base_url = QUrl.fromLocalFile(os.getcwd() + os.sep).toString()
 
+        body_html = self.render_markdown_body_html(self.editor.toPlainText())
+        fade_hold_ms = (
+            self.markdown_preview_reveal_duration_ms
+            if fade_in and self.animations_enabled() else 0
+        )
+        shell_signature = self.markdown_preview_signature(
+            self.wrap_markdown_preview_html("", content_base_url)
+        )
+        if self.markdown_preview_shows_shell(shell_signature):
+            self.replace_markdown_preview_body(body_html, fade_in, fade_hold_ms)
+            return
+
         def render_preview(scroll_ratio):
             try:
                 scroll_ratio = max(0.0, min(1.0, float(scroll_ratio)))
             except (TypeError, ValueError):
                 scroll_ratio = self.get_editor_scroll_ratio()
 
-            preview_html = self.render_markdown_html(
-                self.editor.toPlainText(),
+            preview_html = self.wrap_markdown_preview_html(
+                body_html,
                 content_base_url,
                 initial_scroll_ratio=scroll_ratio,
                 fade_in=fade_in,
-                fade_hold_ms=(
-                    self.markdown_preview_reveal_duration_ms
-                    if fade_in and self.animations_enabled() else 0
-                ),
+                fade_hold_ms=fade_hold_ms,
             )
-            signature = self.markdown_preview_signature(preview_html)
-            if fade_in and signature == self.rendered_preview_signature:
-                # Reopening an unchanged document: the page already shows it,
-                # so leave it alone instead of reloading and fading it back in.
-                # Any fade still owed from that load is settled as usual. It
-                # keeps the scroll position it was closed at, so line it back
-                # up with the editor the way a fresh render would.
-                self.pending_preview_source_line = self.get_editor_top_visible_line()
-                QTimer.singleShot(0, self.sync_markdown_preview_scroll)
-                return
 
             if fade_in:
                 # Blank the outgoing page so the pane opens empty rather than
@@ -297,7 +302,9 @@ class MarkdownPreviewMixin:
                 )
 
             self.write_markdown_preview_file(preview_html)
-            self.rendered_preview_signature = signature
+            self.requested_preview_shell_signature = shell_signature
+            self.loaded_preview_shell_signature = None
+            self.rendered_preview_body_html = body_html
             self.markdown_preview_loading = True
             self.markdown_preview.load(QUrl.fromLocalFile(self.markdown_preview_file))
 
@@ -334,9 +341,50 @@ class MarkdownPreviewMixin:
         with open(self.markdown_preview_file, 'w', encoding='utf-8') as preview_file:
             preview_file.write(preview_html)
 
+    def markdown_preview_shows_shell(self, shell_signature):
+        """True when the page has loaded this shell and is still showing it."""
+        if (shell_signature != self.loaded_preview_shell_signature or
+                self.markdown_preview_loading):
+            return False
+        # A followed link leaves the page; the document is never handed to
+        # whatever it shows instead.
+        url = self.markdown_preview.url()
+        return (url.adjusted(QUrl.UrlFormattingOption.RemoveFragment) ==
+                QUrl.fromLocalFile(self.markdown_preview_file))
+
+    def replace_markdown_preview_body(self, body_html, fade_in=False, fade_hold_ms=0):
+        """Swap the rendered document into the loaded page without reloading it."""
+        if fade_in:
+            # Reopening the pane: the page kept the scroll position it was
+            # closed at, so line it back up with the editor.
+            self.pending_preview_source_line = self.get_editor_top_visible_line()
+        if body_html == self.rendered_preview_body_html:
+            if fade_in:
+                QTimer.singleShot(0, self.sync_markdown_preview_scroll)
+            return
+
+        if fade_in:
+            self.preview_sync_after_load = True
+        self.rendered_preview_body_html = body_html
+        self.markdown_preview_loading = True
+        self.markdown_preview.page().runJavaScript(
+            "window.__jottrReplacePreviewBody(%s, %s, %s);" % (
+                json.dumps(body_html), json.dumps(bool(fade_in)), json.dumps(int(fade_hold_ms))
+            ),
+            lambda _result: self.render_markdown_preview_scripts()
+        )
+
+    def markdown_preview_load_finished(self, ok=True):
+        """Note which shell the page now shows, then run its render scripts."""
+        self.loaded_preview_shell_signature = (
+            self.requested_preview_shell_signature if ok else None
+        )
+        self.render_markdown_preview_scripts()
+
     def render_markdown_preview_scripts(self, *args):
         """Run preview scripts that need the WebEngine page to finish loading."""
         if not getattr(self, "_markdown_preview_ready", False) or not self.markdown_preview_visible:
+            self.markdown_preview_loading = False
             return
 
         script = """
@@ -562,12 +610,20 @@ class MarkdownPreviewMixin:
 
     def render_markdown_html(self, text, content_base_url="", initial_scroll_ratio=None,
                              fade_in=False, fade_hold_ms=0):
-        """Render a practical markdown subset with stable heading and code styling."""
-        if MARKDOWN_LIB_AVAILABLE:
-            return self.render_markdown_html_with_library(
-                text, content_base_url, initial_scroll_ratio, fade_in, fade_hold_ms
-            )
+        """Render markdown as a complete preview page."""
+        return self.wrap_markdown_preview_html(
+            self.render_markdown_body_html(text),
+            content_base_url, initial_scroll_ratio, fade_in, fade_hold_ms
+        )
 
+    def render_markdown_body_html(self, text):
+        """Render markdown as the HTML that goes inside the preview page."""
+        if MARKDOWN_LIB_AVAILABLE:
+            return self.render_markdown_body_html_with_library(text)
+        return self.render_markdown_body_html_builtin(text)
+
+    def render_markdown_body_html_builtin(self, text):
+        """Render a practical markdown subset with stable heading and code styling."""
         body = []
         paragraph = []
         paragraph_lines = []
@@ -984,122 +1040,7 @@ class MarkdownPreviewMixin:
             body.append(render_display_math(math_start_line or 1, chr(10).join(math_lines)))
         flush_paragraph()
         close_list()
-
-        preview_font = self.preview_font()
-        preview_family = self.css_font_family(preview_font)
-        font_face_css = bundled_font_face_css()
-        preview_size = max(8, preview_font.pointSize() if preview_font.pointSize() > 0 else 14)
-
-        return f"""
-        <html>
-        <head>
-            <style>
-                {font_face_css}
-                body {{
-                    color: #202124;
-                    font-family: "{preview_family}", "Segoe UI", sans-serif;
-                    font-size: {preview_size}pt;
-                    line-height: 1.55;
-                    margin: 18px;
-                }}
-                h1, h2, h3, h4, h5, h6 {{
-                    color: #111827;
-                    font-weight: 700;
-                    margin: 1.1em 0 0.45em;
-                }}
-                h1 {{ font-size: 30px; border-bottom: 1px solid #d8dee4; padding-bottom: 6px; }}
-                h2 {{ font-size: 24px; border-bottom: 1px solid #d8dee4; padding-bottom: 4px; }}
-                h3 {{ font-size: 20px; }}
-                h4 {{ font-size: 17px; }}
-                h5 {{ font-size: 15px; }}
-                h6 {{ font-size: 14px; color: #57606a; }}
-                p {{ margin: 0 0 0.8em; }}
-                pre {{
-                    background: #f6f8fa;
-                    border: 1px solid #d0d7de;
-                    border-radius: 0px;
-                    padding: 12px;
-                    white-space: pre-wrap;
-                    margin: 0.9em 0;
-                }}
-                code {{
-                    font-family: "{preview_family}", "Consolas", monospace;
-                    background: #f6f8fa;
-                    border-radius: 0px;
-                    padding: 2px 4px;
-                }}
-                pre code {{ background: transparent; padding: 0; }}
-                .source-code-line {{
-                    display: block;
-                    min-height: 1.55em;
-                }}
-                blockquote {{
-                    border-left: 4px solid #d0d7de;
-                    color: #57606a;
-                    margin: 0.8em 0;
-                    padding-left: 12px;
-                }}
-                ul, ol {{ margin: 0.4em 0 0.8em 1.4em; }}
-                li {{ margin: 0.2em 0; }}
-                .task-list-item-checkbox {{
-                    margin-right: 0.45em;
-                    vertical-align: -0.1em;
-                }}
-                a {{ color: #0969da; }}
-                table {{
-                    border-collapse: collapse;
-                    margin: 1em 0;
-                    width: 100%;
-                    overflow: hidden;
-                }}
-                th, td {{
-                    border: 1px solid #d0d7de;
-                    padding: 6px 10px;
-                    vertical-align: top;
-                }}
-                th {{
-                    background: #f6f8fa;
-                    font-weight: 700;
-                }}
-                tr:nth-child(even) td {{
-                    background: #fbfbfc;
-                }}
-                img {{
-                    display: block;
-                    max-width: 100%;
-                    height: auto;
-                    margin: 0.8em 0;
-                }}
-                .math-inline {{
-                    white-space: nowrap;
-                }}
-                .math-block {{
-                    margin: 1em 0;
-                    overflow-x: auto;
-                }}
-            </style>
-            <script>
-                window.MathJax = {{
-                    tex: {{
-                        inlineMath: [['\\\\(', '\\\\)']],
-                        displayMath: [['\\\\[', '\\\\]']],
-                        processEscapes: true
-                    }},
-                    svg: {{
-                        fontCache: 'global'
-                    }},
-                    startup: {{
-                        typeset: false
-                    }}
-                }};
-            </script>
-            <script async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js"></script>
-        </head>
-        <body>
-            {''.join(body)}
-        </body>
-        </html>
-        """
+        return "".join(body)
 
     @staticmethod
     def split_table_row(row):
@@ -1130,8 +1071,7 @@ class MarkdownPreviewMixin:
         cells.append(''.join(current).strip())
         return cells
 
-    def render_markdown_html_with_library(self, text, content_base_url="", initial_scroll_ratio=None,
-                                          fade_in=False, fade_hold_ms=0):
+    def render_markdown_body_html_with_library(self, text):
         """Render markdown using Python-Markdown with local preview enhancements."""
         import markdown as markdown_lib
 
@@ -1153,11 +1093,7 @@ class MarkdownPreviewMixin:
         )
         body_html = self.apply_markdown_extensions(body_html)
         body_html = self.add_source_line_anchors(body_html, text)
-        body_html = self.add_code_line_anchors(body_html)
-
-        return self.wrap_markdown_preview_html(
-            body_html, content_base_url, initial_scroll_ratio, fade_in, fade_hold_ms
-        )
+        return self.add_code_line_anchors(body_html)
 
     def markdown_extensions(self):
         manager = getattr(getattr(self, "main_window", None), "plugin_manager", None)
@@ -1574,6 +1510,37 @@ class MarkdownPreviewMixin:
                 document.addEventListener('DOMContentLoaded', window.__jottrRestoreInitialPreviewScroll);
                 window.addEventListener('load', window.__jottrRestoreInitialPreviewScroll);
                 setTimeout(window.__jottrRestoreInitialPreviewScroll, 450);
+                // Later renders swap the document in here instead of loading
+                // the page again, which keeps its scroll position, scripts,
+                // and fonts. Plugin body scripts run again over each new
+                // render, as they would after a load, and can also listen
+                // for the jottr-preview-updated event.
+                window.__jottrReplacePreviewBody = function (bodyHtml, fadeIn, fadeHoldMs) {{
+                    var root = document.documentElement;
+                    var content = document.getElementById('jottr-preview-content');
+                    if (fadeIn) {{
+                        root.classList.add('jottr-preview-fade-in');
+                    }}
+                    if (window.MathJax && window.MathJax.typesetClear) {{
+                        window.MathJax.typesetClear([content]);
+                    }}
+                    content.innerHTML = bodyHtml;
+                    var extensions = document.getElementById('jottr-preview-extensions');
+                    Array.prototype.forEach.call(extensions.querySelectorAll('script'), function (old) {{
+                        var script = document.createElement('script');
+                        Array.prototype.forEach.call(old.attributes, function (attribute) {{
+                            script.setAttribute(attribute.name, attribute.value);
+                        }});
+                        script.textContent = old.textContent;
+                        old.replaceWith(script);
+                    }});
+                    document.dispatchEvent(new Event('jottr-preview-updated'));
+                    if (fadeIn) {{
+                        setTimeout(function () {{
+                            root.classList.remove('jottr-preview-fade-in');
+                        }}, fadeHoldMs);
+                    }}
+                }};
             </script>
             <style>
                 {font_face_css}
@@ -1716,8 +1683,8 @@ class MarkdownPreviewMixin:
             {extension_head_html}
         </head>
         <body dir="{dir_attr}">
-            {body_html}
-            {extension_body_html}
+            <div id="jottr-preview-content">{body_html}</div>
+            <div id="jottr-preview-extensions">{extension_body_html}</div>
         </body>
         </html>
         """

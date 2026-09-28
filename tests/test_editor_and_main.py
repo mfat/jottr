@@ -16,7 +16,7 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 SRC_ROOT = PROJECT_ROOT / "src"
 sys.path.insert(0, str(SRC_ROOT))
 
-from PyQt6.QtCore import QPoint, QRect, Qt, QEvent
+from PyQt6.QtCore import QPoint, QRect, Qt, QEvent, QUrl
 from PyQt6.QtGui import QColor, QFont, QKeyEvent, QPalette, QTextCharFormat, QTextCursor, QTextDocument
 from PyQt6.QtWidgets import (
     QApplication, QDialog, QFrame, QListWidget, QMessageBox, QMenu, QPushButton, QTabBar, QTextEdit, QWidget,
@@ -67,6 +67,8 @@ class _FakeWebEngineView(QWidget):
         self.loadFinished = _Signal()
         self.html = ""
         self.base_url = None
+        self._url = None
+        self.scripts = []
 
     def setPage(self, page):
         self._page = page
@@ -79,12 +81,17 @@ class _FakeWebEngineView(QWidget):
         self.base_url = base_url
 
     def load(self, url):
-        self.url = url
+        self._url = url
+        self.loadFinished.emit(True)
+
+    def url(self):
+        return self._url or QUrl()
 
     def page(self):
         return self
 
-    def runJavaScript(self, _script, callback=None):
+    def runJavaScript(self, script, callback=None):
+        self.scripts.append(script)
         if callback:
             callback(None)
 
@@ -1193,7 +1200,7 @@ class EditorAndMainTests(unittest.TestCase):
             self.assertEqual(editor.markdown_preview.minimumWidth(), width)
             self.assertFalse(editor.markdown_preview_container.isHidden())
             self.assertEqual(
-                editor.markdown_preview.url.toLocalFile(),
+                editor.markdown_preview.url().toLocalFile(),
                 editor.markdown_preview_file,
             )
             # The page it just wrote starts out invisible and holds its fade
@@ -1211,24 +1218,62 @@ class EditorAndMainTests(unittest.TestCase):
         editor.editor.setPlainText("# Title")
 
         editor.set_markdown_preview_visible(True, save_state=False)
-        first_signature = editor.rendered_preview_signature
-        self.assertIsNotNone(first_signature)
-
         editor.set_markdown_preview_visible(False, save_state=False)
+        scripts = len(editor.markdown_preview.scripts)
         with patch.object(editor.markdown_preview, "load") as load:
             editor.set_markdown_preview_visible(True, save_state=False)
 
         # Nothing changed, so the page it already shows is left alone.
         load.assert_not_called()
-        self.assertEqual(editor.rendered_preview_signature, first_signature)
+        self.assertFalse(any(
+            "__jottrReplacePreviewBody" in script
+            for script in editor.markdown_preview.scripts[scripts:]
+        ))
 
-        editor.set_markdown_preview_visible(False, save_state=False)
+    def test_markdown_preview_updates_loaded_page_in_place(self):
+        editor = self.make_editor()
+        editor.editor.setPlainText("# Title")
+        editor.set_markdown_preview_visible(True, save_state=False)
+
         editor.editor.setPlainText("# Another title")
         with patch.object(editor.markdown_preview, "load") as load:
-            editor.set_markdown_preview_visible(True, save_state=False)
+            editor.update_markdown_preview()
 
-        load.assert_called_once()
-        self.assertNotEqual(editor.rendered_preview_signature, first_signature)
+        # Like Qt's Markdown Editor example, the page stays loaded and only
+        # the rendered document is swapped in.
+        load.assert_not_called()
+        self.assertIn("__jottrReplacePreviewBody", editor.markdown_preview.scripts[-2])
+        self.assertIn("Another title", editor.markdown_preview.scripts[-2])
+        self.assertFalse(editor.markdown_preview_loading)
+
+    def test_markdown_preview_reloads_when_its_shell_changes(self):
+        editor = self.make_editor()
+        editor.editor.setPlainText("# Title")
+        editor.set_markdown_preview_visible(True, save_state=False)
+
+        editor.update_font(QFont("Liberation Serif", 21))
+
+        preview_html = Path(editor.markdown_preview_file).read_text(encoding="utf-8")
+        self.assertIn("font-size: 21pt", preview_html)
+        self.assertIn("Title", preview_html)
+
+    def test_markdown_preview_reloads_after_following_a_link(self):
+        editor = self.make_editor()
+        editor.editor.setPlainText("# Title")
+        editor.set_markdown_preview_visible(True, save_state=False)
+        editor.markdown_preview._url = QUrl("https://example.com/")
+
+        editor.editor.setPlainText("# Private")
+        editor.update_markdown_preview()
+
+        # The document is never handed to a page Jottr did not write.
+        self.assertFalse(any(
+            "Private" in script and "__jottrReplacePreviewBody" in script
+            for script in editor.markdown_preview.scripts
+        ))
+        self.assertEqual(
+            editor.markdown_preview.url().toLocalFile(), editor.markdown_preview_file
+        )
 
     def test_markdown_preview_pane_opens_and_closes_when_animations_are_off(self):
         editor = self.make_editor()

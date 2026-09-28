@@ -226,7 +226,7 @@ Command behavior may be declarative:
 - `panel`: Opens a contributed panel by ID.
 - `message`: Shows an informational message.
 
-Python plugins can register callable commands through `PluginAPI.register_command()`. Markdown plugins can also register runtime processors through `PluginAPI.register_markdown_extension()`; those processors may transform rendered markdown HTML and contribute preview head/style/body HTML from the plugin package.
+Python plugins can register callable commands through `PluginAPI.register_command()`. Markdown plugins can also register runtime processors through `PluginAPI.register_markdown_extension()`; those processors may transform rendered markdown HTML and contribute preview head/style/body HTML from the plugin package. The preview page loads once and later renders replace only the document inside it, so head HTML runs once per page load while `<script>` elements in body HTML run again after every render; scripts can also listen for the `jottr-preview-updated` event on `document`.
 
 ### Toolbar Actions
 
