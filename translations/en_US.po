@@ -1311,3 +1311,15 @@ msgstr "Fill Screen"
 #: src/jottr/editor/focus_mode.py
 msgid "Center Editor"
 msgstr "Center Editor"
+
+#: src/jottr/font_dialog.py
+msgid "Default font"
+msgstr "Default font"
+
+#: src/jottr/font_dialog.py
+msgid "System font"
+msgstr "System font"
+
+#: src/jottr/font_dialog.py
+msgid "Custom"
+msgstr "Custom"

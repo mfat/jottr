@@ -31,6 +31,12 @@ _LEGACY_DEFAULT_EDITOR_FONTS = (
     ("DejaVu Sans Mono", 12, 50, False),
     ("DejaVu Sans Mono", 12, 400, False),
 )
+# Where the Main UI Font comes from: Jottr's bundled face at the desktop's UI
+# size, the desktop font itself, or the face saved in ui_font_*.
+UI_FONT_DEFAULT = "default"
+UI_FONT_SYSTEM = "system"
+UI_FONT_CUSTOM = "custom"
+UI_FONT_SOURCES = (UI_FONT_DEFAULT, UI_FONT_SYSTEM, UI_FONT_CUSTOM)
 # Editor size stays an app choice: desktops size their fixed font for terminals
 # and code views, which reads too small for long-form writing.
 DEFAULT_EDITOR_FONT_SIZE = 12
@@ -79,6 +85,14 @@ class SettingsManager:
         return font
 
     @staticmethod
+    def bundled_ui_font():
+        """Jottr's bundled face at the desktop UI size (the desktop font if it failed to load)."""
+        system = SettingsManager.system_ui_font()
+        if not bundled_font_available():
+            return system
+        return QFont(BUNDLED_FONT_FAMILY, SettingsManager.font_point_size(system, 10))
+
+    @staticmethod
     def font_point_size(font, fallback=10):
         """Whole point size of *font*, falling back when the font is pixel-sized."""
         size = font.pointSize()
@@ -110,7 +124,6 @@ class SettingsManager:
         # (loaded below) keep whatever an existing install already has.
         bundled = bundled_font_available()
         if bundled:
-            ui_font = QFont(BUNDLED_FONT_FAMILY, ui_size)
             editor_family = BUNDLED_FONT_FAMILY
         # Initialize default settings
         self.settings = {
@@ -118,8 +131,8 @@ class SettingsManager:
             "ui_font_size": ui_size,
             "ui_font_weight": int(ui_font.weight()),
             "ui_font_italic": bool(ui_font.italic()),
-            # True = always resolve Main UI Font from the desktop; False = fixed face.
-            "ui_font_follow_system": not bundled,
+            # One of UI_FONT_SOURCES; ui_font_* only apply to UI_FONT_CUSTOM.
+            "ui_font_source": UI_FONT_DEFAULT if bundled else UI_FONT_SYSTEM,
             "font_family": editor_family,
             "font_size": DEFAULT_EDITOR_FONT_SIZE,
             "font_weight": int(QFont.Weight.Normal),
@@ -253,7 +266,8 @@ class SettingsManager:
             try:
                 with open(settings_path, 'r', encoding='utf-8') as f:
                     saved_settings = json.load(f)
-                    had_follow_flag = "ui_font_follow_system" in saved_settings
+                    had_source = "ui_font_source" in saved_settings
+                    had_follow_flag = had_source or "ui_font_follow_system" in saved_settings
                     had_editor_font_flag = "editor_font_from_system" in saved_settings
                     self.settings.update(saved_settings)
                     # Custom editor themes are no longer supported.
@@ -265,6 +279,14 @@ class SettingsManager:
                     pane_states = self.settings.get("pane_states")
                     if isinstance(pane_states, dict):
                         pane_states.pop("browser_visible", None)
+                    # The old on/off flag predates the bundled default: installs
+                    # keep following the desktop, or keep their chosen face.
+                    legacy_follow = self.settings.pop("ui_font_follow_system", None)
+                    if not had_source and legacy_follow is not None:
+                        self.settings["ui_font_source"] = (
+                            UI_FONT_SYSTEM if legacy_follow else UI_FONT_CUSTOM
+                        )
+                        self.save_settings()
                     self.migrate_legacy_font_settings(
                         had_follow_flag=had_follow_flag,
                         had_editor_font_flag=had_editor_font_flag,
@@ -306,7 +328,7 @@ class SettingsManager:
             self.settings["ui_font_size"] = self.font_point_size(ui_font, 10)
             self.settings["ui_font_weight"] = int(ui_font.weight())
             self.settings["ui_font_italic"] = bool(ui_font.italic())
-            self.settings["ui_font_follow_system"] = True
+            self.settings["ui_font_source"] = UI_FONT_SYSTEM
             changed = True
         else:
             coerced = self.coerce_font_weight(weight)
@@ -314,9 +336,9 @@ class SettingsManager:
                 self.settings["ui_font_weight"] = coerced
                 changed = True
             # Older installs snapped a concrete face without a follow flag —
-            # keep that face until the user picks System default explicitly.
+            # keep that face until the user picks another source explicitly.
             if not had_follow_flag:
-                self.settings["ui_font_follow_system"] = False
+                self.settings["ui_font_source"] = UI_FONT_CUSTOM
                 changed = True
 
         # Untouched DejaVu editor default → the desktop fixed-width font.
@@ -378,13 +400,18 @@ class SettingsManager:
         }
         return prefixes.get(role, "font")
 
-    def uses_system_ui_font(self):
-        """True when Main UI Font should track the desktop GeneralFont."""
-        return bool(self.settings.get("ui_font_follow_system", False))
+    def ui_font_source(self):
+        """Where Main UI Font comes from: one of UI_FONT_SOURCES."""
+        source = self.settings.get("ui_font_source")
+        return source if source in UI_FONT_SOURCES else UI_FONT_CUSTOM
 
     def get_font(self, role="editor"):
-        if role == "ui" and self.uses_system_ui_font():
-            return self.system_ui_font()
+        if role == "ui":
+            source = self.ui_font_source()
+            if source == UI_FONT_DEFAULT:
+                return self.bundled_ui_font()
+            if source == UI_FONT_SYSTEM:
+                return self.system_ui_font()
         prefix = self.font_setting_prefix(role)
         legacy_prefix = "font"
         family = self.settings.get(f"{prefix}_family", self.settings[f"{legacy_prefix}_family"])
@@ -396,14 +423,14 @@ class SettingsManager:
         font.setItalic(self.settings.get(f"{prefix}_italic", self.settings[f"{legacy_prefix}_italic"]))
         return font
 
-    def save_font(self, font, role="editor", follow_system=None):
+    def save_font(self, font, role="editor", source=UI_FONT_CUSTOM):
+        """Save *font* for *role*; for "ui", *source* picks one of UI_FONT_SOURCES."""
         prefix = self.font_setting_prefix(role)
         if role == "ui":
-            # Explicit custom save clears follow-system unless asked otherwise.
-            follow = bool(follow_system) if follow_system is not None else False
-            self.settings["ui_font_follow_system"] = follow
-            if follow:
-                font = self.system_ui_font()
+            self.settings["ui_font_source"] = source
+            if source != UI_FONT_CUSTOM:
+                # Keep ui_font_* on the resolved face so Custom starts from it.
+                font = self.get_font("ui")
         point_size = self.font_point_size(font, 10)
         self.settings.update({
             f"{prefix}_family": font.family(),

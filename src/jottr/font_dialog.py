@@ -1,19 +1,22 @@
 from PyQt6.QtWidgets import (
     QApplication,
-    QCheckBox,
+    QButtonGroup,
     QComboBox,
     QDialog,
     QDialogButtonBox,
     QFontComboBox,
     QFormLayout,
     QLabel,
+    QRadioButton,
     QVBoxLayout,
     QWidget,
 )
 from PyQt6.QtGui import QFont
 
 from jottr.icon_manager import apply_dialog_window_icon
-from jottr.settings_manager import SettingsManager
+from jottr.settings_manager import (
+    UI_FONT_CUSTOM, UI_FONT_DEFAULT, UI_FONT_SYSTEM, SettingsManager,
+)
 from jottr.theme_manager import ThemeManager
 from jottr.translation_manager import _
 
@@ -26,26 +29,34 @@ class FontSelectionDialog(QDialog):
         current_font,
         parent=None,
         title=None,
-        allow_system_default=False,
-        system_default=False,
+        ui_font_source=None,
     ):
+        """*ui_font_source* (one of UI_FONT_SOURCES) adds the Main UI Font source choice."""
         super().__init__(parent)
         self.setObjectName("fontSelectionDialog")
         self.setWindowTitle(title or _("Choose Editor Font"))
         apply_dialog_window_icon(self, "font")
         self.setMinimumWidth(420)
-        self.allow_system_default = bool(allow_system_default)
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(18, 18, 18, 14)
         layout.setSpacing(12)
 
-        self.system_default_check = None
-        if self.allow_system_default:
-            self.system_default_check = QCheckBox(_("Use system default"))
-            self.system_default_check.setChecked(bool(system_default))
-            self.system_default_check.toggled.connect(self.on_system_default_toggled)
-            layout.addWidget(self.system_default_check)
+        self.source_group = None
+        self.source_buttons = {}
+        if ui_font_source is not None:
+            self.source_group = QButtonGroup(self)
+            for source, label in (
+                (UI_FONT_DEFAULT, _("Default font")),
+                (UI_FONT_SYSTEM, _("System font")),
+                (UI_FONT_CUSTOM, _("Custom")),
+            ):
+                button = QRadioButton(label)
+                self.source_group.addButton(button)
+                self.source_buttons[source] = button
+                layout.addWidget(button)
+            self.source_buttons.get(ui_font_source, self.source_buttons[UI_FONT_CUSTOM]).setChecked(True)
+            self.source_group.buttonToggled.connect(self.on_source_toggled)
 
         form = QFormLayout()
         form.setSpacing(10)
@@ -92,7 +103,7 @@ class FontSelectionDialog(QDialog):
         self.size_combo.currentTextChanged.connect(self.update_preview)
         self.style_combo.currentIndexChanged.connect(self.update_preview)
         self.apply_style(current_font)
-        self.sync_system_default_controls()
+        self.sync_source_controls()
         self.update_preview()
 
     def common_font_sizes(self):
@@ -107,30 +118,40 @@ class FontSelectionDialog(QDialog):
         else:
             self.size_combo.setCurrentText(text)
 
-    def uses_system_default(self):
-        return bool(
-            self.allow_system_default
-            and self.system_default_check is not None
-            and self.system_default_check.isChecked()
-        )
+    def selected_source(self):
+        """The checked UI font source, or None when the dialog has no source choice."""
+        for source, button in self.source_buttons.items():
+            if button.isChecked():
+                return source
+        return None
 
-    def on_system_default_toggled(self, checked):
-        self.sync_system_default_controls()
-        if checked:
-            system = SettingsManager.system_ui_font()
+    def source_font(self, source):
+        if source == UI_FONT_DEFAULT:
+            return SettingsManager.bundled_ui_font()
+        if source == UI_FONT_SYSTEM:
+            return SettingsManager.system_ui_font()
+        return None
+
+    def on_source_toggled(self, _button, checked):
+        if not checked:
+            return
+        self.sync_source_controls()
+        # Show the face a fixed source resolves to; Custom starts from it.
+        font = self.source_font(self.selected_source())
+        if font is not None:
             self.font_combo.blockSignals(True)
             self.size_combo.blockSignals(True)
             self.style_combo.blockSignals(True)
-            self.font_combo.setCurrentFont(system)
-            self.set_current_size(system.pointSize() if system.pointSize() > 0 else 12)
-            self.style_combo.setCurrentIndex(self.initial_style_index(system))
+            self.font_combo.setCurrentFont(font)
+            self.set_current_size(font.pointSize() if font.pointSize() > 0 else 12)
+            self.style_combo.setCurrentIndex(self.initial_style_index(font))
             self.font_combo.blockSignals(False)
             self.size_combo.blockSignals(False)
             self.style_combo.blockSignals(False)
         self.update_preview()
 
-    def sync_system_default_controls(self):
-        enabled = not self.uses_system_default()
+    def sync_source_controls(self):
+        enabled = self.selected_source() in (None, UI_FONT_CUSTOM)
         for widget in (
             self.font_label,
             self.font_combo,
@@ -190,8 +211,9 @@ class FontSelectionDialog(QDialog):
         return 0
 
     def selectedFont(self):
-        if self.uses_system_default():
-            return SettingsManager.system_ui_font()
+        source_font = self.source_font(self.selected_source())
+        if source_font is not None:
+            return source_font
         font = QFont(self.font_combo.currentFont())
         try:
             point_size = int(self.size_combo.currentText())

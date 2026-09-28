@@ -1407,3 +1407,15 @@ msgstr "پر کردن صفحه"
 #: src/jottr/editor/focus_mode.py
 msgid "Center Editor"
 msgstr "وسط‌چین کردن ویرایشگر"
+
+#: src/jottr/font_dialog.py
+msgid "Default font"
+msgstr "قلم پیش‌فرض"
+
+#: src/jottr/font_dialog.py
+msgid "System font"
+msgstr "قلم سیستم"
+
+#: src/jottr/font_dialog.py
+msgid "Custom"
+msgstr "سفارشی"

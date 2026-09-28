@@ -8,7 +8,9 @@ from PyQt6.QtWidgets import (
 
 from jottr.font_dialog import FontSelectionDialog
 from jottr.icon_manager import list_bundled_icon_themes
-from jottr.settings_manager import INTERFACE_LOOK_NATIVE, INTERFACE_LOOK_ORGANIC
+from jottr.settings_manager import (
+    INTERFACE_LOOK_NATIVE, INTERFACE_LOOK_ORGANIC, UI_FONT_DEFAULT, UI_FONT_SYSTEM,
+)
 from jottr.theme_manager import ThemeManager
 from jottr.translation_manager import _, format_language_label, get_available_languages
 
@@ -120,7 +122,7 @@ class AppearancePageMixin:
         self.ui_font_button = self.create_font_button(
             self.ui_font,
             self.choose_ui_font,
-            follow_system=self.ui_font_follow_system,
+            ui_font_source=self.ui_font_source,
         )
 
         self.language_combo = QComboBox()
@@ -282,19 +284,21 @@ class AppearancePageMixin:
             lambda: self.settings_manager.save_setting("enable_animations", bool(checked)),
         )
 
-    def create_font_button(self, font, callback, follow_system=False):
+    def create_font_button(self, font, callback, ui_font_source=None):
         button = QPushButton()
         button.setObjectName("fontSettingButton")
         button.clicked.connect(callback)
-        self.update_font_button(button, font, follow_system=follow_system)
+        self.update_font_button(button, font, ui_font_source=ui_font_source)
         return button
 
-    def update_font_button(self, button, font, follow_system=False):
-        button.setText(self.font_summary(font, follow_system=follow_system))
+    def update_font_button(self, button, font, ui_font_source=None):
+        button.setText(self.font_summary(font, ui_font_source=ui_font_source))
 
-    def font_summary(self, font, follow_system=False):
-        if follow_system:
-            return _("System default")
+    def font_summary(self, font, ui_font_source=None):
+        if ui_font_source == UI_FONT_DEFAULT:
+            return _("Default font")
+        if ui_font_source == UI_FONT_SYSTEM:
+            return _("System font")
         parts = [font.family(), f"{font.pointSize()}pt"]
         if font.bold() and font.italic():
             parts.append(_("Bold Italic"))
@@ -311,24 +315,21 @@ class AppearancePageMixin:
             self.ui_font,
             self,
             title=_("Choose Main UI Font"),
-            allow_system_default=True,
-            system_default=self.ui_font_follow_system,
+            ui_font_source=self.ui_font_source,
         )
         if dialog.exec() == QDialog.DialogCode.Accepted:
-            follow_system = dialog.uses_system_default()
+            source = dialog.selected_source()
             selected_font = dialog.selectedFont()
-            self.ui_font_follow_system = follow_system
+            self.ui_font_source = source
             self.apply_ui_font(selected_font)
             self.update_font_button(
                 self.ui_font_button,
                 selected_font,
-                follow_system=follow_system,
+                ui_font_source=source,
             )
             self._commit(
                 "style",
-                lambda: self.settings_manager.save_font(
-                    selected_font, "ui", follow_system=follow_system
-                ),
+                lambda: self.settings_manager.save_font(selected_font, "ui", source=source),
             )
 
     def load_language_options(self):

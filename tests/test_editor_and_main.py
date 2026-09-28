@@ -3523,32 +3523,44 @@ class EditorAndMainTests(unittest.TestCase):
         self.assertIn("font-size: 18pt", dialog.styleSheet())
         self.assertEqual(dialog.preview_text.font().pointSize(), 18)
 
-    def test_font_dialog_system_default_option(self):
+    def test_font_dialog_ui_font_source_options(self):
+        from jottr.settings_manager import UI_FONT_CUSTOM, UI_FONT_DEFAULT, UI_FONT_SYSTEM
+
         custom = QFont("Serif", 14)
         dialog = FontSelectionDialog(
             custom,
             title="Choose Main UI Font",
-            allow_system_default=True,
-            system_default=False,
+            ui_font_source=UI_FONT_CUSTOM,
         )
         self.addCleanup(dialog.deleteLater)
 
-        self.assertIsNotNone(dialog.system_default_check)
-        self.assertFalse(dialog.uses_system_default())
+        self.assertEqual(set(dialog.source_buttons), {UI_FONT_DEFAULT, UI_FONT_SYSTEM, UI_FONT_CUSTOM})
+        self.assertEqual(dialog.selected_source(), UI_FONT_CUSTOM)
         self.assertTrue(dialog.font_combo.isEnabled())
 
-        dialog.system_default_check.setChecked(True)
-        self.assertTrue(dialog.uses_system_default())
+        dialog.source_buttons[UI_FONT_SYSTEM].setChecked(True)
+        self.assertEqual(dialog.selected_source(), UI_FONT_SYSTEM)
         self.assertFalse(dialog.font_combo.isEnabled())
         self.assertFalse(dialog.size_combo.isEnabled())
         self.assertFalse(dialog.style_combo.isEnabled())
         system = SettingsManager.system_ui_font()
         self.assertEqual(dialog.selectedFont().family(), system.family())
 
-        dialog.system_default_check.setChecked(False)
+        dialog.source_buttons[UI_FONT_DEFAULT].setChecked(True)
+        self.assertFalse(dialog.font_combo.isEnabled())
+        bundled = SettingsManager.bundled_ui_font()
+        self.assertEqual(dialog.selectedFont().family(), bundled.family())
+
+        dialog.source_buttons[UI_FONT_CUSTOM].setChecked(True)
         self.assertTrue(dialog.font_combo.isEnabled())
         dialog.size_combo.setCurrentText("20")
         self.assertEqual(dialog.selectedFont().pointSize(), 20)
+
+        # The editor font dialog has no source choice.
+        editor_dialog = FontSelectionDialog(custom)
+        self.addCleanup(editor_dialog.deleteLater)
+        self.assertIsNone(editor_dialog.selected_source())
+        self.assertTrue(editor_dialog.font_combo.isEnabled())
 
     def test_main_window_retranslates_toolbar_menu_actions(self):
         class FakeEditorTab(QWidget):

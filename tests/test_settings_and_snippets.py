@@ -16,7 +16,9 @@ from PyQt6.QtGui import QFont
 from PyQt6.QtWidgets import QApplication, QStyle
 
 from jottr.bundled_fonts import BUNDLED_FONT_FAMILY, register_bundled_fonts
-from jottr.settings_manager import SettingsManager
+from jottr.settings_manager import (
+    UI_FONT_CUSTOM, UI_FONT_DEFAULT, UI_FONT_SYSTEM, SettingsManager,
+)
 from jottr.snippet_manager import SnippetManager
 from jottr.theme_manager import ThemeManager
 import jottr.translation_manager as translation_manager
@@ -182,7 +184,7 @@ class SettingsAndSnippetTests(unittest.TestCase):
 
     def test_settings_manager_persists_separate_ui_and_editor_fonts(self):
         manager = SettingsManager()
-        self.assertFalse(manager.uses_system_ui_font())
+        self.assertEqual(manager.ui_font_source(), UI_FONT_DEFAULT)
 
         ui_font = QFont("Sans", 11)
         editor_font = QFont("Mono", 14)
@@ -190,22 +192,28 @@ class SettingsAndSnippetTests(unittest.TestCase):
         manager.save_font(editor_font, "editor")
 
         reloaded = SettingsManager()
-        self.assertFalse(reloaded.uses_system_ui_font())
+        self.assertEqual(reloaded.ui_font_source(), UI_FONT_CUSTOM)
         self.assertEqual(reloaded.get_font("ui").family(), "Sans")
         self.assertEqual(reloaded.get_font("ui").pointSize(), 11)
         self.assertEqual(reloaded.get_font("editor").family(), "Mono")
         self.assertEqual(reloaded.get_font("editor").pointSize(), 14)
 
-        manager.save_font(ui_font, "ui", follow_system=True)
-        self.assertTrue(manager.uses_system_ui_font())
+        manager.save_font(ui_font, "ui", source=UI_FONT_SYSTEM)
+        self.assertEqual(SettingsManager().ui_font_source(), UI_FONT_SYSTEM)
         system = SettingsManager.system_ui_font()
         self.assertEqual(manager.get_font("ui").family(), system.family())
+
+        manager.save_font(ui_font, "ui", source=UI_FONT_DEFAULT)
+        self.assertEqual(SettingsManager().ui_font_source(), UI_FONT_DEFAULT)
+        self.assertEqual(manager.get_font("ui").family(), BUNDLED_FONT_FAMILY)
+        # Custom starts from the face the chosen source resolved to.
+        self.assertEqual(manager.get_setting("ui_font_family"), BUNDLED_FONT_FAMILY)
 
     def test_settings_manager_defaults_ui_font_to_bundled_and_coerces_qt5_weight(self):
         manager = SettingsManager()
         system = SettingsManager.system_ui_font()
         ui = manager.get_font("ui")
-        self.assertFalse(manager.uses_system_ui_font())
+        self.assertEqual(manager.ui_font_source(), UI_FONT_DEFAULT)
         self.assertEqual(ui.family(), BUNDLED_FONT_FAMILY)
         self.assertEqual(ui.pointSize(), SettingsManager.font_point_size(system, 10))
         self.assertGreaterEqual(int(ui.weight()), 100)
@@ -227,7 +235,7 @@ class SettingsAndSnippetTests(unittest.TestCase):
             encoding="utf-8",
         )
         reloaded = SettingsManager()
-        self.assertTrue(reloaded.uses_system_ui_font())
+        self.assertEqual(reloaded.ui_font_source(), UI_FONT_SYSTEM)
         self.assertEqual(reloaded.get_font("ui").family(), system.family())
         self.assertGreaterEqual(int(reloaded.get_font("ui").weight()), 100)
         self.assertEqual(int(reloaded.get_font("editor").weight()), int(QFont.Weight.Normal))
@@ -254,9 +262,21 @@ class SettingsAndSnippetTests(unittest.TestCase):
             encoding="utf-8",
         )
         custom = SettingsManager()
-        self.assertFalse(custom.uses_system_ui_font())
+        self.assertEqual(custom.ui_font_source(), UI_FONT_CUSTOM)
         self.assertEqual(custom.get_font("ui").family(), "Liberation Sans")
         self.assertEqual(custom.get_font("ui").pointSize(), 13)
+
+        # The retired on/off flag maps onto a source; existing installs keep
+        # following the desktop or keep their face.
+        for follow, expected in ((True, UI_FONT_SYSTEM), (False, UI_FONT_CUSTOM)):
+            Path(manager.settings_file).write_text(
+                json.dumps({"ui_font_follow_system": follow, "ui_font_family": "Liberation Sans"}),
+                encoding="utf-8",
+            )
+            migrated = SettingsManager()
+            self.assertEqual(migrated.ui_font_source(), expected)
+            self.assertNotIn("ui_font_follow_system", migrated.settings)
+            self.assertEqual(SettingsManager().ui_font_source(), expected)
 
     def test_editor_font_defaults_to_bundled_and_keeps_chosen_face(self):
         manager = SettingsManager()
