@@ -11,7 +11,7 @@ from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QSplitter, QTextEdit, QListWidget,
     QInputDialog, QMenu, QDialog, QToolBar, QCompleter,
     QListWidgetItem, QLineEdit, QPushButton, QMessageBox, QLabel, QToolTip,
-    QGraphicsOpacityEffect, QWIDGETSIZE_MAX,
+    QGraphicsOpacityEffect, QWIDGETSIZE_MAX, QApplication,
 )
 from PyQt6.QtCore import (
     Qt, QUrl, QTimer, QStringListModel, QEvent, QSize, QRect,
@@ -41,6 +41,7 @@ from jottr.editor.case_transform import (
     apply_lowercase,
     apply_uppercase,
 )
+from jottr.editor.suggestion_popup import SuggestionPopup
 from jottr.editor.text_edit import CompletingTextEdit
 from jottr.editor.text_format import (
     apply_clear_formatting,
@@ -1484,70 +1485,36 @@ class EditorTab(
         super().keyPressEvent(event)  # Just pass through to parent
 
     def show_suggestion_tooltip(self, suggestions, cursor):
-        """Show suggestions in a tooltip-like widget"""
+        """Show suggestions in a popup under the cursor."""
         self.hide_suggestions()
-        self.current_suggestions = suggestions
+        self.current_suggestions = suggestions[:7]
         self.selected_suggestion_index = -1
-        
-        # Create tooltip widget
-        self.suggestion_tooltip = QWidget(self.editor, Qt.WindowType.ToolTip)
-        layout = QVBoxLayout(self.suggestion_tooltip)
-        layout.setContentsMargins(4, 4, 4, 4)
-        layout.setSpacing(2)
-        
-        # Style the tooltip; suggestions read in the editor's own face.
-        suggestion_family = QFont(
-            getattr(self, "current_font", None) or self.settings_manager.get_font("editor")
-        ).family().replace('"', '')
-        self.suggestion_tooltip.setStyleSheet(f"""
-            QWidget {{
-                background-color: palette(window);
-                border: 0.5px solid palette(mid);
-                border-radius: 0px;
-            }}
-            QLabel {{
-                padding: 2px 8px;
-                color: palette(text);
-                border-radius: 0px;
-                margin: 1px;
-                font-family: "{suggestion_family}", monospace;
-            }}
-        """)
-        
-        # Add suggestions (limited to 7)
-        for i, (suggestion_type, text) in enumerate(suggestions[:7]):
-            container = QWidget()
-            container_layout = QVBoxLayout(container)
-            container_layout.setContentsMargins(0, 0, 0, 0)
-            container_layout.setSpacing(1)
-            
+
+        rows = []
+        for suggestion_type, text in self.current_suggestions:
             if suggestion_type == 'snippet':
-                # For snippets, show content directly
-                content = self.snippet_manager.get_snippet(text)
-                if content:
-                    # Limit preview to first line or 50 chars
-                    preview = content.split('\n')[0][:50]
-                    if len(preview) < len(content):
-                        preview += "..."
-                    label = QLabel(preview)
+                # The trigger, then the start of the text it expands to.
+                content = self.snippet_manager.get_snippet(text) or ""
+                preview = content.split('\n')[0][:50]
+                if len(preview) < len(content):
+                    preview += "…"
+                rows.append(('snippet', text, preview or text))
             else:
-                # For words, just show the word
-                label = QLabel(text)
-            
-            container_layout.addWidget(label)
-            
-            # Make container clickable
-            container.mousePressEvent = lambda _, t=text: self.apply_suggestion(t)
-            container.setCursor(Qt.CursorShape.PointingHandCursor)
-            
-            layout.addWidget(container)
-        
-        # Position below the cursor. cursorRect is in viewport coordinates, and
-        # the editor stylesheet applies padding, so map via the viewport.
-        self.suggestion_tooltip.adjustSize()
+                rows.append(('word', text, text))
+
+        theme = ThemeManager.get_ui_theme(self.settings_manager.get_ui_theme())
+        self.suggestion_tooltip = SuggestionPopup(
+            self.editor, rows, theme, QApplication.font(), self.apply_suggestion
+        )
+        self.update_suggestion_highlighting()
+
+        # Below the cursor. cursorRect is in viewport coordinates, and the
+        # editor stylesheet applies padding, so map via the viewport. The
+        # card sits inside the popup's shadow margin, so shift left by it.
         rect = self.editor.cursorRect(cursor)
         pos = self.editor.viewport().mapToGlobal(rect.bottomLeft())
-        pos.setY(pos.y() + 5)
+        pos.setX(pos.x() - SuggestionPopup.SHADOW)
+        pos.setY(pos.y() + 2)
         self.suggestion_tooltip.move(pos)
         self.suggestion_tooltip.show()
         self.suggestion_tooltip.raise_()
@@ -1569,21 +1536,16 @@ class EditorTab(
         self.update_suggestion_highlighting()
 
     def update_suggestion_highlighting(self):
-        """Update the visual highlighting of selected suggestion"""
+        """Fill the row a key would insert and name that key on it."""
         if not self.suggestion_tooltip:
             return
-            
-        layout = self.suggestion_tooltip.layout()
-        for i in range(layout.count()):
-            container = layout.itemAt(i).widget()
-            if i == self.selected_suggestion_index:
-                container.setStyleSheet("""
-                    background-color: palette(highlight);
-                    border-radius: 0px;
-                    QLabel { color: palette(highlighted-text); }
-                """)
-            else:
-                container.setStyleSheet("")
+        if self.selected_suggestion_index >= 0:
+            self.suggestion_tooltip.set_selected(self.selected_suggestion_index, _("Enter"))
+        elif len(self.current_suggestions) == 1:
+            # Tab inserts a lone suggestion without selecting it first.
+            self.suggestion_tooltip.set_selected(0, _("Tab"))
+        else:
+            self.suggestion_tooltip.set_selected(-1)
 
     def hide_suggestions(self):
         """Hide suggestion tooltip"""
