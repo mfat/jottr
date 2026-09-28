@@ -526,6 +526,17 @@ class EditorAndMainTests(unittest.TestCase):
         self.assertIn("<table", html)
         self.assertIn("math-block", html)
 
+    def test_markdown_inline_math_keeps_its_tex_intact(self):
+        editor = self.make_editor()
+
+        html = editor.render_markdown_html("Area $a_1 * b_2 (c)$ and `$HOME` and $$x$$")
+
+        # Python-Markdown must not unescape the MathJax delimiters or treat
+        # the TeX as emphasis, typography, or code.
+        self.assertIn(r'<span class="math-inline">\(a_1 * b_2 (c)\)</span>', html)
+        self.assertIn(r'<span class="math-inline">\[x\]</span>', html)
+        self.assertIn("<code>$HOME</code>", html)
+
     def test_markdown_preview_anchors_fenced_code_lines(self):
         editor = self.make_editor()
 

@@ -1075,7 +1075,7 @@ class MarkdownPreviewMixin:
         """Render markdown using Python-Markdown with local preview enhancements."""
         import markdown as markdown_lib
 
-        prepared_text = self.preprocess_markdown_extensions(text)
+        prepared_text, inline_math = self.preprocess_markdown_extensions(text)
         extensions = [
             'extra',
             'sane_lists',
@@ -1091,6 +1091,7 @@ class MarkdownPreviewMixin:
             extensions=extensions,
             output_format='html5'
         )
+        body_html = self.restore_inline_math(body_html, inline_math)
         body_html = self.apply_markdown_extensions(body_html)
         body_html = self.add_source_line_anchors(body_html, text)
         return self.add_code_line_anchors(body_html)
@@ -1152,20 +1153,62 @@ class MarkdownPreviewMixin:
         return "\n".join(parts)
 
     def preprocess_markdown_extensions(self, text):
-        """Preprocess syntax that Python-Markdown does not handle by default."""
+        """Preprocess syntax that Python-Markdown does not handle by default.
+
+        Returns the text with inline math still stashed, and the stash to
+        restore it from once Python-Markdown has run.
+        """
         text, fenced_blocks = self.stash_fenced_code_blocks(text)
         text = self.preprocess_task_lists(text)
+        text = self.preprocess_math_blocks(text)
+        text, inline_math = self.stash_inline_math(text)
         text = re.sub(r'~~(.+?)~~', r'<del>\1</del>', text, flags=re.DOTALL)
         text = self.apply_typographer_replacements(text)
         text = self.apply_emoji_shortcodes(text)
-        text = self.preprocess_math_blocks(text)
-        text = re.sub(
-            r'(?<!\\)\$(?!\$)(.+?)(?<!\\)\$',
-            lambda match: f'<span class="math-inline">\\({html.escape(match.group(1).strip())}\\)</span>',
+        text = self.restore_fenced_code_blocks(text, fenced_blocks)
+        return text, inline_math
+
+    # Inline code spans, which keep any dollar signs they hold, $$display$$
+    # math within a line, or $math$.
+    inline_math_pattern = re.compile(
+        r'(`+).+?(?<!`)\1(?!`)'
+        r'|(?<!\\)\$\$(.+?)(?<!\\)\$\$'
+        r'|(?<!\\)\$(?!\$)(.+?)(?<!\\)\$'
+    )
+
+    def stash_inline_math(self, text):
+        """Swap $math$ for plain tokens that markdown processing leaves alone.
+
+        Python-Markdown would otherwise unescape the \\( \\) delimiters MathJax
+        looks for, and emphasis, quotes, and emoji would rewrite the TeX.
+        """
+        stash = []
+
+        def replace(match):
+            if match.group(1):
+                return match.group(0)
+            if match.group(2) is not None:
+                stash.append(
+                    f'<span class="math-inline">\\[{html.escape(match.group(2).strip())}\\]</span>'
+                )
+            else:
+                stash.append(
+                    f'<span class="math-inline">\\({html.escape(match.group(3).strip())}\\)</span>'
+                )
+            return f"JOTTRINLINEMATH{len(stash) - 1}END"
+
+        return self.inline_math_pattern.sub(replace, text), stash
+
+    @staticmethod
+    def restore_inline_math(text, stash):
+        """Put stashed inline math back in place of its tokens."""
+        if not stash:
+            return text
+        return re.sub(
+            r'JOTTRINLINEMATH(\d+)END',
+            lambda match: stash[int(match.group(1))],
             text
         )
-        text = self.restore_fenced_code_blocks(text, fenced_blocks)
-        return text
 
     @staticmethod
     def stash_fenced_code_blocks(text):
