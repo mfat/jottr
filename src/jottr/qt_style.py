@@ -169,9 +169,11 @@ def apply_startup_app_chrome(application, settings_manager):
     apply_qt_style(application)
     ThemeManager.apply_app_palette(application, theme)
 
-    app_font = settings_manager.get_font("ui")
-    application.setFont(app_font)
     stylesheet = ThemeManager.build_app_stylesheet(theme=theme)
     application.setStyleSheet(stylesheet)
+    # After the stylesheet: setting one reloads the platform theme's
+    # per-class fonts (QPushButton, item views, …), and only setFont clears
+    # them so every widget class gets the Main UI Font.
+    application.setFont(settings_manager.get_font("ui"))
     application.setProperty("_jottr_startup_stylesheet", stylesheet)
     return stylesheet

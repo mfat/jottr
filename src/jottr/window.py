@@ -560,7 +560,6 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
                 application.setProperty("_jottr_startup_stylesheet", None)
             style_swapped = apply_qt_style(application)
             ThemeManager.apply_app_palette(application, theme)
-            application.setFont(app_font)
         if application:
             self._sync_document_tab_strip_style()
         self.setFont(app_font)
@@ -576,6 +575,9 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
                 self._applied_app_stylesheet = stylesheet
                 # Only main.apply_startup_app_chrome owns this property.
                 application.setProperty("_jottr_startup_stylesheet", None)
+            # After the stylesheet, which reloads the platform theme's
+            # per-class fonts; setFont clears them (see apply_startup_app_chrome).
+            application.setFont(app_font)
         elif not application and self.styleSheet() != stylesheet:
             self.setStyleSheet(stylesheet)
         if application:

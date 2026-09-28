@@ -19,7 +19,7 @@ sys.path.insert(0, str(SRC_ROOT))
 from PyQt6.QtCore import QPoint, QRect, Qt, QEvent
 from PyQt6.QtGui import QColor, QFont, QKeyEvent, QPalette, QTextCharFormat, QTextCursor, QTextDocument
 from PyQt6.QtWidgets import (
-    QApplication, QDialog, QFrame, QMessageBox, QMenu, QPushButton, QTabBar, QTextEdit, QWidget,
+    QApplication, QDialog, QFrame, QListWidget, QMessageBox, QMenu, QPushButton, QTabBar, QTextEdit, QWidget,
 )
 
 from jottr.editor_tab import EditorTab, SpellCheckHighlighter
@@ -3488,6 +3488,58 @@ class EditorAndMainTests(unittest.TestCase):
             self.assertEqual(first_tab.current_font.pointSize(), 16)
             self.assertEqual(second_tab.current_font.family(), "Liberation Mono")
             self.assertEqual(second_tab.current_font.pointSize(), 16)
+
+    def test_ui_font_survives_stylesheet_reloading_platform_class_fonts(self):
+        """Plugin panels' buttons and lists follow the Main UI Font.
+
+        Setting an application stylesheet makes Qt reload the platform
+        theme's per-class fonts (GNOME gives QPushButton and item views
+        their own), so the UI font must be set after the stylesheet.
+        """
+        from jottr.qt_style import apply_startup_app_chrome
+
+        class FakeEditorTab(QWidget):
+            def __init__(self, snippet_manager, settings_manager):
+                super().__init__()
+                self.editor = QTextEdit(self)
+                self.current_file = None
+
+            def set_main_window(self, main_window):
+                self.main_window = main_window
+
+        platform_font = QFont("Liberation Serif", 9)
+        set_style_sheet = QApplication.setStyleSheet
+
+        def set_style_sheet_reloading_class_fonts(application, sheet):
+            set_style_sheet(application, sheet)
+            for class_name in ("QPushButton", "QAbstractItemView"):
+                QApplication.setFont(platform_font, class_name)
+
+        application = app()
+        self.addCleanup(lambda: application.setStyleSheet(""))
+        self.addCleanup(lambda: application.setProperty("_jottr_startup_stylesheet", None))
+        ui_font = QFont("Liberation Sans", 13)
+
+        def assert_panel_widgets_use(family):
+            panel = QWidget()
+            self.addCleanup(panel.deleteLater)
+            for widget in (QPushButton("Refresh", panel), QListWidget(panel)):
+                # The stylesheet style resolves widget fonts when polishing.
+                widget.ensurePolished()
+                self.assertEqual(widget.font().family(), family)
+
+        with patch.object(
+            QApplication, "setStyleSheet", set_style_sheet_reloading_class_fonts
+        ), patch.object(window_module, "EditorTab", FakeEditorTab):
+            apply_startup_app_chrome(application, self.settings)
+            assert_panel_widgets_use(self.settings.get_font("ui").family())
+
+            window = TextEditorApp()
+            self.addCleanup(window.close)
+            self.addCleanup(window.deleteLater)
+            window._applied_app_stylesheet = None  # Force the stylesheet to be set again
+            window.apply_app_style(ui_font)
+            assert_panel_widgets_use("Liberation Sans")
 
     def test_font_dialog_uses_translated_text(self):
         translations_dir = Path(self.temp_dir.name) / "translations"
