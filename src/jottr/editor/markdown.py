@@ -6,6 +6,7 @@ import json
 import mimetypes
 import os
 import re
+import secrets
 import tempfile
 import time
 
@@ -1551,12 +1552,50 @@ class MarkdownPreviewMixin:
             font.family().replace("\\", "\\\\").replace('"', '\\"'), quote=True
         )
 
+    def markdown_preview_script_nonce(self):
+        """This tab's key for the scripts its preview page may run.
+
+        It stays the same for the tab's life, so pages rendered for it keep
+        the same shell and can be updated in place.
+        """
+        nonce = getattr(self, "_markdown_preview_script_nonce", None)
+        if nonce is None:
+            nonce = self._markdown_preview_script_nonce = secrets.token_urlsafe(18)
+        return nonce
+
+    @staticmethod
+    def markdown_preview_content_security_policy(nonce):
+        """Policy that runs only Jottr's and plugins' scripts in the preview.
+
+        Documents may carry raw HTML, and the page is a local file that can
+        read other local files, so a document's own scripts, event handlers,
+        javascript: links, plugins, and local frames are all refused.
+        Scripts Jottr's own scripts load, such as MathJax's components, run.
+        """
+        return (
+            f"script-src 'nonce-{nonce}' 'strict-dynamic'; "
+            "object-src 'none'; "
+            "frame-src https:"
+        )
+
+    @staticmethod
+    def trust_markdown_extension_scripts(extension_html, nonce):
+        """Let the scripts plugins add to the preview page run."""
+        return re.sub(
+            r'<script\b', f'<script nonce="{nonce}"', extension_html, flags=re.IGNORECASE
+        )
+
     def wrap_markdown_preview_html(self, body_html, content_base_url="", initial_scroll_ratio=None,
                                    fade_in=False, fade_hold_ms=0):
         """Wrap rendered body HTML in Jottr preview CSS and scripts."""
-        extension_head_html = self.render_markdown_extension_head_html()
+        nonce = self.markdown_preview_script_nonce()
+        extension_head_html = self.trust_markdown_extension_scripts(
+            self.render_markdown_extension_head_html(), nonce
+        )
         extension_style_html = self.render_markdown_extension_style_html()
-        extension_body_html = self.render_markdown_extension_body_html()
+        extension_body_html = self.trust_markdown_extension_scripts(
+            self.render_markdown_extension_body_html(), nonce
+        )
         base_tag = f'<base href="{html.escape(content_base_url, quote=True)}">' if content_base_url else ''
         preview_font = self.preview_font()
         preview_family = self.css_font_family(preview_font)
@@ -1576,8 +1615,9 @@ class MarkdownPreviewMixin:
         return f"""
         <html dir="{dir_attr}">
         <head>
+            <meta http-equiv="Content-Security-Policy" content="{self.markdown_preview_content_security_policy(nonce)}">
             {base_tag}
-            <script>
+            <script nonce="{nonce}">
                 // A page rendered for an opening pane starts out invisible and
                 // fades itself in once its own DOM is ready — but never before
                 // the pane has finished sliding open.
@@ -1652,6 +1692,8 @@ class MarkdownPreviewMixin:
                         Array.prototype.forEach.call(old.attributes, function (attribute) {{
                             script.setAttribute(attribute.name, attribute.value);
                         }});
+                        // The nonce attribute reads back empty once parsed.
+                        script.nonce = old.nonce;
                         script.textContent = old.textContent;
                         old.replaceWith(script);
                     }});
@@ -1785,7 +1827,7 @@ class MarkdownPreviewMixin:
                 }}
                 {extension_style_html}
             </style>
-            <script>
+            <script nonce="{nonce}">
                 window.MathJax = {{
                     tex: {{
                         inlineMath: [['\\\\(', '\\\\)']],
@@ -1800,7 +1842,7 @@ class MarkdownPreviewMixin:
                     }}
                 }};
             </script>
-            <script async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js"></script>
+            <script nonce="{nonce}" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js"></script>
             {extension_head_html}
         </head>
         <body dir="{dir_attr}">

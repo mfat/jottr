@@ -1313,6 +1313,31 @@ class EditorAndMainTests(unittest.TestCase):
         self.assertIn("""closest('a[href^="#"]')""", html)
         self.assertIn("target.scrollIntoView()", html)
 
+    def test_markdown_preview_runs_only_its_own_and_plugin_scripts(self):
+        editor = self.make_editor()
+        editor.markdown_extensions = lambda: [{
+            "head_html": lambda *_args: "<script>window.headRan = true;</script>",
+            "body_html": lambda *_args: "<SCRIPT>window.bodyRan = true;</SCRIPT>",
+        }]
+
+        html = editor.render_markdown_html(
+            '<script>steal()</script>\n\n<img src="x" onerror="steal()">'
+        )
+        nonce = editor.markdown_preview_script_nonce()
+
+        self.assertIn(
+            f"script-src 'nonce-{nonce}' 'strict-dynamic'; object-src 'none'; frame-src https:",
+            html,
+        )
+        # The policy comes before any script so it covers all of them.
+        self.assertLess(html.index("Content-Security-Policy"), html.index("<script"))
+        self.assertIn(f'<script nonce="{nonce}">window.headRan', html)
+        self.assertIn(f'<script nonce="{nonce}">window.bodyRan', html)
+        self.assertIn("<script>steal()</script>", html)
+        # One key per tab keeps the page's shell stable for in-place updates.
+        self.assertEqual(editor.markdown_preview_script_nonce(), nonce)
+        self.assertNotEqual(self.make_editor().markdown_preview_script_nonce(), nonce)
+
     def test_markdown_preview_reloads_after_following_a_link(self):
         editor = self.make_editor()
         editor.editor.setPlainText("# Title")
