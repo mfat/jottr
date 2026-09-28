@@ -1,4 +1,4 @@
-"""Fonts shipped with Jottr (JetBrains Mono and IBM Plex Sans, SIL Open Font License 1.1)."""
+"""Fonts shipped with Jottr (JetBrains Mono, IBM Plex Sans, PT Sans; SIL Open Font License 1.1)."""
 import os
 
 from PyQt6.QtCore import QUrl
@@ -7,31 +7,38 @@ from PyQt6.QtGui import QFontDatabase
 BUNDLED_EDITOR_FONT_FAMILY = "JetBrains Mono"
 BUNDLED_UI_FONT_FAMILY = "IBM Plex Sans"
 _FONTS_ROOT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "fonts")
-# Variable-weight files: one upright, one italic per family.
-# family → (folder, CSS weight range, ((file name, CSS font-style), ...))
+# family → (folder, ((file name, CSS font-weight, CSS font-style), ...)).
+# Variable fonts give a weight range for each file; static ones a single weight.
 _BUNDLED_FACES = {
     BUNDLED_EDITOR_FONT_FAMILY: (
         "JetBrainsMono",
-        "100 800",
-        (("JetBrainsMono.ttf", "normal"), ("JetBrainsMono-Italic.ttf", "italic")),
+        (("JetBrainsMono.ttf", "100 800", "normal"), ("JetBrainsMono-Italic.ttf", "100 800", "italic")),
     ),
     BUNDLED_UI_FONT_FAMILY: (
         "IBMPlexSans",
-        "100 700",
-        (("IBMPlexSans.ttf", "normal"), ("IBMPlexSans-Italic.ttf", "italic")),
+        (("IBMPlexSans.ttf", "100 700", "normal"), ("IBMPlexSans-Italic.ttf", "100 700", "italic")),
+    ),
+    "PT Sans": (
+        "PTSans",
+        (
+            ("PTSans-Regular.ttf", "400", "normal"),
+            ("PTSans-Italic.ttf", "400", "italic"),
+            ("PTSans-Bold.ttf", "700", "normal"),
+            ("PTSans-BoldItalic.ttf", "700", "italic"),
+        ),
     ),
 }
 
 
 def _face_files():
-    """(family, path, CSS weight range, CSS font-style) for every bundled file."""
-    for family, (folder, weights, files) in _BUNDLED_FACES.items():
-        for name, style in files:
-            yield family, os.path.join(_FONTS_ROOT, folder, name), weights, style
+    """(family, path, CSS font-weight, CSS font-style) for every bundled file."""
+    for family, (folder, files) in _BUNDLED_FACES.items():
+        for name, weight, style in files:
+            yield family, os.path.join(_FONTS_ROOT, folder, name), weight, style
 
 
 def bundled_font_paths():
-    return [path for _family, path, _weights, _style in _face_files()]
+    return [path for _family, path, _weight, _style in _face_files()]
 
 
 _registered = set()
@@ -39,7 +46,7 @@ _registered = set()
 
 def register_bundled_fonts():
     """Add the bundled faces to the application font database. Needs a QGuiApplication."""
-    for family, path, _weights, _style in _face_files():
+    for family, path, _weight, _style in _face_files():
         font_id = QFontDatabase.addApplicationFont(path)
         if font_id < 0:
             print(f"Could not load bundled font: {path}")
@@ -56,10 +63,10 @@ def bundled_font_available(family):
 def bundled_font_face_css():
     """@font-face rules so web views (which ignore Qt's app fonts) can use the faces."""
     rules = []
-    for family, path, weights, style in _face_files():
+    for family, path, weight, style in _face_files():
         url = QUrl.fromLocalFile(path).toString(QUrl.ComponentFormattingOption.FullyEncoded)
         rules.append(
             f'@font-face {{ font-family: "{family}"; src: url("{url}") format("truetype"); '
-            f"font-weight: {weights}; font-style: {style}; }}"
+            f"font-weight: {weight}; font-style: {style}; }}"
         )
     return "\n".join(rules)
