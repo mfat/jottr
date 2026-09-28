@@ -24,7 +24,7 @@ class EditorPageMixin:
     def build_editor_page(self):
         page = QWidget()
         layout = QVBoxLayout(page)
-        layout.setContentsMargins(12, 12, 12, 12)
+        layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(10)
 
         tabs_box = QGroupBox(_("Tabs"))

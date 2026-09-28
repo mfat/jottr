@@ -33,7 +33,7 @@ class SessionsPageMixin:
     def build_sessions_page(self):
         page = QWidget()
         layout = QVBoxLayout(page)
-        layout.setContentsMargins(12, 12, 12, 12)
+        layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(10)
 
         startup_box = QGroupBox(_("Session restore behavior on startup"))

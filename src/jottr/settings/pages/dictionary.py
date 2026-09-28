@@ -15,7 +15,7 @@ class DictionaryPageMixin:
     def build_dictionary_page(self):
         dict_tab = QWidget()
         dict_layout = QVBoxLayout(dict_tab)
-        dict_layout.setContentsMargins(12, 12, 12, 12)
+        dict_layout.setContentsMargins(0, 0, 0, 0)
         dict_layout.setSpacing(10)
 
         spell_box = QGroupBox(_("Spell Checking"))

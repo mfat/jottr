@@ -5,7 +5,7 @@ and applies as soon as it changes; Close (or Esc) only dismisses the window.
 Page content lives in settings.pages.* mixins.
 """
 from PyQt6.QtWidgets import (
-    QDialog, QVBoxLayout, QHBoxLayout, QListWidget, QListWidgetItem,
+    QDialog, QVBoxLayout, QHBoxLayout, QLabel, QListWidget, QListWidgetItem,
     QWidget, QPushButton, QComboBox, QStackedWidget, QScrollArea,
 )
 from PyQt6.QtCore import Qt, QByteArray, QEvent, QSize, QTimer
@@ -205,7 +205,7 @@ class SettingsDialog(
                 QByteArray.fromBase64(geometry.encode())
             )
         if not restored:
-            self.resize(860, 620)
+            self.resize(860, 660)
         self.show_settings_page(state.get("page") or "")
 
     def sync_from_settings(self):
@@ -223,26 +223,47 @@ class SettingsDialog(
     # Layout and pages.
 
     def setup_ui(self):
-        layout = QVBoxLayout(self)
-        layout.setContentsMargins(14, 14, 14, 12)
-        layout.setSpacing(10)
+        layout = QHBoxLayout(self)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(0)
 
-        settings_body = QHBoxLayout()
-        settings_body.setSpacing(12)
+        # Sidebar: the window title over the page list.
+        self.settings_sidebar = QWidget()
+        self.settings_sidebar.setObjectName("settingsSidebar")
+        self.settings_sidebar.setFixedWidth(210)
+        sidebar_layout = QVBoxLayout(self.settings_sidebar)
+        sidebar_layout.setContentsMargins(14, 22, 14, 14)
+        sidebar_layout.setSpacing(10)
+        sidebar_title = QLabel(_("Settings"))
+        sidebar_title.setObjectName("settingsSidebarTitle")
+        sidebar_title.setContentsMargins(12, 0, 12, 0)
+        sidebar_layout.addWidget(sidebar_title)
         self.settings_nav = QListWidget()
         self.settings_nav.setObjectName("settingsNavList")
-        self.settings_nav.setFixedWidth(180)
-        self.settings_nav.setSpacing(4)
+        self.settings_nav.setSpacing(1)
         self.settings_nav.setIconSize(QSize(16, 16))
+        sidebar_layout.addWidget(self.settings_nav, 1)
+
+        # Content: the current page's title, the page, then the buttons.
+        self.settings_content = QWidget()
+        self.settings_content.setObjectName("settingsContent")
+        content_layout = QVBoxLayout(self.settings_content)
+        content_layout.setContentsMargins(30, 22, 30, 20)
+        content_layout.setSpacing(18)
+        self.settings_page_title = QLabel()
+        self.settings_page_title.setObjectName("settingsPageTitle")
+        content_layout.addWidget(self.settings_page_title)
         self.settings_stack = QStackedWidget()
         self.settings_stack.setObjectName("settingsStack")
-        self.settings_nav.currentRowChanged.connect(self.settings_stack.setCurrentIndex)
+        content_layout.addWidget(self.settings_stack, 1)
+        self.settings_nav.currentRowChanged.connect(self._on_settings_page_changed)
+
         self.settings_divider = QWidget()
         self.settings_divider.setObjectName("settingsContentDivider")
         self.settings_divider.setFixedWidth(1)
-        settings_body.addWidget(self.settings_nav)
-        settings_body.addWidget(self.settings_divider)
-        settings_body.addWidget(self.settings_stack, 1)
+        layout.addWidget(self.settings_sidebar)
+        layout.addWidget(self.settings_divider)
+        layout.addWidget(self.settings_content, 1)
 
         self.add_settings_page(
             "appearance",
@@ -281,15 +302,13 @@ class SettingsDialog(
         if self.settings_nav.count():
             self.settings_nav.setCurrentRow(0)
 
-        layout.addLayout(settings_body, 1)
-
         buttons = QHBoxLayout()
         buttons.addStretch()
         # Settings apply instantly; Close only dismisses the window.
         close_button = QPushButton(_("Close"))
         close_button.clicked.connect(self.reject)
         buttons.addWidget(close_button)
-        layout.addLayout(buttons)
+        content_layout.addLayout(buttons)
         # Enter in a line edit must not trigger a button and close the window.
         for button in self.findChildren(QPushButton):
             button.setAutoDefault(False)
@@ -306,6 +325,11 @@ class SettingsDialog(
             index = self.settings_nav.count()
         self.settings_nav.insertItem(index, item)
         self.settings_stack.insertWidget(index, widget)
+
+    def _on_settings_page_changed(self, row):
+        self.settings_stack.setCurrentIndex(row)
+        item = self.settings_nav.item(row)
+        self.settings_page_title.setText(item.text() if item is not None else "")
 
     def settings_page_key_index(self, key):
         for index in range(self.settings_nav.count()):
@@ -376,6 +400,11 @@ class SettingsDialog(
         # setFont alone is not enough: Fusion paints QGroupBox titles and
         # some form labels from the style, so set a font-only stylesheet too.
         font_style = ThemeManager.build_font_stylesheet(ui_font)
+        # Headings scale from Main UI Font. They live in this sheet, not the
+        # app's, because a widget's own sheet wins every font conflict.
+        size = ui_font.pointSizeF() if ui_font.pointSizeF() > 0 else ui_font.pointSize()
+        if size <= 0:
+            size = 10
         self.setStyleSheet(
             f"""
             QWidget {{
@@ -383,9 +412,27 @@ class SettingsDialog(
             }}
             QGroupBox {{
                 {font_style}
+                font-weight: 600;
             }}
             QGroupBox::title {{
                 {font_style}
+            }}
+            QLabel#settingsSidebarTitle {{
+                font-size: {size * 1.5:g}pt;
+                font-weight: 600;
+            }}
+            QLabel#settingsPageTitle {{
+                font-size: {size * 1.75:g}pt;
+                font-weight: 600;
+            }}
+            QLabel#settingsFieldTitle {{
+                font-weight: 600;
+            }}
+            QPushButton#segmentedOption:checked {{
+                font-weight: 600;
+            }}
+            QLabel#settingsFieldHint {{
+                font-size: {size * 0.9:g}pt;
             }}
             """
         )
@@ -448,7 +495,7 @@ class SettingsDialog(
             'user_dictionary': self.get_user_dictionary(),
             'spell_check': self.spell_check_enabled.isChecked(),
             'ui_theme': self.selected_ui_theme(),
-            'theme': self.editor_theme_combo.currentText(),
+            'theme': self.editor_theme_grid.currentTheme(),
             'language': self.language_combo.currentData() or self.language_combo.currentText(),
             'icon_theme': self.selected_icon_theme(),
             'icon_contrast': self.icon_contrast_combo.currentData(),

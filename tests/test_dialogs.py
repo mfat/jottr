@@ -117,24 +117,21 @@ class DialogTests(unittest.TestCase):
                 dialog.settings_nav.item(index).icon().isNull(),
                 msg=f"missing icon for {dialog.settings_nav.item(index).text()}",
             )
-        self.assertEqual(dialog.editor_theme_combo.currentText(), "Dracula")
+        self.assertEqual(dialog.editor_theme_grid.currentTheme(), "Dracula")
         dialog.homepage_edit.setText("https://home.example")
         self.assertEqual(dialog.search_open_in_combo.currentData(), "builtin")
         dialog.search_open_in_combo.setCurrentIndex(
             dialog.search_open_in_combo.findData("default")
         )
-        dialog.editor_theme_combo.setCurrentText("Monokai")
+        dialog.editor_theme_grid.setCurrentTheme("Monokai")
         self.assertEqual(
-            [dialog.color_scheme_combo.itemData(i)
-             for i in range(dialog.color_scheme_combo.count())],
+            [dialog.color_scheme_control.itemData(i)
+             for i in range(dialog.color_scheme_control.count())],
             ["System", "Light", "Dark"],
         )
-        self.assertEqual(dialog.color_scheme_combo.currentData(), "Dark")
+        self.assertEqual(dialog.color_scheme_control.currentData(), "Dark")
         self.assertEqual(dialog.selected_ui_theme(), "Dark")
-        self.assertIn("Dracula", [
-            dialog.editor_theme_combo.itemText(i)
-            for i in range(dialog.editor_theme_combo.count())
-        ])
+        self.assertIn("Dracula", dialog.editor_theme_grid.themeNames())
         # Every platform uses Fusion; there is no Widget Style control.
         self.assertFalse(hasattr(dialog, "qt_style_combo"))
         self.assertEqual(
@@ -496,11 +493,10 @@ class DialogTests(unittest.TestCase):
         self.assertEqual(dialog.font().pointSize(), 13)
         self.assertEqual(dialog.settings_nav.font().family(), "Liberation Sans")
         self.assertEqual(dialog.settings_nav.font().pointSize(), 13)
-        self.assertEqual(dialog.color_scheme_combo.font().family(), "Liberation Sans")
-        self.assertEqual(dialog.interface_look_combo.font().family(), "Liberation Sans")
-        self.assertEqual(
-            dialog.color_scheme_combo.view().font().family(), "Liberation Sans"
-        )
+        self.assertEqual(dialog.color_scheme_control.font().family(), "Liberation Sans")
+        self.assertEqual(dialog.interface_look_control.font().family(), "Liberation Sans")
+        for option in dialog.color_scheme_control.buttons():
+            self.assertEqual(option.font().family(), "Liberation Sans")
         self.assertEqual(dialog.ui_font.family(), "Liberation Sans")
         stylesheet = dialog.styleSheet()
         self.assertIn('font-family: "Liberation Sans"', stylesheet)
@@ -540,14 +536,15 @@ class DialogTests(unittest.TestCase):
         dialog = SettingsDialog(manager)
         self.addCleanup(dialog.deleteLater)
 
-        names = [
-            dialog.editor_theme_combo.itemText(i)
-            for i in range(dialog.editor_theme_combo.count())
-        ]
-        self.assertEqual(names, list(ThemeManager.get_themes()))
-        self.assertEqual(dialog.editor_theme_combo.currentText(), ThemeManager.DEFAULT_THEME_NAME)
+        self.assertEqual(
+            sorted(dialog.editor_theme_grid.themeNames()),
+            sorted(ThemeManager.get_themes()),
+        )
+        self.assertEqual(dialog.editor_theme_grid.currentTheme(), ThemeManager.DEFAULT_THEME_NAME)
         self.assertFalse(hasattr(dialog, "theme_json_edit"))
-        self.assertFalse(dialog.editor_theme_combo.itemIcon(0).isNull())
+        # Swatches run light pages first: White before Black.
+        names = dialog.editor_theme_grid.themeNames()
+        self.assertLess(names.index("White"), names.index("Black"))
 
     def test_settings_window_remembers_page_and_syncs_external_changes(self):
         manager = SettingsManager()
@@ -583,7 +580,7 @@ class DialogTests(unittest.TestCase):
         reopened.sync_from_settings()
         self.assertFalse(reopened.spell_check_enabled.isChecked())
         self.assertEqual(reopened.get_user_dictionary(), ["jottr", "kate"])
-        self.assertEqual(reopened.editor_theme_combo.currentText(), "Monokai")
+        self.assertEqual(reopened.editor_theme_grid.currentTheme(), "Monokai")
 
     def test_settings_dialog_is_close_only_and_persists_plugins_directory(self):
         manager = SettingsManager()

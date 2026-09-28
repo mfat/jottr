@@ -1153,6 +1153,79 @@ class ThemeManager:
                 padding: 2px 10px;
                 font-weight: 600;
             }}
+            /* Settings: a ground-colored sidebar beside a paper content pane. */
+            QWidget#settingsSidebar {{
+                background: {t['ground']};
+            }}
+            QWidget#settingsContent {{
+                background: {t['paper']};
+            }}
+            QWidget#settingsContentDivider {{
+                background: transparent;
+            }}
+            QWidget#settingsContent QScrollArea,
+            QWidget#settingsContent QScrollArea > QWidget > QWidget,
+            QWidget#settingsContent QStackedWidget {{
+                background: transparent;
+            }}
+            QListWidget#settingsNavList {{
+                background: transparent;
+                border: none;
+                outline: 0;
+            }}
+            QListWidget#settingsNavList::item {{
+                color: {t['ink']};
+                min-height: 34px;
+                border-radius: 17px;
+                padding: 0px 8px;
+            }}
+            QListWidget#settingsNavList::item:hover {{
+                background: {t['hover']};
+            }}
+            QListWidget#settingsNavList::item:selected {{
+                background: {t['act_soft']};
+                color: {t['act_ink']};
+            }}
+            QWidget#settingsContent QGroupBox {{
+                border: none;
+                margin-top: 22px;
+                padding-top: 4px;
+            }}
+            QWidget#settingsContent QGroupBox::title {{
+                subcontrol-origin: margin;
+                subcontrol-position: top left;
+                left: 0px;
+                padding: 0px;
+                color: {t['ink']};
+            }}
+            QWidget#segmentedControl {{
+                background: {t['ground']};
+                border-radius: 15px;
+            }}
+            QPushButton#segmentedOption {{
+                background: transparent;
+                border: none;
+                border-radius: 12px;
+                color: {t['muted']};
+                padding: 4px 16px;
+            }}
+            QPushButton#segmentedOption:hover {{
+                color: {t['ink']};
+            }}
+            QPushButton#segmentedOption:checked {{
+                background: {t['paper']};
+                color: {t['ink']};
+            }}
+            QWidget#settingsContent QComboBox,
+            QWidget#settingsContent QPushButton#fontSettingButton {{
+                min-height: 30px;
+                border-radius: 16px;
+                padding: 2px 12px 2px 16px;
+            }}
+            QWidget#settingsContent QPushButton#fontSettingButton {{
+                background: {t['paper']};
+                text-align: left;
+            }}
         """
 
     @staticmethod

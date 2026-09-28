@@ -1,7 +1,9 @@
 """Appearance page: language, UI font, motion, and color/icon themes."""
+from PyQt6.QtCore import Qt
+from PyQt6.QtGui import QColor, QPalette
 from PyQt6.QtWidgets import (
-    QVBoxLayout, QLabel, QComboBox, QCheckBox, QPushButton, QGroupBox,
-    QWidget, QDialog, QFormLayout,
+    QVBoxLayout, QHBoxLayout, QGridLayout, QLabel, QComboBox, QCheckBox,
+    QPushButton, QWidget, QDialog,
 )
 
 from jottr.font_dialog import FontSelectionDialog
@@ -9,6 +11,8 @@ from jottr.icon_manager import list_bundled_icon_themes
 from jottr.settings_manager import INTERFACE_LOOK_NATIVE, INTERFACE_LOOK_ORGANIC
 from jottr.theme_manager import ThemeManager
 from jottr.translation_manager import _, format_language_label, get_available_languages
+
+from ..widgets import SegmentedControl, ThemeSwatchGrid
 
 
 def select_combo_data(combo, value):
@@ -25,68 +29,55 @@ class AppearancePageMixin:
     def build_appearance_page(self):
         appearance_tab = QWidget()
         appearance_layout = QVBoxLayout(appearance_tab)
-        appearance_layout.setContentsMargins(12, 12, 12, 12)
-        appearance_layout.setSpacing(10)
+        appearance_layout.setContentsMargins(0, 0, 0, 0)
+        appearance_layout.setSpacing(18)
 
-        general_box = QGroupBox(_("General"))
-        general_layout = QFormLayout(general_box)
-        general_layout.setContentsMargins(12, 10, 12, 12)
-        general_layout.setSpacing(8)
-
-        self.language_combo = QComboBox()
-        self.load_language_options()
-        self.language_combo.currentIndexChanged.connect(self._on_language_changed)
-        general_layout.addRow(QLabel(_("Language:")), self.language_combo)
-
-        self.ui_font_button = self.create_font_button(
-            self.ui_font,
-            self.choose_ui_font,
-            follow_system=self.ui_font_follow_system,
-        )
-        general_layout.addRow(QLabel(_("Main UI Font:")), self.ui_font_button)
-
-        self.enable_animations_check = QCheckBox(_("Enable smooth animations"))
-        self.enable_animations_check.toggled.connect(self._on_animations_toggled)
-        general_layout.addRow(QLabel(_("Motion:")), self.enable_animations_check)
-        appearance_layout.addWidget(general_box)
-
-        theme_box = QGroupBox(_("Theme"))
-        theme_layout = QFormLayout(theme_box)
-        theme_layout.setContentsMargins(12, 10, 12, 12)
-        theme_layout.setSpacing(8)
-
-        self.interface_look_combo = QComboBox()
-        self.interface_look_combo.addItem(_("Native"), INTERFACE_LOOK_NATIVE)
-        self.interface_look_combo.addItem(_("Organic"), INTERFACE_LOOK_ORGANIC)
-        self.interface_look_combo.setToolTip(
+        self.interface_look_control = SegmentedControl()
+        self.interface_look_control.addOption(_("Native"), INTERFACE_LOOK_NATIVE)
+        self.interface_look_control.addOption(_("Organic"), INTERFACE_LOOK_ORGANIC)
+        self.interface_look_control.setToolTip(
             _("Native is a plain, familiar look. "
               "Organic uses Jottr's own rounded, warm look in light and dark.")
         )
-        self.interface_look_combo.currentIndexChanged.connect(
+        self.interface_look_control.currentDataChanged.connect(
             self._on_interface_look_changed
         )
-        theme_layout.addRow(QLabel(_("Interface Look:")), self.interface_look_combo)
+        appearance_layout.addLayout(self.settings_choice_row(
+            _("Interface look"),
+            _("Plain and familiar, or Jottr's own rounded look"),
+            self.interface_look_control,
+        ))
 
-        self.color_scheme_combo = QComboBox()
+        self.color_scheme_control = SegmentedControl()
         for scheme in ThemeManager.UI_THEME_NAMES:
-            label = _("Follow System") if scheme == "System" else _(scheme)
-            self.color_scheme_combo.addItem(label, scheme)
-        self.color_scheme_combo.setToolTip(
+            self.color_scheme_control.addOption(_(scheme), scheme)
+        self.color_scheme_control.setToolTip(
             _("Light or dark menus, toolbars and panels. "
-              "Follow System matches the desktop.")
+              "System matches the desktop.")
         )
-        self.color_scheme_combo.currentIndexChanged.connect(
+        self.color_scheme_control.currentDataChanged.connect(
             self._on_color_scheme_changed
         )
-        theme_layout.addRow(QLabel(_("Color Scheme:")), self.color_scheme_combo)
+        appearance_layout.addLayout(self.settings_choice_row(
+            _("Color scheme"),
+            _("Menus, toolbars and panels"),
+            self.color_scheme_control,
+        ))
 
-        self.editor_theme_combo = QComboBox()
-        for name, theme in ThemeManager.get_themes().items():
-            self.editor_theme_combo.addItem(
-                ThemeManager.build_theme_tile_icon(theme), name
-            )
-        self.editor_theme_combo.currentTextChanged.connect(self._on_editor_theme_changed)
-        theme_layout.addRow(QLabel(_("Editor Theme:")), self.editor_theme_combo)
+        themes = ThemeManager.get_themes()
+        # Light pages first, then dark, each in their usual order.
+        ordered = sorted(
+            themes,
+            key=lambda name: QColor(themes[name]["editor"]["background"]).lightnessF() < 0.5,
+        )
+        self.editor_theme_grid = ThemeSwatchGrid(
+            (name, themes[name]["editor"]["background"], themes[name]["editor"]["foreground"])
+            for name in ordered
+        )
+        self.editor_theme_grid.themeChanged.connect(self._on_editor_theme_changed)
+        appearance_layout.addLayout(
+            self.settings_field(_("Editor theme"), self.editor_theme_grid)
+        )
 
         self.icon_theme_combo = QComboBox()
         for icon_theme in list_bundled_icon_themes():
@@ -96,7 +87,6 @@ class AppearancePageMixin:
               "Desktop/system icon themes are not used.")
         )
         self.icon_theme_combo.currentIndexChanged.connect(self._on_icon_theme_changed)
-        theme_layout.addRow(QLabel(_("Icon Theme:")), self.icon_theme_combo)
 
         self.icon_contrast_combo = QComboBox()
         for label, value in (
@@ -107,12 +97,70 @@ class AppearancePageMixin:
         ):
             self.icon_contrast_combo.addItem(label, value)
         self.icon_contrast_combo.currentIndexChanged.connect(self._on_icon_contrast_changed)
-        theme_layout.addRow(QLabel(_("Icon Contrast:")), self.icon_contrast_combo)
-        appearance_layout.addWidget(theme_box)
+
+        self.ui_font_button = self.create_font_button(
+            self.ui_font,
+            self.choose_ui_font,
+            follow_system=self.ui_font_follow_system,
+        )
+
+        self.language_combo = QComboBox()
+        self.load_language_options()
+        self.language_combo.currentIndexChanged.connect(self._on_language_changed)
+
+        fields = QGridLayout()
+        fields.setHorizontalSpacing(14)
+        fields.setVerticalSpacing(14)
+        fields.setColumnStretch(0, 1)
+        fields.setColumnStretch(1, 1)
+        fields.addLayout(self.settings_field(_("Icon theme"), self.icon_theme_combo), 0, 0)
+        fields.addLayout(
+            self.settings_field(_("Icon contrast"), self.icon_contrast_combo), 0, 1
+        )
+        fields.addLayout(
+            self.settings_field(_("User interface font"), self.ui_font_button), 1, 0
+        )
+        fields.addLayout(self.settings_field(_("Language"), self.language_combo), 1, 1)
+        appearance_layout.addLayout(fields)
+
+        self.enable_animations_check = QCheckBox(_("Enable smooth animations"))
+        self.enable_animations_check.toggled.connect(self._on_animations_toggled)
+        appearance_layout.addWidget(self.enable_animations_check)
         appearance_layout.addStretch()
 
         self.sync_appearance_page()
         return appearance_tab
+
+    def settings_choice_row(self, title, hint, control):
+        """A bold title over a muted hint on the left, its control on the right."""
+        row = QHBoxLayout()
+        row.setSpacing(16)
+        text = QVBoxLayout()
+        text.setSpacing(1)
+        text.addWidget(self.settings_field_title(title))
+        hint_label = QLabel(hint)
+        hint_label.setObjectName("settingsFieldHint")
+        hint_label.setForegroundRole(QPalette.ColorRole.PlaceholderText)
+        hint_label.setWordWrap(True)
+        text.addWidget(hint_label)
+        row.addLayout(text, 1)
+        row.addWidget(control, 0, Qt.AlignmentFlag.AlignVCenter)
+        return row
+
+    def settings_field(self, title, control):
+        """A bold title above its control."""
+        field = QVBoxLayout()
+        field.setSpacing(8)
+        title_label = self.settings_field_title(title)
+        title_label.setBuddy(control)
+        field.addWidget(title_label)
+        field.addWidget(control)
+        return field
+
+    def settings_field_title(self, title):
+        label = QLabel(title)
+        label.setObjectName("settingsFieldTitle")
+        return label
 
     def sync_appearance_page(self):
         sm = self.settings_manager
@@ -120,15 +168,15 @@ class AppearancePageMixin:
         self.enable_animations_check.setChecked(
             bool(sm.get_setting("enable_animations", True))
         )
-        look = sm.get_interface_look()
-        if not select_combo_data(self.interface_look_combo, look):
-            self.interface_look_combo.setCurrentIndex(0)
+        if not self.interface_look_control.setCurrentData(sm.get_interface_look()):
+            self.interface_look_control.setCurrentData(INTERFACE_LOOK_NATIVE)
         # Blocked: a scheme change also restyles this window.
-        self.color_scheme_combo.blockSignals(True)
-        if not select_combo_data(self.color_scheme_combo, sm.get_ui_theme()):
-            self.color_scheme_combo.setCurrentIndex(0)
-        self.color_scheme_combo.blockSignals(False)
-        self.editor_theme_combo.setCurrentText(sm.get_theme())
+        self.color_scheme_control.blockSignals(True)
+        if not self.color_scheme_control.setCurrentData(sm.get_ui_theme()):
+            self.color_scheme_control.setCurrentData("System")
+        self.color_scheme_control.blockSignals(False)
+        if not self.editor_theme_grid.setCurrentTheme(sm.get_theme()):
+            self.editor_theme_grid.setCurrentTheme(ThemeManager.DEFAULT_THEME_NAME)
         if not select_combo_data(self.icon_theme_combo, sm.get_icon_theme()):
             self.icon_theme_combo.setCurrentIndex(0)
         if not select_combo_data(
@@ -150,7 +198,7 @@ class AppearancePageMixin:
         if self._loading:
             return
         # Applied immediately, like a palette swap.
-        scheme = self.color_scheme_combo.currentData()
+        scheme = self.color_scheme_control.currentData()
         self._commit_now(
             "style", lambda: self.settings_manager.save_ui_theme(scheme)
         )
@@ -161,7 +209,7 @@ class AppearancePageMixin:
     def _on_interface_look_changed(self):
         if self._loading:
             return
-        look = self.interface_look_combo.currentData()
+        look = self.interface_look_control.currentData()
         self._commit_now(
             "look", lambda: self.settings_manager.save_interface_look(look)
         )
@@ -171,7 +219,7 @@ class AppearancePageMixin:
     def _on_editor_theme_changed(self):
         self._commit(
             "editor_theme",
-            lambda: self.settings_manager.save_theme(self.editor_theme_combo.currentText()),
+            lambda: self.settings_manager.save_theme(self.editor_theme_grid.currentTheme()),
         )
 
     def _on_icon_theme_changed(self):

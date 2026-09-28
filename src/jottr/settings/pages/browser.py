@@ -30,7 +30,7 @@ class BrowserPageMixin:
         browser_tab = QWidget()
         self.browser_settings_page = browser_tab
         layout = QVBoxLayout(browser_tab)
-        layout.setContentsMargins(12, 12, 12, 12)
+        layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(10)
 
         general_box = QGroupBox(_("General"))

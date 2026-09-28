@@ -45,7 +45,7 @@ class PluginsTabMixin:
         plugins_tab = QWidget()
         plugins_tab.setObjectName("pluginsSettingsTab")
         layout = QVBoxLayout(plugins_tab)
-        layout.setContentsMargins(12, 12, 12, 12)
+        layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(10)
 
         source_box = QGroupBox(_("Plugin Sources"))
