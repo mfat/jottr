@@ -2404,7 +2404,7 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
 
         if matched:
             self.document_language_status.setText(
-                _("Dict: {dictionary}").format(dictionary=matched)
+                _("Dictionary: {dictionary}").format(dictionary=matched)
             )
             if configured == DOCUMENT_LANGUAGE_AUTO and confidence is False:
                 self.document_language_status.setToolTip(
