@@ -42,8 +42,9 @@ from jottr.session_recovery import (
 from jottr.translation_manager import _, format_language_label, is_rtl_language, set_language
 from jottr.font_dialog import FontSelectionDialog
 from jottr.plugin_manager import PluginManager
-from jottr.file_dialogs import get_open_file_name
+from jottr.file_dialogs import get_open_file_name, is_flatpak
 from jottr.file_manager import show_in_file_manager
+from jottr.portal_folders import request_home_access
 from jottr.editor.case_transform import (
     apply_capitalize,
     apply_lowercase,
@@ -389,6 +390,19 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
         self.update_edit_actions()
         self.update_document_language_status()
         self._focus_editor_for_typing()
+        if is_flatpak():
+            # After the window is up, so the dialog never delays first paint.
+            QTimer.singleShot(0, self.check_home_folder_access)
+
+    def check_home_folder_access(self):
+        """Inside Flatpak, ask once for the home folder and remember it."""
+        if not request_home_access(self, self.settings_manager):
+            return
+        # Documents restored before the grant render their images now.
+        for index in range(self.tab_widget.count()):
+            tab = self.tab_widget.widget(index)
+            if isinstance(tab, EditorTab) and getattr(tab, "markdown_preview_visible", False):
+                tab.update_markdown_preview()
 
     def restore_last_run(self):
         """Reopen the workspace and tabs of the previous run."""

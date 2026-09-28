@@ -16,6 +16,7 @@ from jottr.file_dialogs import get_existing_directory
 from jottr.translation_manager import _
 
 GRANTS_SETTING = "portal_folder_grants"
+HOME_ACCESS_ASKED_SETTING = "portal_home_access_asked"
 HOST_PATH_XATTR = "user.document-portal.host-path"
 _DOC_ID_DIR_RE = re.compile(r"^/run/user/\d+/doc/[^/]+$")
 _DOC_ENTRY_RE = re.compile(r"^(/run/user/\d+/doc/([^/]+))/[^/]+")
@@ -141,6 +142,52 @@ def accessible_folder(settings_manager, document_path):
         if folder and os.path.isdir(folder):
             return folder
     return None
+
+
+def has_home_grant(settings_manager):
+    """True when a remembered grant covers the home folder."""
+    home = os.path.expanduser("~")
+    for grant in granted_folders(settings_manager):
+        grant_host = host_path(grant)
+        if grant_host and is_within(home, grant_host):
+            return True
+    return False
+
+
+def request_home_access(parent, settings_manager):
+    """Ask once for the home folder through the portal and remember the grant.
+
+    Documents opened later from anywhere in home then come with their folder,
+    so the preview shows their images and pasted images land beside them.
+    Returns True when a new folder was granted.
+    """
+    if settings_manager.get_setting(HOME_ACCESS_ASKED_SETTING, False):
+        return False
+    if has_home_grant(settings_manager):
+        return False
+    settings_manager.save_setting(HOME_ACCESS_ASKED_SETTING, True)
+    home = os.path.expanduser("~")
+    answer = QMessageBox.question(
+        parent,
+        _("Allow Folder Access"),
+        _(
+            "Jottr runs in a sandbox and can only see the documents you open, "
+            "not the folders they are in. Images linked from a document, such "
+            "as a README's screenshots, cannot be shown, and pasted images "
+            "cannot be saved beside it.\n\n"
+            "Choose your home folder {folder} to let Jottr see the folders of "
+            "the documents you open. Jottr remembers the folder you choose."
+        ).format(folder=home),
+        QMessageBox.StandardButton.Ok | QMessageBox.StandardButton.Cancel,
+        QMessageBox.StandardButton.Ok,
+    )
+    if answer != QMessageBox.StandardButton.Ok:
+        return False
+    chosen = get_existing_directory(parent, _("Choose Your Home Folder"), home)
+    if not chosen or not _DOC_ENTRY_RE.match(os.path.abspath(chosen)):
+        return False
+    remember_grant(settings_manager, chosen)
+    return True
 
 
 def request_folder_access(parent, settings_manager, document_path):
