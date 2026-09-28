@@ -1,6 +1,6 @@
 """Appearance page: language, UI font, motion, and color/icon themes."""
 from PyQt6.QtCore import Qt
-from PyQt6.QtGui import QColor, QPalette
+from PyQt6.QtGui import QPalette
 from PyQt6.QtWidgets import (
     QVBoxLayout, QHBoxLayout, QGridLayout, QLabel, QComboBox, QCheckBox,
     QPushButton, QWidget, QDialog,
@@ -86,16 +86,7 @@ class AppearancePageMixin:
             self.accent_color_control,
         ))
 
-        themes = ThemeManager.get_themes()
-        # Light pages first, then dark, each in their usual order.
-        ordered = sorted(
-            themes,
-            key=lambda name: QColor(themes[name]["editor"]["background"]).lightnessF() < 0.5,
-        )
-        self.editor_theme_grid = ThemeSwatchGrid(
-            (name, themes[name]["editor"]["background"], themes[name]["editor"]["foreground"])
-            for name in ordered
-        )
+        self.editor_theme_grid = ThemeSwatchGrid.fromThemes(ThemeManager.get_themes())
         self.editor_theme_grid.themeChanged.connect(self._on_editor_theme_changed)
         appearance_layout.addLayout(
             self.settings_field(_("Editor theme"), self.editor_theme_grid)

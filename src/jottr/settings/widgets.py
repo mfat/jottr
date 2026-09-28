@@ -172,6 +172,22 @@ class ThemeSwatchGrid(QWidget):
     """Editor themes as a grid of swatches; exactly one is current."""
 
     themeChanged = pyqtSignal(str)
+    # Every click, including on the current theme, so a popup can close.
+    themeClicked = pyqtSignal(str)
+
+    @classmethod
+    def fromThemes(cls, themes, columns=5, parent=None):
+        """A grid for a ThemeManager.get_themes() mapping, light pages first."""
+        ordered = sorted(
+            themes,
+            key=lambda name: QColor(themes[name]["editor"]["background"]).lightnessF() < 0.5,
+        )
+        return cls(
+            ((name, themes[name]["editor"]["background"], themes[name]["editor"]["foreground"])
+             for name in ordered),
+            columns,
+            parent,
+        )
 
     def __init__(self, themes, columns=5, parent=None):
         """*themes* is an iterable of (name, background, foreground)."""
@@ -192,6 +208,7 @@ class ThemeSwatchGrid(QWidget):
         for column in range(columns):
             layout.setColumnStretch(column, 1)
         self._group.idToggled.connect(self._on_toggled)
+        self._group.idClicked.connect(lambda index: self.themeClicked.emit(self._names[index]))
 
     def themeNames(self):
         return list(self._names)

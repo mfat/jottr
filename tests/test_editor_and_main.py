@@ -2764,22 +2764,13 @@ class EditorAndMainTests(unittest.TestCase):
 
             self.assertIsInstance(theme_actions[0], QWidgetAction)
             grid = theme_actions[0].defaultWidget()
-            self.assertIsInstance(grid, window_module.EditorThemeGrid)
-            self.assertGreaterEqual(len(grid._cards), 5)
-            self.assertEqual(
-                grid.layout().columnCount(),
-                window_module.EditorThemeGrid.COLUMNS,
-            )
-            sample = next(iter(grid._cards.values()))
-            self.assertIsInstance(sample, window_module.EditorThemeCard)
-            self.assertEqual(sample._name_label.text(), sample.theme_name)
-            self.assertIn("The quick brown", sample._sample.text())
-            chips = [
-                child
-                for child in sample.findChildren(QFrame)
-                if child.objectName() == "editorThemeSwatchChip"
-            ]
-            self.assertEqual(len(chips), 0)
+            from jottr.settings.widgets import ThemeSwatch, ThemeSwatchGrid
+            self.assertIsInstance(grid, ThemeSwatchGrid)
+            self.assertGreaterEqual(len(grid.themeNames()), 5)
+            self.assertEqual(grid.layout().columnCount(), 5)
+            sample = grid.swatch(grid.themeNames()[0])
+            self.assertIsInstance(sample, ThemeSwatch)
+            self.assertEqual(sample.text(), grid.themeNames()[0])
             # Menubar and menus are left to QStyle + palette; font via setFont,
             # except borderless chrome (no horizontal lines).
             stylesheet = QApplication.instance().styleSheet()
@@ -3077,10 +3068,15 @@ class EditorAndMainTests(unittest.TestCase):
         editor_tab = window.tab_widget.widget(0)
         self.assertEqual(editor_tab.current_theme, "Dracula")
         grid = window.editor_theme_grid
-        self.assertIsInstance(grid, window_module.EditorThemeGrid)
-        self.assertTrue(grid._cards["Dracula"].is_selected())
-        self.assertGreaterEqual(len(grid._cards), 5)
-        self.assertIn("fox jumps over", grid._cards["Dracula"]._sample.text())
+        from jottr.settings.widgets import ThemeSwatchGrid
+        self.assertIsInstance(grid, ThemeSwatchGrid)
+        self.assertEqual(grid.currentTheme(), "Dracula")
+        self.assertGreaterEqual(len(grid.themeNames()), 5)
+        # Clicking the current swatch still reports, so the popup closes.
+        clicked = []
+        grid.themeClicked.connect(clicked.append)
+        grid.swatch("Dracula").click()
+        self.assertEqual(clicked, ["Dracula"])
 
     def test_plugin_menu_deduplicates_sidebar_items_that_open_existing_panels(self):
         class FakeEditorTab(QWidget):
