@@ -205,7 +205,7 @@ class SettingsDialog(
                 QByteArray.fromBase64(geometry.encode())
             )
         if not restored:
-            self.resize(860, 660)
+            self.resize(860, 700)
         self.show_settings_page(state.get("page") or "")
 
     def sync_from_settings(self):

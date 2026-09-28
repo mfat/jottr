@@ -30,7 +30,7 @@ class AppearancePageMixin:
         appearance_tab = QWidget()
         appearance_layout = QVBoxLayout(appearance_tab)
         appearance_layout.setContentsMargins(0, 0, 0, 0)
-        appearance_layout.setSpacing(18)
+        appearance_layout.setSpacing(14)
 
         self.interface_look_control = SegmentedControl()
         self.interface_look_control.addOption(_("Native"), INTERFACE_LOOK_NATIVE)
@@ -79,7 +79,7 @@ class AppearancePageMixin:
         self.accent_color_control.currentDataChanged.connect(self._on_accent_color_changed)
         appearance_layout.addLayout(self.settings_choice_row(
             _("Accent color"),
-            _("Selections, highlights and main buttons"),
+            _("Highlights and main buttons"),
             self.accent_color_control,
         ))
 
@@ -129,7 +129,7 @@ class AppearancePageMixin:
 
         fields = QGridLayout()
         fields.setHorizontalSpacing(14)
-        fields.setVerticalSpacing(14)
+        fields.setVerticalSpacing(10)
         fields.setColumnStretch(0, 1)
         fields.setColumnStretch(1, 1)
         fields.addLayout(self.settings_field(_("Icon theme"), self.icon_theme_combo), 0, 0)

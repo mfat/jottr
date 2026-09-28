@@ -91,7 +91,7 @@ class SegmentedControl(QWidget):
 class ThemeSwatch(QAbstractButton):
     """A checkable miniature page in an editor theme's colors, with its name below."""
 
-    SWATCH_HEIGHT = 58
+    SWATCH_HEIGHT = 50
     RADIUS = 14
 
     def __init__(self, name, background, foreground, parent=None):
@@ -218,7 +218,7 @@ class ThemeSwatchGrid(QWidget):
 class ColorSwatch(QAbstractButton):
     """A checkable round color dot; checked adds a ring around it."""
 
-    DIAMETER = 22
+    DIAMETER = 18
     RING = 4
 
     def __init__(self, label, color, parent=None):
