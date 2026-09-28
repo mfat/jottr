@@ -229,7 +229,7 @@ class SettingsAndSnippetTests(unittest.TestCase):
         self.assertEqual(SettingsManager.coerce_font_weight(50), int(QFont.Weight.Normal))
         self.assertEqual(SettingsManager.coerce_font_weight(400), 400)
 
-        # Persisted legacy DejaVu UI default migrates to the system font.
+        # Persisted legacy DejaVu UI default migrates to the bundled font.
         Path(manager.settings_file).write_text(
             json.dumps({
                 "ui_font_family": "DejaVu Sans",
@@ -244,8 +244,8 @@ class SettingsAndSnippetTests(unittest.TestCase):
             encoding="utf-8",
         )
         reloaded = SettingsManager()
-        self.assertEqual(reloaded.ui_font_source(), UI_FONT_SYSTEM)
-        self.assertEqual(reloaded.get_font("ui").family(), system.family())
+        self.assertEqual(reloaded.ui_font_source(), UI_FONT_DEFAULT)
+        self.assertEqual(reloaded.get_font("ui").family(), BUNDLED_FONT_FAMILY)
         self.assertGreaterEqual(int(reloaded.get_font("ui").weight()), 100)
         self.assertEqual(int(reloaded.get_font("editor").weight()), int(QFont.Weight.Normal))
         # The legacy DejaVu editor default migrates to the system fixed font,
@@ -275,9 +275,9 @@ class SettingsAndSnippetTests(unittest.TestCase):
         self.assertEqual(custom.get_font("ui").family(), "Liberation Sans")
         self.assertEqual(custom.get_font("ui").pointSize(), 13)
 
-        # The retired on/off flag maps onto a source; existing installs keep
-        # following the desktop or keep their face.
-        for follow, expected in ((True, UI_FONT_SYSTEM), (False, UI_FONT_CUSTOM)):
+        # The retired on/off flag maps onto a source: following the desktop
+        # (the old default) moves to the bundled face, a chosen face stays.
+        for follow, expected in ((True, UI_FONT_DEFAULT), (False, UI_FONT_CUSTOM)):
             Path(manager.settings_file).write_text(
                 json.dumps({"ui_font_follow_system": follow, "ui_font_family": "Liberation Sans"}),
                 encoding="utf-8",

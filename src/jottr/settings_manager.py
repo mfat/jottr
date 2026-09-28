@@ -95,6 +95,11 @@ class SettingsManager:
         return QFont(BUNDLED_FONT_FAMILY, SettingsManager.font_point_size(system, 10))
 
     @staticmethod
+    def default_ui_font_source():
+        """The bundled face, or the desktop font when it failed to load."""
+        return UI_FONT_DEFAULT if bundled_font_available() else UI_FONT_SYSTEM
+
+    @staticmethod
     def font_point_size(font, fallback=10):
         """Whole point size of *font*, falling back when the font is pixel-sized."""
         size = font.pointSize()
@@ -124,8 +129,7 @@ class SettingsManager:
         editor_family = self.system_fixed_font().family()
         # New installs use the bundled face for both roles; saved settings
         # (loaded below) keep whatever an existing install already has.
-        bundled = bundled_font_available()
-        if bundled:
+        if bundled_font_available():
             editor_family = BUNDLED_FONT_FAMILY
         # Initialize default settings
         self.settings = {
@@ -134,7 +138,7 @@ class SettingsManager:
             "ui_font_weight": int(ui_font.weight()),
             "ui_font_italic": bool(ui_font.italic()),
             # One of UI_FONT_SOURCES; ui_font_* only apply to UI_FONT_CUSTOM.
-            "ui_font_source": UI_FONT_DEFAULT if bundled else UI_FONT_SYSTEM,
+            "ui_font_source": self.default_ui_font_source(),
             "font_family": editor_family,
             "font_size": DEFAULT_EDITOR_FONT_SIZE,
             "font_weight": int(QFont.Weight.Normal),
@@ -281,12 +285,13 @@ class SettingsManager:
                     pane_states = self.settings.get("pane_states")
                     if isinstance(pane_states, dict):
                         pane_states.pop("browser_visible", None)
-                    # The old on/off flag predates the bundled default: installs
-                    # keep following the desktop, or keep their chosen face.
+                    # The old on/off flag predates the bundled default: following
+                    # the desktop was the untouched default, so it moves to the
+                    # bundled face; a chosen face stays.
                     legacy_follow = self.settings.pop("ui_font_follow_system", None)
                     if not had_source and legacy_follow is not None:
                         self.settings["ui_font_source"] = (
-                            UI_FONT_SYSTEM if legacy_follow else UI_FONT_CUSTOM
+                            self.default_ui_font_source() if legacy_follow else UI_FONT_CUSTOM
                         )
                         self.save_settings()
                     self.migrate_legacy_font_settings(
@@ -330,7 +335,7 @@ class SettingsManager:
             self.settings["ui_font_size"] = self.font_point_size(ui_font, 10)
             self.settings["ui_font_weight"] = int(ui_font.weight())
             self.settings["ui_font_italic"] = bool(ui_font.italic())
-            self.settings["ui_font_source"] = UI_FONT_SYSTEM
+            self.settings["ui_font_source"] = self.default_ui_font_source()
             changed = True
         else:
             coerced = self.coerce_font_weight(weight)
