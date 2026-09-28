@@ -90,12 +90,16 @@ class SegmentedControl(QWidget):
 
 
 class ThemeSwatch(QAbstractButton):
-    """A checkable miniature page in an editor theme's colors, with its name below."""
+    """A checkable miniature page in an editor theme's colors, with its name below.
+
+    *accents* are the Markdown heading, link and code colors; themes that
+    share a page color still look different by them.
+    """
 
     SWATCH_HEIGHT = 50
     RADIUS = 14
 
-    def __init__(self, name, background, foreground, parent=None):
+    def __init__(self, name, background, foreground, accents=(), parent=None):
         super().__init__(parent)
         self.setObjectName("themeSwatch")
         self.setCheckable(True)
@@ -105,6 +109,7 @@ class ThemeSwatch(QAbstractButton):
         self.setFocusPolicy(Qt.FocusPolicy.TabFocus)
         self.background = QColor(background)
         self.foreground = QColor(foreground)
+        self.accents = [QColor(color) for color in accents]
         self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
 
     def _label_height(self):
@@ -128,16 +133,27 @@ class ThemeSwatch(QAbstractButton):
         painter.setBrush(self.background)
         painter.drawRoundedRect(page, self.RADIUS - ring, self.RADIUS - ring)
 
-        # Three text lines: a full-strength title, then two faded body lines.
+        # A heading, then two body lines each ending in a link or code span.
+        # Without accents every segment falls back to the text color.
+        heading, link, code = (self.accents + [self.foreground] * 3)[:3]
+        body = QColor(self.foreground)
+        body.setAlphaF(0.5)
+        lines = (
+            ((0.6, heading),),
+            ((0.5, body), (0.35, link)),
+            ((0.3, body), (0.3, code)),
+        )
         bar = 5.0
-        left = page.left() + 10
+        gap = 4.0
         top = page.top() + 10
-        for fraction, opacity in ((0.6, 1.0), (0.85, 0.5), (0.7, 0.5)):
-            color = QColor(self.foreground)
-            color.setAlphaF(opacity)
-            painter.setBrush(color)
-            width = (page.width() - 20) * fraction
-            painter.drawRoundedRect(QRectF(left, top, width, bar), bar / 2, bar / 2)
+        span = page.width() - 20
+        for segments in lines:
+            left = page.left() + 10
+            for fraction, color in segments:
+                painter.setBrush(color)
+                width = span * fraction
+                painter.drawRoundedRect(QRectF(left, top, width, bar), bar / 2, bar / 2)
+                left += width + gap
             top += bar + 5
 
         painter.setBrush(Qt.BrushStyle.NoBrush)
@@ -182,15 +198,22 @@ class ThemeSwatchGrid(QWidget):
             themes,
             key=lambda name: QColor(themes[name]["editor"]["background"]).lightnessF() < 0.5,
         )
-        return cls(
-            ((name, themes[name]["editor"]["background"], themes[name]["editor"]["foreground"])
-             for name in ordered),
-            columns,
-            parent,
-        )
+
+        def entry(name):
+            editor = themes[name]["editor"]
+            syntax = themes[name].get("syntax") or {}
+            # The colors Markdown headings, links and inline code are drawn in.
+            accents = [
+                syntax[key]
+                for key in ("keyword", "function", "constant")
+                if key in syntax
+            ]
+            return name, editor["background"], editor["foreground"], accents
+
+        return cls((entry(name) for name in ordered), columns, parent)
 
     def __init__(self, themes, columns=5, parent=None):
-        """*themes* is an iterable of (name, background, foreground)."""
+        """*themes* is an iterable of (name, background, foreground[, accents])."""
         super().__init__(parent)
         self.setObjectName("themeSwatchGrid")
         layout = QGridLayout(self)
@@ -200,8 +223,8 @@ class ThemeSwatchGrid(QWidget):
         self._group = QButtonGroup(self)
         self._group.setExclusive(True)
         self._names = []
-        for index, (name, background, foreground) in enumerate(themes):
-            swatch = ThemeSwatch(name, background, foreground)
+        for index, (name, background, foreground, *accents) in enumerate(themes):
+            swatch = ThemeSwatch(name, background, foreground, *accents)
             self._group.addButton(swatch, index)
             self._names.append(name)
             layout.addWidget(swatch, index // columns, index % columns)
