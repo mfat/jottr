@@ -1,4 +1,4 @@
-"""Settings controls: a segmented choice and a grid of editor theme swatches."""
+"""Settings controls: a segmented choice, color dots, and a grid of editor theme swatches."""
 from PyQt6.QtCore import QRectF, QSize, Qt, pyqtSignal
 from PyQt6.QtGui import QColor, QPainter, QPalette, QPen
 from PyQt6.QtWidgets import (
@@ -213,3 +213,93 @@ class ThemeSwatchGrid(QWidget):
     def _on_toggled(self, index, checked):
         if checked:
             self.themeChanged.emit(self._names[index])
+
+
+class ColorSwatch(QAbstractButton):
+    """A checkable round color dot; checked adds a ring around it."""
+
+    DIAMETER = 22
+    RING = 4
+
+    def __init__(self, label, color, parent=None):
+        """*color* is a QColor or a callable returning one (read when painting)."""
+        super().__init__(parent)
+        self.setObjectName("colorSwatch")
+        self.setCheckable(True)
+        self.setToolTip(label)
+        self.setAccessibleName(label)
+        self.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.setFocusPolicy(Qt.FocusPolicy.TabFocus)
+        self._color = color
+        side = self.DIAMETER + 2 * self.RING
+        self.setFixedSize(side, side)
+
+    def color(self):
+        return QColor(self._color() if callable(self._color) else self._color)
+
+    def paintEvent(self, event):
+        palette = self.palette()
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing, True)
+        outer = QRectF(self.rect()).adjusted(1, 1, -1, -1)
+        dot = QRectF(self.rect()).adjusted(self.RING, self.RING, -self.RING, -self.RING)
+        if self.isChecked() or self.hasFocus():
+            painter.setPen(QPen(palette.color(QPalette.ColorRole.WindowText),
+                                2 if self.isChecked() else 1,
+                                Qt.PenStyle.SolidLine if self.isChecked() else Qt.PenStyle.DotLine))
+            painter.setBrush(Qt.BrushStyle.NoBrush)
+            painter.drawEllipse(outer)
+        painter.setPen(QPen(palette.color(QPalette.ColorRole.Mid), 1))
+        painter.setBrush(self.color())
+        painter.drawEllipse(dot)
+        painter.end()
+
+
+class ColorSwatchPicker(QWidget):
+    """One choice from a row of color dots; the API mirrors SegmentedControl."""
+
+    currentDataChanged = pyqtSignal(object)
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setObjectName("colorSwatchPicker")
+        self.setSizePolicy(QSizePolicy.Policy.Maximum, QSizePolicy.Policy.Fixed)
+        self._layout = QHBoxLayout(self)
+        self._layout.setContentsMargins(0, 0, 0, 0)
+        self._layout.setSpacing(2)
+        self._group = QButtonGroup(self)
+        self._group.setExclusive(True)
+        self._group.idToggled.connect(self._on_toggled)
+        self._data = []
+
+    def addOption(self, label, data, color):
+        swatch = ColorSwatch(label, color)
+        self._group.addButton(swatch, len(self._data))
+        self._data.append(data)
+        self._layout.addWidget(swatch)
+        if len(self._data) == 1:
+            swatch.setChecked(True)
+        return swatch
+
+    def count(self):
+        return len(self._data)
+
+    def itemData(self, index):
+        return self._data[index]
+
+    def buttons(self):
+        return [self._group.button(index) for index in range(len(self._data))]
+
+    def currentData(self):
+        index = self._group.checkedId()
+        return self._data[index] if index >= 0 else None
+
+    def setCurrentData(self, data):
+        if data not in self._data:
+            return False
+        self._group.button(self._data.index(data)).setChecked(True)
+        return True
+
+    def _on_toggled(self, index, checked):
+        if checked:
+            self.currentDataChanged.emit(self._data[index])

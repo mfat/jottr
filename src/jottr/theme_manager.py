@@ -20,6 +20,23 @@ class ThemeManager:
     # Interface Look published by SettingsManager ("native" or "organic").
     _interface_look = "native"
 
+    # Accent Color published by SettingsManager: "default" keeps each look's
+    # own accent; the others are (label, main, soft, bright, deep) ramps. The
+    # first three come from the Organic design; light schemes use main, soft
+    # and deep, dark schemes the bright step and translucent fills of it.
+    _accent = "default"
+    ACCENT_DEFAULT = "default"
+    ACCENTS = {
+        "terracotta": ("Terracotta", "#c67139", "#ffe1d0", "#f6a06b", "#643312"),
+        "sage": ("Sage", "#7a8a5e", "#e1eecc", "#aebf92", "#3d472b"),
+        "ink": ("Ink", "#2e2b25", "#eee7db", "#f9f4ed", "#2e2b25"),
+        "ocean": ("Ocean", "#3f6f9e", "#d6e4f2", "#7fa7d0", "#1f3a56"),
+        "teal": ("Teal", "#2f8578", "#cdeae4", "#6fbfb1", "#174840"),
+        "plum": ("Plum", "#8a4f7d", "#f0dcea", "#c68fb9", "#4a2442"),
+        "rose": ("Rose", "#c0506a", "#fad7df", "#e88ea2", "#6b2334"),
+        "ochre": ("Ochre", "#a0741f", "#f5e6c4", "#e0b660", "#5e4210"),
+    }
+
     # Organic look tokens, from the Organic design system (cream ground,
     # graphite accent). Solid "app" colors feed QPalette; the "organic"
     # tokens (some translucent) feed the look's stylesheet.
@@ -578,6 +595,73 @@ class ThemeManager:
         ThemeManager._interface_look = "organic" if look == "organic" else "native"
 
     @staticmethod
+    def normalize_accent(accent):
+        name = str(accent or "").strip().casefold()
+        return name if name in ThemeManager.ACCENTS else ThemeManager.ACCENT_DEFAULT
+
+    @staticmethod
+    def set_accent(accent):
+        ThemeManager._accent = ThemeManager.normalize_accent(accent)
+
+    @staticmethod
+    def accent():
+        return ThemeManager._accent
+
+    @staticmethod
+    def accent_swatch_color(accent, dark=False):
+        """The color that stands for *accent* in a picker ("default": the look's own)."""
+        accent = ThemeManager.normalize_accent(accent)
+        if accent == ThemeManager.ACCENT_DEFAULT:
+            if ThemeManager.interface_look() == "organic":
+                return QColor(ThemeManager.ORGANIC_THEMES["Dark" if dark else "Light"]["organic"]["act"])
+            name = ThemeManager.normalize_editor_theme_name("Dark" if dark else "Light")
+            return QColor(ThemeManager.get_theme(name)["app"]["accent"])
+        _label, main, _soft, bright, _deep = ThemeManager.ACCENTS[accent]
+        return QColor(bright if dark else main)
+
+    @staticmethod
+    def apply_accent(theme, accent, dark):
+        """Recolor a chrome theme's accent roles (a copy is returned)."""
+        accent = ThemeManager.normalize_accent(accent)
+        if accent == ThemeManager.ACCENT_DEFAULT:
+            return theme
+        _label, main, soft, bright, deep = ThemeManager.ACCENTS[accent]
+        theme = deepcopy(theme)
+        app = theme["app"]
+
+        def rgba(color, alpha):
+            c = QColor(color)
+            return f"rgba({c.red()}, {c.green()}, {c.blue()}, {alpha})"
+
+        def blend(color, over, amount):
+            a, b = QColor(color), QColor(over)
+            mix = lambda x, y: round(x * amount + y * (1 - amount))
+            return QColor(mix(a.red(), b.red()), mix(a.green(), b.green()),
+                          mix(a.blue(), b.blue())).name()
+
+        if dark:
+            act, act_hover = bright, QColor(bright).lighter(110).name()
+            act_soft, act_ink = rgba(bright, 61), soft
+            selection = rgba(bright, 82)
+            surface_active = blend(bright, app["background"], 0.24)
+        else:
+            act, act_hover = main, QColor(main).darker(115).name()
+            act_soft, act_ink = soft, deep
+            selection = soft
+            surface_active = soft
+        app.update({
+            "accent": act, "border_active": act,
+            "surface_active": surface_active, "accent_text": act_ink,
+        })
+        tokens = theme.get("organic")
+        if tokens:
+            tokens.update({
+                "act": act, "act_hover": act_hover, "act_soft": act_soft,
+                "act_ink": act_ink, "selection": selection,
+            })
+        return theme
+
+    @staticmethod
     def interface_look():
         return ThemeManager._interface_look
 
@@ -652,7 +736,8 @@ class ThemeManager:
         """
         ui_name = ThemeManager.effective_ui_theme_name(theme_name, application)
         look = ThemeManager.interface_look()
-        key = (look, ui_name)
+        accent = ThemeManager.accent()
+        key = (look, ui_name, accent)
         cached = ThemeManager._ui_theme_cache.get(key)
         if cached is not None:
             return cached
@@ -660,6 +745,7 @@ class ThemeManager:
             theme = ThemeManager.organic_theme(ui_name == "Dark")
         else:
             theme = ThemeManager.get_theme(ThemeManager.normalize_editor_theme_name(ui_name))
+        theme = ThemeManager.apply_accent(theme, accent, ui_name == "Dark")
         ThemeManager._ui_theme_cache[key] = theme
         return theme
 

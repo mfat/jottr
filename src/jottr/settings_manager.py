@@ -121,6 +121,7 @@ class SettingsManager:
             "editor_font_from_system": True,
             "ui_theme": "System",
             "interface_look": INTERFACE_LOOK_NATIVE,
+            "accent_color": "default",
             "theme": "Sepia",
             "language": "en_US",
             "icon_theme": "qlementine",
@@ -444,10 +445,25 @@ class SettingsManager:
         self.save_settings()
 
     def _publish_interface_look(self):
-        """Tell ThemeManager which look chrome colors resolve for."""
+        """Tell ThemeManager which look and accent chrome colors resolve for."""
         from jottr.theme_manager import ThemeManager
 
         ThemeManager.set_interface_look(self.get_interface_look())
+        ThemeManager.set_accent(self.get_accent())
+
+    def get_accent(self):
+        from jottr.theme_manager import ThemeManager
+
+        return ThemeManager.normalize_accent(
+            self.settings.get("accent_color", ThemeManager.ACCENT_DEFAULT)
+        )
+
+    def save_accent(self, accent):
+        from jottr.theme_manager import ThemeManager
+
+        self.settings["accent_color"] = ThemeManager.normalize_accent(accent)
+        self._publish_interface_look()
+        self.save_settings()
 
     def get_icon_theme(self):
         from jottr.icon_manager import DEFAULT_ICON_THEME, normalize_icon_theme

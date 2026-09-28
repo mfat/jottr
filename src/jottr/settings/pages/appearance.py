@@ -12,7 +12,7 @@ from jottr.settings_manager import INTERFACE_LOOK_NATIVE, INTERFACE_LOOK_ORGANIC
 from jottr.theme_manager import ThemeManager
 from jottr.translation_manager import _, format_language_label, get_available_languages
 
-from ..widgets import SegmentedControl, ThemeSwatchGrid
+from ..widgets import ColorSwatchPicker, SegmentedControl, ThemeSwatchGrid
 
 
 def select_combo_data(combo, value):
@@ -62,6 +62,25 @@ class AppearancePageMixin:
             _("Color scheme"),
             _("Menus, toolbars and panels"),
             self.color_scheme_control,
+        ))
+
+        self.accent_color_control = ColorSwatchPicker()
+        self.accent_color_control.addOption(
+            _("Default"), ThemeManager.ACCENT_DEFAULT,
+            lambda: ThemeManager.accent_swatch_color(
+                ThemeManager.ACCENT_DEFAULT, self.accent_swatches_dark()
+            ),
+        )
+        for key, (label, *_ramp) in ThemeManager.ACCENTS.items():
+            self.accent_color_control.addOption(
+                _(label), key,
+                lambda key=key: ThemeManager.accent_swatch_color(key, self.accent_swatches_dark()),
+            )
+        self.accent_color_control.currentDataChanged.connect(self._on_accent_color_changed)
+        appearance_layout.addLayout(self.settings_choice_row(
+            _("Accent color"),
+            _("Selections, highlights and main buttons"),
+            self.accent_color_control,
         ))
 
         themes = ThemeManager.get_themes()
@@ -170,6 +189,11 @@ class AppearancePageMixin:
         )
         if not self.interface_look_control.setCurrentData(sm.get_interface_look()):
             self.interface_look_control.setCurrentData(INTERFACE_LOOK_NATIVE)
+        # Blocked like the scheme below: an accent change restyles this window.
+        self.accent_color_control.blockSignals(True)
+        self.accent_color_control.setCurrentData(sm.get_accent())
+        self.accent_color_control.blockSignals(False)
+        self.accent_color_control.update()
         # Blocked: a scheme change also restyles this window.
         self.color_scheme_control.blockSignals(True)
         if not self.color_scheme_control.setCurrentData(sm.get_ui_theme()):
@@ -213,6 +237,20 @@ class AppearancePageMixin:
         self._commit_now(
             "look", lambda: self.settings_manager.save_interface_look(look)
         )
+        if self.host is None:
+            self.apply_dialog_style()
+
+    def accent_swatches_dark(self):
+        """Swatches show each accent as it looks in the current color scheme."""
+        return ThemeManager.theme_is_dark(
+            ThemeManager.get_ui_theme(self.settings_manager.get_ui_theme())
+        )
+
+    def _on_accent_color_changed(self):
+        if self._loading:
+            return
+        accent = self.accent_color_control.currentData()
+        self._commit_now("style", lambda: self.settings_manager.save_accent(accent))
         if self.host is None:
             self.apply_dialog_style()
 

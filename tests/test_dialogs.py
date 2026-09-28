@@ -554,6 +554,48 @@ class DialogTests(unittest.TestCase):
 
         translation_manager.set_language("en_US")
 
+    def test_accent_color_recolors_chrome_in_both_looks(self):
+        manager = SettingsManager()
+        manager.save_ui_theme("Light")
+        self.addCleanup(ThemeManager.clear_ui_theme_cache)
+        self.addCleanup(ThemeManager.set_accent, ThemeManager.ACCENT_DEFAULT)
+        dialog = SettingsDialog(manager)
+        self.addCleanup(dialog.deleteLater)
+
+        control = dialog.accent_color_control
+        keys = [control.itemData(i) for i in range(control.count())]
+        # The design's three accents, more besides, and each look's own default.
+        self.assertEqual(keys[0], "default")
+        for key in ("terracotta", "sage", "ink", "ocean", "plum"):
+            self.assertIn(key, keys)
+        self.assertEqual(control.currentData(), "default")
+
+        default_native = ThemeManager.get_ui_theme("Light")["app"]["accent"]
+        control.setCurrentData("sage")
+        self.assertEqual(manager.get_accent(), "sage")
+        self.assertEqual(ThemeManager.accent(), "sage")
+        ThemeManager.clear_ui_theme_cache()
+        self.assertEqual(ThemeManager.get_ui_theme("Light")["app"]["accent"], "#7a8a5e")
+        # The shared built-in theme is copied, not recolored in place.
+        self.assertEqual(ThemeManager.get_theme("White")["app"]["accent"], default_native)
+
+        manager.save_interface_look("organic")
+        ThemeManager.clear_ui_theme_cache()
+        organic = ThemeManager.get_ui_theme("Light")["organic"]
+        self.assertEqual(organic["act"], "#7a8a5e")
+        self.assertEqual(organic["act_soft"], "#e1eecc")
+        dark = ThemeManager.get_ui_theme("Dark")["organic"]
+        self.assertEqual(dark["act"], "#aebf92")
+
+        manager.save_accent("bogus")
+        self.assertEqual(manager.get_accent(), "default")
+        ThemeManager.clear_ui_theme_cache()
+        self.assertEqual(
+            ThemeManager.get_ui_theme("Light")["organic"]["act"],
+            ThemeManager.ORGANIC_THEMES["Light"]["organic"]["act"],
+        )
+        manager.save_interface_look("native")
+
     def test_settings_dialog_offers_only_builtin_editor_themes(self):
         manager = SettingsManager()
         manager.settings["theme"] = "Ink"
