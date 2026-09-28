@@ -71,6 +71,7 @@ jottr = [
   "icons/**/*",
   "resources/*.rcc",
   "editor/data/*",
+  "fonts/**/*",
 ]
 
 [tool.pytest.ini_options]

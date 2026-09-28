@@ -5,6 +5,8 @@ from PyQt6.QtGui import QFont, QFontDatabase, QGuiApplication
 import time
 import sys
 
+from jottr.bundled_fonts import BUNDLED_FONT_FAMILY, bundled_font_available
+
 DEFAULT_PLUGIN_REGISTRY_URL = "https://raw.githubusercontent.com/Jottrhq/plugins/main/plugins.json"
 DEFAULT_PLUGIN_REGISTRY_CHECKSUM_URL = "https://raw.githubusercontent.com/Jottrhq/plugins/main/plugins.json.sha256"
 DEFAULT_PLUGIN_CHANNELS = [
@@ -104,6 +106,12 @@ class SettingsManager:
         ui_font = self.system_ui_font()
         ui_size = self.font_point_size(ui_font, 10)
         editor_family = self.system_fixed_font().family()
+        # New installs use the bundled face for both roles; saved settings
+        # (loaded below) keep whatever an existing install already has.
+        bundled = bundled_font_available()
+        if bundled:
+            ui_font = QFont(BUNDLED_FONT_FAMILY, ui_size)
+            editor_family = BUNDLED_FONT_FAMILY
         # Initialize default settings
         self.settings = {
             "ui_font_family": ui_font.family(),
@@ -111,7 +119,7 @@ class SettingsManager:
             "ui_font_weight": int(ui_font.weight()),
             "ui_font_italic": bool(ui_font.italic()),
             # True = always resolve Main UI Font from the desktop; False = fixed face.
-            "ui_font_follow_system": True,
+            "ui_font_follow_system": not bundled,
             "font_family": editor_family,
             "font_size": DEFAULT_EDITOR_FONT_SIZE,
             "font_weight": int(QFont.Weight.Normal),

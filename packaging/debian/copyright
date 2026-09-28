@@ -16,3 +16,9 @@ License: GPL-3.0+
  .
  On Debian systems, the complete text of the GNU General Public License
  version 3 can be found in "/usr/share/common-licenses/GPL-3".
+
+Files: src/jottr/fonts/JetBrainsMono/*
+Copyright: 2020 The JetBrains Mono Project Authors (https://github.com/JetBrains/JetBrainsMono)
+License: OFL-1.1
+ The full license text is shipped next to the font files as OFL.txt,
+ and is also available at https://openfontlicense.org.

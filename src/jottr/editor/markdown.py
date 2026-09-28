@@ -12,6 +12,8 @@ import time
 from PyQt6.QtCore import QTimer, QUrl, Qt, QPropertyAnimation, QEasingCurve
 from PyQt6.QtGui import QColor, QFont
 
+from jottr.bundled_fonts import bundled_font_face_css
+
 # Qt WebEngine and python-markdown are slow to import and only needed once a
 # preview renders, so both load on first use instead of at startup.
 MARKDOWN_LIB_AVAILABLE = importlib.util.find_spec("markdown") is not None
@@ -975,12 +977,14 @@ class MarkdownPreviewMixin:
 
         preview_font = self.preview_font()
         preview_family = self.css_font_family(preview_font)
+        font_face_css = bundled_font_face_css()
         preview_size = max(8, preview_font.pointSize() if preview_font.pointSize() > 0 else 14)
 
         return f"""
         <html>
         <head>
             <style>
+                {font_face_css}
                 body {{
                     color: #202124;
                     font-family: "{preview_family}", "Segoe UI", sans-serif;
@@ -1504,6 +1508,7 @@ class MarkdownPreviewMixin:
         base_tag = f'<base href="{html.escape(content_base_url, quote=True)}">' if content_base_url else ''
         preview_font = self.preview_font()
         preview_family = self.css_font_family(preview_font)
+        font_face_css = bundled_font_face_css()
         preview_size = max(8, preview_font.pointSize() if preview_font.pointSize() > 0 else 14)
         dir_attr = "auto"
         try:
@@ -1561,6 +1566,7 @@ class MarkdownPreviewMixin:
                 setTimeout(window.__jottrRestoreInitialPreviewScroll, 450);
             </script>
             <style>
+                {font_face_css}
                 @page {{
                     margin: 1mm;
                 }}

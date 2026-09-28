@@ -23,6 +23,7 @@ import os
 from PyQt6.QtCore import QEvent, QProcess, Qt, QTimer
 from PyQt6.QtWidgets import QApplication, QInputDialog, QMessageBox
 
+from jottr.bundled_fonts import register_bundled_fonts
 from jottr.editor.web_profile import release_browser_profiles, wipe_pending_data
 from jottr.file_dialogs import use_portal_file_dialogs
 from jottr.icon_manager import load_app_icon
@@ -117,6 +118,8 @@ def main():
     # Fill remaining app-icon sizes after first paint.
     QTimer.singleShot(0, lambda: load_app_icon(full=True))
 
+    # Before settings load: new installs default to the bundled face.
+    register_bundled_fonts()
     settings_manager = SettingsManager()
     # Finish a browsing data wipe the last run could not complete. No browser
     # profile exists yet, so nothing holds the files open. This only renames

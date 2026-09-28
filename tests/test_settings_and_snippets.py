@@ -15,6 +15,7 @@ sys.path.insert(0, str(SRC_ROOT))
 from PyQt6.QtGui import QFont
 from PyQt6.QtWidgets import QApplication, QStyle
 
+from jottr.bundled_fonts import BUNDLED_FONT_FAMILY, register_bundled_fonts
 from jottr.settings_manager import SettingsManager
 from jottr.snippet_manager import SnippetManager
 from jottr.theme_manager import ThemeManager
@@ -26,7 +27,10 @@ _APP = None
 
 def app():
     global _APP
-    _APP = QApplication.instance() or _APP or QApplication(["jottr-tests"])
+    if _APP is None:
+        _APP = QApplication.instance() or QApplication(["jottr-tests"])
+        # As at startup, so defaults don't depend on the machine's fonts.
+        register_bundled_fonts()
     return _APP
 
 
@@ -80,10 +84,7 @@ class SettingsAndSnippetTests(unittest.TestCase):
         self.assertEqual(Path(manager.config_dir), Path(self.temp_dir.name) / "Jottr")
         self.assertTrue(Path(manager.snippets_dir).is_dir())
         self.assertEqual(manager.get_setting("font_size"), 12)
-        self.assertEqual(
-            manager.get_setting("font_family"),
-            SettingsManager.system_fixed_font().family(),
-        )
+        self.assertEqual(manager.get_setting("font_family"), BUNDLED_FONT_FAMILY)
         self.assertTrue(manager.get_setting("spell_check"))
         self.assertEqual(manager.get_setting("spell_languages"), ["en_US"])
         self.assertEqual(manager.get_setting("document_language"), "auto")
@@ -181,7 +182,7 @@ class SettingsAndSnippetTests(unittest.TestCase):
 
     def test_settings_manager_persists_separate_ui_and_editor_fonts(self):
         manager = SettingsManager()
-        self.assertTrue(manager.uses_system_ui_font())
+        self.assertFalse(manager.uses_system_ui_font())
 
         ui_font = QFont("Sans", 11)
         editor_font = QFont("Mono", 14)
@@ -200,12 +201,13 @@ class SettingsAndSnippetTests(unittest.TestCase):
         system = SettingsManager.system_ui_font()
         self.assertEqual(manager.get_font("ui").family(), system.family())
 
-    def test_settings_manager_defaults_ui_font_to_system_and_coerces_qt5_weight(self):
+    def test_settings_manager_defaults_ui_font_to_bundled_and_coerces_qt5_weight(self):
         manager = SettingsManager()
         system = SettingsManager.system_ui_font()
         ui = manager.get_font("ui")
-        self.assertTrue(manager.uses_system_ui_font())
-        self.assertEqual(ui.family(), system.family())
+        self.assertFalse(manager.uses_system_ui_font())
+        self.assertEqual(ui.family(), BUNDLED_FONT_FAMILY)
+        self.assertEqual(ui.pointSize(), SettingsManager.font_point_size(system, 10))
         self.assertGreaterEqual(int(ui.weight()), 100)
         self.assertEqual(SettingsManager.coerce_font_weight(50), int(QFont.Weight.Normal))
         self.assertEqual(SettingsManager.coerce_font_weight(400), 400)
@@ -256,10 +258,9 @@ class SettingsAndSnippetTests(unittest.TestCase):
         self.assertEqual(custom.get_font("ui").family(), "Liberation Sans")
         self.assertEqual(custom.get_font("ui").pointSize(), 13)
 
-    def test_editor_font_default_follows_system_and_keeps_chosen_face(self):
-        system_mono = SettingsManager.system_fixed_font().family()
+    def test_editor_font_defaults_to_bundled_and_keeps_chosen_face(self):
         manager = SettingsManager()
-        self.assertEqual(manager.get_font("editor").family(), system_mono)
+        self.assertEqual(manager.get_font("editor").family(), BUNDLED_FONT_FAMILY)
 
         # A face the user picked after the migration is never overwritten,
         # even when it matches the retired DejaVu default.
@@ -449,10 +450,7 @@ class SettingsAndSnippetTests(unittest.TestCase):
 
         reloaded = SettingsManager()
 
-        self.assertEqual(
-            reloaded.get_setting("font_family"),
-            SettingsManager.system_fixed_font().family(),
-        )
+        self.assertEqual(reloaded.get_setting("font_family"), BUNDLED_FONT_FAMILY)
 
     def test_snippet_manager_persists_crud_operations(self):
         settings = SettingsManager()
