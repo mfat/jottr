@@ -1301,6 +1301,18 @@ class EditorAndMainTests(unittest.TestCase):
         ):
             self.assertEqual(navigation(page, page, navigation_type), "block")
 
+    def test_markdown_preview_scrolls_to_anchor_links_in_place(self):
+        editor = self.make_editor()
+        html = editor.render_markdown_html(
+            "[Usage](#usage)\n\n## Usage",
+            QUrl.fromLocalFile(self.temp_dir.name + os.sep).toString(),
+        )
+
+        # The base tag would resolve #usage against the document's folder.
+        self.assertIn("<base href=", html)
+        self.assertIn("""closest('a[href^="#"]')""", html)
+        self.assertIn("target.scrollIntoView()", html)
+
     def test_markdown_preview_reloads_after_following_a_link(self):
         editor = self.make_editor()
         editor.editor.setPlainText("# Title")

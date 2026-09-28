@@ -1616,6 +1616,21 @@ class MarkdownPreviewMixin:
                 document.addEventListener('DOMContentLoaded', window.__jottrRestoreInitialPreviewScroll);
                 window.addEventListener('load', window.__jottrRestoreInitialPreviewScroll);
                 setTimeout(window.__jottrRestoreInitialPreviewScroll, 450);
+                // The <base> tag points relative links at the document's
+                // folder, which takes #anchor links there too; scroll to
+                // the target in this page instead.
+                document.addEventListener('click', function (event) {{
+                    var link = event.target.closest && event.target.closest('a[href^="#"]');
+                    if (!link) {{
+                        return;
+                    }}
+                    event.preventDefault();
+                    var id = decodeURIComponent(link.getAttribute('href').slice(1));
+                    var target = id ? document.getElementById(id) : document.body;
+                    if (target) {{
+                        target.scrollIntoView();
+                    }}
+                }});
                 // Later renders swap the document in here instead of loading
                 // the page again, which keeps its scroll position, scripts,
                 // and fonts. Plugin body scripts run again over each new
