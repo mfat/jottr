@@ -23,6 +23,14 @@
 
   <!-- Release information -->
   <releases>
+    <release version="3.0.0" date="2026-09-29">
+      <description>
+        <p>New default theme</p>
+        <p>Added accent color customization</p>
+        <p>Updated editor themes</p>
+        <p>Various UI improvements</p>
+      </description>
+    </release>
     <release version="2.9.0" date="2026-09-20">
       <description>
         <p>Updated feed reader plugin</p>
