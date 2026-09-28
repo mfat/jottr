@@ -61,15 +61,17 @@ class SuggestionPopup(QWidget):
             "paper": app["background"],
             "line": app["border"],
             "ink": app["text"],
+            "act": app["accent"],
             "act_soft": app["surface_active"],
-            "act_ink": app["text"],
+            "on_act": "#ffffff" if QColor(app["accent"]).lightnessF() < 0.55 else "#1a1a1a",
         }
         self.pane = ThemeManager.css_color(source["pane"])
         self.paper = ThemeManager.css_color(source["paper"])
         self.line = ThemeManager.css_color(source["line"])
         self.ink = ThemeManager.css_color(source["ink"])
+        self.act = ThemeManager.css_color(source["act"])
         self.act_soft = ThemeManager.css_color(source["act_soft"])
-        self.act_ink = ThemeManager.css_color(source["act_ink"])
+        self.on_act = ThemeManager.css_color(source["on_act"])
         self.card_radius = 16 if organic else 6
         self.row_radius = 11 if organic else 4
         self.chip_radius = 9 if organic else 3
@@ -186,13 +188,14 @@ class SuggestionPopup(QWidget):
         rect = self.row_rect(index)
         filled = index == self.selected
         if filled or index == self._hover:
-            fill = QColor(self.act_soft)
+            # The selected row takes the accent; hover a faint soft tint.
+            fill = QColor(self.act if filled else self.act_soft)
             if not filled:
                 fill.setAlphaF(fill.alphaF() * 0.55)
             painter.setPen(Qt.PenStyle.NoPen)
             painter.setBrush(fill)
             painter.drawRoundedRect(rect, self.row_radius, self.row_radius)
-        ink = self.act_ink if filled else self.ink
+        ink = self.on_act if filled else self.ink
         x = rect.left() + 10
         right = rect.right() - 10
 
@@ -224,7 +227,7 @@ class SuggestionPopup(QWidget):
             painter.setPen(Qt.PenStyle.NoPen)
             painter.setBrush(chip_fill)
             painter.drawRoundedRect(chip, self.chip_radius, self.chip_radius)
-            painter.setPen(ink)
+            painter.setPen(self.ink)
             painter.drawText(chip, Qt.AlignmentFlag.AlignCenter, trigger)
             x = chip.right() + 10
 

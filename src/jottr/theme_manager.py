@@ -893,12 +893,10 @@ class ThemeManager:
         accent = QColor(app["accent"])
         border = QColor(app["border"])
         # Selection must stay vivid: some styles paint menu-bar chips and
-        # focus cues from Highlight / HighlightedText (not the soft surface_active chip).
+        # focus cues from Highlight / HighlightedText (not the soft surface_active
+        # chip). The text matches the stylesheet's ink on accent fills.
         highlight = QColor(app["accent"])
-        if highlight.lightnessF() >= 0.55:
-            highlighted_text = QColor("#1a1a1a")
-        else:
-            highlighted_text = QColor("#ffffff")
+        highlighted_text = ThemeManager.chrome_tokens(theme)["on_act"]
 
         roles = {
             QPalette.ColorRole.Window: background,
@@ -1037,8 +1035,8 @@ class ThemeManager:
             }}
             /* The open menu's title matches its highlighted items. */
             QMenuBar::item:pressed {{
-                background: {t['act_soft']};
-                color: {t['act_ink']};
+                background: {t['act']};
+                color: {t['on_act']};
             }}
             QMenu {{
                 background: {t['popover']};
@@ -1054,8 +1052,8 @@ class ThemeManager:
             }}
             /* Highlighted menu and dropdown items take the accent. */
             QMenu::item:selected {{
-                background: {t['act_soft']};
-                color: {t['act_ink']};
+                background: {t['act']};
+                color: {t['on_act']};
             }}
             QMenu::item:disabled {{
                 color: {t['faint']};
@@ -1204,8 +1202,8 @@ class ThemeManager:
                 background: {t['hover']};
             }}
             QTreeView#workspaceTree::item:selected, QListWidget#snippetList::item:selected {{
-                background: {t['act_soft']};
-                color: {t['act_ink']};
+                background: {t['act']};
+                color: {t['on_act']};
             }}
             /* libadwaita's pill button (button.pill in 1.9): a 24px content
                height inside 10px 32px padding, with fully round ends. Qt
@@ -1222,9 +1220,13 @@ class ThemeManager:
             QPushButton:hover {{
                 background: {t['hover']};
             }}
-            QPushButton:pressed, QPushButton:checked {{
+            QPushButton:pressed {{
                 background: {t['act_soft']};
                 color: {t['act_ink']};
+            }}
+            QPushButton:checked {{
+                background: {t['act']};
+                color: {t['on_act']};
             }}
             QPushButton:default {{
                 background: {t['act']};
@@ -1307,8 +1309,8 @@ class ThemeManager:
                 border: 1px solid {t['line']};
                 border-radius: 14px;
                 padding: 6px;
-                selection-background-color: {t['act_soft']};
-                selection-color: {t['act_ink']};
+                selection-background-color: {t['act']};
+                selection-color: {t['on_act']};
                 outline: 0;
             }}
             /* Rows are painted by JottrStyle's ComboItemDelegate. */
@@ -1317,8 +1319,8 @@ class ThemeManager:
                 border-radius: 10px;
             }}
             QComboBox QAbstractItemView::item:selected {{
-                background: {t['act_soft']};
-                color: {t['act_ink']};
+                background: {t['act']};
+                color: {t['on_act']};
             }}
             QStatusBar#statusBar {{
                 background: {t['ground']};
@@ -1369,8 +1371,8 @@ class ThemeManager:
                 background: {t['hover']};
             }}
             QListWidget#settingsNavList::item:selected {{
-                background: {t['act_soft']};
-                color: {t['act_ink']};
+                background: {t['act']};
+                color: {t['on_act']};
             }}
             QWidget#settingsContent QGroupBox {{
                 border: none;
@@ -1442,6 +1444,7 @@ class ThemeManager:
             QPushButton#pluginBrowseButton:hover, QPushButton#pluginChannelAction:hover {{
                 background: {t['hover']};
             }}
+            /* A disclosure toggle, and its glyph has no ink for the accent. */
             QPushButton#pluginAddChannelButton:checked {{
                 background: {t['act_soft']};
                 color: {t['act_ink']};
