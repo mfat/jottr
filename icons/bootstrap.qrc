@@ -23,6 +23,7 @@
         <file alias="format-heading.svg">bootstrap/format-heading.svg</file>
         <file alias="format-italic.svg">bootstrap/format-italic.svg</file>
         <file alias="format-link.svg">bootstrap/format-link.svg</file>
+        <file alias="insert-image.svg">bootstrap/insert-image.svg</file>
         <file alias="format-list-bulleted.svg">bootstrap/format-list-bulleted.svg</file>
         <file alias="format-list-numbered.svg">bootstrap/format-list-numbered.svg</file>
         <file alias="format-list-task.svg">bootstrap/format-list-task.svg</file>

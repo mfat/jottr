@@ -1226,6 +1226,12 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
         transform(editor)
         editor.setFocus()
 
+    def insert_image(self):
+        """Pick an image file and link it in the current document."""
+        tab = self.tab_widget.currentWidget()
+        if hasattr(tab, "pick_and_insert_image"):
+            tab.pick_and_insert_image()
+
     def create_format_actions(self):
         """Markdown commands shared by the formatting toolbar and its menus."""
         def make(text, transform, icon_name, tooltip, shortcut=None):
@@ -1277,6 +1283,13 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
         self.link_action = make(
             "Link", apply_link, "format-link", "Insert a link", QKeySequence("Ctrl+K"),
         )
+        self.insert_image_action = self._make_action(
+            "Insert Image…",
+            self.insert_image,
+            icon_name="insert-image",
+            tooltip="Insert an image",
+        )
+        self.insert_image_action.setEnabled(False)
         self.blockquote_action = make(
             "Blockquote", lambda editor: apply_line_prefix(editor, "> "),
             "format-quote", "Blockquote",
@@ -1310,6 +1323,7 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
             self.strikethrough_action,
             self.inline_code_action,
             self.link_action,
+            self.insert_image_action,
             None,
             self.blockquote_action,
             self.bulleted_list_action,

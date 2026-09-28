@@ -24,6 +24,7 @@
         <file alias="format-heading.svg">qlementine/format-heading.svg</file>
         <file alias="format-italic.svg">qlementine/format-italic.svg</file>
         <file alias="format-link.svg">qlementine/format-link.svg</file>
+        <file alias="insert-image.svg">qlementine/insert-image.svg</file>
         <file alias="format-list-bulleted.svg">qlementine/format-list-bulleted.svg</file>
         <file alias="format-list-numbered.svg">qlementine/format-list-numbered.svg</file>
         <file alias="format-list-task.svg">qlementine/format-list-task.svg</file>

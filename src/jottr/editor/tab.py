@@ -58,6 +58,7 @@ from jottr.editor.markdown import MarkdownPreviewMixin
 from jottr.editor.browser import BrowserPaneMixin
 from jottr.editor.focus_mode import FocusModeMixin
 from jottr.editor.find_replace import FindReplaceMixin
+from jottr.editor.images import MarkdownImagesMixin
 from jottr.editor.swap_file import SwapFileMixin
 
 # Lazily bound / test-patched WebEngine symbols used by markdown preview.
@@ -72,6 +73,7 @@ class EditorTab(
     BrowserPaneMixin,
     FocusModeMixin,
     FindReplaceMixin,
+    MarkdownImagesMixin,
     SwapFileMixin,
     QWidget,
 ):
@@ -611,7 +613,9 @@ class EditorTab(
                 )
             else:
                 return False
-                
+
+        # Images pasted while untitled move beside the document now it has one.
+        self.adopt_unsaved_images()
         try:
             content = self.editor.toPlainText()
             with open(self.current_file, 'w', encoding='utf-8') as f:
@@ -966,6 +970,7 @@ class EditorTab(
         ]
         for label, callback in inline_actions:
             formatting_menu.addAction(label, callback).setEnabled(has_inline_target)
+        formatting_menu.addAction(_("Insert Image…"), self.pick_and_insert_image)
         formatting_menu.addSeparator()
 
         # Line formats act on the selected lines or the current line

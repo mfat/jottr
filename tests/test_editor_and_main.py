@@ -2609,6 +2609,8 @@ class EditorAndMainTests(unittest.TestCase):
             editor.moveCursor(QTextCursor.MoveOperation.Start)
             window.update_edit_actions()
             self.assertTrue(window.bold_action.isEnabled())
+            self.assertTrue(window.insert_image_action.isEnabled())
+            self.assertIn(window.insert_image_action, window.format_toolbar.actions())
 
             window.bold_action.trigger()
             self.assertEqual(editor.toPlainText(), "**hello**")
@@ -2627,6 +2629,7 @@ class EditorAndMainTests(unittest.TestCase):
             window.update_edit_actions()
             self.assertFalse(window.bold_action.isEnabled())
             self.assertFalse(window.clear_formatting_action.isEnabled())
+            self.assertFalse(window.insert_image_action.isEnabled())
 
     def test_focus_mode_hides_and_restores_the_format_toolbar(self):
         window = TextEditorApp()

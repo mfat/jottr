@@ -23,6 +23,7 @@
         <file alias="format-heading.svg">symbolic/format-heading.svg</file>
         <file alias="format-italic.svg">symbolic/format-italic.svg</file>
         <file alias="format-link.svg">symbolic/format-link.svg</file>
+        <file alias="insert-image.svg">symbolic/insert-image.svg</file>
         <file alias="format-list-bulleted.svg">symbolic/format-list-bulleted.svg</file>
         <file alias="format-list-numbered.svg">symbolic/format-list-numbered.svg</file>
         <file alias="format-list-task.svg">symbolic/format-list-task.svg</file>

@@ -3,7 +3,13 @@ from datetime import date
 
 from PyQt6.QtWidgets import (
     QVBoxLayout, QHBoxLayout, QLabel, QCheckBox, QComboBox, QGroupBox, QFormLayout,
-    QSpinBox, QWidget,
+    QLineEdit, QSpinBox, QWidget,
+)
+
+from jottr.editor.images import (
+    COPY_IMAGES_SETTING,
+    IMAGE_FOLDER_DEFAULT,
+    IMAGE_FOLDER_SETTING,
 )
 
 from jottr.settings_manager import (
@@ -77,6 +83,28 @@ class EditorPageMixin:
             )
         )
         markdown_layout.addWidget(self.markdown_scroll_sync_check)
+        self.markdown_copy_images_check = QCheckBox(
+            _("Copy inserted and dropped images into the images folder")
+        )
+        self.markdown_copy_images_check.toggled.connect(
+            lambda checked: self._save_only(
+                lambda: self.settings_manager.save_setting(
+                    COPY_IMAGES_SETTING, bool(checked))
+            )
+        )
+        markdown_layout.addWidget(self.markdown_copy_images_check)
+        image_folder_row = QHBoxLayout()
+        image_folder_row.addWidget(QLabel(_("Images folder:")))
+        self.markdown_image_folder_edit = QLineEdit()
+        self.markdown_image_folder_edit.setPlaceholderText(_("Same folder as the document"))
+        self.markdown_image_folder_edit.setToolTip(
+            _("Pasted and copied images are saved in this folder, relative to the document")
+        )
+        self.markdown_image_folder_edit.editingFinished.connect(
+            self._on_markdown_image_folder_edited
+        )
+        image_folder_row.addWidget(self.markdown_image_folder_edit, 1)
+        markdown_layout.addLayout(image_folder_row)
         layout.addWidget(markdown_box)
 
         saving_box = QGroupBox(_("Saving"))
@@ -137,6 +165,12 @@ class EditorPageMixin:
         self.markdown_scroll_sync_check.setChecked(
             bool(sm.get_setting("markdown_scroll_sync", True))
         )
+        self.markdown_copy_images_check.setChecked(
+            bool(sm.get_setting(COPY_IMAGES_SETTING, True))
+        )
+        self.markdown_image_folder_edit.setText(
+            str(sm.get_setting(IMAGE_FOLDER_SETTING, IMAGE_FOLDER_DEFAULT))
+        )
         self.save_name_date_check.setChecked(
             bool(sm.get_setting("save_name_append_date", False))
         )
@@ -152,6 +186,12 @@ class EditorPageMixin:
             sm.get_setting("autosave_interval_seconds", AUTOSAVE_DEFAULT_SECONDS)
         )
         self._update_autosave_interval_enabled()
+
+    def _on_markdown_image_folder_edited(self):
+        folder = self.markdown_image_folder_edit.text().strip()
+        self._save_only(
+            lambda: self.settings_manager.save_setting(IMAGE_FOLDER_SETTING, folder)
+        )
 
     def _update_save_name_date_format_enabled(self):
         enabled = self.save_name_date_check.isChecked()

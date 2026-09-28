@@ -3,6 +3,7 @@ from PyQt6.QtWidgets import QFrame, QTextEdit, QWidget
 from PyQt6.QtCore import Qt, QRect, QSize
 from PyQt6.QtGui import QColor, QPainter, QTextCursor
 
+from jottr.editor.images import mime_images
 from jottr.editor.spellcheck import find_word_bounds
 from jottr.translation_manager import localize_digits
 
@@ -235,8 +236,22 @@ class CompletingTextEdit(QTextEdit):
             return
         super().wheelEvent(event)
 
+    def canInsertFromMimeData(self, source):
+        """Accept dropped image files and bitmaps as well as text."""
+        tab = self.parent_tab
+        if (
+            hasattr(tab, "accepts_pasted_images")
+            and tab.accepts_pasted_images()
+            and mime_images(source) is not None
+        ):
+            return True
+        return super().canInsertFromMimeData(source)
+
     def insertFromMimeData(self, source):
-        """Override paste to always use plain text"""
+        """Paste as plain text; images become Markdown image links."""
+        insert_images = getattr(self.parent_tab, "insert_images_from_mime", None)
+        if insert_images is not None and insert_images(source):
+            return
         if source.hasText():
             cursor = self.textCursor()
             cursor.insertText(source.text())

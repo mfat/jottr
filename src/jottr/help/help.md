@@ -39,10 +39,19 @@ Enter distraction-free writing mode:
 Markdown commands for the text you are writing, laid out like GitHub's editor.
 
 - Turn it on with View → Formatting Toolbar (it is hidden until you ask for it), or from the right-click menu on either toolbar
-- Buttons: heading (click for H1/H2/H3), bold, italic, strikethrough, inline code, link, blockquote, bulleted list, numbered list, task list, code block, and Clear Formatting
+- Buttons: heading (click for H1/H2/H3), bold, italic, strikethrough, inline code, link, image, blockquote, bulleted list, numbered list, task list, code block, and Clear Formatting
 - Inline commands act on the selection, or on the word under the cursor; line commands act on the selected lines, or the current line
 - The same commands live in the editor's right-click menu under Formatting
 - **Clear Formatting** removes Markdown markers — headings, quotes, list markers, bold/italic/strikethrough, inline code, links and code fences — from the selection, or from the current line
+
+## Images
+Markdown documents link images the way Typora and VS Code do:
+
+- Paste a screenshot or copied image, drop image files onto the editor, or use Insert Image… on the formatting toolbar or under Formatting in the right-click menu
+- Pasted images are saved as PNG files (pasted-date-time.png) in an **images** folder beside the document, and dropped or chosen files are copied there; the link is relative, so the document and its images can move together
+- Files already inside the document's folder are linked where they are, not copied
+- In an untitled document, images wait in Jottr's settings folder and move beside the document when you first save it
+- Settings > Editor > Markdown changes the folder name (leave it empty for the document's own folder) or links dropped files where they are instead of copying them
 
 ## Spell Checking
 Jottr underlines misspelled words while you type:
