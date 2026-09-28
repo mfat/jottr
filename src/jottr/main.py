@@ -110,7 +110,6 @@ def main():
 
     # Set application metadata
     app.setApplicationName("Jottr")
-    app.setApplicationDisplayName("Jottr")
     app.setDesktopFileName(os.environ.get("FLATPAK_ID") or "io.github.mfat.jottr")
     app.setApplicationVersion(APP_VERSION)
     app.setOrganizationDomain("github.com/mfat/jottr")
