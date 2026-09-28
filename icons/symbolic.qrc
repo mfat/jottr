@@ -49,6 +49,7 @@
         <file alias="process-stop.svg">symbolic/process-stop.svg</file>
         <file alias="redo.svg">symbolic/redo.svg</file>
         <file alias="save-as.svg">symbolic/save-as.svg</file>
+        <file alias="rss.svg">symbolic/rss.svg</file>
         <file alias="save.svg">symbolic/save.svg</file>
         <file alias="settings.svg">symbolic/settings.svg</file>
         <file alias="smaller.svg">symbolic/smaller.svg</file>

@@ -51,6 +51,7 @@
         <file alias="process-stop.svg">material/process-stop.svg</file>
         <file alias="redo.svg">material/redo.svg</file>
         <file alias="save-as.svg">material/save-as.svg</file>
+        <file alias="rss.svg">material/rss.svg</file>
         <file alias="save.svg">material/save.svg</file>
         <file alias="settings.svg">material/settings.svg</file>
         <file alias="smaller.svg">material/smaller.svg</file>
