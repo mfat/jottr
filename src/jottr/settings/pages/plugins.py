@@ -9,17 +9,20 @@ import threading
 
 from PyQt6 import sip
 from PyQt6.QtWidgets import (
-    QVBoxLayout, QHBoxLayout, QLabel, QLineEdit, QPushButton,
-    QListWidget, QListWidgetItem, QWidget, QComboBox, QGroupBox,
-    QFrame, QMessageBox, QProgressBar,
+    QVBoxLayout, QHBoxLayout, QGridLayout, QLabel, QLineEdit, QPushButton,
+    QListWidget, QListWidgetItem, QWidget, QComboBox, QFrame, QMessageBox, QProgressBar,
 )
-from PyQt6.QtCore import Qt, QObject, QSize, pyqtSignal, pyqtSlot
+from PyQt6.QtCore import Qt, QObject, pyqtSignal, pyqtSlot
 from PyQt6.QtGui import QPalette
 
 from jottr.file_dialogs import get_existing_directory
+from jottr.icon_manager import themed_symbolic_icon
 from jottr.plugin_manager import REMOTE_WARNING
 from jottr.theme_manager import ThemeManager
 from jottr.translation_manager import _
+
+from ..plugin_widgets import PLUGIN_CARD_ROLE, PluginAvatar, PluginCardDelegate, plugin_initial
+from ..widgets import SegmentedControl
 
 
 class _PluginTaskBridge(QObject):
@@ -40,72 +43,84 @@ class _PluginTaskBridge(QObject):
             self.deleteLater()
 
 
-class PluginCardList(QListWidget):
-    """Plugin rows are card widgets; each row is as tall as its card at the list's width."""
-
-    def resizeEvent(self, event):
-        super().resizeEvent(event)
-        self.fit_card_heights()
-
-    def fit_card_heights(self):
-        width = self.viewport().width() - 2 * self.spacing()
-        if width <= 0:
-            return
-        for index in range(self.count()):
-            item = self.item(index)
-            card = self.itemWidget(item)
-            if card is None:
-                continue
-            height = card.heightForWidth(width) if card.hasHeightForWidth() else -1
-            if height <= 0:
-                height = card.sizeHint().height()
-            if item.sizeHint().height() != height:
-                item.setSizeHint(QSize(width, height))
-
-
 class PluginsTabMixin:
     """Builds the Plugins tab and its helpers. Expects SettingsDialog host."""
+
+    def plugin_chrome_tokens(self):
+        """Chrome colors the plugin cards and avatars are painted in."""
+        return ThemeManager.chrome_tokens(
+            ThemeManager.get_ui_theme(self.settings_manager.get_ui_theme())
+        )
+
+    def plugin_icon(self, name):
+        return themed_symbolic_icon(name, self.settings_manager, size=16, palette=self.palette())
 
     def create_plugins_tab(self):
         plugins_tab = QWidget()
         plugins_tab.setObjectName("pluginsSettingsTab")
         layout = QVBoxLayout(plugins_tab)
         layout.setContentsMargins(0, 0, 0, 0)
-        layout.setSpacing(10)
+        layout.setSpacing(14)
 
-        source_box = QGroupBox(_("Plugin Sources"))
-        source_layout = QVBoxLayout(source_box)
-        source_layout.setContentsMargins(12, 10, 12, 12)
-        source_layout.setSpacing(8)
-        local_layout = QHBoxLayout()
-        local_layout.addWidget(QLabel(_("Local plugins folder:")))
+        # Beside the page title: the local plugins folder.
+        self.plugins_header = QWidget()
+        header_layout = QHBoxLayout(self.plugins_header)
+        header_layout.setContentsMargins(0, 0, 0, 0)
+        header_layout.setSpacing(6)
         self.plugins_directory_edit = QLineEdit(
             self.settings_manager.get_setting("plugins_directory", self.plugin_manager.plugins_dir)
         )
+        self.plugins_directory_edit.setObjectName("pluginFolderField")
+        self.plugins_directory_edit.setToolTip(_("Local plugins folder"))
+        self.plugins_directory_edit.setMinimumWidth(220)
+        self.plugins_directory_edit.setMaximumWidth(340)
+        self.plugins_folder_action = self.plugins_directory_edit.addAction(
+            self.plugin_icon("folder"), QLineEdit.ActionPosition.LeadingPosition
+        )
+        # Long paths show their start, like the design's elided folder pill.
+        self.plugins_directory_edit.setCursorPosition(0)
         self.plugins_directory_edit.editingFinished.connect(self._on_plugins_directory_edited)
         self.browse_plugins_button = QPushButton(_("Browse"))
+        self.browse_plugins_button.setObjectName("pluginBrowseButton")
         self.browse_plugins_button.clicked.connect(self.browse_plugins_directory)
-        local_layout.addWidget(self.plugins_directory_edit, 1)
-        local_layout.addWidget(self.browse_plugins_button)
-        source_layout.addLayout(local_layout)
+        header_layout.addWidget(self.plugins_directory_edit)
+        header_layout.addWidget(self.browse_plugins_button)
 
+        # Channels: which to show, refresh their indexes, add or remove one.
         self.plugin_channels = self.plugin_manager.plugin_channels()
-        filter_layout = QHBoxLayout()
-        filter_layout.addWidget(QLabel(_("Show channel:")))
-        self.plugin_channel_filter_combo = QComboBox()
+        channel_row = QHBoxLayout()
+        channel_row.setSpacing(8)
+        self.plugin_channel_filter_control = SegmentedControl()
         self.populate_plugin_channel_filter()
-        self.plugin_channel_filter_combo.currentIndexChanged.connect(self.change_plugin_channel_filter)
-        filter_layout.addWidget(self.plugin_channel_filter_combo, 1)
-        self.update_registry_button = QPushButton(_("Update Channel(s)"))
+        self.plugin_channel_filter_control.currentDataChanged.connect(
+            self.change_plugin_channel_filter
+        )
+        channel_row.addWidget(self.plugin_channel_filter_control)
+        self.update_registry_button = QPushButton(_("Update channels"))
+        self.update_registry_button.setObjectName("pluginChannelAction")
+        self.update_registry_button.setIcon(self.plugin_icon("view-refresh"))
         self.update_registry_button.clicked.connect(self.update_plugin_registry)
-        self.remove_plugin_channel_button = QPushButton(_("Remove Channel"))
+        self.remove_plugin_channel_button = QPushButton(_("Remove channel"))
+        self.remove_plugin_channel_button.setObjectName("pluginChannelAction")
         self.remove_plugin_channel_button.clicked.connect(self.remove_plugin_channel)
-        filter_layout.addWidget(self.update_registry_button)
-        filter_layout.addWidget(self.remove_plugin_channel_button)
-        source_layout.addLayout(filter_layout)
+        channel_row.addWidget(self.update_registry_button)
+        channel_row.addWidget(self.remove_plugin_channel_button)
+        channel_row.addStretch(1)
+        self.show_add_channel_button = QPushButton(_("Add channel"))
+        self.show_add_channel_button.setObjectName("pluginAddChannelButton")
+        self.show_add_channel_button.setIcon(self.plugin_icon("list-add"))
+        self.show_add_channel_button.setCheckable(True)
+        self.show_add_channel_button.toggled.connect(self._on_show_add_channel)
+        channel_row.addWidget(self.show_add_channel_button)
+        layout.addLayout(channel_row)
+        self.update_plugin_channel_action_state()
 
-        registry_layout = QHBoxLayout()
-        registry_layout.addWidget(QLabel(_("Add channel:")))
+        # Add channel: revealed by its button.
+        self.add_channel_form = QWidget()
+        self.add_channel_form.setObjectName("pluginAddChannelForm")
+        form_layout = QHBoxLayout(self.add_channel_form)
+        form_layout.setContentsMargins(0, 0, 0, 0)
+        form_layout.setSpacing(8)
         self.plugin_channel_name_edit = QLineEdit()
         self.plugin_channel_name_edit.setPlaceholderText(_("Name"))
         self.plugin_registry_url_edit = QLineEdit()
@@ -114,58 +129,72 @@ class PluginsTabMixin:
         self.plugin_registry_checksum_url_edit.setPlaceholderText(
             self.plugin_manager.registry_checksum_url() or _("Checksum URL")
         )
-        self.add_plugin_channel_button = QPushButton(_("Add Channel"))
+        self.add_plugin_channel_button = QPushButton(_("Add"))
+        self.add_plugin_channel_button.setProperty("primary", True)
         self.add_plugin_channel_button.clicked.connect(self.add_plugin_channel)
-        registry_layout.addWidget(self.plugin_channel_name_edit, 1)
-        registry_layout.addWidget(self.plugin_registry_url_edit, 2)
-        registry_layout.addWidget(self.plugin_registry_checksum_url_edit, 2)
-        registry_layout.addWidget(self.add_plugin_channel_button)
-        source_layout.addLayout(registry_layout)
-        layout.addWidget(source_box)
+        form_layout.addWidget(self.plugin_channel_name_edit, 1)
+        form_layout.addWidget(self.plugin_registry_url_edit, 2)
+        form_layout.addWidget(self.plugin_registry_checksum_url_edit, 2)
+        form_layout.addWidget(self.add_plugin_channel_button)
+        self.add_channel_form.hide()
+        layout.addWidget(self.add_channel_form)
 
-        manager_frame = QFrame()
-        manager_frame.setObjectName("pluginManagerSurface")
-        manager_layout = QHBoxLayout(manager_frame)
-        manager_layout.setContentsMargins(0, 0, 0, 0)
-        manager_layout.setSpacing(12)
+        body = QHBoxLayout()
+        body.setSpacing(14)
 
-        list_panel = QFrame()
-        list_panel.setObjectName("pluginListPanel")
-        list_layout = QVBoxLayout(list_panel)
-        list_layout.setContentsMargins(0, 0, 0, 0)
-        list_layout.setSpacing(8)
-        list_header = QLabel(_("Plugins"))
-        list_header.setObjectName("pluginPanelTitle")
-        list_layout.addWidget(list_header)
-        self.plugin_list = PluginCardList()
+        # The plugin list, with a search field above it.
+        list_panel = QVBoxLayout()
+        list_panel.setSpacing(8)
+        self.plugin_search_edit = QLineEdit()
+        self.plugin_search_edit.setObjectName("pluginSearchField")
+        self.plugin_search_edit.setClearButtonEnabled(True)
+        self.plugin_search_action = self.plugin_search_edit.addAction(
+            self.plugin_icon("find"), QLineEdit.ActionPosition.LeadingPosition
+        )
+        self.plugin_search_edit.textChanged.connect(self.filter_plugin_list)
+        list_panel.addWidget(self.plugin_search_edit)
+        self.plugin_list = QListWidget()
         self.plugin_list.setObjectName("pluginCardList")
         self.plugin_list.setSpacing(2)
-        self.plugin_list.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         self.plugin_list.setUniformItemSizes(False)
+        self.plugin_list.setResizeMode(QListWidget.ResizeMode.Adjust)
+        self.plugin_list.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        self.plugin_list.setVerticalScrollMode(QListWidget.ScrollMode.ScrollPerPixel)
+        self.plugin_list.setMouseTracking(True)
+        self.plugin_list.viewport().setCursor(Qt.CursorShape.PointingHandCursor)
+        self.plugin_list.setItemDelegate(
+            PluginCardDelegate(self.plugin_list, self.plugin_chrome_tokens)
+        )
         self.plugin_list.currentItemChanged.connect(self.show_plugin_details)
-        list_layout.addWidget(self.plugin_list, 1)
-        manager_layout.addWidget(list_panel, 2)
+        list_panel.addWidget(self.plugin_list, 1)
+        body.addLayout(list_panel, 5)
 
+        # The selected plugin.
         detail_panel = QFrame()
         detail_panel.setObjectName("pluginDetailPanel")
         detail_layout = QVBoxLayout(detail_panel)
-        detail_layout.setContentsMargins(14, 12, 14, 12)
-        detail_layout.setSpacing(10)
+        detail_layout.setContentsMargins(22, 20, 22, 20)
+        detail_layout.setSpacing(14)
 
         title_row = QHBoxLayout()
+        title_row.setSpacing(14)
+        self.plugin_detail_avatar = PluginAvatar(52, self.plugin_chrome_tokens)
+        title_row.addWidget(self.plugin_detail_avatar, 0, Qt.AlignmentFlag.AlignTop)
         title_stack = QVBoxLayout()
         title_stack.setSpacing(2)
         self.plugin_detail_title = QLabel(_("Select a plugin"))
         self.plugin_detail_title.setObjectName("pluginDetailTitle")
+        self.plugin_detail_title.setWordWrap(True)
         self.plugin_detail_subtitle = QLabel("")
         self.plugin_detail_subtitle.setObjectName("pluginDetailSubtitle")
+        self.plugin_detail_subtitle.setForegroundRole(QPalette.ColorRole.PlaceholderText)
         title_stack.addWidget(self.plugin_detail_title)
         title_stack.addWidget(self.plugin_detail_subtitle)
+        title_row.addLayout(title_stack, 1)
         self.plugin_status_badge = QLabel("")
         self.plugin_status_badge.setObjectName("pluginStatusBadge")
         self.plugin_status_badge.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        title_row.addLayout(title_stack, 1)
-        title_row.addWidget(self.plugin_status_badge)
+        title_row.addWidget(self.plugin_status_badge, 0, Qt.AlignmentFlag.AlignTop)
         detail_layout.addLayout(title_row)
 
         self.plugin_details = QLabel()
@@ -174,37 +203,76 @@ class PluginsTabMixin:
         self.plugin_details.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
         detail_layout.addWidget(self.plugin_details)
 
-        version_layout = QHBoxLayout()
-        version_label = QLabel(_("Version"))
-        version_label.setObjectName("pluginFieldLabel")
+        fields = QGridLayout()
+        fields.setHorizontalSpacing(12)
+        fields.setVerticalSpacing(10)
+        fields.setColumnStretch(1, 1)
+        version_row = QHBoxLayout()
+        version_row.setSpacing(10)
         self.plugin_version_combo = QComboBox()
+        self.plugin_version_combo.setMinimumWidth(160)
         self.plugin_version_combo.currentTextChanged.connect(self.change_selected_plugin_version)
-        version_layout.addWidget(version_label)
-        version_layout.addWidget(self.plugin_version_combo, 1)
-        detail_layout.addLayout(version_layout)
+        self.plugin_version_note = QLabel("")
+        self.plugin_version_note.setObjectName("pluginFieldLabel")
+        self.plugin_version_note.setForegroundRole(QPalette.ColorRole.PlaceholderText)
+        version_row.addWidget(self.plugin_version_combo)
+        version_row.addWidget(self.plugin_version_note, 1)
+        self.plugin_source_value = QLabel("")
+        self.plugin_source_value.setObjectName("pluginSourceValue")
+        self.plugin_source_value.setWordWrap(True)
+        self.plugin_source_value.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
+        self.plugin_permission_chips = QHBoxLayout()
+        self.plugin_permission_chips.setSpacing(6)
+        permissions_widget = QWidget()
+        permissions_widget.setLayout(self.plugin_permission_chips)
+        self.plugin_permission_chips.setContentsMargins(0, 0, 0, 0)
+        for row, (label, field) in enumerate((
+            (_("Version"), version_row),
+            (_("Source"), self.plugin_source_value),
+            (_("Permissions"), permissions_widget),
+        )):
+            title = QLabel(label)
+            title.setObjectName("pluginFieldLabel")
+            title.setForegroundRole(QPalette.ColorRole.PlaceholderText)
+            fields.addWidget(title, row, 0, Qt.AlignmentFlag.AlignVCenter)
+            if isinstance(field, QHBoxLayout):
+                fields.addLayout(field, row, 1)
+            else:
+                fields.addWidget(field, row, 1)
+        detail_layout.addLayout(fields)
 
+        # Kept for callers that read one line of permissions and the remote note.
         self.plugin_permissions_label = QLabel()
         self.plugin_permissions_label.setObjectName("pluginPermissions")
         self.plugin_permissions_label.setWordWrap(True)
-        self.plugin_permissions_label.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
+        self.plugin_permissions_label.setForegroundRole(QPalette.ColorRole.PlaceholderText)
         detail_layout.addWidget(self.plugin_permissions_label)
         detail_layout.addStretch()
 
         plugin_buttons = QHBoxLayout()
+        plugin_buttons.setSpacing(8)
         self.toggle_plugin_button = QPushButton(_("Enable"))
         self.update_plugin_button = QPushButton(_("Update"))
         self.remove_plugin_button = QPushButton(_("Remove"))
+        self.remove_plugin_button.setObjectName("pluginRemoveButton")
+        self.remove_plugin_button.setIcon(self.plugin_icon("user-trash"))
         self.toggle_plugin_button.clicked.connect(self.toggle_selected_plugin)
         self.update_plugin_button.clicked.connect(self.update_selected_plugin)
         self.remove_plugin_button.clicked.connect(self.remove_selected_plugin)
-        plugin_buttons.addWidget(self.toggle_plugin_button)
         plugin_buttons.addWidget(self.update_plugin_button)
+        plugin_buttons.addWidget(self.toggle_plugin_button)
+        plugin_buttons.addStretch(1)
         plugin_buttons.addWidget(self.remove_plugin_button)
         detail_layout.addLayout(plugin_buttons)
-        manager_layout.addWidget(detail_panel, 3)
-        layout.addWidget(manager_frame, 1)
+        body.addWidget(detail_panel, 6)
+        layout.addLayout(body, 1)
 
+        # Status of the last plugin task, and the remote-code warning.
         status_row = QHBoxLayout()
+        status_row.setSpacing(10)
+        self.plugin_status_dot = QWidget()
+        self.plugin_status_dot.setObjectName("pluginStatusDot")
+        self.plugin_status_dot.setFixedSize(8, 8)
         self.plugin_task_progress = QProgressBar()
         self.plugin_task_progress.setObjectName("pluginTaskProgress")
         self.plugin_task_progress.setRange(0, 0)
@@ -214,16 +282,34 @@ class PluginsTabMixin:
         self.plugin_task_status = QLabel("")
         self.plugin_task_status.setObjectName("pluginTaskStatus")
         self.plugin_task_status.setWordWrap(True)
-        status_row.addWidget(self.plugin_task_progress)
-        status_row.addWidget(self.plugin_task_status, 1)
-        layout.addLayout(status_row)
-
+        self.plugin_task_status.setForegroundRole(QPalette.ColorRole.PlaceholderText)
         warning = QLabel(_("Remote plugins require permission review before they can run code."))
         warning.setObjectName("pluginWarningText")
         warning.setWordWrap(True)
-        layout.addWidget(warning)
+        warning.setForegroundRole(QPalette.ColorRole.PlaceholderText)
+        status_row.addWidget(self.plugin_status_dot, 0, Qt.AlignmentFlag.AlignVCenter)
+        status_row.addWidget(self.plugin_task_progress)
+        status_row.addWidget(self.plugin_task_status, 1)
+        status_row.addWidget(warning, 1, Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
+        layout.addLayout(status_row)
+        self.plugin_task_status_changed()
         self.refresh_plugin_list()
         return plugins_tab
+
+    def refresh_plugin_page_colors(self):
+        """Repaint the painted parts and retint icons after a theme change."""
+        self.plugin_list.viewport().update()
+        self.plugin_detail_avatar.update()
+        self.plugins_folder_action.setIcon(self.plugin_icon("folder"))
+        self.plugin_search_action.setIcon(self.plugin_icon("find"))
+        self.update_registry_button.setIcon(self.plugin_icon("view-refresh"))
+        self.show_add_channel_button.setIcon(self.plugin_icon("list-add"))
+        self.remove_plugin_button.setIcon(self.plugin_icon("user-trash"))
+
+    def _on_show_add_channel(self, shown):
+        self.add_channel_form.setVisible(shown)
+        if shown:
+            self.plugin_channel_name_edit.setFocus()
 
     def _host_plugins_changed(self):
         """Ask the main window to reload plugins from SettingsManager."""
@@ -295,13 +381,19 @@ class PluginsTabMixin:
             QMessageBox.warning(self, _("Plugins"), message)
         else:
             self.plugin_task_status.setText(message)
+        self.plugin_task_status_changed()
+
+    def plugin_task_status_changed(self):
+        # The dot marks a status line with something in it.
+        self.plugin_status_dot.setVisible(bool(self.plugin_task_status.text()))
 
     def set_plugin_busy(self, busy, text=""):
         for widget in (
             self.plugins_directory_edit,
             self.browse_plugins_button,
-            self.plugin_channel_filter_combo,
+            self.plugin_channel_filter_control,
             self.update_registry_button,
+            self.show_add_channel_button,
             self.plugin_channel_name_edit,
             self.plugin_registry_url_edit,
             self.plugin_registry_checksum_url_edit,
@@ -310,29 +402,34 @@ class PluginsTabMixin:
             widget.setEnabled(not busy)
         self.plugin_task_progress.setVisible(busy)
         self.plugin_task_status.setText(text)
+        self.plugin_task_status_changed()
         self.update_plugin_channel_action_state()
         self.set_plugin_action_state(self.selected_plugin())
         self.plugin_version_combo.setEnabled(not busy and self.plugin_version_combo.count() > 0)
 
     def populate_plugin_channel_filter(self):
-        if not hasattr(self, "plugin_channel_filter_combo"):
+        if not hasattr(self, "plugin_channel_filter_control"):
             return
         current = self.plugin_manager.plugin_channel_filter()
-        self.plugin_channel_filter_combo.blockSignals(True)
-        self.plugin_channel_filter_combo.clear()
-        self.plugin_channel_filter_combo.addItem(_("All channels"), "all")
+        control = self.plugin_channel_filter_control
+        control.blockSignals(True)
+        control.clear()
+        control.addOption(_("All channels"), "all")
         for channel in self.plugin_channels:
             label = channel.get("name", "")
             if channel.get("verified"):
                 label = f"{label} ✓"
-            self.plugin_channel_filter_combo.addItem(label, channel.get("name", ""))
-        index = self.plugin_channel_filter_combo.findData(current)
-        self.plugin_channel_filter_combo.setCurrentIndex(index if index >= 0 else 0)
-        self.plugin_channel_filter_combo.blockSignals(False)
+            control.addOption(label, channel.get("name", ""))
+        index = control.findData(current)
+        control.setCurrentIndex(index if index >= 0 else 0)
+        control.blockSignals(False)
         self.update_plugin_channel_action_state()
 
     def selected_plugin_channel(self):
-        selected = self.plugin_channel_filter_combo.currentData() if hasattr(self, "plugin_channel_filter_combo") else "all"
+        selected = (
+            self.plugin_channel_filter_control.currentData()
+            if hasattr(self, "plugin_channel_filter_control") else "all"
+        )
         if selected == "all":
             return None
         return next((channel for channel in self.plugin_channels if channel.get("name") == selected), None)
@@ -343,6 +440,8 @@ class PluginsTabMixin:
         channel = self.selected_plugin_channel()
         can_remove = bool(channel and not channel.get("verified")) and not self.plugin_task_running()
         self.remove_plugin_channel_button.setEnabled(can_remove)
+        # Only a removable channel offers removal at all.
+        self.remove_plugin_channel_button.setVisible(bool(channel and not channel.get("verified")))
 
     def add_plugin_channel(self):
         url = self.plugin_registry_url_edit.text().strip()
@@ -360,9 +459,15 @@ class PluginsTabMixin:
         self.plugin_channels = existing
         self.plugin_manager.save_plugin_channels(self.plugin_channels)
         self.populate_plugin_channel_filter()
-        channel_index = self.plugin_channel_filter_combo.findData(channel["name"])
+        control = self.plugin_channel_filter_control
+        channel_index = control.findData(channel["name"])
         if channel_index >= 0:
-            self.plugin_channel_filter_combo.setCurrentIndex(channel_index)
+            control.blockSignals(True)
+            control.setCurrentIndex(channel_index)
+            control.blockSignals(False)
+            self.plugin_manager.set_plugin_channel_filter(channel["name"])
+            self.update_plugin_channel_action_state()
+        self.show_add_channel_button.setChecked(False)
         self.plugin_manager.refresh()
         self.refresh_plugin_list()
         self._host_plugins_changed()
@@ -384,9 +489,11 @@ class PluginsTabMixin:
         self._host_plugins_changed()
 
     def change_plugin_channel_filter(self):
-        if not hasattr(self, "plugin_channel_filter_combo"):
+        if not hasattr(self, "plugin_channel_filter_control"):
             return
-        self.plugin_manager.set_plugin_channel_filter(self.plugin_channel_filter_combo.currentData() or "all")
+        self.plugin_manager.set_plugin_channel_filter(
+            self.plugin_channel_filter_control.currentData() or "all"
+        )
         self.update_plugin_channel_action_state()
         # The filter only narrows this list; the app's plugin set is unchanged.
         self.refresh_plugin_list()
@@ -400,54 +507,42 @@ class PluginsTabMixin:
         return _("Local")
 
     def plugin_status_label(self, plugin):
+        if plugin.error:
+            return _("Error")
         if plugin.enabled:
             return _("Enabled")
         if not self.plugin_manager.is_installed(plugin):
             return _("Not installed")
         return _("Disabled")
 
-    def create_plugin_list_card(self, plugin):
-        card = QFrame()
-        card.setObjectName("pluginCard")
-        card.setCursor(Qt.CursorShape.PointingHandCursor)
-        card.setProperty("selected", False)
-        card_layout = QVBoxLayout(card)
-        card_layout.setContentsMargins(10, 8, 10, 8)
-        card_layout.setSpacing(5)
+    def plugin_card_data(self, plugin):
+        """What a plugin's card in the list shows."""
+        if plugin.error:
+            kind = "error"
+        elif plugin.enabled:
+            kind = "enabled"
+        else:
+            kind = "idle"
+        meta = " · ".join(
+            part for part in (plugin.version, self.plugin_source_label(plugin)) if part
+        )
+        return {
+            "title": plugin.display_name,
+            "status": self.plugin_status_label(plugin),
+            "status_kind": kind,
+            "description": plugin.description or plugin.name,
+            "meta": meta,
+            "initial": plugin_initial(plugin.display_name),
+        }
 
-        top_row = QHBoxLayout()
-        title = QLabel(plugin.display_name)
-        title.setObjectName("pluginCardTitle")
-        title.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
-        badge = QLabel(self.plugin_status_label(plugin))
-        badge.setObjectName("pluginBadge")
-        badge.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        badge.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
-        title.setWordWrap(True)
-        top_row.addWidget(title, 1)
-        top_row.addWidget(badge, 0, Qt.AlignmentFlag.AlignTop)
-        card_layout.addLayout(top_row)
-
-        description = QLabel(plugin.description or plugin.name)
-        description.setObjectName("pluginCardDescription")
-        description.setWordWrap(True)
-        description.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
-        card_layout.addWidget(description)
-
-        meta_row = QHBoxLayout()
-        meta_row.setSpacing(10)
-        meta = QLabel(plugin.version)
-        meta.setObjectName("pluginCardMeta")
-        meta.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
-        channel_label = QLabel(self.plugin_source_label(plugin))
-        channel_label.setObjectName("pluginCardChannel")
-        channel_label.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
-        meta_row.addWidget(meta)
-        meta_row.addWidget(channel_label)
-        meta_row.addStretch(1)
-        card_layout.addLayout(meta_row)
-        card.mousePressEvent = lambda event, name=plugin.name: self.select_plugin_by_name(name)
-        return card
+    def filter_plugin_list(self, query=None):
+        """Show only plugins whose name or description contains the search text."""
+        query = (self.plugin_search_edit.text() if query is None else query).strip().casefold()
+        for index in range(self.plugin_list.count()):
+            item = self.plugin_list.item(index)
+            card = item.data(PLUGIN_CARD_ROLE) or {}
+            haystack = f"{card.get('title', '')} {card.get('description', '')}".casefold()
+            item.setHidden(bool(query) and query not in haystack)
 
     def browse_plugins_directory(self):
         directory = get_existing_directory(
@@ -457,6 +552,7 @@ class PluginsTabMixin:
         )
         if directory:
             self.plugins_directory_edit.setText(directory)
+            self.plugins_directory_edit.setCursorPosition(0)
             self._apply_plugins_directory(directory)
 
     def _on_plugins_directory_edited(self):
@@ -477,13 +573,14 @@ class PluginsTabMixin:
         if self.plugin_task_running():
             return
         manager = self.plugin_manager
-        selected_channel = self.plugin_channel_filter_combo.currentData() or "all"
+        selected_channel = self.plugin_channel_filter_control.currentData() or "all"
         manager.save_plugin_channels(self.plugin_channels)
         self.settings_manager.save_setting("plugin_registry_url", self.plugin_registry_url_edit.text().strip())
         self.settings_manager.save_setting("plugin_registry_checksum_url", self.plugin_registry_checksum_url_edit.text().strip())
         channels = manager.plugin_channels_to_update(channel_name=selected_channel)
         if not channels:
             self.plugin_task_status.setText(_("No plugin channels to update."))
+            self.plugin_task_status_changed()
             return
         legacy_url = manager.registry_url()
 
@@ -515,28 +612,11 @@ class PluginsTabMixin:
                 self.plugin_list.setCurrentItem(item)
                 return
 
-    def update_plugin_card_states(self):
-        current_item = self.plugin_list.currentItem()
-        for index in range(self.plugin_list.count()):
-            item = self.plugin_list.item(index)
-            card = self.plugin_list.itemWidget(item)
-            if not card:
-                continue
-            selected = item is current_item
-            card.setProperty("selected", selected)
-            # Card text sits on the list's selection fill, so it follows the
-            # selected row's text color as a plain list item's would. Organic
-            # fills selected rows softly and keeps the ink.
-            role = (
-                QPalette.ColorRole.HighlightedText
-                if selected and ThemeManager.interface_look() != "organic"
-                else QPalette.ColorRole.WindowText
-            )
-            for label in card.findChildren(QLabel):
-                label.setForegroundRole(role)
-            card.style().unpolish(card)
-            card.style().polish(card)
-            card.update()
+    def plugin_has_update(self, plugin):
+        try:
+            return any(item.name == plugin.name for item in self.plugin_manager.available_updates())
+        except Exception:
+            return False
 
     def set_plugin_action_state(self, plugin):
         has_plugin = plugin is not None
@@ -552,32 +632,70 @@ class PluginsTabMixin:
         # Nothing to update or remove until the plugin is installed.
         self.update_plugin_button.setEnabled(actionable and installed)
         self.remove_plugin_button.setEnabled(actionable and installed)
+        # The action the plugin most likely needs next is the filled one: an
+        # available update, else installing or enabling it.
+        update_first = installed and self.plugin_has_update(plugin)
+        self.update_plugin_button.setVisible(installed)
+        self._set_primary(self.update_plugin_button, update_first)
+        self._set_primary(
+            self.toggle_plugin_button,
+            has_plugin and not update_first and not plugin.enabled,
+        )
+
+    def _set_primary(self, button, primary):
+        if bool(button.property("primary")) == bool(primary):
+            return
+        button.setProperty("primary", bool(primary))
+        button.style().unpolish(button)
+        button.style().polish(button)
 
     def refresh_plugin_list(self):
         current = self.selected_plugin()
         current_name = current.name if current else None
         self.plugin_list.clear()
-        for plugin in self.plugin_manager.visible_plugins():
+        plugins = self.plugin_manager.visible_plugins()
+        for plugin in plugins:
             item = QListWidgetItem()
             item.setData(Qt.ItemDataRole.UserRole, plugin.name)
+            item.setData(PLUGIN_CARD_ROLE, self.plugin_card_data(plugin))
+            item.setToolTip(plugin.display_name)
             self.plugin_list.addItem(item)
-            self.plugin_list.setItemWidget(item, self.create_plugin_list_card(plugin))
             if plugin.name == current_name:
                 self.plugin_list.setCurrentItem(item)
-        self.plugin_list.fit_card_heights()
+        self.plugin_search_edit.setPlaceholderText(
+            _("Search {count} plugins").format(count=len(plugins))
+        )
+        self.filter_plugin_list()
         if self.plugin_list.count() and not self.plugin_list.currentItem():
             self.plugin_list.setCurrentRow(0)
         self.show_plugin_details(self.plugin_list.currentItem())
 
+    def set_plugin_permission_chips(self, permissions):
+        while self.plugin_permission_chips.count():
+            widget = self.plugin_permission_chips.takeAt(0).widget()
+            if widget is not None:
+                widget.deleteLater()
+        for permission in permissions or [_("None")]:
+            chip = QLabel(permission)
+            chip.setObjectName("pluginPermissionChip" if permissions else "pluginSourceValue")
+            chip.setFont(self.font())
+            self.plugin_permission_chips.addWidget(chip)
+        self.plugin_permission_chips.addStretch(1)
+
     def show_plugin_details(self, current, previous=None):
-        self.update_plugin_card_states()
         plugin = self.selected_plugin()
         if not plugin:
+            self.plugin_detail_avatar.set_initial("")
             self.plugin_detail_title.setText(_("Select a plugin"))
             self.plugin_detail_subtitle.clear()
             self.plugin_status_badge.clear()
+            self.plugin_status_badge.hide()
             self.plugin_details.clear()
+            self.plugin_version_note.clear()
+            self.plugin_source_value.clear()
+            self.set_plugin_permission_chips([])
             self.plugin_permissions_label.clear()
+            self.plugin_permissions_label.hide()
             self.plugin_version_combo.blockSignals(True)
             self.plugin_version_combo.clear()
             self.plugin_version_combo.setEnabled(False)
@@ -585,9 +703,14 @@ class PluginsTabMixin:
             self.set_plugin_action_state(None)
             return
 
+        self.plugin_detail_avatar.set_initial(plugin_initial(plugin.display_name))
         self.plugin_detail_title.setText(plugin.display_name)
         self.plugin_detail_subtitle.setText(f"{self.plugin_source_label(plugin)} · {plugin.name}")
         self.plugin_status_badge.setText(self.plugin_status_label(plugin))
+        self.plugin_status_badge.setProperty("kind", self.plugin_card_data(plugin)["status_kind"])
+        self.plugin_status_badge.style().unpolish(self.plugin_status_badge)
+        self.plugin_status_badge.style().polish(self.plugin_status_badge)
+        self.plugin_status_badge.show()
         self.plugin_version_combo.blockSignals(True)
         self.plugin_version_combo.clear()
         versions = self.plugin_manager.plugin_versions(plugin.name)
@@ -598,20 +721,18 @@ class PluginsTabMixin:
         self.plugin_version_combo.setEnabled(bool(versions) and not self.plugin_task_running())
         self.plugin_version_combo.blockSignals(False)
 
-        source = plugin.source_url or plugin.path
         version_label = _("Installed") if self.plugin_manager.is_installed(plugin) else _("Available")
-        details = (
-            f"{plugin.description}\n"
-            f"{version_label}: {plugin.version}\n"
-            f"{_('Source')}: {source}"
-        )
+        self.plugin_version_note.setText(f"{version_label}: {plugin.version}")
+        self.plugin_source_value.setText(str(plugin.source_url or plugin.path or ""))
+        details = plugin.description or ""
         if plugin.error:
-            details = f"{details}\n{_('Error')}: {plugin.error}"
+            details = f"{details}\n{_('Error')}: {plugin.error}".strip()
         self.plugin_details.setText(details)
 
-        permissions = ", ".join(plugin.permissions) if plugin.permissions else _("None")
-        remote_note = f"\n{REMOTE_WARNING}" if plugin.source in {"remote", "registry"} and not plugin.trusted else ""
-        self.plugin_permissions_label.setText(f"{_('Permissions')}: {permissions}{remote_note}")
+        self.set_plugin_permission_chips(list(plugin.permissions or []))
+        remote = plugin.source in {"remote", "registry"} and not plugin.trusted
+        self.plugin_permissions_label.setText(REMOTE_WARNING if remote else "")
+        self.plugin_permissions_label.setVisible(remote)
         self.set_plugin_action_state(plugin)
 
     def enable_selected_plugin(self):
@@ -751,6 +872,7 @@ class PluginsTabMixin:
             self.plugin_task_status.setText(
                 _("Reloaded {plugin} from disk.").format(plugin=display_name)
             )
+            self.plugin_task_status_changed()
 
     def _update_registry_plugin(self, plugin):
         """Refresh the plugin's channel index, then install its latest release."""

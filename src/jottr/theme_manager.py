@@ -62,7 +62,8 @@ class ThemeManager:
                 "act_soft": "#dcd1bf",
                 "act_ink": "#201e1d",
                 "on_act": "#f5ead8",
-                "selection": "#dcd1bf"
+                "selection": "#dcd1bf",
+                "danger": "#b42318"
             }
         },
         "Dark": {
@@ -103,7 +104,8 @@ class ThemeManager:
                 "act_soft": "rgba(249, 244, 237, 41)",
                 "act_ink": "#f9f4ed",
                 "on_act": "#2e2b25",
-                "selection": "rgba(249, 244, 237, 51)"
+                "selection": "rgba(249, 244, 237, 51)",
+                "danger": "#f87171"
             }
         }
     }
@@ -601,6 +603,38 @@ class ThemeManager:
         theme["organic"] = dict(source["organic"])
         return theme
 
+    @staticmethod
+    def chrome_tokens(theme):
+        """Organic-style color tokens for painting chrome by hand, in either look.
+
+        Organic themes carry them; Native derives the nearest plain colors
+        from the theme's "app" section, filling with the accent where Organic
+        uses its soft act colors. Values are QColors.
+        """
+        tokens = theme.get("organic") if isinstance(theme, dict) else None
+        app = theme["app"]
+        if tokens:
+            source = dict(tokens)
+        else:
+            source = {
+                "ground": app["background"],
+                "pane": app["surface"],
+                "paper": app["surface"],
+                "ink": app["text"],
+                "muted": app["muted"],
+                "faint": app["muted"],
+                "line": app["border"],
+                "hover": app["surface_hover"],
+                "act": app["accent"],
+                "act_soft": app["surface_active"],
+                "act_ink": app["text"],
+                "on_act": "#ffffff" if QColor(app["accent"]).lightnessF() < 0.55 else "#1a1a1a",
+                "code": app["surface_alt"],
+            }
+        source.setdefault("code", source["hover"])
+        source.setdefault("danger", app.get("danger", "#b42318"))
+        return {key: ThemeManager.css_color(value) for key, value in source.items()}
+
     # (look, "Light"/"Dark") -> chrome theme; icon tinting resolves it often.
     _ui_theme_cache = {}
 
@@ -1025,27 +1059,30 @@ class ThemeManager:
                 color: {t['ink']};
                 font-weight: 600;
             }}
-            QTreeView#workspaceTree, QListWidget#snippetList, QListWidget#pluginCardList {{
+            QTreeView#workspaceTree, QListWidget#snippetList {{
                 background: transparent;
                 alternate-background-color: transparent;
                 border: none;
                 outline: 0;
                 padding: 2px 8px 8px 8px;
             }}
-            QTreeView#workspaceTree::item, QListWidget#snippetList::item,
-            QListWidget#pluginCardList::item {{
+            /* Plugin cards paint their own rows (PluginCardDelegate). */
+            QListWidget#pluginCardList {{
+                background: transparent;
+                border: none;
+                outline: 0;
+            }}
+            QTreeView#workspaceTree::item, QListWidget#snippetList::item {{
                 color: {t['ink']};
                 min-height: 30px;
                 border-radius: 14px;
                 padding: 0px 6px;
                 margin: 1px 0px;
             }}
-            QTreeView#workspaceTree::item:hover, QListWidget#snippetList::item:hover,
-            QListWidget#pluginCardList::item:hover {{
+            QTreeView#workspaceTree::item:hover, QListWidget#snippetList::item:hover {{
                 background: {t['hover']};
             }}
-            QTreeView#workspaceTree::item:selected, QListWidget#snippetList::item:selected,
-            QListWidget#pluginCardList::item:selected {{
+            QTreeView#workspaceTree::item:selected, QListWidget#snippetList::item:selected {{
                 background: {t['act_soft']};
                 color: {t['act_ink']};
             }}
@@ -1205,17 +1242,18 @@ class ThemeManager:
                 background: {t['ground']};
                 border-radius: 15px;
             }}
-            QPushButton#segmentedOption {{
+            QWidget#segmentedControl QPushButton#segmentedOption {{
                 background: transparent;
                 border: none;
                 border-radius: 12px;
                 color: {t['muted']};
+                min-height: 0px;
                 padding: 4px 16px;
             }}
-            QPushButton#segmentedOption:hover {{
+            QWidget#segmentedControl QPushButton#segmentedOption:hover {{
                 color: {t['ink']};
             }}
-            QPushButton#segmentedOption:checked {{
+            QWidget#segmentedControl QPushButton#segmentedOption:checked {{
                 background: {t['paper']};
                 color: {t['ink']};
             }}
@@ -1228,6 +1266,87 @@ class ThemeManager:
             QWidget#settingsContent QPushButton#fontSettingButton {{
                 background: {t['paper']};
                 text-align: left;
+            }}
+            /* Settings > Plugins. */
+            QWidget#settingsContent QLineEdit {{
+                min-height: 28px;
+                border-radius: 16px;
+                padding: 2px 12px;
+            }}
+            QLineEdit#pluginSearchField {{
+                background: {t['ground']};
+                border-color: transparent;
+            }}
+            QLineEdit#pluginSearchField:focus {{
+                border-color: {t['act']};
+            }}
+            QWidget#settingsContent QPushButton {{
+                min-height: 28px;
+                border-radius: 16px;
+                padding: 2px 16px;
+            }}
+            QPushButton#pluginBrowseButton, QPushButton#pluginChannelAction {{
+                border-color: transparent;
+                padding: 2px 14px;
+            }}
+            QPushButton#pluginBrowseButton:hover, QPushButton#pluginChannelAction:hover {{
+                background: {t['hover']};
+            }}
+            QPushButton#pluginAddChannelButton:checked {{
+                background: {t['act_soft']};
+                color: {t['act_ink']};
+            }}
+            QPushButton[primary="true"] {{
+                background: {t['act']};
+                border-color: {t['act']};
+                color: {t['on_act']};
+            }}
+            QPushButton[primary="true"]:hover {{
+                background: {t['act_hover']};
+            }}
+            QPushButton[primary="true"]:disabled {{
+                background: {t['hover']};
+                border-color: transparent;
+                color: {t['faint']};
+            }}
+            QPushButton#pluginRemoveButton {{
+                border-color: transparent;
+                color: {t['danger']};
+                padding: 2px 14px;
+            }}
+            QPushButton#pluginRemoveButton:hover {{
+                background: {t['hover']};
+            }}
+            QPushButton#pluginRemoveButton:disabled {{
+                color: {t['faint']};
+            }}
+            QFrame#pluginDetailPanel {{
+                background: {t['ground']};
+                border-radius: 16px;
+            }}
+            QLabel#pluginStatusBadge {{
+                border: 1px solid {t['line']};
+                border-radius: 10px;
+                color: {t['muted']};
+                padding: 2px 10px;
+            }}
+            QLabel#pluginStatusBadge[kind="enabled"] {{
+                background: {t['act_soft']};
+                border-color: transparent;
+                color: {t['act_ink']};
+            }}
+            QLabel#pluginStatusBadge[kind="error"] {{
+                border-color: {t['danger']};
+                color: {t['danger']};
+            }}
+            QLabel#pluginPermissionChip {{
+                border: 1px solid {t['line']};
+                border-radius: 9px;
+                padding: 1px 9px;
+            }}
+            QWidget#pluginStatusDot {{
+                background: {t['act']};
+                border-radius: 4px;
             }}
         """
 

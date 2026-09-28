@@ -42,11 +42,32 @@ class SegmentedControl(QWidget):
             button.setChecked(True)
         return button
 
+    def clear(self):
+        for button in self.buttons():
+            self._group.removeButton(button)
+            self._layout.removeWidget(button)
+            button.hide()
+            button.deleteLater()
+        self._data = []
+
     def count(self):
         return len(self._data)
 
     def itemData(self, index):
         return self._data[index]
+
+    def itemText(self, index):
+        return self._group.button(index).text()
+
+    def findData(self, data):
+        return self._data.index(data) if data in self._data else -1
+
+    def currentIndex(self):
+        return self._group.checkedId()
+
+    def setCurrentIndex(self, index):
+        if 0 <= index < len(self._data):
+            self._group.button(index).setChecked(True)
 
     def buttons(self):
         return [self._group.button(index) for index in range(len(self._data))]

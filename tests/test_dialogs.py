@@ -20,6 +20,7 @@ from PyQt6.QtGui import QFont
 from PyQt6.QtWidgets import QApplication, QGroupBox, QLabel, QMessageBox, QScrollArea, QWidget
 
 from jottr.settings_dialog import SearchSiteDialog, SettingsDialog
+from jottr.settings.plugin_widgets import PLUGIN_CARD_ROLE
 from jottr.settings.search_site import search_site_url
 from jottr.plugin_manager import PluginManager
 from jottr.settings_manager import SettingsManager
@@ -237,13 +238,14 @@ class DialogTests(unittest.TestCase):
         self.assertNotIn("background", dialog.styleSheet())
         self.assertNotIn("color:", dialog.styleSheet())
         self.assertGreater(dialog.plugin_list.count(), 0)
-        current_card = dialog.plugin_list.itemWidget(dialog.plugin_list.currentItem())
-        self.assertEqual(current_card.cursor().shape(), Qt.CursorShape.PointingHandCursor)
-        self.assertTrue(current_card.property("selected"))
-        channel_label = current_card.findChild(QLabel, "pluginCardChannel")
-        self.assertIsNotNone(channel_label)
-        self.assertIn("Official", channel_label.text())
-        self.assertIn("✓", channel_label.text())
+        self.assertEqual(
+            dialog.plugin_list.viewport().cursor().shape(), Qt.CursorShape.PointingHandCursor
+        )
+        # Rows are painted cards; their text comes from the item's card data.
+        current_card = dialog.plugin_list.currentItem().data(PLUGIN_CARD_ROLE)
+        self.assertIn("Official", current_card["meta"])
+        self.assertIn("✓", current_card["meta"])
+        self.assertEqual(current_card["initial"], current_card["title"][0].upper())
 
 
     def test_settings_can_add_and_filter_plugin_channel(self):
@@ -256,8 +258,8 @@ class DialogTests(unittest.TestCase):
         dialog.plugin_registry_checksum_url_edit.setText("https://example.test/community/plugins.json.sha256")
         dialog.add_plugin_channel()
 
-        self.assertGreaterEqual(dialog.plugin_channel_filter_combo.findData("Community"), 0)
-        self.assertEqual(dialog.plugin_channel_filter_combo.currentData(), "Community")
+        self.assertGreaterEqual(dialog.plugin_channel_filter_control.findData("Community"), 0)
+        self.assertEqual(dialog.plugin_channel_filter_control.currentData(), "Community")
         listed = lambda: [
             dialog.plugin_list.item(index).data(Qt.ItemDataRole.UserRole)
             for index in range(dialog.plugin_list.count())
@@ -268,21 +270,21 @@ class DialogTests(unittest.TestCase):
         data = dialog.get_data()
         self.assertEqual(data["plugin_channel_filter"], "Community")
         self.assertTrue(any(channel["name"] == "Community" for channel in data["plugin_channels"]))
-        official_label = dialog.plugin_channel_filter_combo.itemText(dialog.plugin_channel_filter_combo.findData("Official"))
+        official_label = dialog.plugin_channel_filter_control.itemText(dialog.plugin_channel_filter_control.findData("Official"))
         self.assertIn("✓", official_label)
         self.assertTrue(dialog.remove_plugin_channel_button.isEnabled())
 
         dialog.remove_plugin_channel()
-        self.assertEqual(dialog.plugin_channel_filter_combo.currentData(), "all")
+        self.assertEqual(dialog.plugin_channel_filter_control.currentData(), "all")
         self.assertIn("rss-feed", listed())
-        self.assertEqual(dialog.plugin_channel_filter_combo.findData("Community"), -1)
+        self.assertEqual(dialog.plugin_channel_filter_control.findData("Community"), -1)
         self.assertFalse(any(channel["name"] == "Community" for channel in dialog.get_data()["plugin_channels"]))
 
-        official_index = dialog.plugin_channel_filter_combo.findData("Official")
-        dialog.plugin_channel_filter_combo.setCurrentIndex(official_index)
+        official_index = dialog.plugin_channel_filter_control.findData("Official")
+        dialog.plugin_channel_filter_control.setCurrentIndex(official_index)
         self.assertFalse(dialog.remove_plugin_channel_button.isEnabled())
         dialog.remove_plugin_channel()
-        self.assertGreaterEqual(dialog.plugin_channel_filter_combo.findData("Official"), 0)
+        self.assertGreaterEqual(dialog.plugin_channel_filter_control.findData("Official"), 0)
 
     def wait_for_plugin_task(self, dialog, timeout=10.0):
         deadline = time.monotonic() + timeout
@@ -453,7 +455,29 @@ class DialogTests(unittest.TestCase):
         self.assertEqual(dialog.toggle_plugin_button.text(), "Install")
         self.assertFalse(dialog.update_plugin_button.isEnabled())
         self.assertFalse(dialog.remove_plugin_button.isEnabled())
-        self.assertIn("Available: 0.3.1", dialog.plugin_details.text())
+        self.assertEqual(dialog.plugin_version_note.text(), "Available: 0.3.1")
+        # Installing is the step this plugin needs next, so it is the filled button.
+        self.assertTrue(dialog.toggle_plugin_button.property("primary"))
+        self.assertTrue(dialog.update_plugin_button.isHidden())
+
+    def test_plugin_search_filters_the_list(self):
+        manager = SettingsManager()
+        dialog = SettingsDialog(manager)
+        self.addCleanup(dialog.deleteLater)
+
+        def shown():
+            return [
+                dialog.plugin_list.item(index).data(Qt.ItemDataRole.UserRole)
+                for index in range(dialog.plugin_list.count())
+                if not dialog.plugin_list.item(index).isHidden()
+            ]
+
+        self.assertIn("rss-feed", shown())
+        dialog.plugin_search_edit.setText("zzz-no-such-plugin")
+        self.assertEqual(shown(), [])
+        dialog.plugin_search_edit.setText("RSS")
+        self.assertEqual(shown(), ["rss-feed"])
+        self.assertIn("plugins", dialog.plugin_search_edit.placeholderText())
 
     def test_settings_dialog_autosave_interval_is_a_clamped_spinbox(self):
         manager = SettingsManager()

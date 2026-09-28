@@ -251,9 +251,14 @@ class SettingsDialog(
         content_layout = QVBoxLayout(self.settings_content)
         content_layout.setContentsMargins(30, 22, 30, 20)
         content_layout.setSpacing(18)
+        # The title row also carries the current page's own header controls.
+        self.settings_title_row = QHBoxLayout()
+        self.settings_title_row.setSpacing(10)
         self.settings_page_title = QLabel()
         self.settings_page_title.setObjectName("settingsPageTitle")
-        content_layout.addWidget(self.settings_page_title)
+        self.settings_title_row.addWidget(self.settings_page_title, 1)
+        self.settings_page_headers = {}
+        content_layout.addLayout(self.settings_title_row)
         self.settings_stack = QStackedWidget()
         self.settings_stack.setObjectName("settingsStack")
         content_layout.addWidget(self.settings_stack, 1)
@@ -298,7 +303,8 @@ class SettingsDialog(
             "save",
         )
         self.add_settings_page(
-            "plugins", _("Plugins"), self.create_plugins_tab(), "applications-system"
+            "plugins", _("Plugins"), self.create_plugins_tab(), "applications-system",
+            header=self.plugins_header,
         )
         if self.settings_nav.count():
             self.settings_nav.setCurrentRow(0)
@@ -316,7 +322,12 @@ class SettingsDialog(
             button.setDefault(False)
         self.apply_dialog_style()
 
-    def add_settings_page(self, key, title, widget, icon_name=None, index=None):
+    def add_settings_page(self, key, title, widget, icon_name=None, index=None, header=None):
+        """Add a page; *header* is a widget shown beside its title while it is current."""
+        if header is not None:
+            header.hide()
+            self.settings_title_row.addWidget(header)
+            self.settings_page_headers[widget] = header
         item = QListWidgetItem(title)
         item.setData(_PAGE_KEY_ROLE, key)
         if icon_name:
@@ -331,6 +342,9 @@ class SettingsDialog(
         self.settings_stack.setCurrentIndex(row)
         item = self.settings_nav.item(row)
         self.settings_page_title.setText(item.text() if item is not None else "")
+        current = self.settings_stack.currentWidget()
+        for page, header in self.settings_page_headers.items():
+            header.setVisible(page is current)
 
     def settings_page_key_index(self, key):
         for index in range(self.settings_nav.count()):
@@ -393,8 +407,8 @@ class SettingsDialog(
         apply_dialog_window_icon(self, "settings", self.settings_manager)
         self.refresh_settings_nav_icons()
         if hasattr(self, "plugin_list"):
-            # Selected card text depends on the look (see update_plugin_card_states).
-            self.update_plugin_card_states()
+            # Plugin cards and avatars are painted in the chrome colors.
+            self.refresh_plugin_page_colors()
 
     def apply_ui_font(self, font=None):
         """Apply Main UI Font to the dialog, sidebar, combos, and popups."""
@@ -435,8 +449,23 @@ class SettingsDialog(
             QPushButton#segmentedOption:checked {{
                 font-weight: 600;
             }}
-            QLabel#settingsFieldHint {{
+            QLabel#settingsFieldHint, QLabel#pluginDetailSubtitle,
+            QLabel#pluginFieldLabel, QLabel#pluginTaskStatus, QLabel#pluginWarningText {{
                 font-size: {size * 0.9:g}pt;
+            }}
+            QLabel#pluginDetailTitle {{
+                font-size: {size * 1.45:g}pt;
+                font-weight: 600;
+            }}
+            QLabel#pluginStatusBadge {{
+                font-size: {size * 0.85:g}pt;
+                font-weight: 700;
+            }}
+            QLabel#pluginPermissionChip {{
+                font-size: {size * 0.82:g}pt;
+            }}
+            QPushButton#pluginChannelAction, QPushButton#pluginBrowseButton {{
+                font-weight: 600;
             }}
             """
         )
@@ -540,6 +569,6 @@ class SettingsDialog(
             'plugin_registry_url': self.plugin_registry_url_edit.text().strip(),
             'plugin_registry_checksum_url': self.plugin_registry_checksum_url_edit.text().strip(),
             'plugin_channels': list(self.plugin_channels),
-            'plugin_channel_filter': self.plugin_channel_filter_combo.currentData() or "all",
+            'plugin_channel_filter': self.plugin_channel_filter_control.currentData() or "all",
             'plugin_state': self.plugin_manager.plugin_state()
         }
