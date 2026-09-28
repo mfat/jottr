@@ -50,6 +50,7 @@
         <file alias="process-stop.svg">bootstrap/process-stop.svg</file>
         <file alias="redo.svg">bootstrap/redo.svg</file>
         <file alias="save-as.svg">bootstrap/save-as.svg</file>
+        <file alias="rss.svg">bootstrap/rss.svg</file>
         <file alias="save.svg">bootstrap/save.svg</file>
         <file alias="settings.svg">bootstrap/settings.svg</file>
         <file alias="smaller.svg">bootstrap/smaller.svg</file>

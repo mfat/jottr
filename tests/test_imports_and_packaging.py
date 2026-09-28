@@ -413,6 +413,11 @@ class ImportAndPackagingTests(unittest.TestCase):
         self.assertEqual(bootstrap["theme"], ":/icons/bootstrap/theme.svg")
         self.assertEqual(bootstrap["brush"], ":/icons/bootstrap/brush.svg")
         self.assertEqual(bootstrap["palette"], ":/icons/bootstrap/palette.svg")
+        self.assertEqual(bootstrap["rss"], ":/icons/bootstrap/rss.svg")
+        self.assertEqual(
+            load_bundled_icon_paths("qlementine")["rss"],
+            ":/icons/qlementine/rss.svg",
+        )
         self.assertNotEqual(bootstrap["save"], icons["save"])
         self.assertNotEqual(bootstrap["theme"], icons["theme"])
         bootstrap_tinted = build_themed_icon(bootstrap["theme"], "#f8f8f2", size=16)

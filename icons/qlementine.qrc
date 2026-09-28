@@ -51,6 +51,7 @@
         <file alias="process-stop.svg">qlementine/process-stop.svg</file>
         <file alias="redo.svg">qlementine/redo.svg</file>
         <file alias="save-as.svg">qlementine/save-as.svg</file>
+        <file alias="rss.svg">qlementine/rss.svg</file>
         <file alias="save.svg">qlementine/save.svg</file>
         <file alias="settings.svg">qlementine/settings.svg</file>
         <file alias="smaller.svg">qlementine/smaller.svg</file>
