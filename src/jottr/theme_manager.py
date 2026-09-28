@@ -165,7 +165,7 @@ class ThemeManager:
     BASE_EDITOR = {
         "background": "#ffffff",
         "foreground": "#17202a",
-        "selection": "#dbeafe",
+        "selection": "#bcd3ef",
         "current_line": "#f8fafc",
         "border": "#dce3eb"
     }
@@ -202,7 +202,7 @@ class ThemeManager:
             "editor": {
                 "background": "#111827",
                 "foreground": "#e5e7eb",
-                "selection": "#374151",
+                "selection": "#1966c5",
                 "current_line": "#1f2937",
                 "border": "#374151"
             },
@@ -234,7 +234,7 @@ class ThemeManager:
             "editor": {
                 "background": "#fff8ea",
                 "foreground": "#4a3728",
-                "selection": "#d8c4a3",
+                "selection": "#e7be9a",
                 "current_line": "#f6ecd8",
                 "border": "#d9c8ad"
             },
@@ -266,7 +266,7 @@ class ThemeManager:
             "editor": {
                 "background": "#282a36",
                 "foreground": "#f8f8f2",
-                "selection": "#44475a",
+                "selection": "#681bd5",
                 "current_line": "#353747",
                 "border": "#6272a4"
             },
@@ -299,7 +299,7 @@ class ThemeManager:
             "editor": {
                 "background": "#272822",
                 "foreground": "#f8f8f2",
-                "selection": "#49483e",
+                "selection": "#587d10",
                 "current_line": "#3e3d32",
                 "border": "#49483e"
             },
@@ -332,7 +332,7 @@ class ThemeManager:
             "editor": {
                 "background": "#10151f",
                 "foreground": "#f0f3f8",
-                "selection": "#33415d",
+                "selection": "#1575a3",
                 "current_line": "#18202f",
                 "border": "#33415d"
             },
@@ -365,7 +365,7 @@ class ThemeManager:
             "editor": {
                 "background": "#1a1b26",
                 "foreground": "#c0caf5",
-                "selection": "#3b4261",
+                "selection": "#184dbe",
                 "current_line": "#24283b",
                 "border": "#3b4261"
             },
@@ -398,7 +398,7 @@ class ThemeManager:
             "editor": {
                 "background": "#fbfdf7",
                 "foreground": "#24331f",
-                "selection": "#cfe5bc",
+                "selection": "#b4d2a2",
                 "current_line": "#eef5e6",
                 "border": "#c9d9bd"
             },
