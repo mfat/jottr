@@ -1,46 +1,65 @@
-"""Fonts shipped with Jottr (JetBrains Mono, SIL Open Font License 1.1)."""
+"""Fonts shipped with Jottr (JetBrains Mono and IBM Plex Sans, SIL Open Font License 1.1)."""
 import os
 
 from PyQt6.QtCore import QUrl
 from PyQt6.QtGui import QFontDatabase
 
-BUNDLED_FONT_FAMILY = "JetBrains Mono"
-_FONT_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "fonts", "JetBrainsMono")
-# Variable-weight files: one upright, one italic. (file name, CSS font-style)
-_FONT_FILES = (("JetBrainsMono.ttf", "normal"), ("JetBrainsMono-Italic.ttf", "italic"))
+BUNDLED_EDITOR_FONT_FAMILY = "JetBrains Mono"
+BUNDLED_UI_FONT_FAMILY = "IBM Plex Sans"
+_FONTS_ROOT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "fonts")
+# Variable-weight files: one upright, one italic per family.
+# family → (folder, CSS weight range, ((file name, CSS font-style), ...))
+_BUNDLED_FACES = {
+    BUNDLED_EDITOR_FONT_FAMILY: (
+        "JetBrainsMono",
+        "100 800",
+        (("JetBrainsMono.ttf", "normal"), ("JetBrainsMono-Italic.ttf", "italic")),
+    ),
+    BUNDLED_UI_FONT_FAMILY: (
+        "IBMPlexSans",
+        "100 700",
+        (("IBMPlexSans.ttf", "normal"), ("IBMPlexSans-Italic.ttf", "italic")),
+    ),
+}
+
+
+def _face_files():
+    """(family, path, CSS weight range, CSS font-style) for every bundled file."""
+    for family, (folder, weights, files) in _BUNDLED_FACES.items():
+        for name, style in files:
+            yield family, os.path.join(_FONTS_ROOT, folder, name), weights, style
 
 
 def bundled_font_paths():
-    return [os.path.join(_FONT_DIR, name) for name, _style in _FONT_FILES]
+    return [path for _family, path, _weights, _style in _face_files()]
 
 
-_registered = False
+_registered = set()
 
 
 def register_bundled_fonts():
     """Add the bundled faces to the application font database. Needs a QGuiApplication."""
-    global _registered
-    for path in bundled_font_paths():
+    for family, path, _weights, _style in _face_files():
         font_id = QFontDatabase.addApplicationFont(path)
         if font_id < 0:
             print(f"Could not load bundled font: {path}")
-        elif BUNDLED_FONT_FAMILY in QFontDatabase.applicationFontFamilies(font_id):
-            _registered = True
+        elif family in QFontDatabase.applicationFontFamilies(font_id):
+            _registered.add(family)
 
 
-def bundled_font_available():
+def bundled_font_available(family):
     # Not QFontDatabase.families(): with a system copy installed too, Qt lists
     # both under foundry-qualified names like "JetBrains Mono [JB]".
-    return _registered
+    return family in _registered
 
 
 def bundled_font_face_css():
-    """@font-face rules so web views (which ignore Qt's app fonts) can use the face."""
+    """@font-face rules so web views (which ignore Qt's app fonts) can use the faces."""
     rules = []
-    for name, style in _FONT_FILES:
-        url = QUrl.fromLocalFile(os.path.join(_FONT_DIR, name)).toString(QUrl.ComponentFormattingOption.FullyEncoded)
+    for family, path, weights, style in _face_files():
+        url = QUrl.fromLocalFile(path).toString(QUrl.ComponentFormattingOption.FullyEncoded)
         rules.append(
-            f'@font-face {{ font-family: "{BUNDLED_FONT_FAMILY}"; src: url("{url}") format("truetype"); '
-            f"font-weight: 100 800; font-style: {style}; }}"
+            f'@font-face {{ font-family: "{family}"; src: url("{url}") format("truetype"); '
+            f"font-weight: {weights}; font-style: {style}; }}"
         )
     return "\n".join(rules)

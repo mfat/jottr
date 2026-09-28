@@ -22,3 +22,9 @@ Copyright: 2020 The JetBrains Mono Project Authors (https://github.com/JetBrains
 License: OFL-1.1
  The full license text is shipped next to the font files as OFL.txt,
  and is also available at https://openfontlicense.org.
+
+Files: src/jottr/fonts/IBMPlexSans/*
+Copyright: 2017 IBM Corp. with Reserved Font Name "Plex"
+License: OFL-1.1
+ The full license text is shipped next to the font files as OFL.txt,
+ and is also available at https://openfontlicense.org.

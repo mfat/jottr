@@ -5,7 +5,9 @@ from PyQt6.QtGui import QFont, QFontDatabase, QGuiApplication
 import time
 import sys
 
-from jottr.bundled_fonts import BUNDLED_FONT_FAMILY, bundled_font_available
+from jottr.bundled_fonts import (
+    BUNDLED_EDITOR_FONT_FAMILY, BUNDLED_UI_FONT_FAMILY, bundled_font_available,
+)
 
 DEFAULT_PLUGIN_REGISTRY_URL = "https://raw.githubusercontent.com/Jottrhq/plugins/main/plugins.json"
 DEFAULT_PLUGIN_REGISTRY_CHECKSUM_URL = "https://raw.githubusercontent.com/Jottrhq/plugins/main/plugins.json.sha256"
@@ -90,14 +92,14 @@ class SettingsManager:
     def bundled_ui_font():
         """Jottr's bundled face at the desktop UI size (the desktop font if it failed to load)."""
         system = SettingsManager.system_ui_font()
-        if not bundled_font_available():
+        if not bundled_font_available(BUNDLED_UI_FONT_FAMILY):
             return system
-        return QFont(BUNDLED_FONT_FAMILY, SettingsManager.font_point_size(system, 10))
+        return QFont(BUNDLED_UI_FONT_FAMILY, SettingsManager.font_point_size(system, 10))
 
     @staticmethod
     def default_ui_font_source():
         """The bundled face, or the desktop font when it failed to load."""
-        return UI_FONT_DEFAULT if bundled_font_available() else UI_FONT_SYSTEM
+        return UI_FONT_DEFAULT if bundled_font_available(BUNDLED_UI_FONT_FAMILY) else UI_FONT_SYSTEM
 
     @staticmethod
     def font_point_size(font, fallback=10):
@@ -127,10 +129,10 @@ class SettingsManager:
         ui_font = self.system_ui_font()
         ui_size = self.font_point_size(ui_font, 10)
         editor_family = self.system_fixed_font().family()
-        # New installs use the bundled face for both roles; saved settings
-        # (loaded below) keep whatever an existing install already has.
-        if bundled_font_available():
-            editor_family = BUNDLED_FONT_FAMILY
+        # New installs use the bundled editor face; saved settings (loaded
+        # below) keep whatever an existing install already has.
+        if bundled_font_available(BUNDLED_EDITOR_FONT_FAMILY):
+            editor_family = BUNDLED_EDITOR_FONT_FAMILY
         # Initialize default settings
         self.settings = {
             "ui_font_family": ui_font.family(),
