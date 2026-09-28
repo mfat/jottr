@@ -670,12 +670,13 @@ class PluginsTabMixin:
             self.plugin_list.setCurrentRow(0)
         self.show_plugin_details(self.plugin_list.currentItem())
 
-    def set_plugin_permission_chips(self, permissions):
+    def set_plugin_permission_chips(self, permissions, none_label=True):
+        """One chip per permission; *none_label* says "None" when there are none."""
         while self.plugin_permission_chips.count():
             widget = self.plugin_permission_chips.takeAt(0).widget()
             if widget is not None:
                 widget.deleteLater()
-        for permission in permissions or [_("None")]:
+        for permission in permissions or ([_("None")] if none_label else []):
             chip = QLabel(permission)
             chip.setObjectName("pluginPermissionChip" if permissions else "pluginSourceValue")
             chip.setFont(self.font())
@@ -693,7 +694,8 @@ class PluginsTabMixin:
             self.plugin_details.clear()
             self.plugin_version_note.clear()
             self.plugin_source_value.clear()
-            self.set_plugin_permission_chips([])
+            # No plugin, no permissions to report.
+            self.set_plugin_permission_chips([], none_label=False)
             self.plugin_permissions_label.clear()
             self.plugin_permissions_label.hide()
             self.plugin_version_combo.blockSignals(True)
