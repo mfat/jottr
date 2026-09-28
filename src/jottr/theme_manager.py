@@ -1025,24 +1025,27 @@ class ThemeManager:
                 color: {t['ink']};
                 font-weight: 600;
             }}
-            QTreeView#workspaceTree, QListWidget#snippetList {{
+            QTreeView#workspaceTree, QListWidget#snippetList, QListWidget#pluginCardList {{
                 background: transparent;
                 alternate-background-color: transparent;
                 border: none;
                 outline: 0;
                 padding: 2px 8px 8px 8px;
             }}
-            QTreeView#workspaceTree::item, QListWidget#snippetList::item {{
+            QTreeView#workspaceTree::item, QListWidget#snippetList::item,
+            QListWidget#pluginCardList::item {{
                 color: {t['ink']};
                 min-height: 30px;
                 border-radius: 14px;
                 padding: 0px 6px;
                 margin: 1px 0px;
             }}
-            QTreeView#workspaceTree::item:hover, QListWidget#snippetList::item:hover {{
+            QTreeView#workspaceTree::item:hover, QListWidget#snippetList::item:hover,
+            QListWidget#pluginCardList::item:hover {{
                 background: {t['hover']};
             }}
-            QTreeView#workspaceTree::item:selected, QListWidget#snippetList::item:selected {{
+            QTreeView#workspaceTree::item:selected, QListWidget#snippetList::item:selected,
+            QListWidget#pluginCardList::item:selected {{
                 background: {t['act_soft']};
                 color: {t['act_ink']};
             }}

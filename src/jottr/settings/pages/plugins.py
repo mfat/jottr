@@ -14,9 +14,11 @@ from PyQt6.QtWidgets import (
     QFrame, QMessageBox, QProgressBar,
 )
 from PyQt6.QtCore import Qt, QObject, QSize, pyqtSignal, pyqtSlot
+from PyQt6.QtGui import QPalette
 
 from jottr.file_dialogs import get_existing_directory
 from jottr.plugin_manager import REMOTE_WARNING
+from jottr.theme_manager import ThemeManager
 from jottr.translation_manager import _
 
 
@@ -36,6 +38,29 @@ class _PluginTaskBridge(QObject):
             self._callback(result, error)
         finally:
             self.deleteLater()
+
+
+class PluginCardList(QListWidget):
+    """Plugin rows are card widgets; each row is as tall as its card at the list's width."""
+
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        self.fit_card_heights()
+
+    def fit_card_heights(self):
+        width = self.viewport().width() - 2 * self.spacing()
+        if width <= 0:
+            return
+        for index in range(self.count()):
+            item = self.item(index)
+            card = self.itemWidget(item)
+            if card is None:
+                continue
+            height = card.heightForWidth(width) if card.hasHeightForWidth() else -1
+            if height <= 0:
+                height = card.sizeHint().height()
+            if item.sizeHint().height() != height:
+                item.setSizeHint(QSize(width, height))
 
 
 class PluginsTabMixin:
@@ -112,9 +137,10 @@ class PluginsTabMixin:
         list_header = QLabel(_("Plugins"))
         list_header.setObjectName("pluginPanelTitle")
         list_layout.addWidget(list_header)
-        self.plugin_list = QListWidget()
+        self.plugin_list = PluginCardList()
         self.plugin_list.setObjectName("pluginCardList")
-        self.plugin_list.setSpacing(8)
+        self.plugin_list.setSpacing(2)
+        self.plugin_list.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         self.plugin_list.setUniformItemSizes(False)
         self.plugin_list.currentItemChanged.connect(self.show_plugin_details)
         list_layout.addWidget(self.plugin_list, 1)
@@ -393,17 +419,13 @@ class PluginsTabMixin:
         title = QLabel(plugin.display_name)
         title.setObjectName("pluginCardTitle")
         title.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
-        channel_label = QLabel(self.plugin_source_label(plugin))
-        channel_label.setObjectName("pluginCardChannel")
-        channel_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        channel_label.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
         badge = QLabel(self.plugin_status_label(plugin))
         badge.setObjectName("pluginBadge")
         badge.setAlignment(Qt.AlignmentFlag.AlignCenter)
         badge.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
+        title.setWordWrap(True)
         top_row.addWidget(title, 1)
-        top_row.addWidget(channel_label)
-        top_row.addWidget(badge)
+        top_row.addWidget(badge, 0, Qt.AlignmentFlag.AlignTop)
         card_layout.addLayout(top_row)
 
         description = QLabel(plugin.description or plugin.name)
@@ -412,10 +434,18 @@ class PluginsTabMixin:
         description.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
         card_layout.addWidget(description)
 
+        meta_row = QHBoxLayout()
+        meta_row.setSpacing(10)
         meta = QLabel(plugin.version)
         meta.setObjectName("pluginCardMeta")
         meta.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
-        card_layout.addWidget(meta)
+        channel_label = QLabel(self.plugin_source_label(plugin))
+        channel_label.setObjectName("pluginCardChannel")
+        channel_label.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
+        meta_row.addWidget(meta)
+        meta_row.addWidget(channel_label)
+        meta_row.addStretch(1)
+        card_layout.addLayout(meta_row)
         card.mousePressEvent = lambda event, name=plugin.name: self.select_plugin_by_name(name)
         return card
 
@@ -492,7 +522,18 @@ class PluginsTabMixin:
             card = self.plugin_list.itemWidget(item)
             if not card:
                 continue
-            card.setProperty("selected", item is current_item)
+            selected = item is current_item
+            card.setProperty("selected", selected)
+            # Card text sits on the list's selection fill, so it follows the
+            # selected row's text color as a plain list item's would. Organic
+            # fills selected rows softly and keeps the ink.
+            role = (
+                QPalette.ColorRole.HighlightedText
+                if selected and ThemeManager.interface_look() != "organic"
+                else QPalette.ColorRole.WindowText
+            )
+            for label in card.findChildren(QLabel):
+                label.setForegroundRole(role)
             card.style().unpolish(card)
             card.style().polish(card)
             card.update()
@@ -519,11 +560,11 @@ class PluginsTabMixin:
         for plugin in self.plugin_manager.visible_plugins():
             item = QListWidgetItem()
             item.setData(Qt.ItemDataRole.UserRole, plugin.name)
-            item.setSizeHint(QSize(240, 92))
             self.plugin_list.addItem(item)
             self.plugin_list.setItemWidget(item, self.create_plugin_list_card(plugin))
             if plugin.name == current_name:
                 self.plugin_list.setCurrentItem(item)
+        self.plugin_list.fit_card_heights()
         if self.plugin_list.count() and not self.plugin_list.currentItem():
             self.plugin_list.setCurrentRow(0)
         self.show_plugin_details(self.plugin_list.currentItem())

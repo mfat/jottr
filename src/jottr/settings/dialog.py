@@ -391,6 +391,9 @@ class SettingsDialog(
         ThemeManager.apply_app_palette(self, ThemeManager.get_ui_theme(scheme))
         apply_dialog_window_icon(self, "settings", self.settings_manager)
         self.refresh_settings_nav_icons()
+        if hasattr(self, "plugin_list"):
+            # Selected card text depends on the look (see update_plugin_card_states).
+            self.update_plugin_card_states()
 
     def apply_ui_font(self, font=None):
         """Apply Main UI Font to the dialog, sidebar, combos, and popups."""
