@@ -241,6 +241,7 @@ class SettingsDialog(
         self.settings_nav = QListWidget()
         self.settings_nav.setObjectName("settingsNavList")
         self.settings_nav.setSpacing(1)
+        self.settings_nav.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         self.settings_nav.setIconSize(QSize(16, 16))
         sidebar_layout.addWidget(self.settings_nav, 1)
 
@@ -445,6 +446,21 @@ class SettingsDialog(
             view = combo.view()
             if view is not None:
                 view.setFont(ui_font)
+        self.fit_settings_sidebar()
+
+    def fit_settings_sidebar(self):
+        """Widen the sidebar so the longest page name fits in Main UI Font."""
+        if not hasattr(self, "settings_sidebar"):
+            return
+        nav = self.settings_nav
+        # Item text + icon, the rows' side padding, the list frame, and the
+        # sidebar's own margins.
+        margins = self.settings_sidebar.layout().contentsMargins()
+        needed = (
+            nav.sizeHintForColumn(0) + 24 + 2 * nav.frameWidth()
+            + margins.left() + margins.right()
+        )
+        self.settings_sidebar.setFixedWidth(max(210, needed))
 
     def settings_nav_icon(self, icon_name):
         """Symbolic nav glyph tinted from the dialog palette (flat Selected mode)."""
