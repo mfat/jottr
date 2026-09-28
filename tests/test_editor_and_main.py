@@ -1338,6 +1338,19 @@ class EditorAndMainTests(unittest.TestCase):
         self.assertEqual(editor.markdown_preview_script_nonce(), nonce)
         self.assertNotEqual(self.make_editor().markdown_preview_script_nonce(), nonce)
 
+    def test_markdown_preview_page_is_private_to_the_user(self):
+        editor = self.make_editor()
+        editor.editor.setPlainText("# Private notes")
+
+        editor.set_markdown_preview_visible(True, save_state=False)
+
+        folder = Path(editor.markdown_preview_file).parent
+        self.assertEqual(str(folder), editor_markdown_module.markdown_preview_folder())
+        self.assertTrue(folder.name.startswith("jottr-preview-"))
+        if os.name == "posix":
+            self.assertEqual(folder.stat().st_mode & 0o777, 0o700)
+        self.assertIn("Private notes", Path(editor.markdown_preview_file).read_text(encoding="utf-8"))
+
     def test_markdown_preview_reloads_after_following_a_link(self):
         editor = self.make_editor()
         editor.editor.setPlainText("# Title")

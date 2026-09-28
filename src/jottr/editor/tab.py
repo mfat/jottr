@@ -100,10 +100,6 @@ class EditorTab(
         self.pending_preview_source_line = None
         self.ignore_preview_scroll_until = 0
         self.preview_user_scroll_until = 0
-        self.markdown_preview_file = os.path.join(
-            tempfile.gettempdir(),
-            f'jottr_markdown_preview_{id(self)}.html'
-        )
 
         # Instant tabs stop after the bare editor so the user can type before
         # the heavier panes, highlighter, and timers are built. Everything

@@ -1,4 +1,5 @@
 """Markdown preview rendering and scroll sync for EditorTab."""
+import atexit
 import base64
 import html
 import importlib.util
@@ -7,6 +8,7 @@ import mimetypes
 import os
 import re
 import secrets
+import shutil
 import tempfile
 import time
 
@@ -19,6 +21,20 @@ from jottr.bundled_fonts import bundled_font_face_css
 # preview renders, so both load on first use instead of at startup.
 MARKDOWN_LIB_AVAILABLE = importlib.util.find_spec("markdown") is not None
 _markdown_preview_page_class = None
+_markdown_preview_folder = None
+
+
+def markdown_preview_folder():
+    """Folder for this process's preview pages, created on first use.
+
+    Each page is a copy of a document, so the folder is private to the user
+    (mkdtemp creates it 0700) and removed when Jottr exits.
+    """
+    global _markdown_preview_folder
+    if _markdown_preview_folder is None:
+        _markdown_preview_folder = tempfile.mkdtemp(prefix="jottr-preview-")
+        atexit.register(shutil.rmtree, _markdown_preview_folder, ignore_errors=True)
+    return _markdown_preview_folder
 
 
 def markdown_preview_page_class():
@@ -187,6 +203,16 @@ class MarkdownPreviewMixin:
             menu.popup(view.mapToGlobal(pos))
         else:
             menu.close()
+
+    @property
+    def markdown_preview_file(self):
+        """This tab's preview page, in the private preview folder."""
+        path = getattr(self, "_markdown_preview_file", None)
+        if path is None:
+            path = self._markdown_preview_file = os.path.join(
+                markdown_preview_folder(), f"preview-{id(self)}.html"
+            )
+        return path
 
     def is_markdown_file(self, file_path=None):
         """Return True when a path should be treated as markdown."""
