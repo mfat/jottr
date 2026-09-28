@@ -1634,6 +1634,10 @@ class MarkdownPreviewMixin:
                     padding: 2px 4px;
                 }}
                 pre code {{ background: transparent; padding: 0; }}
+                .source-code-line {{
+                    display: block;
+                    min-height: 1.55em;
+                }}
                 blockquote {{
                     border-inline-start: 4px solid #d0d7de;
                     color: #57606a;
