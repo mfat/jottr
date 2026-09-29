@@ -2722,6 +2722,14 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
         # Developer
         dev_label = centered_label(_("Developed by mFat"))
         dev_label.setStyleSheet(f"color: {muted};")
+        layout.addSpacing(2)
+        contributors_label = centered_label(
+            _('Contributors: <a href="{url}">a-goodarzi</a>').format(
+                url="https://github.com/a-goodarzi"
+            )
+        )
+        contributors_label.setStyleSheet(f"color: {muted};")
+        contributors_label.setOpenExternalLinks(True)
         layout.addSpacing(14)
 
         # Version, as an accent-tinted pill
