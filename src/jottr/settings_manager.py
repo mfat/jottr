@@ -27,6 +27,7 @@ INTERFACE_LOOK_ORGANIC = "organic"
 INTERFACE_LOOKS = (INTERFACE_LOOK_NATIVE, INTERFACE_LOOK_ORGANIC)
 DEFAULT_INTERFACE_LOOK = INTERFACE_LOOK_ORGANIC
 DEFAULT_ACCENT = "marigold"
+DEFAULT_GROUND = "cream"
 # Former baked-in UI default (Qt5 Normal weight=50). Migrate to the system UI font.
 _LEGACY_DEFAULT_UI_FONT = ("DejaVu Sans", 10, 50, False)
 # Former baked-in editor defaults (Qt5 Normal weight=50 and its Qt6 equivalent).
@@ -151,6 +152,7 @@ class SettingsManager:
             "ui_theme": "System",
             "interface_look": DEFAULT_INTERFACE_LOOK,
             "accent_color": DEFAULT_ACCENT,
+            "organic_ground": DEFAULT_GROUND,
             "theme": "Sepia",
             "language": "en_US",
             "icon_theme": "qlementine",
@@ -489,11 +491,12 @@ class SettingsManager:
         self.save_settings()
 
     def _publish_interface_look(self):
-        """Tell ThemeManager which look and accent chrome colors resolve for."""
+        """Tell ThemeManager which look, accent and ground chrome colors resolve for."""
         from jottr.theme_manager import ThemeManager
 
         ThemeManager.set_interface_look(self.get_interface_look())
         ThemeManager.set_accent(self.get_accent())
+        ThemeManager.set_ground(self.get_ground())
 
     def get_accent(self):
         from jottr.theme_manager import ThemeManager
@@ -506,6 +509,20 @@ class SettingsManager:
         from jottr.theme_manager import ThemeManager
 
         self.settings["accent_color"] = ThemeManager.normalize_accent(accent)
+        self._publish_interface_look()
+        self.save_settings()
+
+    def get_ground(self):
+        from jottr.theme_manager import ThemeManager
+
+        return ThemeManager.normalize_ground(
+            self.settings.get("organic_ground", DEFAULT_GROUND)
+        )
+
+    def save_ground(self, ground):
+        from jottr.theme_manager import ThemeManager
+
+        self.settings["organic_ground"] = ThemeManager.normalize_ground(ground)
         self._publish_interface_look()
         self.save_settings()
 

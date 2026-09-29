@@ -2606,7 +2606,7 @@ class EditorAndMainTests(unittest.TestCase):
             self.assertIsNotNone(window.toolbar._group_color)
             # The palette follows the Organic ground (light or dark).
             ground = window.palette().color(window.backgroundRole()).name()
-            self.assertIn(ground, {"#f5ead8", "#2e2e32"})
+            self.assertIn(ground, {"#f5ead8", "#312e2a"})
             tab = window.tab_widget.widget(0)
             self.assertTrue(tab.themes_applied)
 

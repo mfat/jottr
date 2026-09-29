@@ -32,6 +32,7 @@ def _delete_windows_left_by_test():
 
     ThemeManager.set_interface_look("native")
     ThemeManager.set_accent(ThemeManager.ACCENT_DEFAULT)
+    ThemeManager.set_ground(ThemeManager.GROUND_DEFAULT)
     ThemeManager.clear_ui_theme_cache()
     app.setProperty("_jottr_startup_stylesheet", None)
     app.setProperty("_jottr_style_key", None)

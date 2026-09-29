@@ -55,100 +55,641 @@ class ThemeManager:
         "ochre": ("Ochre", "#a0741f", "#f5e6c4", "#e0b660", "#5e4210"),
     }
 
-    # Organic look tokens, from the Organic design system (cream ground,
-    # graphite accent). Solid "app" colors feed QPalette; the "organic"
-    # tokens (some translucent) feed the look's stylesheet.
-    ORGANIC_THEMES = {
-        "Light": {
-            "app": {
-                "background": "#f5ead8",
-                "surface": "#f9f4ed",
-                "surface_alt": "#eee7db",
-                "surface_hover": "#e6dccb",
-                "surface_active": "#dcd1bf",
-                "text": "#201e1d",
-                "muted": "#645c50",
-                "border": "#d3c9ba",
-                "border_active": "#3d3a36",
-                "accent": "#3d3a36",
-                "accent_text": "#201e1d",
-                "danger": "#b42318"
+    # Organic look tokens, from the Organic design system, one set per
+    # Window Color ("ground"), each with its own tinted charcoal for dark.
+    # Solid "app" colors feed QPalette; the "organic" tokens (some
+    # translucent) feed the look's stylesheet. Paper's dark follows GNOME's
+    # libadwaita (1.9) dark neutrals.
+    _ground = "cream"
+    GROUND_DEFAULT = "cream"
+    ORGANIC_GROUNDS = {
+        "cream": {
+            "label": "Cream",
+            "Light": {
+                "app": {
+                    "background": "#f5ead8",
+                    "surface": "#f9f4ed",
+                    "surface_alt": "#eee7db",
+                    "surface_hover": "#e6dccb",
+                    "surface_active": "#dcd1bf",
+                    "text": "#201e1d",
+                    "muted": "#645c50",
+                    "border": "#d3c9ba",
+                    "border_active": "#3d3a36",
+                    "accent": "#3d3a36",
+                    "accent_text": "#201e1d",
+                    "danger": "#b42318"
+                },
+                "editor": {
+                    "background": "#f9f4ed",
+                    "foreground": "#201e1d",
+                    "selection": "#dcd1bf",
+                    "current_line": "#eee7db",
+                    "border": "#d3c9ba"
+                },
+                "organic": {
+                    "ground": "#f5ead8",
+                    "pane": "#f9f4ed",
+                    "paper": "#f9f4ed",
+                    "tab": "#f9f4ed",
+                    "popover": "#f9f4ed",
+                    "group": "#f9f4ed",
+                    "ink": "#201e1d",
+                    "muted": "#645c50",
+                    "faint": "#a19786",
+                    "line": "rgba(32, 30, 29, 41)",
+                    "hover": "rgba(32, 30, 29, 18)",
+                    "act": "#3d3a36",
+                    "act_hover": "#2a2825",
+                    "act_soft": "#dcd1bf",
+                    "act_ink": "#201e1d",
+                    "on_act": "#f5ead8",
+                    "selection": "#dcd1bf",
+                    "danger": "#b42318"
+                }
             },
-            "editor": {
-                "background": "#f9f4ed",
-                "foreground": "#201e1d",
-                "selection": "#dcd1bf",
-                "current_line": "#eee7db",
-                "border": "#d3c9ba"
-            },
-            "organic": {
-                "ground": "#f5ead8",
-                "pane": "#f9f4ed",
-                "paper": "#f9f4ed",
-                "tab": "#f9f4ed",
-                "popover": "#f9f4ed",
-                "group": "#f9f4ed",
-                "ink": "#201e1d",
-                "muted": "#645c50",
-                "faint": "#a19786",
-                "line": "rgba(32, 30, 29, 41)",
-                "hover": "rgba(32, 30, 29, 18)",
-                "act": "#3d3a36",
-                "act_hover": "#2a2825",
-                "act_soft": "#dcd1bf",
-                "act_ink": "#201e1d",
-                "on_act": "#f5ead8",
-                "selection": "#dcd1bf",
-                "danger": "#b42318"
+            "Dark": {
+                "app": {
+                    "background": "#312e2a",
+                    "surface": "#1f1d1a",
+                    "surface_alt": "#2b2825",
+                    "surface_hover": "#3d3935",
+                    "surface_active": "#48433e",
+                    "text": "#ffffff",
+                    "muted": "#aaa398",
+                    "border": "#48433e",
+                    "border_active": "#ece6dc",
+                    "accent": "#ece6dc",
+                    "accent_text": "#ffffff",
+                    "danger": "#ff7b63"
+                },
+                "editor": {
+                    "background": "#1f1d1a",
+                    "foreground": "#ffffff",
+                    "selection": "#48433e",
+                    "current_line": "#2b2825",
+                    "border": "#48433e"
+                },
+                "organic": {
+                    "ground": "#312e2a",
+                    "pane": "#2b2825",
+                    "paper": "#1f1d1a",
+                    "tab": "#1f1d1a",
+                    "popover": "#3a3632",
+                    "group": "rgba(255, 255, 255, 15)",
+                    "ink": "#ffffff",
+                    "muted": "#aaa398",
+                    "faint": "#7d776e",
+                    "line": "rgba(255, 255, 255, 38)",
+                    "hover": "rgba(255, 255, 255, 20)",
+                    "act": "#ece6dc",
+                    "act_hover": "#ffffff",
+                    "act_soft": "rgba(255, 255, 255, 41)",
+                    "act_ink": "#ffffff",
+                    "on_act": "#25221f",
+                    "selection": "rgba(255, 255, 255, 51)",
+                    "danger": "#ff7b63"
+                }
             }
         },
-        # Dark follows GNOME's libadwaita (1.9) dark neutrals: header bar and
-        # sidebar #2e2e32, secondary sidebar #28282c, view #1d1d20, popover
-        # #36363a, white text with translucent white lines and fills.
-        "Dark": {
-            "app": {
-                "background": "#2e2e32",
-                "surface": "#1d1d20",
-                "surface_alt": "#28282c",
-                "surface_hover": "#3a3a3e",
-                "surface_active": "#45454a",
-                "text": "#ffffff",
-                "muted": "#a3a3a8",
-                "border": "#45454a",
-                "border_active": "#e6e6e8",
-                "accent": "#e6e6e8",
-                "accent_text": "#ffffff",
-                "danger": "#ff7b63"
+        "stone": {
+            "label": "Stone",
+            "Light": {
+                "app": {
+                    "background": "#e9e5df",
+                    "surface": "#f6f4f1",
+                    "surface_alt": "#eeebe6",
+                    "surface_hover": "#e0dbd4",
+                    "surface_active": "#d4cec6",
+                    "text": "#1f1d1b",
+                    "muted": "#5f5a54",
+                    "border": "#cbc4bb",
+                    "border_active": "#3b3835",
+                    "accent": "#3b3835",
+                    "accent_text": "#1f1d1b",
+                    "danger": "#b42318"
+                },
+                "editor": {
+                    "background": "#f6f4f1",
+                    "foreground": "#1f1d1b",
+                    "selection": "#d4cec6",
+                    "current_line": "#eeebe6",
+                    "border": "#cbc4bb"
+                },
+                "organic": {
+                    "ground": "#e9e5df",
+                    "pane": "#f6f4f1",
+                    "paper": "#f6f4f1",
+                    "tab": "#f6f4f1",
+                    "popover": "#f6f4f1",
+                    "group": "#f6f4f1",
+                    "ink": "#1f1d1b",
+                    "muted": "#5f5a54",
+                    "faint": "#9c968f",
+                    "line": "rgba(31, 29, 27, 41)",
+                    "hover": "rgba(31, 29, 27, 18)",
+                    "act": "#3b3835",
+                    "act_hover": "#282624",
+                    "act_soft": "#d4cec6",
+                    "act_ink": "#1f1d1b",
+                    "on_act": "#e9e5df",
+                    "selection": "#d4cec6",
+                    "danger": "#b42318"
+                }
             },
-            "editor": {
-                "background": "#1d1d20",
-                "foreground": "#ffffff",
-                "selection": "#45454a",
-                "current_line": "#28282c",
-                "border": "#45454a"
+            "Dark": {
+                "app": {
+                    "background": "#302f2d",
+                    "surface": "#1e1d1c",
+                    "surface_alt": "#2a2928",
+                    "surface_hover": "#3c3b39",
+                    "surface_active": "#474643",
+                    "text": "#ffffff",
+                    "muted": "#a8a5a0",
+                    "border": "#474643",
+                    "border_active": "#e8e6e2",
+                    "accent": "#e8e6e2",
+                    "accent_text": "#ffffff",
+                    "danger": "#ff7b63"
+                },
+                "editor": {
+                    "background": "#1e1d1c",
+                    "foreground": "#ffffff",
+                    "selection": "#474643",
+                    "current_line": "#2a2928",
+                    "border": "#474643"
+                },
+                "organic": {
+                    "ground": "#302f2d",
+                    "pane": "#2a2928",
+                    "paper": "#1e1d1c",
+                    "tab": "#1e1d1c",
+                    "popover": "#393836",
+                    "group": "rgba(255, 255, 255, 15)",
+                    "ink": "#ffffff",
+                    "muted": "#a8a5a0",
+                    "faint": "#7a7874",
+                    "line": "rgba(255, 255, 255, 38)",
+                    "hover": "rgba(255, 255, 255, 20)",
+                    "act": "#e8e6e2",
+                    "act_hover": "#ffffff",
+                    "act_soft": "rgba(255, 255, 255, 41)",
+                    "act_ink": "#ffffff",
+                    "on_act": "#242321",
+                    "selection": "rgba(255, 255, 255, 51)",
+                    "danger": "#ff7b63"
+                }
+            }
+        },
+        "mist": {
+            "label": "Mist",
+            "Light": {
+                "app": {
+                    "background": "#e4eadb",
+                    "surface": "#f4f7ef",
+                    "surface_alt": "#eaefe2",
+                    "surface_hover": "#dbe3cf",
+                    "surface_active": "#cdd8bf",
+                    "text": "#1c211a",
+                    "muted": "#56604d",
+                    "border": "#c4cfb4",
+                    "border_active": "#354030",
+                    "accent": "#354030",
+                    "accent_text": "#1c211a",
+                    "danger": "#b42318"
+                },
+                "editor": {
+                    "background": "#f4f7ef",
+                    "foreground": "#1c211a",
+                    "selection": "#cdd8bf",
+                    "current_line": "#eaefe2",
+                    "border": "#c4cfb4"
+                },
+                "organic": {
+                    "ground": "#e4eadb",
+                    "pane": "#f4f7ef",
+                    "paper": "#f4f7ef",
+                    "tab": "#f4f7ef",
+                    "popover": "#f4f7ef",
+                    "group": "#f4f7ef",
+                    "ink": "#1c211a",
+                    "muted": "#56604d",
+                    "faint": "#939c88",
+                    "line": "rgba(28, 33, 26, 41)",
+                    "hover": "rgba(28, 33, 26, 18)",
+                    "act": "#354030",
+                    "act_hover": "#242c20",
+                    "act_soft": "#cdd8bf",
+                    "act_ink": "#1c211a",
+                    "on_act": "#e4eadb",
+                    "selection": "#cdd8bf",
+                    "danger": "#b42318"
+                }
             },
-            "organic": {
-                "ground": "#2e2e32",
-                "pane": "#28282c",
-                "paper": "#1d1d20",
-                "tab": "#1d1d20",
-                "popover": "#36363a",
-                "group": "rgba(255, 255, 255, 15)",
-                "ink": "#ffffff",
-                "muted": "#a3a3a8",
-                "faint": "#77777c",
-                "line": "rgba(255, 255, 255, 38)",
-                "hover": "rgba(255, 255, 255, 20)",
-                "act": "#e6e6e8",
-                "act_hover": "#ffffff",
-                "act_soft": "rgba(255, 255, 255, 41)",
-                "act_ink": "#ffffff",
-                "on_act": "#222226",
-                "selection": "rgba(255, 255, 255, 51)",
-                "danger": "#ff7b63"
+            "Dark": {
+                "app": {
+                    "background": "#2b302a",
+                    "surface": "#1b1e19",
+                    "surface_alt": "#262a24",
+                    "surface_hover": "#373d35",
+                    "surface_active": "#424940",
+                    "text": "#ffffff",
+                    "muted": "#a3ab9a",
+                    "border": "#424940",
+                    "border_active": "#e2eadb",
+                    "accent": "#e2eadb",
+                    "accent_text": "#ffffff",
+                    "danger": "#ff7b63"
+                },
+                "editor": {
+                    "background": "#1b1e19",
+                    "foreground": "#ffffff",
+                    "selection": "#424940",
+                    "current_line": "#262a24",
+                    "border": "#424940"
+                },
+                "organic": {
+                    "ground": "#2b302a",
+                    "pane": "#262a24",
+                    "paper": "#1b1e19",
+                    "tab": "#1b1e19",
+                    "popover": "#343a32",
+                    "group": "rgba(255, 255, 255, 15)",
+                    "ink": "#ffffff",
+                    "muted": "#a3ab9a",
+                    "faint": "#767e6e",
+                    "line": "rgba(255, 255, 255, 38)",
+                    "hover": "rgba(255, 255, 255, 20)",
+                    "act": "#e2eadb",
+                    "act_hover": "#ffffff",
+                    "act_soft": "rgba(255, 255, 255, 41)",
+                    "act_ink": "#ffffff",
+                    "on_act": "#20241e",
+                    "selection": "rgba(255, 255, 255, 51)",
+                    "danger": "#ff7b63"
+                }
+            }
+        },
+        "fog": {
+            "label": "Fog",
+            "Light": {
+                "app": {
+                    "background": "#e6e8ea",
+                    "surface": "#f5f6f7",
+                    "surface_alt": "#eceef0",
+                    "surface_hover": "#dcdfe3",
+                    "surface_active": "#cfd3d8",
+                    "text": "#1b1e21",
+                    "muted": "#565c63",
+                    "border": "#c6cbd1",
+                    "border_active": "#353a40",
+                    "accent": "#353a40",
+                    "accent_text": "#1b1e21",
+                    "danger": "#b42318"
+                },
+                "editor": {
+                    "background": "#f5f6f7",
+                    "foreground": "#1b1e21",
+                    "selection": "#cfd3d8",
+                    "current_line": "#eceef0",
+                    "border": "#c6cbd1"
+                },
+                "organic": {
+                    "ground": "#e6e8ea",
+                    "pane": "#f5f6f7",
+                    "paper": "#f5f6f7",
+                    "tab": "#f5f6f7",
+                    "popover": "#f5f6f7",
+                    "group": "#f5f6f7",
+                    "ink": "#1b1e21",
+                    "muted": "#565c63",
+                    "faint": "#939aa1",
+                    "line": "rgba(27, 30, 33, 41)",
+                    "hover": "rgba(27, 30, 33, 18)",
+                    "act": "#353a40",
+                    "act_hover": "#23272c",
+                    "act_soft": "#cfd3d8",
+                    "act_ink": "#1b1e21",
+                    "on_act": "#e6e8ea",
+                    "selection": "#cfd3d8",
+                    "danger": "#b42318"
+                }
+            },
+            "Dark": {
+                "app": {
+                    "background": "#2c2f33",
+                    "surface": "#1c1e21",
+                    "surface_alt": "#27292d",
+                    "surface_hover": "#383b40",
+                    "surface_active": "#43464c",
+                    "text": "#ffffff",
+                    "muted": "#a2a7ae",
+                    "border": "#43464c",
+                    "border_active": "#e4e8ec",
+                    "accent": "#e4e8ec",
+                    "accent_text": "#ffffff",
+                    "danger": "#ff7b63"
+                },
+                "editor": {
+                    "background": "#1c1e21",
+                    "foreground": "#ffffff",
+                    "selection": "#43464c",
+                    "current_line": "#27292d",
+                    "border": "#43464c"
+                },
+                "organic": {
+                    "ground": "#2c2f33",
+                    "pane": "#27292d",
+                    "paper": "#1c1e21",
+                    "tab": "#1c1e21",
+                    "popover": "#35383d",
+                    "group": "rgba(255, 255, 255, 15)",
+                    "ink": "#ffffff",
+                    "muted": "#a2a7ae",
+                    "faint": "#767b82",
+                    "line": "rgba(255, 255, 255, 38)",
+                    "hover": "rgba(255, 255, 255, 20)",
+                    "act": "#e4e8ec",
+                    "act_hover": "#ffffff",
+                    "act_soft": "rgba(255, 255, 255, 41)",
+                    "act_ink": "#ffffff",
+                    "on_act": "#212428",
+                    "selection": "rgba(255, 255, 255, 51)",
+                    "danger": "#ff7b63"
+                }
+            }
+        },
+        "steel": {
+            "label": "Steel",
+            "Light": {
+                "app": {
+                    "background": "#d3dce5",
+                    "surface": "#edf2f6",
+                    "surface_alt": "#e0e7ee",
+                    "surface_hover": "#c7d1dc",
+                    "surface_active": "#b9c6d3",
+                    "text": "#151a20",
+                    "muted": "#475463",
+                    "border": "#afbdcb",
+                    "border_active": "#2b3644",
+                    "accent": "#2b3644",
+                    "accent_text": "#151a20",
+                    "danger": "#b42318"
+                },
+                "editor": {
+                    "background": "#edf2f6",
+                    "foreground": "#151a20",
+                    "selection": "#b9c6d3",
+                    "current_line": "#e0e7ee",
+                    "border": "#afbdcb"
+                },
+                "organic": {
+                    "ground": "#d3dce5",
+                    "pane": "#edf2f6",
+                    "paper": "#edf2f6",
+                    "tab": "#edf2f6",
+                    "popover": "#edf2f6",
+                    "group": "#edf2f6",
+                    "ink": "#151a20",
+                    "muted": "#475463",
+                    "faint": "#83909e",
+                    "line": "rgba(21, 26, 32, 41)",
+                    "hover": "rgba(21, 26, 32, 18)",
+                    "act": "#2b3644",
+                    "act_hover": "#1b242f",
+                    "act_soft": "#b9c6d3",
+                    "act_ink": "#151a20",
+                    "on_act": "#d3dce5",
+                    "selection": "#b9c6d3",
+                    "danger": "#b42318"
+                }
+            },
+            "Dark": {
+                "app": {
+                    "background": "#283039",
+                    "surface": "#181d23",
+                    "surface_alt": "#232a32",
+                    "surface_hover": "#343e48",
+                    "surface_active": "#3f4a56",
+                    "text": "#ffffff",
+                    "muted": "#9eaab7",
+                    "border": "#3f4a56",
+                    "border_active": "#dce5ee",
+                    "accent": "#dce5ee",
+                    "accent_text": "#ffffff",
+                    "danger": "#ff7b63"
+                },
+                "editor": {
+                    "background": "#181d23",
+                    "foreground": "#ffffff",
+                    "selection": "#3f4a56",
+                    "current_line": "#232a32",
+                    "border": "#3f4a56"
+                },
+                "organic": {
+                    "ground": "#283039",
+                    "pane": "#232a32",
+                    "paper": "#181d23",
+                    "tab": "#181d23",
+                    "popover": "#313a44",
+                    "group": "rgba(255, 255, 255, 15)",
+                    "ink": "#ffffff",
+                    "muted": "#9eaab7",
+                    "faint": "#717d8a",
+                    "line": "rgba(255, 255, 255, 38)",
+                    "hover": "rgba(255, 255, 255, 20)",
+                    "act": "#dce5ee",
+                    "act_hover": "#ffffff",
+                    "act_soft": "rgba(255, 255, 255, 41)",
+                    "act_ink": "#ffffff",
+                    "on_act": "#1c232b",
+                    "selection": "rgba(255, 255, 255, 51)",
+                    "danger": "#ff7b63"
+                }
+            }
+        },
+        "blush": {
+            "label": "Blush",
+            "Light": {
+                "app": {
+                    "background": "#f3e1dc",
+                    "surface": "#faf2ef",
+                    "surface_alt": "#f1e6e2",
+                    "surface_hover": "#e9d6d0",
+                    "surface_active": "#dfc8c1",
+                    "text": "#221c1b",
+                    "muted": "#67534f",
+                    "border": "#d8c0b9",
+                    "border_active": "#40322f",
+                    "accent": "#40322f",
+                    "accent_text": "#221c1b",
+                    "danger": "#b42318"
+                },
+                "editor": {
+                    "background": "#faf2ef",
+                    "foreground": "#221c1b",
+                    "selection": "#dfc8c1",
+                    "current_line": "#f1e6e2",
+                    "border": "#d8c0b9"
+                },
+                "organic": {
+                    "ground": "#f3e1dc",
+                    "pane": "#faf2ef",
+                    "paper": "#faf2ef",
+                    "tab": "#faf2ef",
+                    "popover": "#faf2ef",
+                    "group": "#faf2ef",
+                    "ink": "#221c1b",
+                    "muted": "#67534f",
+                    "faint": "#a8918b",
+                    "line": "rgba(34, 28, 27, 41)",
+                    "hover": "rgba(34, 28, 27, 18)",
+                    "act": "#40322f",
+                    "act_hover": "#2c221f",
+                    "act_soft": "#dfc8c1",
+                    "act_ink": "#221c1b",
+                    "on_act": "#f3e1dc",
+                    "selection": "#dfc8c1",
+                    "danger": "#b42318"
+                }
+            },
+            "Dark": {
+                "app": {
+                    "background": "#322b2a",
+                    "surface": "#201b1a",
+                    "surface_alt": "#2c2625",
+                    "surface_hover": "#3e3735",
+                    "surface_active": "#4a413f",
+                    "text": "#ffffff",
+                    "muted": "#b0a09c",
+                    "border": "#4a413f",
+                    "border_active": "#f0e1dd",
+                    "accent": "#f0e1dd",
+                    "accent_text": "#ffffff",
+                    "danger": "#ff7b63"
+                },
+                "editor": {
+                    "background": "#201b1a",
+                    "foreground": "#ffffff",
+                    "selection": "#4a413f",
+                    "current_line": "#2c2625",
+                    "border": "#4a413f"
+                },
+                "organic": {
+                    "ground": "#322b2a",
+                    "pane": "#2c2625",
+                    "paper": "#201b1a",
+                    "tab": "#201b1a",
+                    "popover": "#3b3332",
+                    "group": "rgba(255, 255, 255, 15)",
+                    "ink": "#ffffff",
+                    "muted": "#b0a09c",
+                    "faint": "#83736f",
+                    "line": "rgba(255, 255, 255, 38)",
+                    "hover": "rgba(255, 255, 255, 20)",
+                    "act": "#f0e1dd",
+                    "act_hover": "#ffffff",
+                    "act_soft": "rgba(255, 255, 255, 41)",
+                    "act_ink": "#ffffff",
+                    "on_act": "#261f1e",
+                    "selection": "rgba(255, 255, 255, 51)",
+                    "danger": "#ff7b63"
+                }
+            }
+        },
+        "paper": {
+            "label": "Paper",
+            "Light": {
+                "app": {
+                    "background": "#f4f2ee",
+                    "surface": "#ffffff",
+                    "surface_alt": "#f7f5f2",
+                    "surface_hover": "#ebe8e3",
+                    "surface_active": "#e0dcd5",
+                    "text": "#1d1c1a",
+                    "muted": "#5d5a55",
+                    "border": "#dcd8d1",
+                    "border_active": "#34322f",
+                    "accent": "#34322f",
+                    "accent_text": "#1d1c1a",
+                    "danger": "#b42318"
+                },
+                "editor": {
+                    "background": "#ffffff",
+                    "foreground": "#1d1c1a",
+                    "selection": "#e0dcd5",
+                    "current_line": "#f7f5f2",
+                    "border": "#dcd8d1"
+                },
+                "organic": {
+                    "ground": "#f4f2ee",
+                    "pane": "#ffffff",
+                    "paper": "#ffffff",
+                    "tab": "#ffffff",
+                    "popover": "#ffffff",
+                    "group": "#ffffff",
+                    "ink": "#1d1c1a",
+                    "muted": "#5d5a55",
+                    "faint": "#9a968f",
+                    "line": "rgba(29, 28, 26, 41)",
+                    "hover": "rgba(29, 28, 26, 18)",
+                    "act": "#34322f",
+                    "act_hover": "#22211f",
+                    "act_soft": "#e0dcd5",
+                    "act_ink": "#1d1c1a",
+                    "on_act": "#f4f2ee",
+                    "selection": "#e0dcd5",
+                    "danger": "#b42318"
+                }
+            },
+            "Dark": {
+                "app": {
+                    "background": "#2e2e32",
+                    "surface": "#1d1d20",
+                    "surface_alt": "#28282c",
+                    "surface_hover": "#3a3a3e",
+                    "surface_active": "#45454a",
+                    "text": "#ffffff",
+                    "muted": "#a3a3a8",
+                    "border": "#45454a",
+                    "border_active": "#e6e6e8",
+                    "accent": "#e6e6e8",
+                    "accent_text": "#ffffff",
+                    "danger": "#ff7b63"
+                },
+                "editor": {
+                    "background": "#1d1d20",
+                    "foreground": "#ffffff",
+                    "selection": "#45454a",
+                    "current_line": "#28282c",
+                    "border": "#45454a"
+                },
+                "organic": {
+                    "ground": "#2e2e32",
+                    "pane": "#28282c",
+                    "paper": "#1d1d20",
+                    "tab": "#1d1d20",
+                    "popover": "#36363a",
+                    "group": "rgba(255, 255, 255, 15)",
+                    "ink": "#ffffff",
+                    "muted": "#a3a3a8",
+                    "faint": "#77777c",
+                    "line": "rgba(255, 255, 255, 38)",
+                    "hover": "rgba(255, 255, 255, 20)",
+                    "act": "#e6e6e8",
+                    "act_hover": "#ffffff",
+                    "act_soft": "rgba(255, 255, 255, 41)",
+                    "act_ink": "#ffffff",
+                    "on_act": "#222226",
+                    "selection": "rgba(255, 255, 255, 51)",
+                    "danger": "#ff7b63"
+                }
             }
         }
     }
+
+    # The default ground's tokens.
+    ORGANIC_THEMES = ORGANIC_GROUNDS[GROUND_DEFAULT]
 
     BASE_APP = {
         "background": "#f4f6f8",
@@ -668,12 +1209,33 @@ class ThemeManager:
         return ThemeManager._accent
 
     @staticmethod
+    def normalize_ground(ground):
+        name = str(ground or "").strip().casefold()
+        return name if name in ThemeManager.ORGANIC_GROUNDS else ThemeManager.GROUND_DEFAULT
+
+    @staticmethod
+    def set_ground(ground):
+        ThemeManager._ground = ThemeManager.normalize_ground(ground)
+
+    @staticmethod
+    def ground():
+        return ThemeManager._ground
+
+    @staticmethod
+    def ground_swatch_color(ground, dark=False):
+        """The window color that stands for *ground* in a picker."""
+        ground = ThemeManager.normalize_ground(ground)
+        scheme = ThemeManager.ORGANIC_GROUNDS[ground]["Dark" if dark else "Light"]
+        return QColor(scheme["organic"]["ground"])
+
+    @staticmethod
     def accent_swatch_color(accent, dark=False):
         """The color that stands for *accent* in a picker ("default": the look's own)."""
         accent = ThemeManager.normalize_accent(accent)
         if accent == ThemeManager.ACCENT_DEFAULT:
             if ThemeManager.interface_look() == "organic":
-                return QColor(ThemeManager.ORGANIC_THEMES["Dark" if dark else "Light"]["organic"]["act"])
+                grounds = ThemeManager.ORGANIC_GROUNDS[ThemeManager.ground()]
+                return QColor(grounds["Dark" if dark else "Light"]["organic"]["act"])
             name = ThemeManager.normalize_editor_theme_name("Dark" if dark else "Light")
             return QColor(ThemeManager.get_theme(name)["app"]["accent"])
         _label, main, _soft, bright, _deep, *_extra = ThemeManager.ACCENTS[accent]
@@ -746,9 +1308,13 @@ class ThemeManager:
         return QColor(text)
 
     @staticmethod
-    def organic_theme(dark):
-        """Chrome theme dict for the Organic look, with its "organic" tokens."""
-        source = ThemeManager.ORGANIC_THEMES["Dark" if dark else "Light"]
+    def organic_theme(dark, ground=None):
+        """Chrome theme dict for the Organic look, with its "organic" tokens.
+
+        *ground* is a Window Color key; None uses the chosen one.
+        """
+        ground = ThemeManager.normalize_ground(ground or ThemeManager.ground())
+        source = ThemeManager.ORGANIC_GROUNDS[ground]["Dark" if dark else "Light"]
         theme = ThemeManager.normalize_theme(
             {"name": "Organic", **source, "syntax": ThemeManager.get_theme("White")["syntax"]}
         )
@@ -787,7 +1353,7 @@ class ThemeManager:
         source.setdefault("danger", app.get("danger", "#b42318"))
         return {key: ThemeManager.css_color(value) for key, value in source.items()}
 
-    # (look, "Light"/"Dark") -> chrome theme; icon tinting resolves it often.
+    # (look, "Light"/"Dark", accent, ground) -> chrome theme; icon tinting resolves it often.
     _ui_theme_cache = {}
 
     @staticmethod
@@ -805,7 +1371,8 @@ class ThemeManager:
         ui_name = ThemeManager.effective_ui_theme_name(theme_name, application)
         look = ThemeManager.interface_look()
         accent = ThemeManager.accent()
-        key = (look, ui_name, accent)
+        ground = ThemeManager.ground() if look == "organic" else None
+        key = (look, ui_name, accent, ground)
         cached = ThemeManager._ui_theme_cache.get(key)
         if cached is not None:
             return cached

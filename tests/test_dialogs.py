@@ -612,6 +612,49 @@ class DialogTests(unittest.TestCase):
         )
         manager.save_interface_look("native")
 
+    def test_window_color_sets_organic_ground_in_both_schemes(self):
+        manager = SettingsManager()
+        manager.save_ui_theme("Light")
+        manager.save_accent("default")
+        manager.save_interface_look("native")
+        self.addCleanup(ThemeManager.clear_ui_theme_cache)
+        self.addCleanup(ThemeManager.set_ground, ThemeManager.GROUND_DEFAULT)
+        self.assertEqual(manager.get_ground(), "cream")
+        dialog = SettingsDialog(manager)
+        self.addCleanup(dialog.deleteLater)
+
+        control = dialog.ground_control
+        keys = [control.itemData(i) for i in range(control.count())]
+        self.assertEqual(keys, ["cream", "stone", "mist", "fog", "steel", "blush", "paper"])
+        self.assertEqual(control.currentData(), "cream")
+        # Only the Organic look has a window color.
+        self.assertTrue(dialog.ground_row.isHidden())
+        dialog.interface_look_control.setCurrentData("organic")
+        self.assertFalse(dialog.ground_row.isHidden())
+
+        control.setCurrentData("steel")
+        self.assertEqual(manager.get_ground(), "steel")
+        self.assertEqual(ThemeManager.ground(), "steel")
+        light = ThemeManager.get_ui_theme("Light")
+        self.assertEqual(light["app"]["background"], "#d3dce5")
+        self.assertEqual(light["organic"]["ground"], "#d3dce5")
+        self.assertEqual(light["organic"]["act"], "#2b3644")
+        dark = ThemeManager.get_ui_theme("Dark")
+        self.assertEqual(dark["organic"]["ground"], "#283039")
+        self.assertEqual(dark["organic"]["on_act"], "#1c232b")
+        # An accent recolors the chosen ground, not the default one.
+        manager.save_accent("sage")
+        light = ThemeManager.get_ui_theme("Light")
+        self.assertEqual(light["organic"]["act"], "#7a8a5e")
+        self.assertEqual(light["organic"]["ground"], "#d3dce5")
+        # Native chrome ignores the ground.
+        manager.save_interface_look("native")
+        self.assertNotEqual(ThemeManager.get_ui_theme("Light")["app"]["background"], "#d3dce5")
+
+        manager.save_ground("bogus")
+        self.assertEqual(manager.get_ground(), "cream")
+        manager.save_accent("default")
+
     def test_settings_dialog_offers_only_builtin_editor_themes(self):
         manager = SettingsManager()
         manager.settings["theme"] = "Ink"

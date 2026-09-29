@@ -86,6 +86,24 @@ class AppearancePageMixin:
             self.accent_color_control,
         ))
 
+        # Window Color only exists in the Organic look.
+        self.ground_control = ColorSwatchPicker()
+        for key, ground in ThemeManager.ORGANIC_GROUNDS.items():
+            self.ground_control.addOption(
+                _(ground["label"]), key,
+                lambda key=key: ThemeManager.ground_swatch_color(key, self.accent_swatches_dark()),
+            )
+        self.ground_control.currentDataChanged.connect(self._on_ground_changed)
+        self.ground_row = QWidget()
+        ground_row_layout = self.settings_choice_row(
+            _("Window color"),
+            _("Background of the Organic look's windows and panels"),
+            self.ground_control,
+        )
+        ground_row_layout.setContentsMargins(0, 0, 0, 0)
+        self.ground_row.setLayout(ground_row_layout)
+        appearance_layout.addWidget(self.ground_row)
+
         self.editor_theme_grid = ThemeSwatchGrid.fromThemes(ThemeManager.get_themes())
         self.editor_theme_grid.themeChanged.connect(self._on_editor_theme_changed)
         appearance_layout.addLayout(
@@ -188,6 +206,11 @@ class AppearancePageMixin:
         self.accent_color_control.setCurrentData(sm.get_accent())
         self.accent_color_control.blockSignals(False)
         self.accent_color_control.update()
+        self.ground_control.blockSignals(True)
+        self.ground_control.setCurrentData(sm.get_ground())
+        self.ground_control.blockSignals(False)
+        self.ground_control.update()
+        self.ground_row.setVisible(sm.get_interface_look() == INTERFACE_LOOK_ORGANIC)
         # Blocked: a scheme change also restyles this window.
         self.color_scheme_control.blockSignals(True)
         if not self.color_scheme_control.setCurrentData(sm.get_ui_theme()):
@@ -231,6 +254,7 @@ class AppearancePageMixin:
         self._commit_now(
             "look", lambda: self.settings_manager.save_interface_look(look)
         )
+        self.ground_row.setVisible(look == INTERFACE_LOOK_ORGANIC)
         if self.host is None:
             self.apply_dialog_style()
 
@@ -245,6 +269,16 @@ class AppearancePageMixin:
             return
         accent = self.accent_color_control.currentData()
         self._commit_now("style", lambda: self.settings_manager.save_accent(accent))
+        if self.host is None:
+            self.apply_dialog_style()
+
+    def _on_ground_changed(self):
+        if self._loading:
+            return
+        ground = self.ground_control.currentData()
+        self._commit_now("style", lambda: self.settings_manager.save_ground(ground))
+        # The Default accent swatch is the ground's own graphite.
+        self.accent_color_control.update()
         if self.host is None:
             self.apply_dialog_style()
 

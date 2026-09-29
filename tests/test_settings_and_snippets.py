@@ -70,7 +70,7 @@ class SettingsAndSnippetTests(unittest.TestCase):
             ThemeManager.get_ui_theme("Light")["app"]["background"], "#f5ead8"
         )
         self.assertEqual(
-            ThemeManager.get_ui_theme("Dark")["app"]["background"], "#2e2e32"
+            ThemeManager.get_ui_theme("Dark")["app"]["background"], "#312e2a"
         )
         self.assertIn("organic", ThemeManager.get_ui_theme("Dark"))
 
