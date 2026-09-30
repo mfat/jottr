@@ -1742,17 +1742,6 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
         view_menu.addSeparator()
         view_menu.addAction(self.editor_font_action)
 
-        interface_look_menu = view_menu.addMenu(_("Interface Look"))
-        interface_look_menu.setAccessibleName(
-            _("{title} menu").format(title=_("Interface Look"))
-        )
-        interface_look_menu.menuAction().setProperty("text_key", "Interface Look")
-        self.translatable_actions.append(interface_look_menu.menuAction())
-        self.translatable_menus.append((interface_look_menu, "Interface Look"))
-        self.setup_interface_look_actions()
-        for action in self.interface_look_actions.actions():
-            interface_look_menu.addAction(action)
-
         color_scheme_menu = view_menu.addMenu(_("Style"))
         color_scheme_menu.setAccessibleName(
             _("{title} menu").format(title=_("Style"))
@@ -1765,7 +1754,6 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
         for action in self.color_scheme_actions.actions():
             color_scheme_menu.addAction(action)
         self.sync_color_scheme_menu()
-        self.sync_interface_look_menu()
 
         editor_theme_menu = view_menu.addMenu(_("Editor Theme"))
         editor_theme_menu.setAccessibleName(
@@ -2069,53 +2057,11 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
         self.sync_color_scheme_menu()
         self.refresh_settings_dialog()
 
-    def setup_interface_look_actions(self):
-        """Exclusive Native / Organic actions for View → Interface Look."""
-        from jottr.settings_manager import INTERFACE_LOOK_NATIVE, INTERFACE_LOOK_ORGANIC
-
-        if getattr(self, "interface_look_actions", None) is not None:
-            return
-        self.interface_look_actions = QActionGroup(self)
-        self.interface_look_actions.setExclusive(True)
-        for look, label_key in (
-            (INTERFACE_LOOK_NATIVE, "Native"),
-            (INTERFACE_LOOK_ORGANIC, "Organic"),
-        ):
-            action = QAction(_(label_key), self)
-            action.setCheckable(True)
-            action.setData(look)
-            action.setProperty("text_key", label_key)
-            action.triggered.connect(
-                lambda checked=False, tag=look: self.set_interface_look(tag)
-            )
-            self.interface_look_actions.addAction(action)
-            self.translatable_actions.append(action)
-
-    def sync_interface_look_menu(self):
-        """Check the active Interface Look in View → Interface Look."""
-        current = self.settings_manager.get_interface_look()
-        actions = getattr(self, "interface_look_actions", None)
-        if actions is not None:
-            for action in actions.actions():
-                action.blockSignals(True)
-                action.setChecked(action.data() == current)
-                action.blockSignals(False)
-
-    def set_interface_look(self, look):
-        """Persist Interface Look and restyle the app."""
-        look = SettingsManager.normalize_interface_look(look)
-        if look != self.settings_manager.get_interface_look():
-            self.settings_manager.save_interface_look(look)
-            self.apply_interface_look()
-        self.sync_interface_look_menu()
-        self.refresh_settings_dialog()
-
     def apply_interface_look(self):
         """Restyle chrome and editors after the Interface Look changed."""
         self.apply_app_style()
         # Editor stylesheets carry the look's corner radius.
         self.apply_editor_theme_to_tabs(self.settings_manager.get_theme(), force=True)
-        self.sync_interface_look_menu()
 
     def show_toolbar_context_menu(self, pos, toolbar=None):
         """Right-click on a toolbar: the toolbar and menu bar toggles."""

@@ -2588,16 +2588,16 @@ class EditorAndMainTests(unittest.TestCase):
                 for action in view_menu.actions()
                 if action.menu() is not None
             }
-            look_actions = {a.text(): a for a in menus["Interface Look"].menu().actions()}
-            self.assertTrue(look_actions["Native"].isChecked())
+            # Interface Look lives in Settings only.
+            self.assertNotIn("Interface Look", menus)
             self.assertNotIn("Widget Style", menus)
 
-            look_actions["Organic"].trigger()
+            sm.save_interface_look(INTERFACE_LOOK_ORGANIC)
+            window.apply_settings_domain("look")
             self.assertEqual(sm.get_interface_look(), INTERFACE_LOOK_ORGANIC)
             sheet = QApplication.instance().styleSheet()
             self.assertIn("QMenu {", sheet)
             self.assertIn("QTabWidget#documentTabs QTabBar::tab:selected", sheet)
-            self.assertTrue(look_actions["Organic"].isChecked())
             self.assertTrue(menus["Style"].isVisible())
             # Both looks are drawn on Fusion.
             self.assertEqual(QApplication.instance().property("_jottr_style_key"), "Fusion")
@@ -2610,7 +2610,8 @@ class EditorAndMainTests(unittest.TestCase):
             tab = window.tab_widget.widget(0)
             self.assertTrue(tab.themes_applied)
 
-            window.set_interface_look(INTERFACE_LOOK_NATIVE)
+            sm.save_interface_look(INTERFACE_LOOK_NATIVE)
+            window.apply_settings_domain("look")
             self.assertNotIn("QMenu {", QApplication.instance().styleSheet())
             self.assertEqual(QApplication.instance().property("_jottr_style_key"), "Fusion")
             self.assertEqual(window.main_surface_layout.contentsMargins().left(), 0)
