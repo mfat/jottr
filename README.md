@@ -2,7 +2,8 @@
 
 A plain text and Markdown editor for writers, journalists, and researchers.
 
-![Main window](screenshots/main.png)
+<img width="1222" height="860" alt="پشهد صهدیخص" src="https://github.com/user-attachments/assets/c2ee0821-647d-41a7-8b4c-9654edeeee4b" />
+
 
 
 ## What makes it different
