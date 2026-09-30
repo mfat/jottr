@@ -19,6 +19,9 @@ A plain text and Markdown editor for writers, journalists, and researchers.
 
 [Flathub](https://flathub.org/apps/io.github.mfat.jottr) · [Releases](https://github.com/mfat/jottr/releases) (Linux, macOS, Windows)
 
-macOS needs Enchant: `brew install enchant`
+## Plugins
+
+https://github.com/Jottrhq/plugins
+
 
 GPL-3.0
