@@ -23,7 +23,7 @@
 
   <!-- Release information -->
   <releases>
-    <release version="3.0.1" date="2026-09-30">
+    <release version="3.1.0" date="2026-09-30">
       <description>
         <p>Added option to change window color</p>
         <p>New default theme</p>
