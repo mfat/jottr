@@ -60,6 +60,9 @@ class JottrStyle(QProxyStyle):
     some (KDE) put style icons on OK/Cancel/Save; this answers no everywhere,
     for every QDialogButtonBox and QMessageBox.
 
+    Mnemonics are never underlined. Fusion draws the underline under every
+    ``&`` letter at all times; the Alt shortcuts still work without it.
+
     Menus get a translucent window. Their popup is its own top-level window,
     and an opaque one fills the corners outside the stylesheet's
     border-radius with the palette's window color: invisible over the chrome,
@@ -70,7 +73,10 @@ class JottrStyle(QProxyStyle):
     """
 
     def styleHint(self, hint, option=None, widget=None, return_data=None):
-        if hint == QStyle.StyleHint.SH_DialogButtonBox_ButtonsHaveIcons:
+        if hint in (
+            QStyle.StyleHint.SH_DialogButtonBox_ButtonsHaveIcons,
+            QStyle.StyleHint.SH_UnderlineShortcut,
+        ):
             return 0
         return super().styleHint(hint, option, widget, return_data)
 
