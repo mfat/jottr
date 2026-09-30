@@ -559,8 +559,8 @@ class DialogTests(unittest.TestCase):
         manager.save_ui_theme("Light")
         self.addCleanup(ThemeManager.clear_ui_theme_cache)
         self.addCleanup(ThemeManager.set_accent, ThemeManager.ACCENT_DEFAULT)
-        # New installs start on Marigold; this test walks from each look's own.
-        self.assertEqual(manager.get_accent(), "marigold")
+        # New installs start on each look's own accent.
+        self.assertEqual(manager.get_accent(), "default")
         manager.save_interface_look("native")
         manager.save_accent("default")
         dialog = SettingsDialog(manager)
@@ -619,14 +619,14 @@ class DialogTests(unittest.TestCase):
         manager.save_interface_look("native")
         self.addCleanup(ThemeManager.clear_ui_theme_cache)
         self.addCleanup(ThemeManager.set_ground, ThemeManager.GROUND_DEFAULT)
-        self.assertEqual(manager.get_ground(), "cream")
+        self.assertEqual(manager.get_ground(), "paper")
         dialog = SettingsDialog(manager)
         self.addCleanup(dialog.deleteLater)
 
         control = dialog.ground_control
         keys = [control.itemData(i) for i in range(control.count())]
         self.assertEqual(keys, ["cream", "stone", "mist", "fog", "steel", "blush", "paper"])
-        self.assertEqual(control.currentData(), "cream")
+        self.assertEqual(control.currentData(), "paper")
         # Only the Organic look has a window color.
         self.assertTrue(dialog.ground_row.isHidden())
         dialog.interface_look_control.setCurrentData("organic")
@@ -652,7 +652,7 @@ class DialogTests(unittest.TestCase):
         self.assertNotEqual(ThemeManager.get_ui_theme("Light")["app"]["background"], "#d3dce5")
 
         manager.save_ground("bogus")
-        self.assertEqual(manager.get_ground(), "cream")
+        self.assertEqual(manager.get_ground(), "paper")
         manager.save_accent("default")
 
     def test_settings_dialog_offers_only_builtin_editor_themes(self):

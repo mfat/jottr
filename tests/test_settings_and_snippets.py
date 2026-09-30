@@ -53,11 +53,12 @@ class SettingsAndSnippetTests(unittest.TestCase):
         manager = SettingsManager()
         self.addCleanup(ThemeManager.set_interface_look, "native")
         self.addCleanup(ThemeManager.clear_ui_theme_cache)
-        # New installs start on Organic with the Marigold accent.
+        # New installs start on Organic, Paper ground, with the look's own accent.
         self.assertEqual(manager.get_interface_look(), "organic")
         self.assertEqual(ThemeManager.interface_look(), "organic")
-        self.assertEqual(manager.get_accent(), "marigold")
-        self.assertEqual(ThemeManager.accent(), "marigold")
+        self.assertEqual(manager.get_accent(), "default")
+        self.assertEqual(ThemeManager.accent(), "default")
+        self.assertEqual(manager.get_ground(), "paper")
 
         manager.save_interface_look("native")
         self.assertEqual(manager.get_interface_look(), "native")
@@ -67,10 +68,10 @@ class SettingsAndSnippetTests(unittest.TestCase):
         self.assertEqual(manager.get_interface_look(), "organic")
         self.assertEqual(ThemeManager.interface_look(), "organic")
         self.assertEqual(
-            ThemeManager.get_ui_theme("Light")["app"]["background"], "#f5ead8"
+            ThemeManager.get_ui_theme("Light")["app"]["background"], "#f4f2ee"
         )
         self.assertEqual(
-            ThemeManager.get_ui_theme("Dark")["app"]["background"], "#312e2a"
+            ThemeManager.get_ui_theme("Dark")["app"]["background"], "#2e2e32"
         )
         self.assertIn("organic", ThemeManager.get_ui_theme("Dark"))
 
@@ -647,7 +648,7 @@ class SettingsAndSnippetTests(unittest.TestCase):
         organic = ThemeManager.organic_theme(False)
         organic_style = ThemeManager.build_app_stylesheet(theme=organic)
         self.assertTrue(organic_style.startswith(app_style))
-        self.assertIn("background: #f5ead8", organic_style)
+        self.assertIn("background: #f4f2ee", organic_style)
         self.assertIn("QMenu {", organic_style)
         self.assertEqual(ThemeManager.build_app_stylesheet(theme=dracula), app_style)
         from PyQt6.QtGui import QPalette

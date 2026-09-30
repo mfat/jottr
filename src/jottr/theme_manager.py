@@ -60,8 +60,8 @@ class ThemeManager:
     # Solid "app" colors feed QPalette; the "organic" tokens (some
     # translucent) feed the look's stylesheet. Paper's dark follows GNOME's
     # libadwaita (1.9) dark neutrals.
-    _ground = "cream"
-    GROUND_DEFAULT = "cream"
+    _ground = "paper"
+    GROUND_DEFAULT = "paper"
     ORGANIC_GROUNDS = {
         "cream": {
             "label": "Cream",
