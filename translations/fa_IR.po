@@ -759,8 +759,8 @@ msgid "A simple text editor for writers, journalists and researchers"
 msgstr "یک ویرایشگر متن ساده برای نویسندگان، روزنامه‌نگاران و پژوهشگران"
 
 #: src/jottr/main.py:1169
-msgid "Developed by mFat"
-msgstr "توسعه‌یافته توسط mFat"
+msgid "Developed by mFat and {co_developer}"
+msgstr "توسعه‌یافته توسط mFat و {co_developer}"
 
 #: src/jottr/main.py:1174
 msgid "Licensed under GNU GPL v3.0"
