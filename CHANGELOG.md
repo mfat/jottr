@@ -1,5 +1,30 @@
 # Changelog
 
+## [3.0.1](https://github.com/mfat/jottr/compare/v3.0.0...v3.0.1) (2026-09-30)
+
+
+### Features
+
+* add Organic window colors (grounds) beside Accent Color ([b1db793](https://github.com/mfat/jottr/commit/b1db793d7ef8d5874fcda35fb90558ef24107a78))
+* credit a-goodarzi as a contributor in the About dialog ([5f616fc](https://github.com/mfat/jottr/commit/5f616fcbf6b446011b433cb753a9be38a9602ea4))
+* default to the Paper window color and the look's own accent ([64f5199](https://github.com/mfat/jottr/commit/64f5199220977bbebd75cc9d715360750967490f))
+* remove Interface Look from the View menu (Settings only) ([2ebad5f](https://github.com/mfat/jottr/commit/2ebad5f9bb41e9286ad8b4af7f1892886261b2d1))
+* rename the Color Scheme setting and menu to Style ([c028d40](https://github.com/mfat/jottr/commit/c028d40b154d0077f6c75e7fce69525a8212c9f6))
+* rename the Interface look setting to App theme ([6e7294a](https://github.com/mfat/jottr/commit/6e7294a1f84c79ba6cbf2840215131e8d52da30d))
+* show Organic first and rename Native to Classic in App theme ([269b72f](https://github.com/mfat/jottr/commit/269b72fb26c3f234fa6e38c51581ca5b21dff07b))
+
+
+### Bug Fixes
+
+* ask for the home folder at Flatpak startup so previews show linked images ([4256d73](https://github.com/mfat/jottr/commit/4256d73e59e25a4aa4247373a6b19361be08a711))
+* credit AmirHossein Goodarzi as co-developer in the About dialog ([0cfbeff](https://github.com/mfat/jottr/commit/0cfbeff861e7b6f22e1ff4cb03d7f1eeef473910))
+* list each developer on its own line in the About dialog, without links ([011a5c3](https://github.com/mfat/jottr/commit/011a5c307bce3a11cc835f4476a04d8c70fe22fb))
+
+
+### Miscellaneous
+
+* release 3.0.1 ([cf0f204](https://github.com/mfat/jottr/commit/cf0f204f9fd7f1deab53a4d4e0cefd5cc826995f))
+
 ## [3.0.0](https://github.com/mfat/jottr/compare/v2.9.0...v3.0.0) (2026-09-28)
 
 
