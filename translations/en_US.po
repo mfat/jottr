@@ -759,8 +759,8 @@ msgid "A simple text editor for writers, journalists and researchers"
 msgstr "A simple text editor for writers, journalists and researchers"
 
 #: src/jottr/main.py:1169
-msgid "Developed by mFat and {co_developer}"
-msgstr "Developed by mFat and {co_developer}"
+msgid "Developed by"
+msgstr "Developed by"
 
 #: src/jottr/main.py:1174
 msgid "Licensed under GNU GPL v3.0"
