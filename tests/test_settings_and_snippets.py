@@ -653,6 +653,11 @@ class SettingsAndSnippetTests(unittest.TestCase):
         self.assertIn("QScrollBar::handle:vertical", organic_style)
         self.assertIn("QScrollBar::add-line, QScrollBar::sub-line", organic_style)
         self.assertNotIn("QScrollBar", app_style)
+        # Check boxes get a solid outline and an accent fill with a drawn mark.
+        self.assertIn("QCheckBox::indicator {", organic_style)
+        self.assertIn("organic-check-", organic_style)
+        self.assertIn("QRadioButton::indicator:checked", organic_style)
+        self.assertNotIn("QCheckBox", app_style)
         self.assertIn("QMenu {", organic_style)
         self.assertEqual(ThemeManager.build_app_stylesheet(theme=dracula), app_style)
         from PyQt6.QtGui import QPalette

@@ -1604,32 +1604,49 @@ class ThemeManager:
             stylesheet += ThemeManager.build_organic_stylesheet(theme["organic"])
         return stylesheet
 
-    @staticmethod
-    def organic_chevron_path(color):
-        """Path to a down-chevron SVG in *color*, written to the cache once.
+    # Organic glyphs drawn in stylesheet images, on a 24px grid.
+    ORGANIC_GLYPHS = {
+        "chevron": ('stroke', 2.75, '<path d="m6 9 6 6 6-6"/>'),
+        "check": ('stroke', 3.25, '<path d="m5.5 12.5 4.5 4.5 8.5-9.5"/>'),
+        "dash": ('stroke', 3.25, '<path d="M7 12h10"/>'),
+        "dot": ('fill', 0, '<circle cx="12" cy="12" r="5.5"/>'),
+    }
 
-        Styling QComboBox::drop-down drops the widget style's arrow, so the
-        Organic combo boxes draw this one instead.
+    @staticmethod
+    def organic_glyph_path(glyph, color):
+        """Path to one of ORGANIC_GLYPHS as an SVG in *color*, cached once.
+
+        Styling a sub-control (a combo's drop-down, a check box's indicator)
+        drops the widget style's own drawing, so Organic draws these instead.
         """
         import os
 
         from PyQt6.QtCore import QStandardPaths
 
+        kind, width, body = ThemeManager.ORGANIC_GLYPHS[glyph]
         name = QColor(color).name().lstrip("#")
         cache = QStandardPaths.writableLocation(
             QStandardPaths.StandardLocation.CacheLocation
         ) or os.path.join(os.path.expanduser("~"), ".cache", "jottr")
-        path = os.path.join(cache, f"organic-chevron-{name}.svg")
+        path = os.path.join(cache, f"organic-{glyph}-{name}.svg")
         if not os.path.exists(path):
             os.makedirs(cache, exist_ok=True)
+            paint = (
+                f'fill="none" stroke="#{name}" stroke-width="{width}" '
+                'stroke-linecap="round" stroke-linejoin="round"'
+                if kind == "stroke" else f'fill="#{name}"'
+            )
             with open(path, "w", encoding="utf-8") as handle:
                 handle.write(
                     '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" '
-                    f'fill="none" stroke="#{name}" stroke-width="2.75" '
-                    'stroke-linecap="round" stroke-linejoin="round">'
-                    '<path d="m6 9 6 6 6-6"/></svg>'
+                    f'{paint}>{body}</svg>'
                 )
         return path.replace("\\", "/")
+
+    @staticmethod
+    def organic_chevron_path(color):
+        """Path to the combo boxes' down-chevron SVG in *color*."""
+        return ThemeManager.organic_glyph_path("chevron", color)
 
     @staticmethod
     def organic_scrollbar_stylesheet(ink, scope=""):
@@ -1696,6 +1713,16 @@ class ThemeManager:
         Qt drops a border-radius larger than half a widget's height, so each
         radius here stays under half its control's smallest height.
         """
+        # Indicator borders are solid ink-on-paper mixes: Qt paints each side
+        # of a border apart, so a translucent one darkens where they meet.
+        ink, paper = ThemeManager.css_color(t["ink"]), ThemeManager.css_color(t["paper"])
+
+        def mix(amount):
+            blend = lambda a, b: round(a * amount + b * (1 - amount))
+            return QColor(blend(ink.red(), paper.red()), blend(ink.green(), paper.green()),
+                          blend(ink.blue(), paper.blue())).name()
+
+        edge, edge_hover, edge_disabled = mix(0.45), mix(0.7), mix(0.2)
         return ThemeManager.organic_scrollbar_stylesheet(t["ink"]) + f"""
             QAbstractScrollArea::corner {{
                 background: transparent;
@@ -1978,6 +2005,66 @@ class ThemeManager:
                 height: 12px;
             }}
             QComboBox:disabled, QLineEdit:disabled {{
+                color: {t['faint']};
+            }}
+            /* Check boxes and radio buttons: a rounded box or a ring in the
+               ink, filled with the accent once on. The widget style outlines
+               them from the window color, which vanishes on a dark ground. */
+            QCheckBox, QRadioButton {{
+                spacing: 8px;
+            }}
+            QCheckBox::indicator, QRadioButton::indicator {{
+                width: 14px;
+                height: 14px;
+                background: {t['paper']};
+                border: 2px solid {edge};
+            }}
+            QCheckBox::indicator {{
+                border-radius: 6px;
+            }}
+            QRadioButton::indicator {{
+                border-radius: 9px;
+            }}
+            QCheckBox::indicator:hover, QRadioButton::indicator:hover {{
+                border-color: {edge_hover};
+            }}
+            QCheckBox::indicator:checked, QCheckBox::indicator:indeterminate,
+            QRadioButton::indicator:checked {{
+                background: {t['act']};
+                border-color: {t['act']};
+            }}
+            QCheckBox::indicator:checked:hover, QCheckBox::indicator:indeterminate:hover,
+            QRadioButton::indicator:checked:hover {{
+                background: {t['act_hover']};
+                border-color: {t['act_hover']};
+            }}
+            QCheckBox::indicator:checked {{
+                image: url("{ThemeManager.organic_glyph_path('check', t['on_act'])}");
+            }}
+            QCheckBox::indicator:indeterminate {{
+                image: url("{ThemeManager.organic_glyph_path('dash', t['on_act'])}");
+            }}
+            QRadioButton::indicator:checked {{
+                image: url("{ThemeManager.organic_glyph_path('dot', t['on_act'])}");
+            }}
+            QCheckBox::indicator:disabled, QRadioButton::indicator:disabled {{
+                border-color: {edge_disabled};
+            }}
+            QCheckBox::indicator:checked:disabled, QCheckBox::indicator:indeterminate:disabled,
+            QRadioButton::indicator:checked:disabled {{
+                background: {edge_disabled};
+                border-color: {edge_disabled};
+            }}
+            QCheckBox::indicator:checked:disabled {{
+                image: url("{ThemeManager.organic_glyph_path('check', t['faint'])}");
+            }}
+            QCheckBox::indicator:indeterminate:disabled {{
+                image: url("{ThemeManager.organic_glyph_path('dash', t['faint'])}");
+            }}
+            QRadioButton::indicator:checked:disabled {{
+                image: url("{ThemeManager.organic_glyph_path('dot', t['faint'])}");
+            }}
+            QCheckBox:disabled, QRadioButton:disabled {{
                 color: {t['faint']};
             }}
             /* The open list matches QMenu: a rounded card with pill rows.
