@@ -36,18 +36,19 @@ class AppearancePageMixin:
         appearance_layout.setSpacing(24)
 
         self.interface_look_control = SegmentedControl()
-        self.interface_look_control.addOption(_("Native"), INTERFACE_LOOK_NATIVE)
+        # Organic, the default, comes first.
         self.interface_look_control.addOption(_("Organic"), INTERFACE_LOOK_ORGANIC)
+        self.interface_look_control.addOption(_("Classic"), INTERFACE_LOOK_NATIVE)
         self.interface_look_control.setToolTip(
-            _("Native is a plain, familiar look. "
-              "Organic uses Jottr's own rounded, warm look in light and dark.")
+            _("Organic uses Jottr's own rounded, warm look in light and dark. "
+              "Classic is a plain, familiar look.")
         )
         self.interface_look_control.currentDataChanged.connect(
             self._on_interface_look_changed
         )
         appearance_layout.addLayout(self.settings_choice_row(
             _("App theme"),
-            _("Plain and familiar, or Jottr's own rounded look"),
+            _("Change application theme"),
             self.interface_look_control,
         ))
 
