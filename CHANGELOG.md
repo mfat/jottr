@@ -1,5 +1,28 @@
 # Changelog
 
+## [3.1.0](https://github.com/mfat/jottr/compare/v3.0.1...v3.1.0) (2026-09-30)
+
+
+### Features
+
+* give plugins Jottr's theme colors, change notices and preview CSS variables ([b1e3cd6](https://github.com/mfat/jottr/commit/b1e3cd6f80096d85de4c99cf62a2b12ec2805ea6))
+* open Settings tall enough to show the whole Appearance page ([d0ddded](https://github.com/mfat/jottr/commit/d0dddedc25f0a86345832d3d3c2289b5451f2e3e))
+* slim rounded Organic scroll bars and a gap beside Settings scroll bars ([9c5b29b](https://github.com/mfat/jottr/commit/9c5b29ba20a3419a33767de8e0c79cf108bd5b28))
+
+
+### Bug Fixes
+
+* give Organic check boxes and radio buttons a visible outline ([c774927](https://github.com/mfat/jottr/commit/c774927e0a6c1f979a0f754cdb2d2dccee1b48cd))
+* hide mnemonic underlines in menus and widgets ([1ab11c3](https://github.com/mfat/jottr/commit/1ab11c32b7655aecd3b875223dd804ba56ae225a))
+
+
+### Documentation
+
+* add a Styling section to the plugin standard ([1b22d79](https://github.com/mfat/jottr/commit/1b22d799bfd6c0df259e8630fa85512166a8890a))
+* point metainfo screenshots at the new Settings and Plugins images ([68284cc](https://github.com/mfat/jottr/commit/68284ccbb1811b1a62389e43aa1d201e10fbac26))
+* remove the Plugins screenshot from metainfo ([b2ea065](https://github.com/mfat/jottr/commit/b2ea065213eeab9266f49a10c67351551c7f619b))
+* update screenshots with Settings and Plugins views ([296550d](https://github.com/mfat/jottr/commit/296550d9dfd309f1dc9a93da7bb593770cda855d))
+
 ## [3.0.1](https://github.com/mfat/jottr/compare/v3.0.0...v3.0.1) (2026-09-30)
 
 
