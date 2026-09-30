@@ -656,6 +656,12 @@ class EditorAndMainTests(unittest.TestCase):
         self.assertIn("window.pluginHead", html)
         self.assertIn(".plugin-extension", html)
         self.assertIn("window.pluginBody", html)
+        # Plugin CSS can follow the page through its color variables, which
+        # Jottr's own preview CSS uses too.
+        self.assertIn("--jottr-text:", html)
+        self.assertIn("--jottr-accent:", html)
+        self.assertIn("color: var(--jottr-text)", html)
+        self.assertLess(html.index("--jottr-text:"), html.index(".plugin-extension"))
 
     def test_markdown_preview_does_not_handle_plugin_syntax_without_extension(self):
         editor = self.make_editor()
@@ -3270,6 +3276,9 @@ class EditorAndMainTests(unittest.TestCase):
 
             def activate_enabled_plugins(self):
                 return self.registry
+
+            def notify_theme_changed(self):
+                pass
 
         with patch.object(window_module, "EditorTab", FakeEditorTab), patch.object(window_module, "PluginManager", FakePluginManager):
             window = TextEditorApp()

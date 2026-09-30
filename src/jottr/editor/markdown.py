@@ -1763,6 +1763,20 @@ class MarkdownPreviewMixin:
                         margin: 0;
                     }}
                 }}
+                /* The preview's colors. Plugin CSS uses these variables
+                   (docs/plugins.md, Styling) so it follows the page. */
+                :root {{
+                    --jottr-background: #ffffff;
+                    --jottr-text: #202124;
+                    --jottr-heading: #111827;
+                    --jottr-muted: #57606a;
+                    --jottr-border: #d0d7de;
+                    --jottr-divider: #d8dee4;
+                    --jottr-surface: #f6f8fa;
+                    --jottr-surface-alt: #fbfbfc;
+                    --jottr-link: #0969da;
+                    --jottr-accent: #0969da;
+                }}
                 html.jottr-restoring-preview-scroll body {{
                     visibility: hidden;
                 }}
@@ -1771,7 +1785,8 @@ class MarkdownPreviewMixin:
                     transition: none;
                 }}
                 body {{
-                    color: #202124;
+                    background: var(--jottr-background);
+                    color: var(--jottr-text);
                     font-family: "{preview_family}", "Segoe UI", sans-serif;
                     font-size: {preview_size}pt;
                     line-height: 1.55;
@@ -1786,20 +1801,20 @@ class MarkdownPreviewMixin:
                     unicode-bidi: plaintext;
                 }}
                 h1, h2, h3, h4, h5, h6 {{
-                    color: #111827;
+                    color: var(--jottr-heading);
                     font-weight: 700;
                     margin: 1.1em 0 0.45em;
                 }}
-                h1 {{ font-size: 30px; border-bottom: 1px solid #d8dee4; padding-bottom: 6px; }}
-                h2 {{ font-size: 24px; border-bottom: 1px solid #d8dee4; padding-bottom: 4px; }}
+                h1 {{ font-size: 30px; border-bottom: 1px solid var(--jottr-divider); padding-bottom: 6px; }}
+                h2 {{ font-size: 24px; border-bottom: 1px solid var(--jottr-divider); padding-bottom: 4px; }}
                 h3 {{ font-size: 20px; }}
                 h4 {{ font-size: 17px; }}
                 h5 {{ font-size: 15px; }}
-                h6 {{ font-size: 14px; color: #57606a; }}
+                h6 {{ font-size: 14px; color: var(--jottr-muted); }}
                 p {{ margin: 0 0 0.8em; }}
                 pre {{
-                    background: #f6f8fa;
-                    border: 1px solid #d0d7de;
+                    background: var(--jottr-surface);
+                    border: 1px solid var(--jottr-border);
                     border-radius: 0px;
                     padding: 12px;
                     white-space: pre-wrap;
@@ -1807,7 +1822,7 @@ class MarkdownPreviewMixin:
                 }}
                 code {{
                     font-family: "{preview_family}", "Consolas", monospace;
-                    background: #f6f8fa;
+                    background: var(--jottr-surface);
                     border-radius: 0px;
                     padding: 2px 4px;
                 }}
@@ -1817,8 +1832,8 @@ class MarkdownPreviewMixin:
                     min-height: 1.55em;
                 }}
                 blockquote {{
-                    border-inline-start: 4px solid #d0d7de;
-                    color: #57606a;
+                    border-inline-start: 4px solid var(--jottr-border);
+                    color: var(--jottr-muted);
                     margin: 0.8em 0;
                     padding-inline-start: 12px;
                 }}
@@ -1831,7 +1846,7 @@ class MarkdownPreviewMixin:
                     margin-inline-end: 0.45em;
                     vertical-align: -0.1em;
                 }}
-                a {{ color: #0969da; }}
+                a {{ color: var(--jottr-link); }}
                 table {{
                     border-collapse: collapse;
                     margin: 1em 0;
@@ -1839,16 +1854,16 @@ class MarkdownPreviewMixin:
                     overflow: hidden;
                 }}
                 th, td {{
-                    border: 1px solid #d0d7de;
+                    border: 1px solid var(--jottr-border);
                     padding: 6px 10px;
                     vertical-align: top;
                 }}
                 th {{
-                    background: #f6f8fa;
+                    background: var(--jottr-surface);
                     font-weight: 700;
                 }}
                 tr:nth-child(even) td {{
-                    background: #fbfbfc;
+                    background: var(--jottr-surface-alt);
                 }}
                 img {{
                     display: block;
@@ -1864,8 +1879,8 @@ class MarkdownPreviewMixin:
                     overflow-x: auto;
                 }}
                 .admonition {{
-                    border-left: 4px solid #0969da;
-                    background: #f6f8fa;
+                    border-left: 4px solid var(--jottr-accent);
+                    background: var(--jottr-surface);
                     padding: 10px 14px;
                     margin: 1em 0;
                 }}

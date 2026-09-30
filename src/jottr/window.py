@@ -608,6 +608,10 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
         settings_dialog = getattr(self, "_settings_dialog", None)
         if settings_dialog is not None:
             settings_dialog.apply_dialog_palette()
+        # Plugins that paint or style by hand follow the new colors.
+        plugin_manager = getattr(self, "plugin_manager", None)
+        if plugin_manager is not None:
+            plugin_manager.notify_theme_changed()
 
     def apply_interface_look_chrome(self, theme):
         """Layout and painted details the Organic look adds beyond its QSS.

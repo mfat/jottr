@@ -1353,6 +1353,40 @@ class ThemeManager:
         source.setdefault("danger", app.get("danger", "#b42318"))
         return {key: ThemeManager.css_color(value) for key, value in source.items()}
 
+    # Plugin-facing color names -> chrome token (fallbacks after it). The
+    # names are public API (docs/plugins.md, Styling): add, never rename.
+    PUBLIC_COLORS = {
+        "window": ("ground",),
+        "panel": ("pane",),
+        "surface": ("paper",),
+        "popover": ("popover", "paper"),
+        "text": ("ink",),
+        "muted": ("muted",),
+        "faint": ("faint", "muted"),
+        "border": ("line",),
+        "hover": ("hover",),
+        "accent": ("act",),
+        "accent_hover": ("act_hover", "act"),
+        "accent_soft": ("act_soft",),
+        "accent_text": ("act_ink",),
+        "on_accent": ("on_act",),
+        "selection": ("selection", "act_soft"),
+        "danger": ("danger",),
+    }
+
+    @staticmethod
+    def public_colors(theme):
+        """The chrome colors plugins get, by public name, as QColors.
+
+        Works for both looks: Classic themes derive the Organic tokens.
+        """
+        tokens = ThemeManager.chrome_tokens(theme)
+        colors = {}
+        for name, sources in ThemeManager.PUBLIC_COLORS.items():
+            key = next(source for source in sources if source in tokens)
+            colors[name] = QColor(tokens[key])
+        return colors
+
     # (look, "Light"/"Dark", accent, ground) -> chrome theme; icon tinting resolves it often.
     _ui_theme_cache = {}
 

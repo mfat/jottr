@@ -529,5 +529,77 @@ class PluginManagerTests(unittest.TestCase):
         self.assertTrue(any(service["id"] == "python-tool.service" for service in registry.background_services))
 
 
+    def test_plugins_read_theme_colors_and_hear_theme_changes(self):
+        from jottr.theme_manager import ThemeManager
+
+        self.addCleanup(ThemeManager.clear_ui_theme_cache)
+        self.addCleanup(ThemeManager.set_accent, ThemeManager.ACCENT_DEFAULT)
+        plugins_dir = Path(self.temp_dir.name) / "plugins"
+        self.write_plugin(
+            plugins_dir,
+            "themed-tool",
+            manifest={"entry": "index.py", "permissions": ["ui.panel"], "contributes": {}},
+            entry=(
+                "calls = []\n"
+                "panel_calls = []\n"
+                "def on_theme():\n"
+                "    calls.append(API.theme_colors()['accent'].name())\n"
+                "def make_panel():\n"
+                "    remove = API.on_theme_changed(lambda: panel_calls.append(1))\n"
+                "    return remove\n"
+                "def register(api):\n"
+                "    global API\n"
+                "    API = api\n"
+                "    api.on_theme_changed(on_theme)\n"
+                "    api.register_panel('themed-tool.panel', 'Themed', make_panel)\n"
+            ),
+        )
+        self.settings.save_setting("plugins_directory", str(plugins_dir))
+        self.settings.save_ui_theme("Light")
+        self.settings.save_interface_look("organic")
+        self.settings.save_accent("default")
+
+        manager = PluginManager(self.settings)
+        manager.refresh()
+        manager.set_enabled("themed-tool", True)
+        registry = manager.activate_enabled_plugins()
+        module = manager.loaded_modules["themed-tool"]
+
+        colors = module.API.theme_colors()
+        self.assertEqual(set(colors), set(ThemeManager.PUBLIC_COLORS))
+        self.assertEqual(colors["window"].name(), "#f4f2ee")
+        self.assertFalse(module.API.is_dark_theme())
+
+        # The first restyle only sets the baseline.
+        manager.notify_theme_changed()
+        self.assertEqual(module.calls, [])
+        remove_panel_listener = registry.panel_factories["themed-tool.panel"]()
+
+        self.settings.save_accent("sage")
+        ThemeManager.clear_ui_theme_cache()
+        manager.notify_theme_changed()
+        self.assertEqual(module.calls, ["#7a8a5e"])
+        self.assertEqual(module.panel_calls, [1])
+        # Unchanged colors do not notify again.
+        manager.notify_theme_changed()
+        self.assertEqual(module.calls, ["#7a8a5e"])
+
+        # A refresh re-runs register() without doubling its listener, and
+        # keeps the open panel's listener.
+        manager.refresh()
+        manager.activate_enabled_plugins()
+        self.settings.save_ui_theme("Dark")
+        ThemeManager.clear_ui_theme_cache()
+        manager.notify_theme_changed()
+        self.assertEqual(len(module.calls), 2)
+        self.assertEqual(module.panel_calls, [1, 1])
+        self.assertTrue(module.API.is_dark_theme())
+
+        remove_panel_listener()
+        manager.set_enabled("themed-tool", False)
+        manager.activate_enabled_plugins()
+        self.assertEqual(manager.registry.theme_listeners, [])
+
+
 if __name__ == "__main__":
     unittest.main()

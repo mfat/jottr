@@ -162,9 +162,34 @@ class PluginContributionRegistry:
         self.markdown_extensions = []
         self.command_callbacks = {}
         self.panel_factories = {}
+        # (plugin name, callback, registered from register()) triples; kept
+        # across clear() so an open panel's listener outlives a refresh.
+        self.theme_listeners = getattr(self, "theme_listeners", [])
 
     def clear(self):
         self.__init__()
+
+    def add_theme_listener(self, plugin, callback, from_register):
+        entry = (plugin.name, callback, from_register)
+        if not any(
+            name == entry[0] and existing == callback
+            for name, existing, _from_register in self.theme_listeners
+        ):
+            self.theme_listeners.append(entry)
+
+        def remove():
+            self.theme_listeners = [
+                item for item in self.theme_listeners
+                if not (item[0] == entry[0] and item[1] == callback)
+            ]
+
+        return remove
+
+    def drop_theme_listeners(self, plugin_name, only_from_register=False):
+        self.theme_listeners = [
+            item for item in self.theme_listeners
+            if item[0] != plugin_name or (only_from_register and not item[2])
+        ]
 
     def upsert_contribution(self, target, contribution):
         contribution_id = contribution.get("id")
@@ -230,9 +255,39 @@ class PluginContributionRegistry:
 class PluginAPI:
     """Narrow API passed to Python plugins instead of the main window object."""
 
-    def __init__(self, plugin, registry):
+    def __init__(self, plugin, registry, theme_provider=None):
         self.plugin = plugin
         self.registry = registry
+        self._theme_provider = theme_provider
+        # True only while the plugin's register() runs.
+        self._registering = False
+
+    def theme_colors(self):
+        """Jottr's current chrome colors as QColors (see docs/plugins.md, Styling).
+
+        Keys: window, panel, surface, popover, text, muted, faint, border,
+        hover, accent, accent_hover, accent_soft, accent_text, on_accent,
+        selection, danger.
+        """
+        from jottr.theme_manager import ThemeManager
+
+        theme = self._theme_provider() if self._theme_provider else None
+        if theme is None:
+            theme = ThemeManager.get_ui_theme("Light")
+        return ThemeManager.public_colors(theme)
+
+    def is_dark_theme(self):
+        """True when Jottr's chrome is dark."""
+        return self.theme_colors()["window"].lightnessF() < 0.5
+
+    def on_theme_changed(self, callback):
+        """Call *callback* whenever Jottr's colors change; returns a remover.
+
+        Listeners added in register() are replaced each time register() runs
+        again. Others (say, from a panel factory) last until removed, until
+        their widget is deleted, or until the plugin is disabled.
+        """
+        return self.registry.add_theme_listener(self.plugin, callback, self._registering)
 
     def register_command(self, command_id, title, callback):
         self.registry.register_command(self.plugin, command_id, title, callback)
@@ -852,6 +907,8 @@ class PluginManager:
             if name not in enabled:
                 self.loaded_modules.pop(name, None)
                 self._module_fingerprints.pop(name, None)
+        for name in {item[0] for item in self.registry.theme_listeners} - enabled:
+            self.registry.drop_theme_listeners(name)
         return self.registry
 
     def plugin_entry_fingerprint(self, plugin):
@@ -873,9 +930,58 @@ class PluginManager:
         if not callable(register):
             return
         try:
-            register(PluginAPI(plugin, self.registry))
+            self.call_register(plugin, register)
         except Exception as exc:
             plugin.error = str(exc)
+
+    def call_register(self, plugin, register):
+        """Run a plugin's register(api); its previous register() listeners go."""
+        self.registry.drop_theme_listeners(plugin.name, only_from_register=True)
+        api = PluginAPI(plugin, self.registry, self.current_ui_theme)
+        api._registering = True
+        try:
+            register(api)
+        finally:
+            api._registering = False
+
+    def current_ui_theme(self):
+        """The chrome theme plugins see through PluginAPI.theme_colors()."""
+        from PyQt6.QtWidgets import QApplication
+
+        from jottr.theme_manager import ThemeManager
+
+        return ThemeManager.get_ui_theme(
+            self.settings_manager.get_ui_theme(), QApplication.instance()
+        )
+
+    def notify_theme_changed(self):
+        """Tell plugin listeners the colors changed (only when they did)."""
+        from jottr.theme_manager import ThemeManager
+
+        colors = ThemeManager.public_colors(self.current_ui_theme())
+        signature = {key: color.name(color.NameFormat.HexArgb) for key, color in colors.items()}
+        previous = getattr(self, "_theme_signature", None)
+        if signature == previous:
+            return
+        self._theme_signature = signature
+        # The first restyle only sets the baseline: plugins read the colors
+        # as they build, so a startup call would be wasted work.
+        if previous is None:
+            return
+        for entry in list(self.registry.theme_listeners):
+            name, callback, _from_register = entry
+            try:
+                callback()
+            except RuntimeError as exc:
+                # A listener bound to a deleted widget; drop it.
+                if "has been deleted" in str(exc):
+                    self.registry.theme_listeners = [
+                        item for item in self.registry.theme_listeners if item is not entry
+                    ]
+                else:
+                    traceback.print_exc()
+            except Exception:
+                traceback.print_exc()
 
     def activate_enabled_plugins(self):
         return self.rebuild_registry(include_entries=True)
@@ -909,7 +1015,7 @@ class PluginManager:
             self._module_fingerprints[plugin.name] = self.plugin_entry_fingerprint(plugin)
             register = getattr(module, "register", None)
             if callable(register):
-                register(PluginAPI(plugin, self.registry))
+                self.call_register(plugin, register)
         except Exception as exc:
             # A broken plugin must not take the editor down with it; record
             # the error for the Plugins settings page and keep going.
