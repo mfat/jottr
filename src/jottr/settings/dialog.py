@@ -527,11 +527,24 @@ class SettingsDialog(
             if icon_name:
                 item.setIcon(self.settings_nav_icon(icon_name))
 
+    # Space between a page's controls and its scroll bar, when one shows.
+    SCROLLBAR_GAP = 14
+
     def create_scrollable_tab(self, content):
         scroll_area = QScrollArea()
         scroll_area.setWidgetResizable(True)
         scroll_area.setFrameShape(QScrollArea.Shape.NoFrame)
         scroll_area.setWidget(content)
+        # A shown scroll bar would sit flush against the controls; a page
+        # that fits keeps its full width.
+        bar = scroll_area.verticalScrollBar()
+
+        def fit_gap(_minimum=0, maximum=0):
+            gap = self.SCROLLBAR_GAP if maximum > 0 else 0
+            if scroll_area.viewportMargins().right() != gap:
+                scroll_area.setViewportMargins(0, 0, gap, 0)
+
+        bar.rangeChanged.connect(fit_gap)
         return scroll_area
 
     def get_data(self):

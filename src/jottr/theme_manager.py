@@ -1408,8 +1408,16 @@ class ThemeManager:
             point_size = 10
         # Organic panes are rounded cards; the padding keeps the square
         # viewport inside the rounded corners.
-        radius = 22 if ThemeManager.interface_look() == "organic" else 0
-        return f"""
+        organic = ThemeManager.interface_look() == "organic"
+        radius = 22 if organic else 0
+        # Organic scroll bars take the page's ink, not the chrome's.
+        scrollbars = (
+            ThemeManager.organic_scrollbar_stylesheet(
+                editor_theme["foreground"], "QTextEdit#writingEditor"
+            )
+            if organic else ""
+        )
+        return scrollbars + f"""
             QTextEdit#writingEditor {{
                 background-color: {editor_theme['background']};
                 color: {editor_theme['foreground']};
@@ -1434,7 +1442,13 @@ class ThemeManager:
         item_radius = 14 if organic else 0
         button_radius = 11 if organic else 3
         item_padding = "0px 6px" if organic else "3px 6px"
-        return f"""
+        scrollbars = (
+            ThemeManager.organic_scrollbar_stylesheet(
+                editor_theme["foreground"], "QWidget#sidePanel"
+            )
+            if organic else ""
+        )
+        return scrollbars + f"""
             QWidget#sidePanel {{
                 background: {editor_theme['background']};
                 border-radius: {radius}px;
@@ -1618,13 +1632,74 @@ class ThemeManager:
         return path.replace("\\", "/")
 
     @staticmethod
+    def organic_scrollbar_stylesheet(ink, scope=""):
+        """Slim Organic scroll bars: a rounded pill on a clear track, no arrows.
+
+        The pill is *ink* at low opacity so it reads on any ground; the track
+        shows faintly under the pointer. *scope* prefixes each selector, so a
+        pane in the Editor Theme's colors can tint its own bars.
+        """
+        c = ThemeManager.css_color(ink)
+        rgba = lambda alpha: f"rgba({c.red()}, {c.green()}, {c.blue()}, {alpha})"
+        bar = f"{scope} QScrollBar".strip()
+        return f"""
+            {bar}:vertical {{
+                background: transparent;
+                border: none;
+                border-radius: 6px;
+                width: 12px;
+                margin: 0px;
+            }}
+            {bar}:horizontal {{
+                background: transparent;
+                border: none;
+                border-radius: 6px;
+                height: 12px;
+                margin: 0px;
+            }}
+            {bar}:vertical:hover, {bar}:horizontal:hover {{
+                background: {rgba(13)};
+            }}
+            {bar}::handle:vertical {{
+                background: {rgba(77)};
+                border-radius: 3px;
+                min-height: 32px;
+                margin: 3px;
+            }}
+            {bar}::handle:horizontal {{
+                background: {rgba(77)};
+                border-radius: 3px;
+                min-width: 32px;
+                margin: 3px;
+            }}
+            {bar}::handle:hover {{
+                background: {rgba(128)};
+            }}
+            {bar}::handle:pressed {{
+                background: {rgba(166)};
+            }}
+            {bar}::add-line, {bar}::sub-line {{
+                border: none;
+                background: none;
+                width: 0px;
+                height: 0px;
+            }}
+            {bar}::add-page, {bar}::sub-page {{
+                background: none;
+            }}
+        """
+
+    @staticmethod
     def build_organic_stylesheet(t):
         """Organic look chrome: pill controls, rounded panes on a warm ground.
 
         Qt drops a border-radius larger than half a widget's height, so each
         radius here stays under half its control's smallest height.
         """
-        return f"""
+        return ThemeManager.organic_scrollbar_stylesheet(t["ink"]) + f"""
+            QAbstractScrollArea::corner {{
+                background: transparent;
+            }}
             QMainWindow, QWidget#mainSurface {{
                 background: {t['ground']};
             }}

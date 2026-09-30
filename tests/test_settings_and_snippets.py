@@ -649,6 +649,10 @@ class SettingsAndSnippetTests(unittest.TestCase):
         organic_style = ThemeManager.build_app_stylesheet(theme=organic)
         self.assertTrue(organic_style.startswith(app_style))
         self.assertIn("background: #f4f2ee", organic_style)
+        # Organic scroll bars are slim pills with no arrow buttons.
+        self.assertIn("QScrollBar::handle:vertical", organic_style)
+        self.assertIn("QScrollBar::add-line, QScrollBar::sub-line", organic_style)
+        self.assertNotIn("QScrollBar", app_style)
         self.assertIn("QMenu {", organic_style)
         self.assertEqual(ThemeManager.build_app_stylesheet(theme=dracula), app_style)
         from PyQt6.QtGui import QPalette

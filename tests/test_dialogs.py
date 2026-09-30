@@ -655,6 +655,18 @@ class DialogTests(unittest.TestCase):
         self.assertEqual(manager.get_ground(), "paper")
         manager.save_accent("default")
 
+    def test_settings_page_scroll_bar_keeps_a_gap_from_the_controls(self):
+        dialog = SettingsDialog(SettingsManager())
+        self.addCleanup(dialog.deleteLater)
+        scroll_area = dialog.settings_stack.widget(0)
+        bar = scroll_area.verticalScrollBar()
+
+        bar.setRange(0, 100)
+        self.assertEqual(scroll_area.viewportMargins().right(), dialog.SCROLLBAR_GAP)
+        # A page that fits keeps its full width.
+        bar.setRange(0, 0)
+        self.assertEqual(scroll_area.viewportMargins().right(), 0)
+
     def test_settings_dialog_offers_only_builtin_editor_themes(self):
         manager = SettingsManager()
         manager.settings["theme"] = "Ink"
