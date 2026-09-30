@@ -1753,13 +1753,13 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
         for action in self.interface_look_actions.actions():
             interface_look_menu.addAction(action)
 
-        color_scheme_menu = view_menu.addMenu(_("Color Scheme"))
+        color_scheme_menu = view_menu.addMenu(_("Style"))
         color_scheme_menu.setAccessibleName(
-            _("{title} menu").format(title=_("Color Scheme"))
+            _("{title} menu").format(title=_("Style"))
         )
-        color_scheme_menu.menuAction().setProperty("text_key", "Color Scheme")
+        color_scheme_menu.menuAction().setProperty("text_key", "Style")
         self.translatable_actions.append(color_scheme_menu.menuAction())
-        self.translatable_menus.append((color_scheme_menu, "Color Scheme"))
+        self.translatable_menus.append((color_scheme_menu, "Style"))
         self.color_scheme_menu = color_scheme_menu
         self.setup_color_scheme_actions()
         for action in self.color_scheme_actions.actions():
@@ -2032,7 +2032,7 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
         grid.setCurrentTheme(current)
 
     def setup_color_scheme_actions(self):
-        """Exclusive System / Light / Dark actions for View → Color Scheme."""
+        """Exclusive System / Light / Dark actions for View → Style."""
         if getattr(self, "color_scheme_actions", None) is not None:
             return
         self.color_scheme_actions = QActionGroup(self)
@@ -2050,7 +2050,7 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
             self.translatable_actions.append(action)
 
     def sync_color_scheme_menu(self):
-        """Check the active Color Scheme in View → Color Scheme."""
+        """Check the active Color Scheme in View → Style."""
         actions = getattr(self, "color_scheme_actions", None)
         if actions is None:
             return

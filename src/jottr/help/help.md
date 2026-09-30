@@ -3,19 +3,19 @@
 ## Themes
 Jottr separates chrome and editor colors:
 
-- **Color Scheme** (View → Color Scheme, or Settings → Appearance): **Follow System**, **Light**, or **Dark** menus, toolbars and panels. Follow System matches the desktop.
+- **Style** (View → Style, or Settings → Appearance): **Follow System**, **Light**, or **Dark** menus, toolbars and panels. Follow System matches the desktop.
 - **Interface Look** (View → Interface Look, or Settings → Appearance): **Native** is a plain, familiar look; **Organic** is Jottr's own rounded, warm look.
 - **Editor Theme** (View → Editor Theme, or Settings → Appearance): White, Sepia, Matcha, Latte, Black, Dracula, Monokai, Monaspace, Tokyo Night, or Nord — applied to the writing surface and syntax colors only. Both show the same palette of swatches, drawn in each theme's page, heading, link and code colors.
 
-Jottr draws its menus, toolbars and panels with Qt's Fusion style on every platform, so they look the same everywhere and follow the Color Scheme exactly.
+Jottr draws its menus, toolbars and panels with Qt's Fusion style on every platform, so they look the same everywhere and follow your light or dark choice exactly.
 
 To change the editor theme:
 1. Click the Theme button in the toolbar, open View → Editor Theme (palette grid), or use Settings → Appearance
 2. Select your preferred theme
 3. Changes are applied immediately
 
-To change the color scheme:
-1. Open View → Color Scheme or Settings → Appearance
+To switch between light and dark:
+1. Open View → Style or Settings → Appearance
 2. Choose Follow System, Light, or Dark
 
 ## Font Customization

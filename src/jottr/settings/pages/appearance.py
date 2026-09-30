@@ -62,8 +62,8 @@ class AppearancePageMixin:
             self._on_color_scheme_changed
         )
         appearance_layout.addLayout(self.settings_choice_row(
-            _("Color scheme"),
-            _("Menus, toolbars and panels"),
+            _("Style"),
+            _("Light or dark, or match the system"),
             self.color_scheme_control,
         ))
 

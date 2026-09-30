@@ -2598,7 +2598,7 @@ class EditorAndMainTests(unittest.TestCase):
             self.assertIn("QMenu {", sheet)
             self.assertIn("QTabWidget#documentTabs QTabBar::tab:selected", sheet)
             self.assertTrue(look_actions["Organic"].isChecked())
-            self.assertTrue(menus["Color Scheme"].isVisible())
+            self.assertTrue(menus["Style"].isVisible())
             # Both looks are drawn on Fusion.
             self.assertEqual(QApplication.instance().property("_jottr_style_key"), "Fusion")
             self.assertEqual(window.main_surface_layout.contentsMargins().left(), 14)
@@ -2894,7 +2894,7 @@ class EditorAndMainTests(unittest.TestCase):
                 for action in view_menu.actions()
                 if not action.isSeparator()
             }
-            self.assertIn("Color Scheme", view_items)
+            self.assertIn("Style", view_items)
             self.assertIn("Editor Theme", view_items)
             view_texts = list(view_items)
             self.assertEqual(view_texts.index("Toggle Browser Pane"), view_texts.index("Toggle Snippets") + 1)
@@ -2904,7 +2904,7 @@ class EditorAndMainTests(unittest.TestCase):
             window.tab_widget.currentWidget().toggle_pane = toggled_panes.append
             window.browser_action.trigger()
             self.assertEqual(toggled_panes, ["browser"])
-            color_scheme_menu = view_items["Color Scheme"].menu()
+            color_scheme_menu = view_items["Style"].menu()
             editor_theme_menu = view_items["Editor Theme"].menu()
             self.assertIsNotNone(color_scheme_menu)
             self.assertIsNotNone(editor_theme_menu)
@@ -3072,7 +3072,7 @@ class EditorAndMainTests(unittest.TestCase):
     def test_settings_window_palette_follows_menu_scheme_and_widget_style(self):
         """The top-level Settings window must track restyles made elsewhere.
 
-        A View menu Color Scheme change restyles before the Settings
+        A View menu Style change restyles before the Settings
         combo is synced, and a widget style swap repolishes without the main
         window reapplying palettes; neither may leave Settings on stale colors.
         """
