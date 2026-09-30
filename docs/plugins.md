@@ -357,13 +357,110 @@ api.register_toolbar_action(action)
 api.register_sidebar_item(item)
 api.register_editor_extension(extension)
 api.register_background_service(service)
+api.register_markdown_extension(extension)
+
+api.theme_colors()               # Jottr's current colors, by name, as QColors
+api.is_dark_theme()              # True when Jottr's chrome is dark
+api.on_theme_changed(callback)   # call callback() on every color change; returns a remover
 ```
 
-The `factory` passed to `register_panel()` must return a Qt widget.
+The `factory` passed to `register_panel()` must return a Qt widget. See [Styling](#styling) for the theme methods.
 
 `register(api)` can run many times in one session. Jottr calls it again on the already-loaded module whenever it refreshes plugins, for example when Settings opens or a plugin is enabled, disabled, updated, or switched to another version. The entry file itself runs again only when it changed on disk, or when the plugin is enabled after being disabled (disabling unloads it). Keep `register()` free of one-time side effects and register the same ids each time.
 
 Modules imported by the entry file stay cached for the session, so changes to them take effect after restarting Jottr.
+
+## Styling
+
+Plugins must look like the rest of Jottr in every combination of App Theme (Organic or Classic), Style (light or dark), Accent Color and Window Color, and follow a change to any of them without a restart.
+
+### Use plain Qt widgets
+
+Jottr styles the whole application: its palette and, in the Organic theme, its stylesheet reach every widget, including a plugin's panels, dialogs and message boxes. A panel built from standard widgets (`QLabel`, `QPushButton`, `QCheckBox`, `QComboBox`, `QLineEdit`, `QListWidget`, `QTreeView`, scroll areas, …) already has the right colors, shapes, check boxes and scroll bars, and follows every change. So:
+
+- Do not call `setStyleSheet()` with colors, backgrounds, borders or radii, on a widget or the application.
+- Do not call `setPalette()`, `setAutoFillBackground()` with your own colors, or `QApplication.setStyle()`.
+- Do not write colors as constants: no `QColor("#…")`, `Qt.GlobalColor.white`, or hex codes in HTML or QSS.
+- Do not pick colors from `QStyleHints.colorScheme()`; it often disagrees with Jottr's Style setting.
+- Give dialogs a parent (the panel or a widget in it), so they open over Jottr and pick up its theme.
+- Keep dialog buttons text-only; Jottr's buttons never carry icons.
+
+A stylesheet that sets only layout (margins, padding, spacing, font size or weight) is fine.
+
+### When you must paint or write colors
+
+Custom `paintEvent` drawing, generated HTML (in a `QTextBrowser`, say) and charts need real colors. Ask Jottr for them, and redraw when they change:
+
+```python
+def register(api):
+    def make_panel():
+        view = QTextBrowser()
+
+        def restyle():
+            colors = api.theme_colors()
+            view.document().setDefaultStyleSheet(
+                f"a {{ color: {colors['accent'].name()}; }}"
+                f"p.note {{ color: {colors['muted'].name()}; }}"
+            )
+            view.setHtml(render_feed())
+
+        restyle()
+        remove = api.on_theme_changed(restyle)
+        view.destroyed.connect(lambda: remove())
+        return view
+
+    api.register_panel("my-plugin.panel", "My Panel", make_panel)
+```
+
+`api.theme_colors()` returns a dict of `QColor`s. The names are stable; new ones may be added:
+
+| Name | Use for |
+| --- | --- |
+| `window` | The window background around panes |
+| `panel` | Side panels and lists |
+| `surface` | Content areas: documents, text fields, cards |
+| `popover` | Menus, popups, tooltips |
+| `text` | Normal text and icons |
+| `muted` | Secondary text and hints |
+| `faint` | Disabled text, placeholders |
+| `border` | Lines and outlines (may be translucent) |
+| `hover` | The fill under the pointer (may be translucent) |
+| `accent` | Selected items, main buttons, links |
+| `accent_hover` | `accent` under the pointer |
+| `accent_soft` | A quiet accent fill, such as a selected row (may be translucent) |
+| `accent_text` | Text drawn in the accent on `surface` |
+| `on_accent` | Text and icons on an `accent` fill |
+| `selection` | Selected text background |
+| `danger` | Errors and destructive actions |
+
+Colors that may be translucent have an alpha below 255; paint them with the `QColor` as is. For CSS, write `color.name()` for an opaque color, or `f"rgba({c.red()}, {c.green()}, {c.blue()}, {c.alphaF():.3f})"` for a translucent one.
+
+`api.on_theme_changed(callback)` calls `callback()` with no arguments after Jottr restyles, only when a color actually changed. Listeners added inside `register()` are replaced each time `register()` runs again, so adding one there is safe. Listeners added later, such as in a panel factory, stay until you call the remover it returns, until their widget is deleted, or until the plugin is disabled. Remove them when the widget goes away, as above. An exception in a listener is printed and does not stop the others.
+
+### Markdown preview CSS
+
+The preview page defines its colors as CSS variables, and Jottr's own preview CSS uses them. Use them in `style_html` too, so plugin output matches the page whatever its colors become:
+
+| Variable | Use for |
+| --- | --- |
+| `--jottr-background` | Page background |
+| `--jottr-text` | Body text |
+| `--jottr-heading` | Headings |
+| `--jottr-muted` | Secondary text, captions |
+| `--jottr-border` | Borders of code blocks, tables, quotes |
+| `--jottr-divider` | Heading rules |
+| `--jottr-surface` | Code, table headers, callouts |
+| `--jottr-surface-alt` | Alternate table rows |
+| `--jottr-link` | Links |
+| `--jottr-accent` | Highlights, such as a callout's edge |
+
+```css
+.my-diagram { color: var(--jottr-text); background: var(--jottr-surface); border: 1px solid var(--jottr-border); }
+```
+
+### Check before releasing
+
+Open the plugin's panels and dialogs in Organic light, Organic dark and Classic, with a non-default Accent Color, and switch Style while they are open. Nothing should keep its old colors, and no text should become unreadable. [Theming Widgets and Dialogs](theming.md) explains how Jottr's theming works underneath.
 
 ## Permissions
 

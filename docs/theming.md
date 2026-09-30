@@ -37,6 +37,10 @@ Use `jottr.system_color_scheme.system_color_scheme()` or `system_prefers_dark()`
 
 Only the main window subscribes to desktop changes (`connect_system_color_scheme_changed` in `TextEditorApp.watch_system_color_scheme`). It restyles through `apply_app_style`; new UI should be refreshed from there rather than subscribing on its own.
 
+### Plugins
+
+Plugins never see `ThemeManager`. They get the chrome colors under stable public names from `PluginAPI.theme_colors()` (`ThemeManager.public_colors`, mapped by `ThemeManager.PUBLIC_COLORS`) and hear about changes through `PluginAPI.on_theme_changed()`, which `apply_app_style` fires through `PluginManager.notify_theme_changed()`. Add public names there; never rename one. The rules plugins follow are in [the plugin standard](plugins.md#styling).
+
 ## Pick the Right Kind of Widget
 
 ### Child widgets
