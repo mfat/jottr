@@ -46,7 +46,7 @@ class AppearancePageMixin:
             self._on_interface_look_changed
         )
         appearance_layout.addLayout(self.settings_choice_row(
-            _("Interface look"),
+            _("App theme"),
             _("Plain and familiar, or Jottr's own rounded look"),
             self.interface_look_control,
         ))
