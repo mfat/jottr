@@ -6,7 +6,7 @@ Page content lives in settings.pages.* mixins.
 """
 from PyQt6.QtWidgets import (
     QDialog, QVBoxLayout, QHBoxLayout, QLabel, QListWidget, QListWidgetItem,
-    QWidget, QPushButton, QComboBox, QStackedWidget, QScrollArea,
+    QWidget, QPushButton, QComboBox, QStackedWidget, QScrollArea, QLayout,
 )
 from PyQt6.QtCore import Qt, QByteArray, QEvent, QSize, QTimer
 from PyQt6.QtGui import QFont
@@ -205,8 +205,42 @@ class SettingsDialog(
                 QByteArray.fromBase64(geometry.encode())
             )
         if not restored:
-            self.resize(960, 700)
+            self.resize(self.default_window_size())
         self.show_settings_page(state.get("page") or "")
+
+    DEFAULT_WIDTH = 960
+    DEFAULT_HEIGHT = 700
+
+    def default_window_size(self):
+        """First-open size: tall enough to show the whole Appearance page.
+
+        The page's height depends on the look, font and language, so it is
+        measured at the default width rather than fixed. The screen still
+        caps it; past that the page scrolls.
+        """
+        self.resize(self.DEFAULT_WIDTH, self.DEFAULT_HEIGHT)
+        # Measure with the look's stylesheet paddings. A hidden window lays
+        # out only when asked, one layout at a time, so lay out down to the
+        # page stack; frameless, it is the space each page's viewport gets.
+        self.ensurePolished()
+        self.layout().activate()
+        self.settings_content.layout().activate()
+        space = self.settings_stack.size()
+        content = self.appearance_scroll_area.widget()
+        # Row layouts cached their size hints before the stylesheet polish.
+        for layout in content.findChildren(QLayout):
+            layout.invalidate()
+        needed = (
+            content.heightForWidth(space.width())
+            if content.hasHeightForWidth()
+            else content.sizeHint().height()
+        )
+        height = self.DEFAULT_HEIGHT + max(0, needed - space.height())
+
+        screen = self.screen()
+        if screen is not None:
+            height = min(height, screen.availableGeometry().height())
+        return QSize(self.DEFAULT_WIDTH, height)
 
     def sync_from_settings(self):
         """Reload control values from SettingsManager without persisting."""
@@ -271,10 +305,11 @@ class SettingsDialog(
         layout.addWidget(self.settings_divider)
         layout.addWidget(self.settings_content, 1)
 
+        self.appearance_scroll_area = self.create_scrollable_tab(self.build_appearance_page())
         self.add_settings_page(
             "appearance",
             _("Appearance"),
-            self.create_scrollable_tab(self.build_appearance_page()),
+            self.appearance_scroll_area,
             "preferences-desktop-theme-applications",
         )
         self.add_settings_page(

@@ -20,6 +20,7 @@ from PyQt6.QtGui import QFont
 from PyQt6.QtWidgets import QApplication, QGroupBox, QLabel, QMessageBox, QScrollArea, QWidget
 
 from jottr.settings_dialog import SearchSiteDialog, SettingsDialog
+from jottr.settings.dialog import WINDOW_STATE_SETTING
 from jottr.settings.plugin_widgets import PLUGIN_CARD_ROLE
 from jottr.settings.search_site import search_site_url
 from jottr.plugin_manager import PluginManager
@@ -666,6 +667,24 @@ class DialogTests(unittest.TestCase):
         # A page that fits keeps its full width.
         bar.setRange(0, 0)
         self.assertEqual(scroll_area.viewportMargins().right(), 0)
+
+    def test_settings_first_opens_tall_enough_for_the_whole_appearance_page(self):
+        for look in ("organic", "native"):
+            with self.subTest(look=look):
+                manager = SettingsManager()
+                manager.save_interface_look(look)
+                # A first open: no size saved by an earlier window.
+                manager.settings.pop(WINDOW_STATE_SETTING, None)
+                dialog = SettingsDialog(manager)
+                self.addCleanup(dialog.deleteLater)
+                self.assertEqual(dialog.width(), dialog.DEFAULT_WIDTH)
+                self.assertGreaterEqual(dialog.height(), dialog.DEFAULT_HEIGHT)
+                dialog.show()
+                QApplication.processEvents()
+                bar = dialog.appearance_scroll_area.verticalScrollBar()
+                self.assertEqual(bar.maximum(), 0)
+                dialog.close()
+        manager.save_interface_look("native")
 
     def test_settings_dialog_offers_only_builtin_editor_themes(self):
         manager = SettingsManager()
