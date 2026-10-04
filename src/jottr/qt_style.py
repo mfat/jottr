@@ -7,6 +7,8 @@ with Qt and paints purely from the palette, so Jottr's Light/Dark palettes
 
 from __future__ import annotations
 
+import sys
+
 from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QGuiApplication
 from PyQt6.QtWidgets import (
@@ -15,6 +17,24 @@ from PyQt6.QtWidgets import (
 )
 
 APP_QT_STYLE = "Fusion"
+
+_POPUP_WINDOWS_FLAGS = (
+    Qt.WindowType.FramelessWindowHint | Qt.WindowType.NoDropShadowWindowHint
+)
+
+
+def _make_popup_layered(popup):
+    """Let a translucent popup's rounded corners show through on Windows.
+
+    Qt's Windows backend makes a window layered only when it is translucent
+    *and* frameless; otherwise the transparent corners flush as black. The
+    system drop shadow is a plain rectangle, so it would still outline the
+    square corners; it goes too. setWindowFlags re-parents (and hides) the
+    widget, so only do it once.
+    """
+    flags = popup.windowFlags()
+    if (flags & _POPUP_WINDOWS_FLAGS) != _POPUP_WINDOWS_FLAGS:
+        popup.setWindowFlags(flags | _POPUP_WINDOWS_FLAGS)
 
 
 class ComboItemDelegate(QStyledItemDelegate):
@@ -70,6 +90,10 @@ class JottrStyle(QProxyStyle):
     popup's native window is created, so this reaches every menu. Combo
     box popups are the same kind of window, so they get it too, and every
     combo box gets a ComboItemDelegate.
+
+    On Windows that alone paints the corners black: Qt only makes a
+    translucent window layered (per-pixel alpha) when it is also frameless.
+    See ``_make_popup_layered``.
     """
 
     def styleHint(self, hint, option=None, widget=None, return_data=None):
@@ -86,6 +110,8 @@ class JottrStyle(QProxyStyle):
             and target.metaObject().className() == "QComboBoxPrivateContainer"
         ):
             target.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground, True)
+            if sys.platform == "win32":
+                _make_popup_layered(target)
         elif isinstance(target, QComboBox):
             native = target.itemDelegate()
             if not isinstance(native, ComboItemDelegate):

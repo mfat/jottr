@@ -436,6 +436,12 @@ class SettingsAndSnippetTests(unittest.TestCase):
         self.assertTrue(
             menu.testAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
         )
+        if sys.platform == "win32":
+            # Windows only gives a translucent window per-pixel alpha when
+            # it is frameless; without it the corners flush black (#154).
+            self.assertTrue(menu.windowFlags() & Qt.WindowType.FramelessWindowHint)
+            self.assertTrue(menu.windowFlags() & Qt.WindowType.NoDropShadowWindowHint)
+            self.assertTrue(menu.windowFlags() & Qt.WindowType.Popup)
 
         # In Organic look, corners outside the 14px border radius must render transparent (alpha == 0)
         t = ThemeManager.ORGANIC_THEMES["Dark"]["organic"]
