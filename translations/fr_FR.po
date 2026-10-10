@@ -1,0 +1,2099 @@
+# French (fr_FR) translations for Jottr.
+# This file is distributed under the same license as the Jottr package.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: Jottr 1.4.3\n"
+"Report-Msgid-Bugs-To: https://github.com/mfat/jottr/issues\n"
+"POT-Creation-Date: 2026-05-19 01:38+0200\n"
+"PO-Revision-Date: 2026-05-19 01:38+0200\n"
+"Last-Translator: Jottr contributors\n"
+"Language-Team: French\n"
+"Language: fr_FR\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n > 1);\n"
+
+#: src/jottr/editor_tab.py:689 src/jottr/main.py:782
+msgid "Snippets"
+msgstr "Extraits"
+
+#: src/jottr/editor_tab.py:697
+msgid "Close snippets"
+msgstr "Fermer les extraits"
+
+#: src/jottr/editor_tab.py:778
+msgid "Find"
+msgstr "Rechercher"
+
+#: src/jottr/editor_tab.py:785
+msgid "Replace with"
+msgstr "Remplacer par"
+
+#: src/jottr/editor_tab.py:800
+msgid "Replace"
+msgstr "Remplacer"
+
+#: src/jottr/editor_tab.py:801
+msgid "All"
+msgstr "Tout"
+
+#: src/jottr/editor_tab.py:908
+msgid "Save File"
+msgstr "Enregistrer le fichier"
+
+#: src/jottr/editor_tab.py:934
+#, python-brace-format
+msgid "Could not save file: {error}"
+msgstr "Impossible d'enregistrer le fichier : {error}"
+
+#: src/jottr/editor/tab.py
+#, python-brace-format
+msgid "Autosave failed: {error}"
+msgstr "Échec de l'enregistrement automatique : {error}"
+
+#: src/jottr/editor_tab.py
+msgid "Export as PDF"
+msgstr "Exporter en PDF"
+
+#: src/jottr/editor_tab.py
+msgid "PDF Files (*.pdf);;All Files (*.*)"
+msgstr "Fichiers PDF (*.pdf);;Tous les fichiers (*.*)"
+
+#: src/jottr/editor_tab.py
+msgid "PDF Files (*.pdf)"
+msgstr "Fichiers PDF (*.pdf)"
+
+#: src/jottr/editor_tab.py
+msgid "All Files (*.*)"
+msgstr "Tous les fichiers (*.*)"
+
+#: src/jottr/editor_tab.py
+msgid "Export Complete"
+msgstr "Exportation terminée"
+
+#: src/jottr/editor_tab.py
+#, python-brace-format
+msgid "PDF exported to {path}"
+msgstr "PDF exporté vers {path}"
+
+#: src/jottr/editor_tab.py
+#, python-brace-format
+msgid "Could not export PDF: {error}"
+msgstr "Impossible d'exporter le PDF : {error}"
+
+#: src/jottr/editor_tab.py
+msgid "Could not prepare PDF export."
+msgstr "Impossible de préparer l'exportation PDF."
+
+#: src/jottr/editor_tab.py
+msgid "Confirm Save As"
+msgstr "Confirmer l'enregistrement sous"
+
+#: src/jottr/editor_tab.py
+#, python-brace-format
+msgid "A file named \"{name}\" already exists. Do you want to replace it?"
+msgstr "Un fichier nommé « {name} » existe déjà. Voulez-vous le remplacer ?"
+
+#: src/jottr/editor_tab.py:934 src/jottr/feed_manager_dialog.py:72
+#: src/jottr/feed_manager_dialog.py:84 src/jottr/feed_manager_dialog.py:94
+#: src/jottr/feed_manager_dialog.py:109 src/jottr/feed_manager_dialog.py:123
+#: src/jottr/feed_manager_dialog.py:139 src/jottr/feed_manager_dialog.py:142
+#: src/jottr/main.py:1352 src/jottr/rss_reader.py:143
+#: src/jottr/rss_reader.py:148 src/jottr/rss_reader.py:151
+#: src/jottr/rss_reader.py:155 src/jottr/rss_reader.py:177
+#: src/jottr/rss_reader.py:179
+msgid "Error"
+msgstr "Erreur"
+
+#: src/jottr/editor_tab.py:940 src/jottr/main.py:1332
+msgid "Open File"
+msgstr "Ouvrir un fichier"
+
+#: src/jottr/editor_tab.py:942
+msgid "All Files (*);;Markdown Files (*.md *.markdown);;Text Files (*.txt)"
+msgstr "Tous les fichiers (*);;Fichiers Markdown (*.md *.markdown);;Fichiers texte (*.txt)"
+
+#: src/jottr/editor_tab.py:1004
+msgid "Search in..."
+msgstr "Rechercher dans..."
+
+#: src/jottr/editor_tab.py:1022
+msgid "Google"
+msgstr "Google"
+
+#: src/jottr/editor_tab.py:1027
+msgid "Wikipedia"
+msgstr "Wikipédia"
+
+#: src/jottr/editor_tab.py:1033
+msgid "Google Scholar"
+msgstr "Google Scholar"
+
+#: src/jottr/editor_tab.py:1039
+msgid "Google Maps"
+msgstr "Google Maps"
+
+#: src/jottr/editor_tab.py:1045
+msgid "Google News"
+msgstr "Google Actualités"
+
+#: src/jottr/editor_tab.py:1051
+msgid "Google Translate"
+msgstr "Google Traduction"
+
+#: src/jottr/editor_tab.py:1057
+msgid "Google Define"
+msgstr "Google Définitions"
+
+#: src/jottr/editor_tab.py:1070
+msgid "Spelling Suggestions:"
+msgstr "Suggestions orthographiques :"
+
+#: src/jottr/editor_tab.py:1079
+msgid "Add to Dictionary"
+msgstr "Ajouter au dictionnaire"
+
+#: src/jottr/editor_tab.py:1083
+msgid "Save as Snippet"
+msgstr "Enregistrer comme extrait"
+
+#: src/jottr/editor_tab.py:1086 src/jottr/editor_tab.py:3342
+msgid "Cut"
+msgstr "Couper"
+
+#: src/jottr/editor_tab.py:1087 src/jottr/editor_tab.py:3346
+msgid "Copy"
+msgstr "Copier"
+
+#: src/jottr/editor_tab.py:1088 src/jottr/editor_tab.py:3350
+msgid "Paste"
+msgstr "Coller"
+
+#: src/jottr/editor_tab.py:1224
+msgid "Enter snippet title:"
+msgstr "Saisissez le titre de l'extrait :"
+
+#: src/jottr/editor_tab.py:1224
+msgid "Save Snippet"
+msgstr "Enregistrer l'extrait"
+
+#: src/jottr/editor_tab.py:1257 src/jottr/snippet_editor_dialog.py:8
+msgid "Edit Snippet"
+msgstr "Modifier l'extrait"
+
+msgid "New Snippet"
+msgstr "Nouvel extrait"
+
+msgid "New snippet"
+msgstr "Nouvel extrait"
+
+msgid "A snippet named \"{title}\" already exists. Replace it?"
+msgstr "Un extrait nommé « {title} » existe déjà. Le remplacer ?"
+
+#: src/jottr/editor_tab.py:1258
+msgid "Delete Snippet"
+msgstr "Supprimer l'extrait"
+
+msgid "Bundled (offline, stable)"
+msgstr "Intégrée (hors ligne, stable)"
+
+msgid "Latest from CDN"
+msgstr "Dernière version depuis le CDN"
+
+#: src/jottr/editor_tab.py:3026
+msgid "Search or enter address"
+msgstr "Rechercher ou saisir une adresse"
+
+#: src/jottr/editor_tab.py:3052
+#, python-brace-format
+msgid "Words: {words} | Characters: {chars}"
+msgstr "Mots : {words} | Caractères : {chars}"
+
+#: src/jottr/editor_tab.py:3105
+msgid "Exit Focus Mode"
+msgstr "Quitter le mode concentration"
+
+#: src/jottr/editor_tab.py:3214 src/jottr/main.py:764
+msgid "Focus Mode"
+msgstr "Mode concentration"
+
+#: src/jottr/editor_tab.py:3240 src/jottr/main.py:760
+msgid "Find/Replace"
+msgstr "Rechercher/Remplacer"
+
+#: src/jottr/editor_tab.py:3323
+msgid "Replace All"
+msgstr "Tout remplacer"
+
+#: src/jottr/editor_tab.py:3324
+#, python-brace-format
+msgid "Replaced {count} occurrence(s)"
+msgstr "{count} occurrence(s) remplacée(s)"
+
+#: src/jottr/editor_tab.py:3358
+msgid "Select All"
+msgstr "Tout sélectionner"
+
+#: src/jottr/feed_manager_dialog.py:12
+msgid "Feed Manager"
+msgstr "Gestionnaire de flux"
+
+#: src/jottr/feed_manager_dialog.py:22
+msgid "Feed Title"
+msgstr "Titre du flux"
+
+#: src/jottr/feed_manager_dialog.py:22
+msgid "URL"
+msgstr "URL"
+
+#: src/jottr/feed_manager_dialog.py:30 src/jottr/feed_manager_dialog.py:69
+#: src/jottr/feed_manager_dialog.py:75 src/jottr/rss_reader.py:41
+msgid "Add Feed"
+msgstr "Ajouter un flux"
+
+#: src/jottr/feed_manager_dialog.py:31 src/jottr/feed_manager_dialog.py:90
+#: src/jottr/feed_manager_dialog.py:97
+msgid "Edit Feed"
+msgstr "Modifier le flux"
+
+#: src/jottr/feed_manager_dialog.py:32 src/jottr/feed_manager_dialog.py:113
+#: src/jottr/rss_reader.py:42 src/jottr/rss_reader.py:184
+msgid "Remove Feed"
+msgstr "Supprimer le flux"
+
+#: src/jottr/feed_manager_dialog.py:33
+msgid "Test Feed"
+msgstr "Tester le flux"
+
+#: src/jottr/feed_manager_dialog.py:46 src/jottr/settings_dialog.py:216
+#: src/jottr/settings_dialog.py:456
+msgid "OK"
+msgstr "OK"
+
+#: src/jottr/feed_manager_dialog.py:47 src/jottr/settings_dialog.py:217
+#: src/jottr/settings_dialog.py:457 src/jottr/snippet_editor_dialog.py:32
+msgid "Cancel"
+msgstr "Annuler"
+
+#: src/jottr/feed_manager_dialog.py:69 src/jottr/feed_manager_dialog.py:90
+#: src/jottr/rss_reader.py:162
+msgid "Feed Title:"
+msgstr "Titre du flux :"
+
+#: src/jottr/feed_manager_dialog.py:72 src/jottr/feed_manager_dialog.py:94
+msgid "A feed with this title already exists"
+msgstr "Un flux portant ce titre existe déjà"
+
+#: src/jottr/feed_manager_dialog.py:75 src/jottr/feed_manager_dialog.py:97
+#: src/jottr/rss_reader.py:164
+msgid "Feed URL:"
+msgstr "URL du flux :"
+
+#: src/jottr/feed_manager_dialog.py:84
+msgid "Please select a feed to edit"
+msgstr "Veuillez sélectionner un flux à modifier"
+
+#: src/jottr/feed_manager_dialog.py:109
+msgid "Please select a feed to remove"
+msgstr "Veuillez sélectionner un flux à supprimer"
+
+#: src/jottr/feed_manager_dialog.py:114 src/jottr/rss_reader.py:185
+#, python-brace-format
+msgid "Remove feed \"{title}\"?"
+msgstr "Supprimer le flux « {title} » ?"
+
+#: src/jottr/feed_manager_dialog.py:123
+msgid "Please select a feed to test"
+msgstr "Veuillez sélectionner un flux à tester"
+
+#: src/jottr/feed_manager_dialog.py:128
+msgid "Feed is valid and accessible"
+msgstr "Le flux est valide et accessible"
+
+#: src/jottr/feed_manager_dialog.py:128
+msgid "Success"
+msgstr "Succès"
+
+#: src/jottr/feed_manager_dialog.py:139
+msgid "Invalid RSS feed (no entries found)"
+msgstr "Flux RSS invalide (aucune entrée trouvée)"
+
+#: src/jottr/feed_manager_dialog.py:142 src/jottr/rss_reader.py:179
+#, python-brace-format
+msgid "Could not parse RSS feed: {error}"
+msgstr "Impossible d'analyser le flux RSS : {error}"
+
+#: src/jottr/main.py:130 src/jottr/main.py:652
+msgid "Main Toolbar"
+msgstr "Barre d'outils principale"
+
+#: src/jottr/main.py:141
+msgid "Words: 0 | Characters: 0"
+msgstr "Mots : 0 | Caractères : 0"
+
+#: src/jottr/main.py:266 src/jottr/main.py:472 src/jottr/main.py:616
+#: src/jottr/main.py:619 src/jottr/main.py:626 src/jottr/main.py:641
+#: src/jottr/main.py:646 src/jottr/main.py:729
+msgid "Workspace"
+msgstr "Espace de travail"
+
+#: src/jottr/main.py:269
+msgid "Switch workspace"
+msgstr "Changer d'espace de travail"
+
+#: src/jottr/main.py:271
+msgid "No folder open"
+msgstr "Aucun dossier ouvert"
+
+#: src/jottr/main.py:286
+msgid "New file in workspace"
+msgstr "Nouveau fichier dans l'espace de travail"
+
+#: src/jottr/main.py:334
+#, python-brace-format
+msgid ""
+"Switch workspace\n"
+"{path}"
+msgstr "Changer d'espace de travail\n{path}"
+
+#: src/jottr/main.py:343
+#, python-brace-format
+msgid "Workspace: {path}"
+msgstr "Espace de travail : {path}"
+
+#: src/jottr/main.py:349 src/jottr/main.py:704 src/jottr/main.py:705
+#: src/jottr/main.py:730
+msgid "Open Workspace"
+msgstr "Ouvrir un espace de travail"
+
+#: src/jottr/main.py:373 src/jottr/main.py:937
+msgid "Open Workspace..."
+msgstr "Ouvrir un espace de travail..."
+
+#: src/jottr/main.py:374
+msgid "Clear Missing Workspaces"
+msgstr "Effacer les espaces de travail introuvables"
+
+#: src/jottr/main.py:472
+msgid "Workspace directory does not exist."
+msgstr "Le dossier de l'espace de travail n'existe pas."
+
+#: src/jottr/main.py:496 src/jottr/main.py:907 src/jottr/main.py:1409
+msgid "Unsaved Changes"
+msgstr "Modifications non enregistrées"
+
+#: src/jottr/main.py:497
+#, python-brace-format
+msgid "{filename} has unsaved changes. Save before switching workspaces?"
+msgstr "{filename} contient des modifications non enregistrées. Enregistrer avant de changer d'espace de travail ?"
+
+#: src/jottr/main.py:596 src/jottr/main.py:611
+msgid "New File"
+msgstr "Nouveau fichier"
+
+#: src/jottr/main.py:597 src/jottr/main.py:636
+msgid "New Folder"
+msgstr "Nouveau dossier"
+
+#: src/jottr/main.py:601 src/jottr/main.py:724 src/jottr/main.py:947
+msgid "Open"
+msgstr "Ouvrir"
+
+#: src/jottr/main.py:611
+msgid "File name:"
+msgstr "Nom du fichier :"
+
+#: src/jottr/editor_tab.py
+msgid "Look in:"
+msgstr "Rechercher dans :"
+
+#: src/jottr/editor_tab.py
+msgid "File type:"
+msgstr "Type de fichier :"
+
+#: src/jottr/main.py:616
+msgid "File must be inside the workspace."
+msgstr "Le fichier doit se trouver dans l'espace de travail."
+
+#: src/jottr/main.py:619
+msgid "A file or folder with that name already exists."
+msgstr "Un fichier ou un dossier portant ce nom existe déjà."
+
+#: src/jottr/main.py:626
+#, python-brace-format
+msgid "Could not create file: {error}"
+msgstr "Impossible de créer le fichier : {error}"
+
+#: src/jottr/main.py:636
+msgid "Folder name:"
+msgstr "Nom du dossier :"
+
+#: src/jottr/main.py:641
+msgid "Folder must be inside the workspace."
+msgstr "Le dossier doit se trouver dans l'espace de travail."
+
+#: src/jottr/main.py:646
+#, python-brace-format
+msgid "Could not create folder: {error}"
+msgstr "Impossible de créer le dossier : {error}"
+
+#: src/jottr/main.py:700 src/jottr/settings_dialog.py:28
+msgid "Settings"
+msgstr "Paramètres"
+
+#: src/jottr/main.py:701
+msgid "Open Settings"
+msgstr "Ouvrir les paramètres"
+
+#: src/jottr/main.py:707
+msgid "New Workspace File"
+msgstr "Nouveau fichier d'espace de travail"
+
+#: src/jottr/main.py:708
+msgid "New File in Workspace"
+msgstr "Nouveau fichier dans l'espace de travail"
+
+#: src/jottr/main.py:711 src/jottr/main.py:1138
+msgid "Help"
+msgstr "Aide"
+
+#: src/jottr/main.py:712
+msgid "Open Help"
+msgstr "Ouvrir l'aide"
+
+#: src/jottr/main.py:714
+msgid "About"
+msgstr "À propos"
+
+#: src/jottr/main.py:715
+msgid "About Jottr"
+msgstr "À propos de Jottr"
+
+#: src/jottr/main.py:719
+msgid "New"
+msgstr "Nouveau"
+
+#: src/jottr/main.py:721
+msgid "New (Ctrl+N)"
+msgstr "Nouveau (Ctrl+N)"
+
+#: src/jottr/main.py:726
+msgid "Open (Ctrl+O)"
+msgstr "Ouvrir (Ctrl+O)"
+
+#: src/jottr/main.py:733 src/jottr/main.py:941
+#: src/jottr/snippet_editor_dialog.py:31
+msgid "Save"
+msgstr "Enregistrer"
+
+#: src/jottr/main.py:735
+msgid "Save (Ctrl+S)"
+msgstr "Enregistrer (Ctrl+S)"
+
+#: src/jottr/main.py:738
+msgid "Save As"
+msgstr "Enregistrer sous"
+
+#: src/jottr/main.py:740
+msgid "Save As (Ctrl+Shift+S)"
+msgstr "Enregistrer sous (Ctrl+Maj+S)"
+
+#: src/jottr/main.py
+msgid "Export PDF"
+msgstr "Exporter en PDF"
+
+#: src/jottr/main.py
+msgid "Export current file as PDF"
+msgstr "Exporter le fichier actuel en PDF"
+
+#: src/jottr/main.py:747
+msgid "Undo"
+msgstr "Annuler"
+
+#: src/jottr/main.py:749
+msgid "Undo (Ctrl+Z)"
+msgstr "Annuler (Ctrl+Z)"
+
+#: src/jottr/main.py:752
+msgid "Redo"
+msgstr "Rétablir"
+
+#: src/jottr/main.py:754
+msgid "Redo (Ctrl+Shift+Z)"
+msgstr "Rétablir (Ctrl+Maj+Z)"
+
+#: src/jottr/main.py:761
+msgid "Find/Replace (Ctrl+F)"
+msgstr "Rechercher/Remplacer (Ctrl+F)"
+
+#: src/jottr/main.py:766
+msgid "Focus Mode (Ctrl+Shift+D)"
+msgstr "Mode concentration (Ctrl+Maj+D)"
+
+#: src/jottr/main.py:774
+msgid "Font"
+msgstr "Police"
+
+#: src/jottr/settings_dialog.py
+msgid "General"
+msgstr "Général"
+
+#: src/jottr/settings_dialog.py
+msgid "Main UI Font"
+msgstr "Police de l'interface"
+
+#: src/jottr/settings_dialog.py
+msgid "Main UI Font:"
+msgstr "Police de l'interface :"
+
+#: src/jottr/settings_dialog.py
+msgid "Editor Font"
+msgstr "Police de l'éditeur"
+
+#: src/jottr/settings_dialog.py
+msgid "Choose Main UI Font"
+msgstr "Choisir la police de l'interface"
+
+#: src/jottr/font_dialog.py src/jottr/settings_dialog.py
+msgid "Choose Editor Font"
+msgstr "Choisir la police de l'éditeur"
+
+#: src/jottr/font_dialog.py
+msgid "Font:"
+msgstr "Police :"
+
+#: src/jottr/font_dialog.py
+msgid "Size:"
+msgstr "Taille :"
+
+#: src/jottr/font_dialog.py
+msgid "Style:"
+msgstr "Style :"
+
+#: src/jottr/font_dialog.py src/jottr/settings_dialog.py
+msgid "Regular"
+msgstr "Normal"
+
+#: src/jottr/font_dialog.py src/jottr/settings_dialog.py
+msgid "Bold"
+msgstr "Gras"
+
+#: src/jottr/font_dialog.py src/jottr/settings_dialog.py
+msgid "Italic"
+msgstr "Italique"
+
+#: src/jottr/font_dialog.py src/jottr/settings_dialog.py
+msgid "Bold Italic"
+msgstr "Gras italique"
+
+#: src/jottr/font_dialog.py
+msgid "Preview:"
+msgstr "Aperçu :"
+
+#: src/jottr/font_dialog.py
+msgid "The quick brown fox jumps over the lazy dog."
+msgstr "Portez ce vieux whisky au juge blond qui fume."
+
+#: src/jottr/main.py:777 src/jottr/settings_dialog.py:276
+#: src/jottr/settings_dialog.py:279 src/jottr/settings_dialog.py:333
+msgid "Theme"
+msgstr "Thème"
+
+#: src/jottr/main.py:778
+msgid "Choose Editor Theme"
+msgstr "Choisir le thème de l'éditeur"
+
+#: src/jottr/main.py:784
+msgid "Toggle Snippets (Ctrl+Shift+N)"
+msgstr "Afficher/masquer les extraits (Ctrl+Maj+N)"
+
+#: src/jottr/main.py:787 src/jottr/settings_dialog.py:209
+msgid "Browser"
+msgstr "Navigateur"
+
+#: src/jottr/settings/dialog.py
+msgid "Browser and Search"
+msgstr "Navigateur et recherche"
+
+#: src/jottr/settings/pages/browser.py
+msgid "Open Searches In:"
+msgstr "Ouvrir les recherches dans :"
+
+#: src/jottr/settings/pages/browser.py
+msgid "Built-in browser"
+msgstr "Navigateur intégré"
+
+#: src/jottr/settings/pages/browser.py
+msgid "Default browser"
+msgstr "Navigateur par défaut"
+
+#: src/jottr/main.py:789
+msgid "Toggle Browser (Ctrl+Shift+B)"
+msgstr "Afficher/masquer le navigateur (Ctrl+Maj+B)"
+
+#: src/jottr/main.py:792
+msgid "Markdown"
+msgstr "Markdown"
+
+#: src/jottr/main.py:794
+msgid "Toggle Markdown Preview (Ctrl+Shift+M)"
+msgstr "Afficher/masquer l'aperçu Markdown (Ctrl+Maj+M)"
+
+#: src/jottr/main.py:798 src/jottr/main.py:967
+msgid "Zoom In"
+msgstr "Zoom avant"
+
+#: src/jottr/main.py:800
+msgid "Zoom In (Ctrl+=)"
+msgstr "Zoom avant (Ctrl+=)"
+
+#: src/jottr/main.py:802 src/jottr/main.py:970
+msgid "Zoom Out"
+msgstr "Zoom arrière"
+
+#: src/jottr/main.py:804
+msgid "Zoom Out (Ctrl+-)"
+msgstr "Zoom arrière (Ctrl+-)"
+
+#: src/jottr/main.py:808 src/jottr/main.py:809 src/jottr/main.py:973
+msgid "Reset Zoom"
+msgstr "Réinitialiser le zoom"
+
+#: src/jottr/main.py:819 src/jottr/main.py:1304
+msgid "Menu"
+msgstr "Menu"
+
+#: src/jottr/main.py:820
+msgid "More Actions"
+msgstr "Plus d'actions"
+
+#: src/jottr/main.py:897 src/jottr/main.py:991
+#, python-brace-format
+msgid "Document {number}"
+msgstr "Document {number}"
+
+#: src/jottr/main.py:908
+msgid "This document has unsaved changes. Do you want to save them?"
+msgstr "Ce document contient des modifications non enregistrées. Voulez-vous les enregistrer ?"
+
+#: src/jottr/main.py:930
+msgid "File"
+msgstr "Fichier"
+
+#: src/jottr/main.py:932
+msgid "New Editor Tab"
+msgstr "Nouvel onglet d'éditeur"
+
+#: src/jottr/main.py:935
+msgid "New RSS Tab"
+msgstr "Nouvel onglet RSS"
+
+#: src/jottr/main.py:938
+msgid "New Workspace File..."
+msgstr "Nouveau fichier d'espace de travail..."
+
+#: src/jottr/main.py:944
+msgid "Save As..."
+msgstr "Enregistrer sous..."
+
+#: src/jottr/main.py
+msgid "Export as PDF..."
+msgstr "Exporter en PDF..."
+
+#: src/jottr/main.py:951
+msgid "Exit"
+msgstr "Quitter"
+
+#: src/jottr/main.py:954
+msgid "View"
+msgstr "Affichage"
+
+#: src/jottr/main.py:956
+msgid "Toggle Snippets"
+msgstr "Afficher/masquer les extraits"
+
+#: src/jottr/main.py:959
+msgid "Toggle Browser"
+msgstr "Afficher/masquer le navigateur"
+
+#: src/jottr/window.py:1096
+msgid "Toggle Browser Pane"
+msgstr "Afficher/masquer le volet du navigateur"
+
+#: src/jottr/editor/browser.py
+msgid "Open in Default Browser"
+msgstr "Ouvrir dans le navigateur par défaut"
+
+#: src/jottr/editor/browser.py
+msgid "Could not open {url} in the default browser."
+msgstr "Impossible d'ouvrir {url} dans le navigateur par défaut."
+
+#: src/jottr/main.py:962
+msgid "Toggle Markdown Preview"
+msgstr "Afficher/masquer l'aperçu Markdown"
+
+#: src/jottr/main.py:999
+msgid "RSS Reader"
+msgstr "Lecteur RSS"
+
+#: src/jottr/main.py:1129
+msgid "Help documentation not found."
+msgstr "Documentation d'aide introuvable."
+
+#: src/jottr/main.py:1143
+#, python-brace-format
+msgid "About {APP_NAME}"
+msgstr "À propos de {APP_NAME}"
+
+#: src/jottr/main.py:1156
+#, python-brace-format
+msgid "Version {APP_VERSION}"
+msgstr "Version {APP_VERSION}"
+
+#: src/jottr/main.py:1161
+msgid "A simple text editor for writers, journalists and researchers"
+msgstr "Un éditeur de texte simple pour les écrivains, les journalistes et les chercheurs"
+
+#: src/jottr/main.py:1169
+msgid "Developed by"
+msgstr "Développé par"
+
+#: src/jottr/main.py:1174
+msgid "Licensed under GNU GPL v3.0"
+msgstr "Sous licence GNU GPL v3.0"
+
+#: src/jottr/main.py:1179
+#, python-brace-format
+msgid "<a href=\"{APP_HOMEPAGE}\">Project Homepage</a>"
+msgstr "<a href=\"{APP_HOMEPAGE}\">Page d'accueil du projet</a>"
+
+#: src/jottr/main.py:1352
+#, python-brace-format
+msgid "Could not open file: {error}"
+msgstr "Impossible d'ouvrir le fichier : {error}"
+
+#: src/jottr/main.py:1410
+msgid "You have unsaved changes. Do you want to save them before closing?"
+msgstr "Vous avez des modifications non enregistrées. Voulez-vous les enregistrer avant de fermer ?"
+
+#: src/jottr/rss_reader.py:43
+msgid "Refresh"
+msgstr "Actualiser"
+
+#: src/jottr/rss_reader.py:44
+msgid "Manage Feeds"
+msgstr "Gérer les flux"
+
+#: src/jottr/rss_reader.py:143
+#, python-brace-format
+msgid "No entries found in feed: {feed_title}"
+msgstr "Aucune entrée trouvée dans le flux : {feed_title}"
+
+#: src/jottr/rss_reader.py:149
+#, python-brace-format
+msgid "Rate limit exceeded for {feed_title}. Please try again later."
+msgstr "Limite de requêtes dépassée pour {feed_title}. Veuillez réessayer plus tard."
+
+#: src/jottr/rss_reader.py:152 src/jottr/rss_reader.py:156
+#, python-brace-format
+msgid "Could not fetch feed {feed_title}: {error}"
+msgstr "Impossible de récupérer le flux {feed_title} : {error}"
+
+#: src/jottr/rss_reader.py:162 src/jottr/rss_reader.py:164
+msgid "Add RSS Feed"
+msgstr "Ajouter un flux RSS"
+
+#: src/jottr/rss_reader.py:177
+msgid "Invalid RSS feed"
+msgstr "Flux RSS invalide"
+
+#: src/jottr/rss_reader.py:198
+msgid "Published:"
+msgstr "Publié :"
+
+#: src/jottr/rss_reader.py:202
+msgid "Read more..."
+msgstr "Lire la suite..."
+
+#: src/jottr/settings_dialog.py:50
+msgid "Language:"
+msgstr "Langue :"
+
+#: src/jottr/settings_dialog.py
+msgid "Main UI Theme:"
+msgstr "Thème de l'interface :"
+
+#: src/jottr/settings_dialog.py
+msgid "Editor Theme:"
+msgstr "Thème de l'éditeur :"
+
+#: src/jottr/settings_dialog.py:67
+msgid "Icon Contrast:"
+msgstr "Contraste des icônes :"
+
+#: src/jottr/settings_dialog.py
+msgid "Motion:"
+msgstr "Animations :"
+
+#: src/jottr/settings_dialog.py
+msgid "Enable smooth animations"
+msgstr "Activer les animations fluides"
+
+#: src/jottr/settings_dialog.py:77
+msgid "Custom App Themes"
+msgstr "Thèmes d'application personnalisés"
+
+#: src/jottr/settings_dialog.py:80
+msgid "Themes control app chrome, editor colors, panels, menus, and selection states."
+msgstr "Les thèmes contrôlent l'aspect de l'application, les couleurs de l'éditeur, les panneaux, les menus et les états de sélection."
+
+#: src/jottr/settings_dialog.py:89
+msgid "Theme JSON:"
+msgstr "JSON du thème :"
+
+#: src/jottr/settings_dialog.py:98
+msgid "Save Theme"
+msgstr "Enregistrer le thème"
+
+#: src/jottr/settings_dialog.py:99
+msgid "Delete Theme"
+msgstr "Supprimer le thème"
+
+#: src/jottr/settings_dialog.py:100
+msgid "Use Selected"
+msgstr "Utiliser la sélection"
+
+#: src/jottr/settings_dialog.py:101
+msgid "Format JSON"
+msgstr "Formater le JSON"
+
+#: src/jottr/settings_dialog.py:114
+msgid "Sync markdown editor and preview scrolling"
+msgstr "Synchroniser le défilement de l'éditeur Markdown et de l'aperçu"
+
+#: src/jottr/settings_dialog.py:120
+msgid "Show editor line numbers"
+msgstr "Afficher les numéros de ligne de l'éditeur"
+
+#: src/jottr/settings_dialog.py
+msgid "Double-click empty tab bar to open a new tab"
+msgstr "Double-cliquer sur la barre d'onglets vide pour ouvrir un nouvel onglet"
+
+#: src/jottr/settings_dialog.py
+msgid "Middle-click existing tab to close it"
+msgstr "Cliquer avec le bouton central sur un onglet pour le fermer"
+
+#: src/jottr/settings_dialog.py:126
+msgid "Autosave"
+msgstr "Enregistrement automatique"
+
+#: src/jottr/settings_dialog.py:128
+msgid "Automatically save changed files"
+msgstr "Enregistrer automatiquement les fichiers modifiés"
+
+#: src/jottr/settings_dialog.py:135
+msgid "Save changed files every:"
+msgstr "Enregistrer les fichiers modifiés toutes les :"
+
+#: src/jottr/settings_dialog.py:142
+msgid "Seconds"
+msgstr "Secondes"
+
+#: src/jottr/settings_dialog.py:149
+msgid "Appearance"
+msgstr "Apparence"
+
+#: src/jottr/settings_dialog.py:158
+msgid "Homepage:"
+msgstr "Page d'accueil :"
+
+#: src/jottr/settings_dialog.py:166
+msgid "Site-specific searches:"
+msgstr "Recherches sur des sites précis :"
+
+#: src/jottr/settings_dialog.py:175
+msgid "Add"
+msgstr "Ajouter"
+
+#: src/jottr/settings_dialog.py:176
+msgid "Edit"
+msgstr "Modifier"
+
+#: src/jottr/settings_dialog.py:177
+msgid "Delete"
+msgstr "Supprimer"
+
+#: src/jottr/settings/dialog.py
+msgid "Spellcheck"
+msgstr "Correcteur orthographique"
+
+#: src/jottr/settings/pages/dictionary.py
+msgid "Detected dictionaries"
+msgstr "Dictionnaires détectés"
+
+#: src/jottr/settings/pages/dictionary.py
+msgid "Spell dictionaries found on this system via Enchant. Install hunspell/myspell packages to add more languages."
+msgstr "Dictionnaires orthographiques trouvés sur ce système via Enchant. Installez des paquets hunspell/myspell pour ajouter d'autres langues."
+
+#: src/jottr/settings/pages/dictionary.py
+msgid "No dictionaries detected."
+msgstr "Aucun dictionnaire détecté."
+
+#: src/jottr/settings_dialog.py:191
+msgid "User Dictionary:"
+msgstr "Dictionnaire personnel :"
+
+#: src/jottr/settings_dialog.py:200 src/jottr/settings_dialog.py:380
+msgid "Add Word"
+msgstr "Ajouter un mot"
+
+#: src/jottr/settings_dialog.py:201
+msgid "Delete Word"
+msgstr "Supprimer le mot"
+
+#: src/jottr/settings_dialog.py:276
+msgid "Use a unique custom theme name."
+msgstr "Utilisez un nom de thème personnalisé unique."
+
+#: src/jottr/settings_dialog.py:279
+msgid "Theme JSON must be valid and include a name."
+msgstr "Le JSON du thème doit être valide et inclure un nom."
+
+#: src/jottr/settings_dialog.py:333
+msgid "Theme JSON is not valid."
+msgstr "Le JSON du thème n'est pas valide."
+
+#: src/jottr/settings_dialog.py:380
+msgid "Enter word:"
+msgstr "Saisissez le mot :"
+
+#: src/jottr/settings_dialog.py:424
+msgid "Search Site"
+msgstr "Rechercher sur un site"
+
+#: src/jottr/settings_dialog.py:434
+msgid "Name:"
+msgstr "Nom :"
+
+#: src/jottr/settings_dialog.py:442
+msgid "Website:"
+msgstr "Site web :"
+
+#: src/jottr/settings_dialog.py:444
+msgid "example.com"
+msgstr "exemple.fr"
+
+#: src/jottr/settings_dialog.py:450
+msgid "Enter the website domain without 'http://' or 'www.'"
+msgstr "Saisissez le domaine du site sans « http:// » ni « www. »"
+
+#: src/jottr/settings/search_site.py
+msgid "Timeframe:"
+msgstr "Période :"
+
+#: src/jottr/settings/search_site.py
+msgid "Any time"
+msgstr "À tout moment"
+
+#: src/jottr/settings/search_site.py
+msgid "Past hour"
+msgstr "Dernière heure"
+
+#: src/jottr/settings/search_site.py
+msgid "Past 24 hours"
+msgstr "Dernières 24 heures"
+
+#: src/jottr/settings/search_site.py
+msgid "Past week"
+msgstr "Dernière semaine"
+
+#: src/jottr/settings/search_site.py
+msgid "Past month"
+msgstr "Dernier mois"
+
+#: src/jottr/settings/search_site.py
+msgid "Past year"
+msgstr "Dernière année"
+
+#: src/jottr/snippet_editor_dialog.py:16
+msgid "Title:"
+msgstr "Titre :"
+
+#: src/jottr/snippet_editor_dialog.py:23
+msgid "Content:"
+msgstr "Contenu :"
+
+#: src/jottr/settings_dialog.py
+msgid "Plugin Sources"
+msgstr "Sources des modules"
+
+#: src/jottr/settings_dialog.py
+msgid "Local plugins folder:"
+msgstr "Dossier des modules locaux :"
+
+#: src/jottr/settings_dialog.py
+msgid "Plugin index:"
+msgstr "Index des modules :"
+
+#: src/jottr/settings_dialog.py
+msgid "Checksum URL"
+msgstr "URL de la somme de contrôle"
+
+#: src/jottr/settings_dialog.py
+msgid "Update Index"
+msgstr "Mettre à jour l'index"
+
+#: src/jottr/settings_dialog.py
+msgid "Select a plugin"
+msgstr "Sélectionnez un module"
+
+#: src/jottr/settings_dialog.py
+msgid "Version"
+msgstr "Version"
+
+#: src/jottr/settings_dialog.py
+msgid "Installed"
+msgstr "Installé"
+
+#: src/jottr/settings/pages/plugins.py
+msgid "Available"
+msgstr "Disponible"
+
+#: src/jottr/settings_dialog.py
+msgid "Source"
+msgstr "Source"
+
+#: src/jottr/settings_dialog.py
+msgid "Permissions"
+msgstr "Autorisations"
+
+#: src/jottr/settings_dialog.py
+msgid "None"
+msgstr "Aucune"
+
+#: src/jottr/settings_dialog.py
+msgid "Enabled"
+msgstr "Activé"
+
+#: src/jottr/settings_dialog.py
+msgid "Disabled"
+msgstr "Désactivé"
+
+#: src/jottr/settings/pages/plugins.py
+msgid "Not installed"
+msgstr "Non installé"
+
+#: src/jottr/settings_dialog.py
+msgid "Registry"
+msgstr "Registre"
+
+#: src/jottr/settings_dialog.py
+msgid "Remote"
+msgstr "Distant"
+
+#: src/jottr/settings_dialog.py
+msgid "Local"
+msgstr "Local"
+
+#: src/jottr/settings_dialog.py
+msgid "Enable"
+msgstr "Activer"
+
+#: src/jottr/settings_dialog.py
+msgid "Disable"
+msgstr "Désactiver"
+
+#: src/jottr/settings/pages/plugins.py
+msgid "Install"
+msgstr "Installer"
+
+#: src/jottr/settings_dialog.py
+msgid "Update"
+msgstr "Mettre à jour"
+
+#: src/jottr/settings_dialog.py
+msgid "Remove"
+msgstr "Supprimer"
+
+#: src/jottr/settings_dialog.py
+msgid "Remote plugins require permission review before they can run code."
+msgstr "Les modules distants nécessitent une vérification des autorisations avant de pouvoir exécuter du code."
+
+#: src/jottr/settings_dialog.py
+msgid "Choose Plugins Folder"
+msgstr "Choisir le dossier des modules"
+
+#: src/jottr/settings_dialog.py
+msgid "Could not update plugin index: {error}"
+msgstr "Impossible de mettre à jour l'index des modules : {error}"
+
+#: src/jottr/settings_dialog.py
+msgid "Enable Remote Plugin"
+msgstr "Activer le module distant"
+
+#: src/jottr/settings_dialog.py
+msgid "Enable this remote plugin?\n\nPermissions: {permissions}\n\n{warning}"
+msgstr "Activer ce module distant ?\n\nAutorisations : {permissions}\n\n{warning}"
+
+#: src/jottr/settings_dialog.py
+msgid "Could not install plugin version: {error}"
+msgstr "Impossible d'installer cette version du module : {error}"
+
+#: src/jottr/settings_dialog.py
+msgid "Could not update plugin: {error}"
+msgstr "Impossible de mettre à jour le module : {error}"
+
+#: src/jottr/settings_dialog.py
+msgid "Remove Plugin"
+msgstr "Supprimer le module"
+
+#: src/jottr/settings_dialog.py
+msgid "Remove {plugin}?"
+msgstr "Supprimer {plugin} ?"
+
+#: src/jottr/settings_dialog.py
+msgid "Could not remove plugin: {error}"
+msgstr "Impossible de supprimer le module : {error}"
+
+#: src/jottr/settings_dialog.py src/jottr/main.py
+msgid "Apply"
+msgstr "Appliquer"
+
+#: src/jottr/settings_dialog.py src/jottr/main.py
+msgid "Settings applied"
+msgstr "Paramètres appliqués"
+
+#: src/jottr/settings/pages/sessions.py
+msgid "Sessions"
+msgstr "Sessions"
+
+#: src/jottr/settings/pages/sessions.py
+msgid "Unsaved Files"
+msgstr "Fichiers non enregistrés"
+
+#: src/jottr/settings/pages/sessions.py
+msgid "Back up unsaved files to swap files"
+msgstr "Sauvegarder les fichiers non enregistrés dans des fichiers d'échange"
+
+#: src/jottr/settings/pages/sessions.py
+msgid "While a file has unsaved changes, a copy is kept so the changes can be recovered if Jottr does not close properly."
+msgstr "Tant qu'un fichier contient des modifications non enregistrées, une copie est conservée afin de pouvoir les récupérer si Jottr ne se ferme pas correctement."
+
+#: src/jottr/settings/pages/sessions.py
+msgid "Restore newly-created unsaved files on startup"
+msgstr "Restaurer au démarrage les fichiers nouvellement créés et non enregistrés"
+
+#: src/jottr/settings/pages/sessions.py
+msgid "Untitled documents are backed up while you type and reopened the next time Jottr starts if Jottr does not close properly. Closing Jottr asks to save them."
+msgstr "Les documents sans titre sont sauvegardés pendant la saisie et rouverts au prochain démarrage de Jottr si celui-ci ne s'est pas fermé correctement. À la fermeture de Jottr, il vous sera proposé de les enregistrer."
+
+#: src/jottr/editor/swap_file.py
+msgid "The file was not closed properly."
+msgstr "Le fichier n'a pas été fermé correctement."
+
+#: src/jottr/editor/swap_file.py
+msgid "View Changes"
+msgstr "Voir les modifications"
+
+#: src/jottr/editor/swap_file.py
+msgid "Recover Data"
+msgstr "Récupérer les données"
+
+#: src/jottr/editor/swap_file.py
+msgid "Discard"
+msgstr "Abandonner"
+
+#: src/jottr/editor/swap_file.py
+msgid "{name} (recovered)"
+msgstr "{name} (récupéré)"
+
+#: src/jottr/editor/swap_file.py
+msgid "Close"
+msgstr "Fermer"
+
+#: src/jottr/settings/pages/sessions.py
+msgid "Back up unsaved text every:"
+msgstr "Sauvegarder le texte non enregistré toutes les :"
+
+#: src/jottr/settings/pages/sessions.py
+msgid "Session restore behavior on startup"
+msgstr "Restauration de la session au démarrage"
+
+#: src/jottr/settings/pages/sessions.py
+msgid "Always restore previous session"
+msgstr "Toujours restaurer la session précédente"
+
+#: src/jottr/settings/pages/sessions.py
+msgid "Only restore if unsaved changes are detected"
+msgstr "Restaurer uniquement si des modifications non enregistrées sont détectées"
+
+#: src/jottr/settings/pages/sessions.py
+msgid "Open a workspace:"
+msgstr "Ouvrir un espace de travail :"
+
+#: src/jottr/settings/pages/sessions.py
+msgid "Opens the workspace with its tabs, and reopens documents with unsaved changes from last time."
+msgstr "Ouvre l'espace de travail avec ses onglets et rouvre les documents contenant des modifications non enregistrées de la dernière fois."
+
+#: src/jottr/settings/pages/sessions.py
+msgid "No workspace selected"
+msgstr "Aucun espace de travail sélectionné"
+
+#: src/jottr/settings/pages/sessions.py
+msgid "Choose Folder…"
+msgstr "Choisir un dossier…"
+
+#: src/jottr/settings/pages/sessions.py
+msgid "Choose Workspace Folder"
+msgstr "Choisir le dossier de l'espace de travail"
+
+#: src/jottr/settings/pages/editor.py
+msgid "Saving"
+msgstr "Enregistrement"
+
+#: src/jottr/settings/pages/editor.py
+msgid "Add the date to suggested file names"
+msgstr "Ajouter la date aux noms de fichiers suggérés"
+
+#: src/jottr/settings/pages/editor.py
+msgid "Date format:"
+msgstr "Format de la date :"
+
+#: src/jottr/editor/tab.py
+msgid "Show in Folder"
+msgstr "Afficher dans le dossier"
+
+#: src/jottr/window.py
+msgid "Change Title"
+msgstr "Changer le titre"
+
+#: src/jottr/window.py
+msgid "Rename"
+msgstr "Renommer"
+
+#: src/jottr/window.py
+msgid "Enter a name."
+msgstr "Saisissez un nom."
+
+#: src/jottr/window.py
+msgid "A name cannot contain \"/\"."
+msgstr "Un nom ne peut pas contenir « / »."
+
+#: src/jottr/window.py
+msgid "A file named \"{name}\" already exists."
+msgstr "Un fichier nommé « {name} » existe déjà."
+
+#: src/jottr/window.py
+msgid "Could not rename: {error}"
+msgstr "Impossible de renommer : {error}"
+
+#: src/jottr/window.py
+msgid "Open &Recent"
+msgstr "Ouvrir un fichier &récent"
+
+#: src/jottr/window.py
+msgid "Clear List"
+msgstr "Effacer la liste"
+
+#: src/jottr/window.py
+#, python-brace-format
+msgid "\"{path}\" no longer exists and was removed from the recent files list."
+msgstr "« {path} » n'existe plus et a été retiré de la liste des fichiers récents."
+
+#: src/jottr/editor/focus_mode.py
+msgid "Fill Screen"
+msgstr "Remplir l'écran"
+
+#: src/jottr/editor/focus_mode.py
+msgid "Center Editor"
+msgstr "Centrer l'éditeur"
+
+#: src/jottr/font_dialog.py
+msgid "Default font"
+msgstr "Police par défaut"
+
+#: src/jottr/font_dialog.py
+msgid "System font"
+msgstr "Police système"
+
+#: src/jottr/font_dialog.py
+msgid "Custom"
+msgstr "Personnalisée"
+
+#: src/jottr/window.py:1356
+msgid "Formatting Toolbar"
+msgstr "Barre d'outils de mise en forme"
+
+#: src/jottr/window.py:1659
+msgid "Application menu"
+msgstr "Menu de l'application"
+
+#: src/jottr/window.py:1718
+msgid "Capitalization"
+msgstr "Casse"
+
+#: src/jottr/window.py:1749
+msgid "Style"
+msgstr "Style"
+
+#: src/jottr/window.py:1762
+msgid "Editor Theme"
+msgstr "Thème de l'éditeur"
+
+#: src/jottr/window.py:1776
+msgid "Document Language"
+msgstr "Langue du document"
+
+#: src/jottr/window.py:2757
+msgid "Zoom"
+msgstr "Zoom"
+
+#: src/jottr/window.py:2770
+msgid "Reset Zoom (Ctrl+0)"
+msgstr "Réinitialiser le zoom (Ctrl+0)"
+
+#: src/jottr/window.py:3005
+msgid "Plugin"
+msgstr "Module"
+
+#: src/jottr/window.py:1788
+msgid "Auto-detect"
+msgstr "Détection automatique"
+
+#: src/jottr/window.py:2234
+msgid "Auto (langdetect missing)"
+msgstr "Auto (langdetect manquant)"
+
+#: src/jottr/window.py:2309
+msgid "Dictionary Not Installed"
+msgstr "Dictionnaire non installé"
+
+#: src/jottr/window.py:3037
+msgid "Plugin panel"
+msgstr "Panneau du module"
+
+#: src/jottr/window.py:828
+msgid "Close tab"
+msgstr "Fermer l'onglet"
+
+#: src/jottr/window.py:1692
+msgid "{title} menu"
+msgstr "Menu {title}"
+
+#: src/jottr/window.py:2236
+msgid "Auto"
+msgstr "Auto"
+
+#: src/jottr/window.py:2269
+msgid "Auto-detect needs a bit more text, then loads a matching dictionary."
+msgstr "La détection automatique a besoin d'un peu plus de texte, puis charge un dictionnaire correspondant."
+
+#: src/jottr/window.py:2274
+msgid "No dictionary"
+msgstr "Aucun dictionnaire"
+
+#: src/jottr/window.py:1267
+msgid "Heading {level}"
+msgstr "Titre {level}"
+
+#: src/jottr/window.py:1793
+msgid "{language} (dictionary not installed)"
+msgstr "{language} (dictionnaire non installé)"
+
+#: src/jottr/window.py:2238
+msgid "Auto → {language}"
+msgstr "Auto → {language}"
+
+#: src/jottr/window.py:2253
+msgid "Using {language} until the document language is detected.\nDictionary: {dictionary}"
+msgstr "Utilisation de {language} en attendant la détection de la langue du document.\nDictionnaire : {dictionary}"
+
+#: src/jottr/window.py:2260
+msgid "Document language: {language}\nUsing dictionary {dictionary}"
+msgstr "Langue du document : {language}\nDictionnaire utilisé : {dictionary}"
+
+#: src/jottr/window.py:2276
+msgid "Document language: {language}\n{warning}"
+msgstr "Langue du document : {language}\n{warning}"
+
+#: src/jottr/window.py:2242
+msgid "{label} ({confidence:.0%})"
+msgstr "{label} ({confidence:.0%})"
+
+#: src/jottr/window.py:3016
+msgid "Could not install plugin: {error}"
+msgstr "Impossible d'installer le module : {error}"
+
+#: src/jottr/portal_folders.py:156
+msgid "Allow Folder Access"
+msgstr "Autoriser l'accès au dossier"
+
+#: src/jottr/portal_folders.py:169
+msgid "Choose the Document's Folder"
+msgstr "Choisir le dossier du document"
+
+#: src/jottr/portal_folders.py:177
+msgid "The folder you chose does not contain the document."
+msgstr "Le dossier choisi ne contient pas le document."
+
+#: src/jottr/portal_folders.py:157
+msgid "Jottr can only see this document, not the folder it is in, so it cannot save images beside it.\n\nChoose the folder {folder}, or a folder above it such as your home folder, to let Jottr save images there. Jottr remembers the folder you choose."
+msgstr "Jottr ne voit que ce document, et non le dossier qui le contient ; il ne peut donc pas enregistrer d'images à côté.\n\nChoisissez le dossier {folder}, ou un dossier parent tel que votre dossier personnel, pour permettre à Jottr d'y enregistrer des images. Jottr mémorise le dossier choisi."
+
+#: src/jottr/portal_folders.py:163
+msgid "that holds the document"
+msgstr "qui contient le document"
+
+#: src/jottr/editor/suggestion_popup.py:86
+msgid "Enter"
+msgstr "Entrée"
+
+#: src/jottr/editor/spellcheck.py:457
+msgid "No spell dictionary is installed for {language}. Install {package}, then restart Jottr."
+msgstr "Aucun dictionnaire orthographique n'est installé pour {language}. Installez {package}, puis redémarrez Jottr."
+
+#: src/jottr/editor/images.py:241
+msgid "Image"
+msgstr "Image"
+
+#: src/jottr/editor/images.py:282
+msgid "Insert Image"
+msgstr "Insérer une image"
+
+#: src/jottr/editor/images.py:241
+msgid "Could not save the image: {error}"
+msgstr "Impossible d'enregistrer l'image : {error}"
+
+#: src/jottr/editor/images.py:284
+msgid "Images"
+msgstr "Images"
+
+#: src/jottr/editor/images.py:224
+msgid "Could not write {path}"
+msgstr "Impossible d'écrire {path}"
+
+#: src/jottr/editor/browser.py:344
+msgid "Back"
+msgstr "Précédent"
+
+#: src/jottr/editor/browser.py:348
+msgid "Forward"
+msgstr "Suivant"
+
+#: src/jottr/editor/browser.py:354
+msgid "Reload"
+msgstr "Recharger"
+
+#: src/jottr/editor/browser.py:404
+msgid "Stop"
+msgstr "Arrêter"
+
+#: src/jottr/editor/tab.py:552
+msgid "Markdown Files (*.md *.markdown)"
+msgstr "Fichiers Markdown (*.md *.markdown)"
+
+#: src/jottr/editor/tab.py:553
+msgid "Text Files (*.txt)"
+msgstr "Fichiers texte (*.txt)"
+
+#: src/jottr/editor/tab.py:955
+msgid "Formatting"
+msgstr "Mise en forme"
+
+#: src/jottr/editor/tab.py:969
+msgid "Insert Image…"
+msgstr "Insérer une image…"
+
+#: src/jottr/editor/tab.py:979
+msgid "Bulleted List"
+msgstr "Liste à puces"
+
+#: src/jottr/editor/tab.py:980
+msgid "Numbered List"
+msgstr "Liste numérotée"
+
+#: src/jottr/editor/tab.py:981
+msgid "Task List"
+msgstr "Liste de tâches"
+
+#: src/jottr/editor/tab.py:982
+msgid "Blockquote"
+msgstr "Citation"
+
+#: src/jottr/editor/tab.py:983
+msgid "Code Block"
+msgstr "Bloc de code"
+
+#: src/jottr/editor/tab.py:986
+msgid "Clear Formatting"
+msgstr "Effacer la mise en forme"
+
+#: src/jottr/editor/tab.py:1055
+msgid "Uppercase"
+msgstr "Majuscules"
+
+#: src/jottr/editor/tab.py:1056
+msgid "Lowercase"
+msgstr "Minuscules"
+
+#: src/jottr/editor/tab.py:1057
+msgid "Capitalize"
+msgstr "Initiales en majuscules"
+
+#: src/jottr/editor/tab.py:962
+msgid "Strikethrough"
+msgstr "Barré"
+
+#: src/jottr/editor/tab.py:963
+msgid "Inline Code"
+msgstr "Code en ligne"
+
+#: src/jottr/editor/tab.py:964
+msgid "Link"
+msgstr "Lien"
+
+#: src/jottr/editor/tab.py:965
+msgid "Wrap in Quotes"
+msgstr "Mettre entre guillemets"
+
+#: src/jottr/editor/tab.py:1549
+msgid "Tab"
+msgstr "Tabulation"
+
+#: src/jottr/ui/workspace_controller.py:65
+msgid "Hide workspace panel"
+msgstr "Masquer le panneau de l'espace de travail"
+
+#: src/jottr/ui/workspace_controller.py:208
+msgid "Workspace closed"
+msgstr "Espace de travail fermé"
+
+#: src/jottr/ui/workspace_controller.py:690
+msgid "New name:"
+msgstr "Nouveau nom :"
+
+#: src/jottr/ui/workspace_controller.py:755
+msgid "Copied path"
+msgstr "Chemin copié"
+
+#: src/jottr/ui/workspace_controller.py:281
+msgid "Close Workspace"
+msgstr "Fermer l'espace de travail"
+
+#: src/jottr/ui/workspace_controller.py:337
+msgid "No missing workspaces"
+msgstr "Aucun espace de travail introuvable"
+
+#: src/jottr/ui/workspace_controller.py:625
+msgid "Copy Path"
+msgstr "Copier le chemin"
+
+#: src/jottr/ui/workspace_controller.py:627
+msgid "Reveal in File Manager"
+msgstr "Afficher dans le gestionnaire de fichiers"
+
+#: src/jottr/ui/workspace_controller.py:699
+msgid "Item must stay inside the workspace."
+msgstr "L'élément doit rester dans l'espace de travail."
+
+#: src/jottr/ui/workspace_controller.py:622
+msgid "Rename..."
+msgstr "Renommer..."
+
+#: src/jottr/ui/workspace_controller.py:623
+msgid "Delete..."
+msgstr "Supprimer..."
+
+#: src/jottr/ui/workspace_controller.py:722
+msgid "Delete folder '{name}' and all of its contents?"
+msgstr "Supprimer le dossier « {name} » et tout son contenu ?"
+
+#: src/jottr/ui/workspace_controller.py:724
+msgid "Delete '{name}'?"
+msgstr "Supprimer « {name} » ?"
+
+#: src/jottr/ui/workspace_controller.py:334
+msgid "Removed {count} missing workspace(s)"
+msgstr "{count} espace(s) de travail introuvable(s) supprimé(s)"
+
+#: src/jottr/ui/workspace_controller.py:741
+msgid "Could not delete: {error}"
+msgstr "Impossible de supprimer : {error}"
+
+#: src/jottr/settings/dialog.py:317
+msgid "Editor"
+msgstr "Éditeur"
+
+#: src/jottr/settings/dialog.py:341
+msgid "Plugins"
+msgstr "Modules"
+
+#: src/jottr/settings/pages/plugins.py:74
+msgid "Local plugins folder"
+msgstr "Dossier des modules locaux"
+
+#: src/jottr/settings/pages/plugins.py:83
+msgid "Browse"
+msgstr "Parcourir"
+
+#: src/jottr/settings/pages/plugins.py:99
+msgid "Update channels"
+msgstr "Canaux de mise à jour"
+
+#: src/jottr/settings/pages/plugins.py:103
+msgid "Remove channel"
+msgstr "Supprimer le canal"
+
+#: src/jottr/settings/pages/plugins.py:109
+msgid "Add channel"
+msgstr "Ajouter un canal"
+
+#: src/jottr/settings/pages/plugins.py:125
+msgid "Name"
+msgstr "Nom"
+
+#: src/jottr/settings/pages/plugins.py:425
+msgid "All channels"
+msgstr "Tous les canaux"
+
+#: src/jottr/settings/pages/plugins.py:604
+msgid "Updating plugin channels…"
+msgstr "Mise à jour des canaux de modules…"
+
+#: src/jottr/settings/pages/plugins.py:127
+msgid "Channel URL"
+msgstr "URL du canal"
+
+#: src/jottr/settings/pages/plugins.py:590
+msgid "No plugin channels to update."
+msgstr "Aucun canal de modules à mettre à jour."
+
+#: src/jottr/settings/pages/plugins.py:601
+msgid "Plugin index updated. All installed plugins are up to date."
+msgstr "Index des modules mis à jour. Tous les modules installés sont à jour."
+
+#: src/jottr/settings/pages/plugins.py:674
+msgid "Search {count} plugins"
+msgstr "Rechercher parmi {count} modules"
+
+#: src/jottr/settings/pages/plugins.py:803
+msgid "Installing {plugin} {version}…"
+msgstr "Installation de {plugin} {version}…"
+
+#: src/jottr/settings/pages/plugins.py:933
+msgid "Updating {plugin}…"
+msgstr "Mise à jour de {plugin}…"
+
+#: src/jottr/settings/pages/plugins.py:784
+msgid "{plugin} has no downloadable package."
+msgstr "{plugin} n'a aucun paquet téléchargeable."
+
+#: src/jottr/settings/pages/plugins.py:798
+msgid "{plugin} {version} installed and enabled."
+msgstr "{plugin} {version} installé et activé."
+
+#: src/jottr/settings/pages/plugins.py:838
+msgid "{plugin} switched to {version}."
+msgstr "{plugin} est passé à la version {version}."
+
+#: src/jottr/settings/pages/plugins.py:928
+msgid "{plugin} updated to {version}."
+msgstr "{plugin} mis à jour vers la version {version}."
+
+#: src/jottr/settings/pages/plugins.py:600
+msgid "Plugin index updated. Updates available: {plugins}."
+msgstr "Index des modules mis à jour. Mises à jour disponibles : {plugins}."
+
+#: src/jottr/settings/pages/plugins.py:883
+msgid "Reloaded {plugin} from disk."
+msgstr "{plugin} rechargé depuis le disque."
+
+#: src/jottr/settings/pages/plugins.py:910
+msgid "{plugin} is no longer listed in its channel."
+msgstr "{plugin} n'est plus listé dans son canal."
+
+#: src/jottr/settings/pages/plugins.py:924
+msgid "{plugin} is up to date ({version})."
+msgstr "{plugin} est à jour ({version})."
+
+#: src/jottr/settings/pages/plugins.py:870
+msgid "{plugin} is up to date."
+msgstr "{plugin} est à jour."
+
+#: src/jottr/settings/pages/plugins.py:869
+msgid "{plugin} updated."
+msgstr "{plugin} mis à jour."
+
+#: src/jottr/settings/pages/browser.py:51
+msgid "Privacy"
+msgstr "Confidentialité"
+
+#: src/jottr/settings/pages/browser.py:56
+msgid "Remember cookies and logins between sessions"
+msgstr "Mémoriser les cookies et les connexions entre les sessions"
+
+#: src/jottr/settings/pages/browser.py:63
+msgid "Cookies are stored unencrypted in Jottr's config folder. Anyone who can read your files can use them to sign in to your accounts."
+msgstr "Les cookies sont stockés sans chiffrement dans le dossier de configuration de Jottr. Toute personne pouvant lire vos fichiers peut les utiliser pour se connecter à vos comptes."
+
+#: src/jottr/settings/pages/browser.py:69
+msgid "Clear Cookies and Cache"
+msgstr "Effacer les cookies et le cache"
+
+#: src/jottr/settings/pages/browser.py:77
+msgid "Site-Specific Searches"
+msgstr "Recherches sur des sites précis"
+
+#: src/jottr/settings/pages/browser.py:82
+msgid "Each site adds a Google search scoped to that site to the editor's context menu."
+msgstr "Chaque site ajoute au menu contextuel de l'éditeur une recherche Google limitée à ce site."
+
+#: src/jottr/settings/pages/browser.py:145
+msgid "Clearing…"
+msgstr "Effacement…"
+
+#: src/jottr/settings/pages/browser.py:167
+msgid "Restart Jottr"
+msgstr "Redémarrer Jottr"
+
+#: src/jottr/settings/pages/browser.py:168
+msgid "Some browsing data, such as site storage, is deleted only when Jottr closes. Restart Jottr now?"
+msgstr "Certaines données de navigation, comme le stockage des sites, ne sont supprimées qu'à la fermeture de Jottr. Redémarrer Jottr maintenant ?"
+
+#: src/jottr/settings/pages/browser.py:155
+msgid "Cookies and cache cleared. Other site data is deleted when Jottr closes."
+msgstr "Cookies et cache effacés. Les autres données des sites sont supprimées à la fermeture de Jottr."
+
+#: src/jottr/settings/pages/appearance.py:40
+msgid "Organic"
+msgstr "Organique"
+
+#: src/jottr/settings/pages/appearance.py:41
+msgid "Classic"
+msgstr "Classique"
+
+#: src/jottr/settings/pages/appearance.py:43
+msgid "Organic uses Jottr's own rounded, warm look in light and dark. Classic is a plain, familiar look."
+msgstr "« Organique » utilise l'apparence arrondie et chaleureuse propre à Jottr, en clair comme en sombre. « Classique » est une apparence simple et familière."
+
+#: src/jottr/settings/pages/appearance.py:59
+msgid "Light or dark menus, toolbars and panels. System matches the desktop."
+msgstr "Menus, barres d'outils et panneaux clairs ou sombres. « Système » suit le bureau."
+
+#: src/jottr/settings/pages/appearance.py:73
+msgid "Default"
+msgstr "Par défaut"
+
+#: src/jottr/settings/pages/appearance.py:100
+msgid "Window color"
+msgstr "Couleur de la fenêtre"
+
+#: src/jottr/settings/pages/appearance.py:101
+msgid "Background of the Organic look's windows and panels"
+msgstr "Arrière-plan des fenêtres et des panneaux de l'apparence Organique"
+
+#: src/jottr/settings/pages/appearance.py:118
+msgid "Lists icon packs bundled with Jottr only. Desktop/system icon themes are not used."
+msgstr "Liste uniquement les jeux d'icônes fournis avec Jottr. Les thèmes d'icônes du bureau ou du système ne sont pas utilisés."
+
+#: src/jottr/settings/pages/appearance.py:50
+msgid "App theme"
+msgstr "Thème de l'application"
+
+#: src/jottr/settings/pages/appearance.py:51
+msgid "Change application theme"
+msgstr "Changer le thème de l'application"
+
+#: src/jottr/settings/pages/appearance.py:67
+msgid "Light or dark, or match the system"
+msgstr "Clair ou sombre, ou selon le système"
+
+#: src/jottr/settings/pages/appearance.py:85
+msgid "Accent color"
+msgstr "Couleur d'accentuation"
+
+#: src/jottr/settings/pages/appearance.py:86
+msgid "Highlights and main buttons"
+msgstr "Surbrillances et boutons principaux"
+
+#: src/jottr/settings/pages/appearance.py:111
+msgid "Editor theme"
+msgstr "Thème de l'éditeur"
+
+#: src/jottr/settings/pages/appearance.py:126
+msgid "Light"
+msgstr "Clair"
+
+#: src/jottr/settings/pages/appearance.py:127
+msgid "Dark"
+msgstr "Sombre"
+
+#: src/jottr/settings/pages/appearance.py:128
+msgid "Accent"
+msgstr "Accentuation"
+
+#: src/jottr/settings/pages/appearance.py:148
+msgid "Icon theme"
+msgstr "Thème d'icônes"
+
+#: src/jottr/settings/pages/appearance.py:150
+msgid "Icon contrast"
+msgstr "Contraste des icônes"
+
+#: src/jottr/settings/pages/appearance.py:153
+msgid "User interface font"
+msgstr "Police de l'interface"
+
+#: src/jottr/settings/pages/appearance.py:155
+msgid "Language"
+msgstr "Langue"
+
+#: src/jottr/settings/pages/editor.py:36
+msgid "Tabs"
+msgstr "Onglets"
+
+#: src/jottr/settings/pages/editor.py:67
+msgid "Show the preview when opening a markdown file"
+msgstr "Afficher l'aperçu à l'ouverture d'un fichier Markdown"
+
+#: src/jottr/settings/pages/editor.py:87
+msgid "Copy inserted and dropped images into the images folder"
+msgstr "Copier les images insérées et déposées dans le dossier d'images"
+
+#: src/jottr/settings/pages/editor.py:99
+msgid "Same folder as the document"
+msgstr "Même dossier que le document"
+
+#: src/jottr/settings/pages/editor.py:101
+msgid "Pasted and copied images are saved in this folder, relative to the document"
+msgstr "Les images collées et copiées sont enregistrées dans ce dossier, relatif au document"
+
+#: src/jottr/settings/pages/editor.py:97
+msgid "Images folder:"
+msgstr "Dossier d'images :"
+
+#: src/jottr/settings/pages/dictionary.py:22
+msgid "Spell Checking"
+msgstr "Vérification orthographique"
+
+#: src/jottr/settings/pages/dictionary.py:26
+msgid "Enable spell checking"
+msgstr "Activer la vérification orthographique"
+
+#: src/jottr/settings/pages/dictionary.py:31
+msgid "Set the document language from Tools → Document Language or the status bar."
+msgstr "Définissez la langue du document depuis Outils → Langue du document ou depuis la barre d'état."
+
+#: src/jottr/settings/pages/dictionary.py:38
+msgid "User Dictionary"
+msgstr "Dictionnaire personnel"
+
+#: src/jottr/window.py
+msgid "&File"
+msgstr "&Fichier"
+
+#: src/jottr/window.py
+msgid "&Edit"
+msgstr "&Édition"
+
+#: src/jottr/window.py
+msgid "&View"
+msgstr "Affic&hage"
+
+#: src/jottr/window.py
+msgid "&Tools"
+msgstr "&Outils"
+
+#: src/jottr/window.py
+msgid "&Workspace"
+msgstr "Espace de &travail"
+
+#: src/jottr/window.py
+msgid "&Plugins"
+msgstr "&Modules"
+
+#: src/jottr/window.py
+msgid "&Help"
+msgstr "&Aide"
+
+#: src/jottr/window.py
+msgid "Create a new editor tab"
+msgstr "Créer un nouvel onglet d'éditeur"
+
+#: src/jottr/window.py
+msgid "Open..."
+msgstr "Ouvrir..."
+
+#: src/jottr/window.py
+msgid "Open a file"
+msgstr "Ouvrir un fichier"
+
+#: src/jottr/window.py
+msgid "Save current file"
+msgstr "Enregistrer le fichier actuel"
+
+#: src/jottr/window.py
+msgid "Save current file with a new name"
+msgstr "Enregistrer le fichier actuel sous un nouveau nom"
+
+#: src/jottr/window.py
+msgid "Close Tab"
+msgstr "Fermer l'onglet"
+
+#: src/jottr/window.py
+msgid "Close current tab"
+msgstr "Fermer l'onglet actuel"
+
+#: src/jottr/window.py
+msgid "Exit Jottr"
+msgstr "Quitter Jottr"
+
+#: src/jottr/window.py
+msgid "Convert the selection to uppercase, or the word under the cursor"
+msgstr "Convertir la sélection, ou le mot sous le curseur, en majuscules"
+
+#: src/jottr/window.py
+msgid "Convert the selection to lowercase, or the word under the cursor"
+msgstr "Convertir la sélection, ou le mot sous le curseur, en minuscules"
+
+#: src/jottr/window.py
+msgid "Capitalize the selection, or the word under the cursor"
+msgstr "Mettre une majuscule initiale à la sélection, ou au mot sous le curseur"
+
+#: src/jottr/window.py
+msgid "Show Line Numbers"
+msgstr "Afficher les numéros de ligne"
+
+#: src/jottr/window.py
+msgid "Show or hide editor line numbers"
+msgstr "Afficher ou masquer les numéros de ligne de l'éditeur"
+
+#: src/jottr/window.py
+msgid "Show Menubar"
+msgstr "Afficher la barre de menus"
+
+#: src/jottr/window.py
+msgid "Show or hide the menubar"
+msgstr "Afficher ou masquer la barre de menus"
+
+#: src/jottr/window.py
+msgid "Automatic Spell Checking"
+msgstr "Vérification orthographique automatique"
+
+#: src/jottr/window.py
+msgid "Toggle automatic spell checking"
+msgstr "Activer ou désactiver la vérification orthographique automatique"
+
+#: src/jottr/window.py
+msgid "New File..."
+msgstr "Nouveau fichier..."
+
+#: src/jottr/window.py
+msgid "New Folder..."
+msgstr "Nouveau dossier..."
+
+#: src/jottr/window.py
+msgid "New Folder in Workspace"
+msgstr "Nouveau dossier dans l'espace de travail"
+
+#: src/jottr/window.py
+msgid "Show Workspace Panel"
+msgstr "Afficher le panneau de l'espace de travail"
+
+#: src/jottr/window.py
+msgid "Show or hide the workspace panel"
+msgstr "Afficher ou masquer le panneau de l'espace de travail"
+
+#: src/jottr/window.py
+msgid "Remove missing folders from recent workspaces"
+msgstr "Retirer les dossiers introuvables des espaces de travail récents"
+
+#: src/jottr/window.py
+msgid "Insert an image"
+msgstr "Insérer une image"
+
+#: src/jottr/window.py
+msgid "Show or hide the formatting toolbar"
+msgstr "Afficher ou masquer la barre d'outils de mise en forme"
+
+#: src/jottr/window.py
+msgid "Turn the line into a heading"
+msgstr "Transformer la ligne en titre"
+
+#: src/jottr/window.py
+msgid "System"
+msgstr "Système"
+
+#: src/jottr/window.py
+msgid "Follow System"
+msgstr "Suivre le système"
+
+#: src/jottr/window.py
+msgid "Terracotta"
+msgstr "Terre cuite"
+
+#: src/jottr/window.py
+msgid "Clay"
+msgstr "Argile"
+
+#: src/jottr/window.py
+msgid "Marigold"
+msgstr "Souci"
+
+#: src/jottr/window.py
+msgid "Sage"
+msgstr "Sauge"
+
+#: src/jottr/window.py
+msgid "Ink"
+msgstr "Encre"
+
+#: src/jottr/window.py
+msgid "Ocean"
+msgstr "Océan"
+
+#: src/jottr/window.py
+msgid "Teal"
+msgstr "Sarcelle"
+
+#: src/jottr/window.py
+msgid "Plum"
+msgstr "Prune"
+
+#: src/jottr/window.py
+msgid "Rose"
+msgstr "Rose"
+
+#: src/jottr/window.py
+msgid "Ochre"
+msgstr "Ocre"
+
+#: src/jottr/window.py
+msgid "Cream"
+msgstr "Crème"
+
+#: src/jottr/window.py
+msgid "Stone"
+msgstr "Pierre"
+
+#: src/jottr/window.py
+msgid "Mist"
+msgstr "Brume"
+
+#: src/jottr/window.py
+msgid "Fog"
+msgstr "Brouillard"
+
+#: src/jottr/window.py
+msgid "Steel"
+msgstr "Acier"
+
+#: src/jottr/window.py
+msgid "Blush"
+msgstr "Rose pâle"
+
+#: src/jottr/window.py
+msgid "Paper"
+msgstr "Papier"
