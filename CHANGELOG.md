@@ -1,5 +1,13 @@
 # Changelog
 
+## [3.1.0](https://github.com/mfat/jottr/compare/v3.0.2...v3.1.0) (2026-10-10)
+
+
+### Features
+
+* switch to the green pencil app icon ([6023a44](https://github.com/mfat/jottr/commit/6023a446bef792cc309326c76555c840f9f900ef))
+* switch to the rust pencil app icon ([bba7e55](https://github.com/mfat/jottr/commit/bba7e5563474badfd9cede6819b01e502fbd4426))
+
 ## [3.0.2](https://github.com/mfat/jottr/compare/v3.0.1...v3.0.2) (2026-10-06)
 
 
