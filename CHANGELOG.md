@@ -1,5 +1,25 @@
 # Changelog
 
+## [3.0.3](https://github.com/mfat/jottr/compare/v3.0.2...v3.0.3) (2026-10-13)
+
+
+### Features
+
+* switch to the green pencil app icon ([6023a44](https://github.com/mfat/jottr/commit/6023a446bef792cc309326c76555c840f9f900ef))
+* switch to the rust pencil app icon ([bba7e55](https://github.com/mfat/jottr/commit/bba7e5563474badfd9cede6819b01e502fbd4426))
+
+
+### Bug Fixes
+
+* run on Qt 6.4 so the deb installs on Ubuntu 24.04 ([f29f3a1](https://github.com/mfat/jottr/commit/f29f3a15d42f6e3bf8d0dd47207faddeedbed86b)), closes [#158](https://github.com/mfat/jottr/issues/158)
+* stop flagging lowercase "as" and other affixed words as proper nouns ([12e5cf7](https://github.com/mfat/jottr/commit/12e5cf7cc75b6245530fa6ca258f1e4f7f7838b2)), closes [#157](https://github.com/mfat/jottr/issues/157)
+
+
+### Miscellaneous
+
+* release 3.0.3 ([19b2d05](https://github.com/mfat/jottr/commit/19b2d05b0edcd38508bec2e5a9104d590a08fcac))
+* release 3.0.3 ([70b3cb2](https://github.com/mfat/jottr/commit/70b3cb25a9b7e0bcffcc56ff2852b769d568e90e))
+
 ## [3.0.2](https://github.com/mfat/jottr/compare/v3.0.1...v3.0.2) (2026-10-06)
 
 
