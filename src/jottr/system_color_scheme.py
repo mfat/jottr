@@ -15,10 +15,24 @@ to host GTK settings files, then to Qt's platform theme.
 
 from __future__ import annotations
 
+import enum
 import os
 from pathlib import Path
 
 from PyQt6.QtCore import QObject, Qt, pyqtSlot
+
+
+class _FallbackColorScheme(enum.Enum):
+    """Stand-in for ``Qt.ColorScheme`` (new in Qt 6.5), same names and values."""
+
+    Unknown = 0
+    Light = 1
+    Dark = 2
+
+
+# Qt 6.4 (Ubuntu 24.04) has no Qt.ColorScheme and no
+# QStyleHints.colorScheme(); the portal and GTK answers still apply there.
+ColorScheme = getattr(Qt, "ColorScheme", _FallbackColorScheme)
 
 PORTAL_SERVICE = "org.freedesktop.portal.Desktop"
 PORTAL_PATH = "/org/freedesktop/portal/desktop"
@@ -33,11 +47,11 @@ PORTAL_PREFER_LIGHT = 2
 
 # Portal reads cost a blocking D-Bus round trip; cache until something says the
 # preference changed (SettingChanged, or an explicit cache clear in tests).
-_portal_scheme_cache: Qt.ColorScheme | None = None
+_portal_scheme_cache: ColorScheme | None = None
 _portal_watcher = None
 # What Jottr forced onto QStyleHints, so a read-back of our own override is not
 # mistaken for the platform theme having an opinion of its own.
-_pinned_scheme: Qt.ColorScheme = Qt.ColorScheme.Unknown
+_pinned_scheme: ColorScheme = ColorScheme.Unknown
 
 
 def clear_system_color_scheme_cache():
@@ -54,7 +68,7 @@ def note_pinned_color_scheme(scheme):
     the platform had resolved it — and a later desktop switch would be ignored.
     """
     global _pinned_scheme
-    _pinned_scheme = scheme or Qt.ColorScheme.Unknown
+    _pinned_scheme = scheme or ColorScheme.Unknown
     return _pinned_scheme
 
 
@@ -68,12 +82,12 @@ def _scheme_from_portal_value(value):
     try:
         number = int(value)
     except (TypeError, ValueError):
-        return Qt.ColorScheme.Unknown
+        return ColorScheme.Unknown
     if number == PORTAL_PREFER_DARK:
-        return Qt.ColorScheme.Dark
+        return ColorScheme.Dark
     if number == PORTAL_PREFER_LIGHT:
-        return Qt.ColorScheme.Light
-    return Qt.ColorScheme.Unknown
+        return ColorScheme.Light
+    return ColorScheme.Unknown
 
 
 def _unwrap_dbus_variant(value, depth=4):
@@ -92,7 +106,7 @@ def portal_color_scheme():
     if _portal_scheme_cache is not None:
         return _portal_scheme_cache
 
-    scheme = Qt.ColorScheme.Unknown
+    scheme = ColorScheme.Unknown
     try:
         from PyQt6.QtDBus import QDBusConnection, QDBusInterface
     except ImportError:
@@ -119,7 +133,7 @@ def portal_color_scheme():
         if not arguments:
             continue
         scheme = _scheme_from_portal_value(_unwrap_dbus_variant(arguments[0]))
-        if scheme != Qt.ColorScheme.Unknown:
+        if scheme != ColorScheme.Unknown:
             break
 
     _portal_scheme_cache = scheme
@@ -151,34 +165,34 @@ def gtk_color_scheme():
             elif key == "gtk-theme-name":
                 theme_name = value.casefold()
         if prefer_dark is not None:
-            return Qt.ColorScheme.Dark if prefer_dark else Qt.ColorScheme.Light
+            return ColorScheme.Dark if prefer_dark else ColorScheme.Light
         if theme_name:
             return (
-                Qt.ColorScheme.Dark
+                ColorScheme.Dark
                 if theme_name.endswith(("-dark", ":dark"))
-                else Qt.ColorScheme.Light
+                else ColorScheme.Light
             )
 
     theme = os.environ.get("GTK_THEME", "").casefold()
     if theme:
         return (
-            Qt.ColorScheme.Dark
+            ColorScheme.Dark
             if theme.endswith(("-dark", ":dark"))
-            else Qt.ColorScheme.Light
+            else ColorScheme.Light
         )
-    return Qt.ColorScheme.Unknown
+    return ColorScheme.Unknown
 
 
 def desktop_color_scheme():
     """Light/dark straight from the desktop: portal first, then GTK settings."""
     scheme = portal_color_scheme()
-    if scheme != Qt.ColorScheme.Unknown:
+    if scheme != ColorScheme.Unknown:
         return scheme
     return gtk_color_scheme()
 
 
 def system_color_scheme(application=None):
-    """Return the desktop's Qt.ColorScheme, falling back past the platform theme.
+    """Return the desktop's ColorScheme, falling back past the platform theme.
 
     Prefer the portal/GTK answer whenever it exists. Qt's platform theme is only
     used when the desktop has no opinion — otherwise a wrong Light from GNOME's
@@ -187,23 +201,25 @@ def system_color_scheme(application=None):
     from PyQt6.QtGui import QGuiApplication
 
     scheme = desktop_color_scheme()
-    if scheme != Qt.ColorScheme.Unknown:
+    if scheme != ColorScheme.Unknown:
         return scheme
 
     app = application or QGuiApplication.instance()
-    platform_scheme = Qt.ColorScheme.Unknown
+    platform_scheme = ColorScheme.Unknown
     if app is not None and hasattr(app, "styleHints"):
-        platform_scheme = app.styleHints().colorScheme()
+        hints = app.styleHints()
+        if hasattr(hints, "colorScheme"):
+            platform_scheme = hints.colorScheme()
     # A scheme we pinned ourselves says nothing new, and would go stale the
     # moment the desktop switched, so treat our pin like Unknown here.
     if platform_scheme == pinned_color_scheme():
-        return Qt.ColorScheme.Unknown
+        return ColorScheme.Unknown
     return platform_scheme
 
 
 def system_prefers_dark(application=None):
     """True when the desktop asks for dark appearance."""
-    return system_color_scheme(application) == Qt.ColorScheme.Dark
+    return system_color_scheme(application) == ColorScheme.Dark
 
 
 def _make_portal_settings_watcher():

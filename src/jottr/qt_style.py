@@ -130,6 +130,7 @@ def apply_qt_color_scheme(scheme_name, application=None):
     still shows the chosen scheme.
     """
     from jottr.system_color_scheme import (
+        ColorScheme,
         desktop_color_scheme,
         note_pinned_color_scheme,
     )
@@ -144,10 +145,10 @@ def apply_qt_color_scheme(scheme_name, application=None):
         return None
 
     scheme = ThemeManager.ui_theme_color_scheme(scheme_name)
-    pinned = Qt.ColorScheme.Unknown
-    if scheme == Qt.ColorScheme.Unknown:
+    pinned = ColorScheme.Unknown
+    if scheme == ColorScheme.Unknown:
         pinned = desktop_color_scheme()
-        if pinned != Qt.ColorScheme.Unknown:
+        if pinned != ColorScheme.Unknown:
             scheme = pinned
     note_pinned_color_scheme(pinned)
     hints.setColorScheme(scheme)

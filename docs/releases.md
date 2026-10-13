@@ -77,7 +77,7 @@ Official release packages are built by `.github/workflows/release-please.yml` on
 
 The first supported release assets are Linux, unsigned macOS, and unsigned Windows packages:
 
-- `jottr-vX.Y.Z-linux-all.deb` (built on Ubuntu 26.04; needs Qt 6.5+, so Ubuntu 26.04+ / Debian 13+)
+- `jottr-vX.Y.Z-linux-all.deb` (built and smoke-tested on Ubuntu 24.04; runs on Qt 6.4+, so Ubuntu 24.04+ / Debian 13+)
 - `jottr-vX.Y.Z-fedoraNN-noarch.rpm` (one per Fedora release in the `build-rpm` matrix)
 - `jottr-vX.Y.Z-fedoraNN-noarch.src.rpm`
 - `jottr-vX.Y.Z-linux-x86_64.AppImage`

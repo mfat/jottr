@@ -69,8 +69,8 @@ jobs:
     needs: release-please
     if: ${{ needs.release-please.outputs.release_created == 'true' }}
     runs-on: ubuntu-latest
-    # Jottr needs Qt >= 6.5 (Qt.ColorScheme); Ubuntu 24.04 ships Qt 6.4.
-    container: ubuntu:26.04
+    # Oldest supported Ubuntu (Qt 6.4), so the smoke test catches newer-Qt APIs.
+    container: ubuntu:24.04
     steps:
       - uses: actions/checkout@v4
         with:

@@ -1162,21 +1162,19 @@ class ThemeManager:
     @staticmethod
     def ui_theme_color_scheme(theme_name):
         """Return Qt.ColorScheme for a System/Light/Dark UI setting."""
-        from PyQt6.QtCore import Qt
+        from jottr.system_color_scheme import ColorScheme
 
         normalized = ThemeManager.normalize_ui_theme(theme_name)
         if normalized == "System":
-            return Qt.ColorScheme.Unknown
+            return ColorScheme.Unknown
         if normalized == "Dark":
-            return Qt.ColorScheme.Dark
-        return Qt.ColorScheme.Light
+            return ColorScheme.Dark
+        return ColorScheme.Light
 
     @staticmethod
     def effective_ui_theme_name(theme_name, application=None):
         """Resolve System/Light/Dark to Light or Dark for chrome colors."""
-        from PyQt6.QtCore import Qt
-
-        from jottr.system_color_scheme import system_color_scheme
+        from jottr.system_color_scheme import ColorScheme, system_color_scheme
 
         normalized = ThemeManager.normalize_ui_theme(theme_name)
         if normalized in {"Light", "Dark"}:
@@ -1185,9 +1183,9 @@ class ThemeManager:
         # Not just styleHints(): sandboxed platform themes report Unknown, so
         # System has to reach the desktop portal to see a dark host.
         scheme = system_color_scheme(application)
-        if scheme == Qt.ColorScheme.Dark:
+        if scheme == ColorScheme.Dark:
             return "Dark"
-        if scheme == Qt.ColorScheme.Light:
+        if scheme == ColorScheme.Light:
             return "Light"
         return "Light"
 

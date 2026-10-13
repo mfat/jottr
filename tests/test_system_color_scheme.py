@@ -162,6 +162,42 @@ class SystemColorSchemeTests(unittest.TestCase):
         )
 
 
+class QtWithoutColorSchemeTests(unittest.TestCase):
+    """Qt 6.4 (Ubuntu 24.04) has no Qt.ColorScheme or QStyleHints.colorScheme()."""
+
+    def load_module_without_color_scheme(self):
+        import importlib.util
+        import types
+
+        import PyQt6.QtCore
+
+        qt_64 = types.SimpleNamespace(
+            **{name: getattr(Qt, name) for name in dir(Qt) if name != "ColorScheme"}
+        )
+        spec = importlib.util.spec_from_file_location(
+            "jottr_system_color_scheme_qt64", system_color_scheme_module.__file__
+        )
+        module = importlib.util.module_from_spec(spec)
+        with patch.object(PyQt6.QtCore, "Qt", qt_64):
+            spec.loader.exec_module(module)
+        return module
+
+    def test_module_loads_and_maps_the_portal_without_qt_color_scheme(self):
+        module = self.load_module_without_color_scheme()
+        self.assertIs(module.ColorScheme, module._FallbackColorScheme)
+        self.assertEqual(module._scheme_from_portal_value(1), module.ColorScheme.Dark)
+        self.assertEqual(module._scheme_from_portal_value(2), module.ColorScheme.Light)
+
+    def test_desktop_answer_is_used_without_style_hints_color_scheme(self):
+        module = self.load_module_without_color_scheme()
+        hints = object()  # QStyleHints without colorScheme()
+        fake_app = type("App", (), {"styleHints": lambda _self: hints})()
+        with patch.object(module, "desktop_color_scheme", return_value=module.ColorScheme.Unknown):
+            self.assertEqual(module.system_color_scheme(fake_app), module.ColorScheme.Unknown)
+        with patch.object(module, "desktop_color_scheme", return_value=module.ColorScheme.Dark):
+            self.assertTrue(module.system_prefers_dark(fake_app))
+
+
 class SystemUiThemeTests(unittest.TestCase):
     """System must follow the desktop even when Qt's platform theme cannot."""
 
