@@ -50,9 +50,16 @@ app.quit()
 """.format(src=str(_SRC_ROOT))
 
 
-def test_cold_startup_under_budget():
+def test_cold_startup_under_budget(tmp_path):
     """Import + window shell + first paint stay under a hard ceiling."""
-    env = {**os.environ, "QT_QPA_PLATFORM": "offscreen", "PYTHONPATH": str(_SRC_ROOT)}
+    # A fresh config dir: the user's restored session can hold unsaved tabs,
+    # and close() would then block on the unsaved-changes prompt.
+    env = {
+        **os.environ,
+        "QT_QPA_PLATFORM": "offscreen",
+        "PYTHONPATH": str(_SRC_ROOT),
+        "XDG_CONFIG_HOME": str(tmp_path),
+    }
     result = subprocess.run(
         [sys.executable, "-c", _WORKER],
         capture_output=True,
