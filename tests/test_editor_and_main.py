@@ -23,6 +23,7 @@ from PyQt6.QtWidgets import (
 )
 
 from jottr.editor_tab import EditorTab, SpellCheckHighlighter
+from jottr.system_color_scheme import ColorScheme
 from jottr.theme_manager import ThemeManager
 import jottr.editor.markdown as editor_markdown_module
 import jottr.editor.tab as editor_tab_impl
@@ -3062,17 +3063,17 @@ class EditorAndMainTests(unittest.TestCase):
             self.addCleanup(window.deleteLater)
             # __init__ apply_app_style must consume the one-shot marker.
             self.assertIsNone(application.property("_jottr_startup_stylesheet"))
-            window._system_color_scheme = Qt.ColorScheme.Light
+            window._system_color_scheme = ColorScheme.Light
 
             with patch(
                 "jottr.system_color_scheme.system_color_scheme",
-                return_value=Qt.ColorScheme.Dark,
+                return_value=ColorScheme.Dark,
             ), patch.object(
                 window_module, "apply_qt_color_scheme", wraps=window_module.apply_qt_color_scheme
             ) as color_scheme:
                 window._on_system_color_scheme_changed()
                 color_scheme.assert_called()
-                self.assertEqual(window._system_color_scheme, Qt.ColorScheme.Dark)
+                self.assertEqual(window._system_color_scheme, ColorScheme.Dark)
 
             # App + window palettes must track the new appearance.
             self.assertLess(
@@ -3198,7 +3199,7 @@ class EditorAndMainTests(unittest.TestCase):
         def lightness(widget):
             return widget.palette().color(QPalette.ColorRole.Window).lightnessF()
 
-        with patch.object(QStyleHints, "colorScheme", lambda _self: Qt.ColorScheme.Dark):
+        with patch.object(QStyleHints, "colorScheme", lambda _self: ColorScheme.Dark, create=True):
             window = TextEditorApp()
             self.addCleanup(window.close)
             self.addCleanup(window.deleteLater)
@@ -3305,6 +3306,7 @@ class EditorAndMainTests(unittest.TestCase):
         class FakeEditorTab(QWidget):
             def __init__(self, snippet_manager, settings_manager):
                 super().__init__()
+                self.current_font = settings_manager.get_font()
                 self.editor = QTextEdit(self)
                 self.current_file = None
 
@@ -3369,6 +3371,7 @@ class EditorAndMainTests(unittest.TestCase):
         class FakeEditorTab(QWidget):
             def __init__(self, snippet_manager, settings_manager):
                 super().__init__()
+                self.current_font = settings_manager.get_font()
                 self.editor = QTextEdit(self)
                 self.current_file = None
 
@@ -3499,6 +3502,7 @@ class EditorAndMainTests(unittest.TestCase):
         class FakeEditorTab(QWidget):
             def __init__(self, snippet_manager, settings_manager):
                 super().__init__()
+                self.current_font = QFont()
                 self.editor = QTextEdit(self)
                 self.current_file = None
 
@@ -3984,6 +3988,7 @@ class EditorAndMainTests(unittest.TestCase):
         class FakeEditorTab(QWidget):
             def __init__(self, snippet_manager, settings_manager):
                 super().__init__()
+                self.current_font = settings_manager.get_font()
                 self.editor = QTextEdit(self)
                 self.current_file = None
                 self.markdown_preview_visible = False
@@ -4022,6 +4027,7 @@ class EditorAndMainTests(unittest.TestCase):
         class FakeEditorTab(QWidget):
             def __init__(self, snippet_manager, settings_manager):
                 super().__init__()
+                self.current_font = settings_manager.get_font()
                 self.editor = QTextEdit(self)
                 self.current_file = None
                 self.markdown_preview_visible = False
@@ -4129,6 +4135,7 @@ class EditorAndMainTests(unittest.TestCase):
         class FakeEditorTab(QWidget):
             def __init__(self, snippet_manager, settings_manager):
                 super().__init__()
+                self.current_font = settings_manager.get_font()
                 self.editor = QTextEdit(self)
                 self.current_file = None
                 self.markdown_preview_visible = False
@@ -4273,6 +4280,7 @@ class EditorAndMainTests(unittest.TestCase):
         class FakeEditorTab(QWidget):
             def __init__(self, snippet_manager, settings_manager):
                 super().__init__()
+                self.current_font = settings_manager.get_font()
                 self.editor = QTextEdit(self)
                 self.current_file = None
                 self.markdown_preview_visible = False
@@ -4355,6 +4363,7 @@ class EditorAndMainTests(unittest.TestCase):
         class FakeEditorTab(QWidget):
             def __init__(self, snippet_manager, settings_manager):
                 super().__init__()
+                self.current_font = settings_manager.get_font()
                 self.editor = QTextEdit(self)
                 self.current_file = None
                 self.markdown_preview_visible = False

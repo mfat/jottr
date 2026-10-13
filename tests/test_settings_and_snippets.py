@@ -22,6 +22,7 @@ from jottr.settings_manager import (
     UI_FONT_CUSTOM, UI_FONT_DEFAULT, UI_FONT_SYSTEM, SettingsManager,
 )
 from jottr.snippet_manager import SnippetManager
+from jottr.system_color_scheme import ColorScheme
 from jottr.theme_manager import ThemeManager
 import jottr.translation_manager as translation_manager
 
@@ -494,8 +495,6 @@ class SettingsAndSnippetTests(unittest.TestCase):
         self.assertLess(combo.view().sizeHintForRow(0), 60)
 
     def test_apply_qt_color_scheme_sets_style_hints(self):
-        from PyQt6.QtCore import Qt
-
         from jottr.qt_style import apply_qt_color_scheme
 
         application = app()
@@ -503,17 +502,17 @@ class SettingsAndSnippetTests(unittest.TestCase):
             self.skipTest("QStyleHints.setColorScheme unavailable")
 
         applied = apply_qt_color_scheme("Dark", application)
-        if applied == Qt.ColorScheme.Unknown:
+        if applied == ColorScheme.Unknown:
             self.skipTest("platform ignores ColorScheme (e.g. offscreen)")
 
-        self.assertEqual(applied, Qt.ColorScheme.Dark)
+        self.assertEqual(applied, ColorScheme.Dark)
         self.assertEqual(
             apply_qt_color_scheme("Light", application),
-            Qt.ColorScheme.Light,
+            ColorScheme.Light,
         )
         # Follow system → Unknown; colorScheme() then reports the resolved appearance.
         resolved = apply_qt_color_scheme("System", application)
-        self.assertIn(resolved, (Qt.ColorScheme.Light, Qt.ColorScheme.Dark))
+        self.assertIn(resolved, (ColorScheme.Light, ColorScheme.Dark))
 
     def test_settings_manager_handles_invalid_json_by_keeping_defaults(self):
         manager = SettingsManager()
@@ -583,19 +582,17 @@ class SettingsAndSnippetTests(unittest.TestCase):
         self.assertEqual(SettingsManager().get_theme(), "Sepia")
         # The chrome checks below are for the Native look.
         ThemeManager.set_interface_look("native")
-        from PyQt6.QtCore import Qt
-
         self.assertEqual(
             ThemeManager.ui_theme_color_scheme("System"),
-            Qt.ColorScheme.Unknown,
+            ColorScheme.Unknown,
         )
         self.assertEqual(
             ThemeManager.ui_theme_color_scheme("Light"),
-            Qt.ColorScheme.Light,
+            ColorScheme.Light,
         )
         self.assertEqual(
             ThemeManager.ui_theme_color_scheme("Dark"),
-            Qt.ColorScheme.Dark,
+            ColorScheme.Dark,
         )
         # Color Scheme Light/Dark still resolve to White/Black chrome themes.
         self.assertEqual(

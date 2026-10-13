@@ -4,6 +4,36 @@ import os
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 import pytest
+from PyQt6.QtCore import Qt
+from PyQt6.QtWidgets import QApplication
+
+# As in main(): Qt WebEngine needs shared GL contexts set before the
+# QApplication exists. Qt 6.4 crashes creating a browser profile without it.
+QApplication.setAttribute(Qt.ApplicationAttribute.AA_ShareOpenGLContexts)
+
+
+@pytest.fixture(autouse=True)
+def _fail_on_exceptions_in_qt_slots():
+    """Fail the test when a Qt slot or event handler raises.
+
+    PyQt hands those exceptions to sys.excepthook. Newer PyQt only prints
+    them, so the test passes anyway; PyQt 6.6 (Ubuntu 24.04) aborts the
+    whole run instead. Collect them and fail the test that caused them.
+    """
+    import sys
+    import traceback
+
+    raised = []
+    previous = sys.excepthook
+    sys.excepthook = lambda *exc_info: raised.append(exc_info)
+    yield
+    sys.excepthook = previous
+    if raised:
+        pytest.fail(
+            "Exception raised in a Qt slot:\n"
+            + "".join(traceback.format_exception(*raised[0])),
+            pytrace=False,
+        )
 
 
 @pytest.fixture(autouse=True)
