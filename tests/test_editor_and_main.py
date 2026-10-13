@@ -1582,6 +1582,14 @@ class EditorAndMainTests(unittest.TestCase):
         self.assertTrue(highlighter.check_word("iris"))
         self.assertNotIn("Iris", highlighter.suggest("iris"))
 
+    def test_proper_case_map_skips_affix_derived_lowercase_words(self):
+        """Hunspell only lists "as" as a/S, so As (arsenic) must not force caps (#157)."""
+        from jottr.editor.spellcheck import wrong_english_proper_case
+
+        for word in ("as", "jobs", "windows", "states", "marks"):
+            self.assertFalse(wrong_english_proper_case(word), word)
+        self.assertTrue(wrong_english_proper_case("iran"))
+
     def test_spell_check_language_switch_reloads_dictionaries(self):
         document = QTextDocument()
         self.settings.save_setting("spell_check", True)
