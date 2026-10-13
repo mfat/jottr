@@ -23,6 +23,11 @@
 
   <!-- Release information -->
   <releases>
+    <release version="3.0.3" date="2026-10-13">
+      <description>
+        <p>Fixed compatibility with Ubintu 24.04</p>
+      </description>
+    </release>
     <release version="3.0.2" date="2026-10-06">
       <description>
         <p>New app icon</p>
