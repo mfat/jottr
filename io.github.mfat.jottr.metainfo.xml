@@ -23,6 +23,12 @@
 
   <!-- Release information -->
   <releases>
+    <release version="3.0.4" date="2026-11-05">
+      <description>
+        <p>Fixed workspace tree view</p>
+        <p>Added drag and drop to load files</p>
+      </description>
+    </release>
     <release version="3.0.3" date="2026-10-13">
       <description>
         <p>Fixed compatibility with Ubuntu 24.04</p>
