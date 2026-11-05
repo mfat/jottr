@@ -1,5 +1,19 @@
 # Changelog
 
+## [3.0.4](https://github.com/mfat/jottr/compare/v3.0.3...v3.0.4) (2026-11-05)
+
+
+### Bug Fixes
+
+* open documents dropped onto the window instead of pasting paths ([90a1883](https://github.com/mfat/jottr/commit/90a1883a5b9501bfe611eeb8655600d543e7761a))
+* **workspace:** show the content of subfolders ([f76ec7f](https://github.com/mfat/jottr/commit/f76ec7f5fa03a62225d46c9e2b841f2247103f7a))
+* **workspace:** show the content of subfolders ([7b7c7e9](https://github.com/mfat/jottr/commit/7b7c7e970615827ef1e0d3285470a10c48a3d4e0))
+
+
+### Miscellaneous
+
+* release 3.0.4 ([563b3bf](https://github.com/mfat/jottr/commit/563b3bfdc98cea24085b1d4e6851d68d7767fe33))
+
 ## [3.0.3](https://github.com/mfat/jottr/compare/v3.0.2...v3.0.3) (2026-10-13)
 
 
