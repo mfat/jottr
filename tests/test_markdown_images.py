@@ -14,13 +14,14 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 SRC_ROOT = PROJECT_ROOT / "src"
 sys.path.insert(0, str(SRC_ROOT))
 
-from PyQt6.QtCore import QMimeData, QUrl
-from PyQt6.QtGui import QColor, QImage
+from PyQt6.QtCore import QMimeData, QPointF, Qt, QUrl
+from PyQt6.QtGui import QColor, QDropEvent, QImage
 from PyQt6.QtWidgets import QApplication
 
 from jottr import portal_folders
 from jottr.editor import images
 from jottr.editor.tab import EditorTab
+from jottr.main import TextEditorApp
 from jottr.settings_manager import SettingsManager
 from jottr.snippet_manager import SnippetManager
 
@@ -51,6 +52,17 @@ def url_mime(*urls):
     mime = QMimeData()
     mime.setUrls([QUrl(url) if "://" in url else QUrl.fromLocalFile(url) for url in urls])
     return mime
+
+
+def drop_mime(editor, mime):
+    event = QDropEvent(
+        QPointF(0, 0),
+        Qt.DropAction.CopyAction,
+        mime,
+        Qt.MouseButton.NoButton,
+        Qt.KeyboardModifier.NoModifier,
+    )
+    editor.dropEvent(event)
 
 
 class ImageHelperTests(unittest.TestCase):
@@ -87,6 +99,15 @@ class ImageHelperTests(unittest.TestCase):
             images.pasted_image_name(datetime(2026, 9, 29, 14, 30, 12)),
             "pasted-20260929-143012.png",
         )
+
+    def test_mime_document_paths_skips_images_and_remote_urls(self):
+        with tempfile.TemporaryDirectory() as folder:
+            note = Path(folder) / "note.md"
+            note.write_text("# Note", encoding="utf-8")
+            picture = Path(folder) / "cat.png"
+            picture.write_bytes(b"png")
+            mime = url_mime(str(note), str(picture), "https://example.com/readme.txt")
+            self.assertEqual(images.mime_document_paths(mime), [str(note)])
 
     def test_image_folder_setting(self):
         self.assertEqual(images.image_folder("/notes", "images"), "/notes/images")
@@ -161,7 +182,7 @@ class EditorImageTests(unittest.TestCase):
         mime = url_mime(str(first), str(second))
         self.assertTrue(tab.editor.canInsertFromMimeData(mime))
 
-        tab.editor.insertFromMimeData(mime)
+        drop_mime(tab.editor, mime)
 
         self.assertEqual(
             tab.editor.toPlainText(),
@@ -204,6 +225,27 @@ class EditorImageTests(unittest.TestCase):
         tab.editor.insertFromMimeData(mime)
 
         self.assertEqual(tab.editor.toPlainText(), str(picture))
+
+    def test_dropping_a_document_file_opens_it_in_the_main_window(self):
+        external = Path(self.temp_dir.name) / "other.md"
+        external.write_text("Dropped in", encoding="utf-8")
+        window = TextEditorApp()
+        self.addCleanup(window.close)
+        self.addCleanup(window.deleteLater)
+        tab = window.tab_widget.currentWidget()
+        tab.editor.setPlainText("cursor here")
+        drop_mime(tab.editor, url_mime(str(external)))
+        current = window.tab_widget.currentWidget()
+        self.assertEqual(current.current_file, str(external))
+        self.assertEqual(current.editor.toPlainText(), "Dropped in")
+
+    def test_pasting_a_document_path_still_inserts_text(self):
+        tab = self.make_tab("today.md")
+        external = Path(self.temp_dir.name) / "other.md"
+        external.write_text("# Other", encoding="utf-8")
+        tab.editor.insertFromMimeData(url_mime(str(external)))
+        self.assertIn("other.md", tab.editor.toPlainText())
+        self.assertNotEqual(tab.editor.toPlainText().strip(), "# Other")
 
     def test_insert_image_links_the_chosen_file(self):
         tab = self.make_tab("today.md")
@@ -388,6 +430,16 @@ class PortalFolderTests(unittest.TestCase):
 
         self.assertEqual(tab.editor.toPlainText(), "![](images/pasted-1.png)")
         self.assertTrue((self.home_grant / "notes" / "images" / "pasted-1.png").is_file())
+
+    def test_dropping_a_file_on_the_main_window_opens_it(self):
+        external = Path(self.temp_dir.name) / "window.md"
+        external.write_text("Window drop", encoding="utf-8")
+        window = TextEditorApp()
+        self.addCleanup(window.close)
+        self.addCleanup(window.deleteLater)
+        drop_mime(window, url_mime(str(external)))
+        self.assertEqual(window.tab_widget.currentWidget().current_file, str(external))
+        self.assertEqual(window.tab_widget.currentWidget().editor.toPlainText(), "Window drop")
 
 
 if __name__ == "__main__":

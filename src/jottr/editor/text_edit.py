@@ -3,7 +3,7 @@ from PyQt6.QtWidgets import QFrame, QTextEdit, QWidget
 from PyQt6.QtCore import Qt, QRect, QSize
 from PyQt6.QtGui import QColor, QPainter, QTextCursor
 
-from jottr.editor.images import mime_images
+from jottr.editor.images import mime_document_paths, mime_images
 from jottr.editor.spellcheck import find_word_bounds
 from jottr.translation_manager import localize_digits
 
@@ -238,6 +238,8 @@ class CompletingTextEdit(QTextEdit):
 
     def canInsertFromMimeData(self, source):
         """Accept dropped image files and bitmaps as well as text."""
+        if mime_document_paths(source):
+            return True
         tab = self.parent_tab
         if (
             hasattr(tab, "accepts_pasted_images")
@@ -246,6 +248,28 @@ class CompletingTextEdit(QTextEdit):
         ):
             return True
         return super().canInsertFromMimeData(source)
+
+    def dragEnterEvent(self, event):
+        if mime_document_paths(event.mimeData()):
+            event.acceptProposedAction()
+            return
+        super().dragEnterEvent(event)
+
+    def dragMoveEvent(self, event):
+        if mime_document_paths(event.mimeData()):
+            event.acceptProposedAction()
+            return
+        super().dragMoveEvent(event)
+
+    def dropEvent(self, event):
+        paths = mime_document_paths(event.mimeData())
+        main_window = getattr(self.parent_tab, "main_window", None)
+        if paths and main_window is not None:
+            for path in paths:
+                main_window.open_file(path)
+            event.acceptProposedAction()
+            return
+        super().dropEvent(event)
 
     def insertFromMimeData(self, source):
         """Paste as plain text; images become Markdown image links."""

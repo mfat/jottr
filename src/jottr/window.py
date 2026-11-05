@@ -42,6 +42,7 @@ from jottr.session_recovery import (
 from jottr.translation_manager import _, format_language_label, is_rtl_language, set_language
 from jottr.font_dialog import FontSelectionDialog
 from jottr.plugin_manager import PluginManager
+from jottr.editor.images import mime_document_paths
 from jottr.file_dialogs import get_open_file_name
 from jottr.file_manager import show_in_file_manager
 from jottr.editor.case_transform import (
@@ -205,6 +206,7 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
 
         self.apply_app_style()
         self.watch_system_color_scheme()
+        self.setAcceptDrops(True)
 
         # Tests (and JOTTR_SYNC_STARTUP=1) finish content before __init__ returns
         # so existing callers can assume a ready tab. Production finishes the
@@ -3098,6 +3100,27 @@ class TextEditorApp(WorkspaceControllerMixin, QMainWindow):
         if current_tab and hasattr(current_tab, "export_pdf"):
             current_tab.export_pdf()
 
+
+    def dragEnterEvent(self, event):
+        if mime_document_paths(event.mimeData()):
+            event.acceptProposedAction()
+            return
+        super().dragEnterEvent(event)
+
+    def dragMoveEvent(self, event):
+        if mime_document_paths(event.mimeData()):
+            event.acceptProposedAction()
+            return
+        super().dragMoveEvent(event)
+
+    def dropEvent(self, event):
+        paths = mime_document_paths(event.mimeData())
+        if paths:
+            for path in paths:
+                self.open_file(path)
+            event.acceptProposedAction()
+            return
+        super().dropEvent(event)
 
     def eventFilter(self, obj, event):
         """Handle middle-click close, double-click rename and double-click new tab."""

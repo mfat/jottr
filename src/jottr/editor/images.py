@@ -132,6 +132,20 @@ def _text_is_only_a_url(text):
     return bool(text) and not re.search(r"\s", text) and bool(re.match(r"https?://", text))
 
 
+def mime_document_paths(mime):
+    """Local non-image files in a drag-and-drop payload that should open as documents."""
+    if not mime.hasUrls():
+        return []
+    paths = []
+    for url in mime.urls():
+        if not url.isLocalFile():
+            continue
+        path = url.toLocalFile()
+        if os.path.isfile(path) and not is_image_path(path):
+            paths.append(path)
+    return paths
+
+
 def mime_images(mime):
     """Classify what an image paste or drop carries.
 
