@@ -19,9 +19,10 @@ class _NoLookupIconProvider(QAbstractFileIconProvider):
     def icon(self, _arg):
         return QIcon()
 
-    def type(self, _info):
-        # The tree hides the Type column.
-        return ""
+    def type(self, info):
+        # The tree hides the Type column, but this can't be empty: Qt then
+        # leaves every subfolder without content.
+        return "Folder" if info.isDir() else "File"
 
 
 class WorkspaceFileSystemModel(QFileSystemModel):

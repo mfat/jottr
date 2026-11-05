@@ -124,6 +124,29 @@ class EditorAndMainTests(unittest.TestCase):
 
         self.assertEqual(model.data(index, Qt.ItemDataRole.ToolTipRole), str(note))
 
+    def test_workspace_model_lists_subfolder_content(self):
+        workspace = Path(self.temp_dir.name) / "workspace"
+        subfolder = workspace / "chapters"
+        subfolder.mkdir(parents=True)
+        (subfolder / "one.md").write_text("# One", encoding="utf-8")
+        (subfolder / "two.md").write_text("# Two", encoding="utf-8")
+
+        def wait_for_rows(index, rows):
+            deadline = time.monotonic() + 3
+            while model.rowCount(index) < rows and time.monotonic() < deadline:
+                app().processEvents()
+                time.sleep(0.01)
+
+        model = WorkspaceFileSystemModel()
+        self.addCleanup(model.deleteLater)
+        # As in the tree: the folder is only opened once the root is listed.
+        wait_for_rows(model.setRootPath(str(workspace)), 1)
+        index = model.index(str(subfolder))
+        model.fetchMore(index)
+        wait_for_rows(index, 2)
+
+        self.assertEqual(model.rowCount(index), 2)
+
     def test_grouped_toolbar_applies_id_padding_set_before_it_was_named(self):
         from PyQt6.QtWidgets import QMainWindow
 
