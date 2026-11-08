@@ -1167,6 +1167,7 @@ class EditorTab(
         # Update font for the editor
         self.editor.setFont(self.current_font)
         self.editor.document().setDefaultFont(self.current_font)
+        self.editor.line_number_area.setFont(self.current_font)
         
         ThemeManager.apply_theme(
             self.editor,
